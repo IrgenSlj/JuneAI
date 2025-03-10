@@ -1,0 +1,2 @@
+# JuneAI
+Ollama based AI
