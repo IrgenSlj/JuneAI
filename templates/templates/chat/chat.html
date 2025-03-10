@@ -1,0 +1,59 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>June AI - Your Virtual Friend</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-pink-50">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Main Chat Container -->
+        <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg">
+            <!-- Header -->
+            <div class="bg-pink-500 text-white p-4 rounded-t-lg">
+                <h1 class="text-2xl font-bold text-center">🌸 June AI</h1>
+            </div>
+            
+            <!-- Chat Layout -->
+            <div class="flex h-[600px]">
+                <!-- Sidebar with Conversation History -->
+                <div class="w-1/4 border-r p-4 overflow-y-auto">
+                    <button onclick="newChat()" 
+                            class="w-full bg-pink-500 text-white rounded p-2 mb-4">
+                        New Chat
+                    </button>
+                    <div id="conversations">
+                        {% for conv in conversations %}
+                        <div class="chat-item p-2 hover:bg-pink-100 rounded cursor-pointer"
+                             onclick="loadChat({{ conv.id }})">
+                            {{ conv.title }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- Chat Messages Area -->
+                <div class="w-3/4 flex flex-col">
+                    <div id="chatBox" class="flex-1 p-4 overflow-y-auto"></div>
+                    
+                    <!-- Message Input -->
+                    <div class="p-4 border-t">
+                        <div class="flex gap-2">
+                            <input type="text" 
+                                   id="messageInput"
+                                   class="flex-1 border rounded p-2 focus:outline-none focus:border-pink-500"
+                                   placeholder="Type your message...">
+                            <button onclick="sendMessage()"
+                                    class="bg-pink-500 text-white px-4 py-2 rounded hover:bg-pink-600">
+                                Send
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
