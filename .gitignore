@@ -1,6 +1,6 @@
 venv/
 .env/
 env/
-Training/datasets/
-Training/__pycache__/
+# Training/datasets/
+# Training/__pycache__/
 .gitignore
