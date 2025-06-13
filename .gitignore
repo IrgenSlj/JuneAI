@@ -3,3 +3,4 @@ venv/
 env/
 Training/datasets/
 Training/__pycache__/
+.gitignore
