@@ -1,0 +1,5 @@
+venv/
+.env/
+env/
+Training/datasets/
+Training/__pycache__/
