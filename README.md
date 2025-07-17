@@ -80,38 +80,30 @@ Response Output  <----  Conversation Storage
 ## Project Structure
 
 JuneAI/
-|
-├── src/
-|
-│ ├── main.py # Entry point
-|
-│ ├── llm_engine.py # Model loading and inference
-|
-│ ├── memory_manager.py # Embedding & RAG logic
-|
-│ ├── config.py # YAML/ENV config loader
-|
-│ ├── utils.py # Misc utilities
-|
-│ └── retriever.py # LangChain + FAISS wrapper
-|
-├── memory/ # Local conversation DB
-|
-├── models/ # Downloaded or cached HF models
-|
-├── docker/
-|
-│ └── Dockerfile # Build container
-|
-├── kubernetes/
-|
-│ └── deployment.yaml # K8s manifest
-|
-├── requirements.txt
-|
-├── config.yaml
-|
-└── README.md
+
+- src/
+   - main.py           # Entry point
+   - llm_engine.py     # Model loading and inference
+   - memory_manager.py # Embedding & RAG logic
+   - config.py         # YAML/ENV config loader
+   - utils.py          # Misc utilities
+   - retriever.py      # LangChain + FAISS wrapper
+
+- memory/              # Local conversation DB
+
+- models/              # Downloaded or cached HF models
+
+- docker/
+   - Dockerfile        # Build container
+
+- kubernetes/
+   - deployment.yaml   # K8s manifest
+
+- requirements.txt
+
+- config.yaml
+
+- README.md
 
 ## Privacy & Offline Use
 
