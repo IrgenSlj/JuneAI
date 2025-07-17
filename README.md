@@ -1,10 +1,11 @@
-# JuneAI work in progress
+# JuneAI 
+(work in progress)
 
 **JuneAI** is a privacy-first, offline AI assistant that remembers your conversations using local storage and Retrieval-Augmented Generation (RAG). Designed to be efficient, lightweight, and deployable anywhere — from personal laptops to Kubernetes clusters — JuneAI uses open-source models and a modular architecture built with Python, LangChain, and Hugging Face Transformers.
 
 ---
 
-## 🎯 Goal
+## Goal
 
 The aim of **JuneAI** is to create a customizable, memory-capable AI assistant that:
 - Runs fully **offline**, protecting user privacy
@@ -16,18 +17,18 @@ The aim of **JuneAI** is to create a customizable, memory-capable AI assistant t
 
 ---
 
-## 🧠 Features
+## Features
 
-- 💬 **Persistent Memory** — Stores conversation history locally using embeddings
-- 🔁 **RAG Pipeline** — Retrieves past chats relevant to your current prompt
-- 🔄 **Pluggable Models** — Swap out LLMs from Hugging Face (small, efficient models)
-- ⚙️ **Powered by LangChain** — Handles chaining, prompt assembly, and memory logic
-- 📦 **Containerized** — Deploy anywhere with Docker and Kubernetes
-- 🧮 **Built with PyTorch** — Ensures native performance and model compatibility
+- **Persistent Memory** — Stores conversation history locally using embeddings
+- **RAG Pipeline** — Retrieves past chats relevant to your current prompt
+- **Pluggable Models** — Swap out LLMs from Hugging Face (small, efficient models)
+- **Powered by LangChain** — Handles chaining, prompt assembly, and memory logic
+- **Containerized** — Deploy anywhere with Docker and Kubernetes
+- **Built with PyTorch** — Ensures native performance and model compatibility
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Component           | Technology                |
 |---------------------|----------------------------|
@@ -42,24 +43,16 @@ The aim of **JuneAI** is to create a customizable, memory-capable AI assistant t
 
 ---
 
-## 🔧 Architecture & Workflow
+## Architecture & Workflow
 
-+------------+ +------------------+ +--------------------------+
-| User CLI | ---> | Memory Retriever | ---> | Prompt Assembler |
-+------------+ +------------------+ +--------------------------+
-|
-v
-+--------------------------------------------------------------+
-| LLM Inference Engine                                         |
-| (Transformers + PyTorch)                                     |
-+--------------------------------------------------------------+
-|
-v
-+------------------+ +-----------------------------------------+
-| Response Output | <---- | Conversation Storage               |
-+------------------+ +-----------------------------------------+
+User CLI  --->  Memory Retriever  --->  Prompt Assembler 
 
-## 🚀 How It Works
+LLM Inference Engine                                         
+Transformers + PyTorch            
+
+Response Output  <----  Conversation Storage               
+
+## How It Works
 
 1. **Startup**  
    - Docker or Python script loads `config.yaml`  
@@ -84,27 +77,43 @@ v
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 JuneAI/
+|
 ├── src/
+|
 │ ├── main.py # Entry point
+|
 │ ├── llm_engine.py # Model loading and inference
+|
 │ ├── memory_manager.py # Embedding & RAG logic
+|
 │ ├── config.py # YAML/ENV config loader
+|
 │ ├── utils.py # Misc utilities
+|
 │ └── retriever.py # LangChain + FAISS wrapper
+|
 ├── memory/ # Local conversation DB
+|
 ├── models/ # Downloaded or cached HF models
+|
 ├── docker/
+|
 │ └── Dockerfile # Build container
+|
 ├── kubernetes/
+|
 │ └── deployment.yaml # K8s manifest
+|
 ├── requirements.txt
+|
 ├── config.yaml
+|
 └── README.md
 
-## 🛡️ Privacy & Offline Use
+## Privacy & Offline Use
 
 All data is:
 
@@ -112,13 +121,13 @@ Stored locally
 Not sent to any external APIs
 Fully deletable with one command: python src/clear_memory.py
 
-## 🤝 Contributing
+## Contributing
 Pull requests, issues, and ideas are welcome!
 Please submit an issue first if you plan to make major changes.
 
-## 📜 License
+## License
 This project is licensed under the MIT License.
 
-## 🧑‍💻 Maintainer
-JuneAI is maintained by repo admin, Urbanity AI.
+## Maintainer
+JuneAI is maintained by repo admin.
 A project aiming to make AI assistants offline-first, memory-aware, and open-source for everyone.
