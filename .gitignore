@@ -1,6 +1,6 @@
 venv/
 .env/
 env/
-
 .gitignore
 junevenv
+langchain-academy
