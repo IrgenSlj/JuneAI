@@ -121,5 +121,5 @@ Please submit an issue first if you plan to make major changes.
 This project is licensed under the MIT License.
 
 ## Maintainer
-JuneAI is maintained by repo admin.
+JuneAI is maintained by the repo admin.
 A project aiming to make AI assistants offline-first, memory-aware, and open-source for everyone.
