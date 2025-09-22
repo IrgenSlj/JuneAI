@@ -36,11 +36,29 @@ class Byte:
         for i in range(8):
             new_byte.array[i] = 1 if self.array[i] == 0 else 0
         return new_byte
+    
+    def __len__(self):
+        return 8
+    
+    def __getitem__(self, item):
+        return self.array[item]
+    
+    def __setitem__(self, item, value):
+        self.array[item] = value
+    
 
-b = Byte("00110101")
+
+b = Byte("01110101")
 b1 = Byte("00000000")
 print(~b)
 
+for i in range(len(b)):
+    print(i, b[i])
+    b.__setitem__(i, 0)
+    
+
+for bit in b:
+    print(bit)
 
 '''b = Byte("00110101")
 b2 = Byte()
