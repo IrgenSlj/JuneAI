@@ -29,8 +29,20 @@ class Byte:
         new_byte = Byte("")
         for i in range(8):
             new_byte.array[i] = self.array[i] | other.array[i]
+        return new_byte
     
+    def __invert__(self):
+        new_byte = Byte("")
+        for i in range(8):
+            new_byte.array[i] = 1 if self.array[i] == 0 else 0
+        return new_byte
+
 b = Byte("00110101")
+b1 = Byte("00000000")
+print(~b)
+
+
+'''b = Byte("00110101")
 b2 = Byte()
 print(b2, b)
 print()
@@ -45,4 +57,4 @@ print()
 b3 = Byte("01001010")
 b4 = Byte("01000000")
 x = b3|b4
-print(x)
+print(x)'''
