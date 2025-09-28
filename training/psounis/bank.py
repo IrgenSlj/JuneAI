@@ -23,4 +23,23 @@ class Bank:
             print("No customers")
     
     def __str__(self):
-        return ", ".join(self.n)
+        st = "\n" + "=" * 20
+        for i in range(self.N):
+            st += "\nCash Desk " + str(i) + ": "
+            st += str(self.cash_desks[i])
+        st = "\n" + "=" * 20
+        return st
+    
+def main():
+    bank = Bank(3)
+    for i in  range(180):
+        num = randrange(100)
+        if num <= 29:
+            bank.customer_serverd()
+        else:
+            bank.customer_enters("Cust" + str(randrange(1000)))
+
+        if i % 10 == 0:
+            print(bank)
+
+main()
