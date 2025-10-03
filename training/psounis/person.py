@@ -1,6 +1,7 @@
 from random import randrange
+from abc import ABC
 
-class Person:
+class Person(ABC):
     def __init__(self, name, wage):
         self.name = name
         self.wage = wage
