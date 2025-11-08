@@ -1,4 +1,5 @@
-.junenv
-.junenv/
+junevenv
+langchain-academy
+.venv
 .git
 .gitignore
