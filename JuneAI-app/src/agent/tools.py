@@ -7,12 +7,14 @@ Each tool is decorated with @tool which turns it into a LangChain Tool
 object with a name, description, and typed arguments.
 """
 
+from typing import Optional
+
 from langchain_core.tools import tool
 
 from .memory import Memory
 
 # Global memory instance — set per user session from app.py
-_memory: Memory | None = None
+_memory: Optional[Memory] = None
 
 
 def set_memory(memory: Memory) -> None:
