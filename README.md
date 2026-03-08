@@ -1,125 +1,151 @@
-# JuneAI 
-(work in progress)
+# JuneAI 🌸
 
-**JuneAI** is a privacy-first, offline AI assistant that remembers your conversations using local storage and Retrieval-Augmented Generation (RAG). Designed to be efficient, lightweight, and deployable anywhere — from personal laptops to Kubernetes clusters — JuneAI uses open-source models and a modular architecture built with Python, LangChain, and Hugging Face Transformers.
+> Your AI companion for love, life & growth.
 
----
+JuneAI is a conversational AI companion that feels like talking to a brilliant, emotionally attuned friend. She listens without judgment, remembers what matters to you, helps you understand your emotions, and coaches you through your love life — all in one place.
 
-## Goal
-
-The aim of **JuneAI** is to create a customizable, memory-capable AI assistant that:
-- Runs fully **offline**, protecting user privacy
-- Uses **RAG** to remember and retrieve past conversations
-- Supports **interchangeable LLMs** from Hugging Face via Transformers
-- Runs efficiently on **consumer hardware**
-- Is containerized with **Docker** and scalable via **Kubernetes**
-- Is extensible for both personal and professional applications
+Built on Google Gemini 2.0 Flash with a LangGraph-powered agent, June doesn't just chat — she thinks, uses tools, and builds a personal memory of who you are over time.
 
 ---
 
-## Features
+## What June Can Do
 
-- **Persistent Memory** — Stores conversation history locally using embeddings
-- **RAG Pipeline** — Retrieves past chats relevant to your current prompt
-- **Pluggable Models** — Swap out LLMs from Hugging Face (small, efficient models)
-- **Powered by LangChain** — Handles chaining, prompt assembly, and memory logic
-- **Containerized** — Deploy anywhere with Docker and Kubernetes
-- **Built with PyTorch** — Ensures native performance and model compatibility
+### 💬 Friend & Therapist Mode
+June listens deeply before offering advice. She validates feelings, asks the right follow-up questions, offers gentle perspective shifts, and never rushes to "fix" things. When something meaningful comes up, she saves it to your journal automatically.
+
+### 💘 Dating Coach Mode
+June helps you figure out what you actually want in a partner. She analyzes compatibility between people, builds authentic dating profiles, and generates specific, genuine conversation starters — never generic lines.
+
+### 📓 Mood Tracker Mode
+June logs your emotional state as you talk and builds a timeline of how you've been feeling. Ask her "how have I been lately?" and she'll reflect your patterns back to you, helping you spot what lifts you up or drags you down.
+
+---
+
+## Capabilities
+
+| Capability | Description |
+|------------|-------------|
+| **Persistent Memory** | Every conversation, mood log, and journal entry is saved locally per user |
+| **Mood Logging** | June automatically logs moods as you express them during chat |
+| **Mood History** | Review your emotional patterns over time, surfaced in the sidebar |
+| **Journal Entries** | June saves meaningful exchanges as personal journal notes |
+| **Compatibility Analysis** | Structured analysis of two people's personalities, values, and communication styles |
+| **Conversation Starters** | Context-aware, specific openers for dating or friendship — no clichés |
+| **Multi-user** | Each user gets their own isolated memory by name |
+
+---
+
+## How It Works
+
+June is built as a [LangGraph](https://github.com/langchain-ai/langgraph) ReAct agent. On every message, Gemini decides whether to respond directly or call one of June's tools first (log a mood, retrieve history, save a journal entry, run a compatibility analysis). This makes her behavior feel natural rather than mechanical.
+
+```
+User Message
+     │
+     ▼
+LangGraph ReAct Agent (Gemini 2.0 Flash)
+     │
+     ├── Tool: log_mood
+     ├── Tool: get_mood_history
+     ├── Tool: save_journal_entry
+     ├── Tool: analyze_compatibility
+     └── Tool: generate_conversation_starters
+     │
+     ▼
+Streamlit UI ◄── Response + updated memory
+```
+
+Memory is stored as plain JSON files on disk — one file per user per data type. No database, no embeddings, no cloud sync. Transparent and easy to inspect.
 
 ---
 
 ## Tech Stack
 
-| Component           | Technology                |
-|---------------------|----------------------------|
-| Language            | Python 3.10+               |
-| LLMs                | Hugging Face Transformers |
-| Frameworks          | LangChain, PyTorch         |
-| Embeddings & RAG    | LangChain, FAISS, Pandas   |
-| Containerization    | Docker                     |
-| Orchestration       | Kubernetes                 |
-| Memory Persistence  | FAISS / Chroma + CSV/Parquet via Pandas |
-| Config Management   | `config.yaml` / `.env`     |
+| Layer | Technology |
+|-------|------------|
+| UI | [Streamlit](https://streamlit.io) |
+| LLM | Google Gemini 2.0 Flash (`gemini-2.0-flash`) |
+| Agent | [LangGraph](https://github.com/langchain-ai/langgraph) ReAct |
+| LLM Integration | [LangChain](https://github.com/langchain-ai/langchain) + `langchain-google-genai` |
+| Memory | Local JSON files (per-user) |
+| Language | Python 3.9+ |
 
 ---
 
-## Architecture & Workflow
+## Getting Started
 
-User CLI  --->  Memory Retriever  --->  Prompt Assembler 
+**1. Clone and enter the app directory**
+```bash
+git clone https://github.com/IrgenSlj/JuneAI.git
+cd JuneAI/JuneAI-app
+```
 
-LLM Inference Engine                                         
-Transformers + PyTorch            
+**2. Install dependencies**
+```bash
+pip install -r requirements.txt
+```
 
-Response Output  <----  Conversation Storage               
+**3. Configure your API key**
+```bash
+cp .env.example .env
+# Edit .env and add your GEMINI_API_KEY
+```
 
-## How It Works
+**4. Run**
+```bash
+streamlit run app.py
+```
 
-1. **Startup**  
-   - Docker or Python script loads `config.yaml`  
-   - Initializes LLM, embedding model, and FAISS/Chroma DB
-
-2. **User Input**  
-   - You send a message via CLI, Web UI, or API
-
-3. **Memory Retrieval (RAG)**  
-   - Embeddings of your query are computed  
-   - LangChain fetches top-K relevant memory chunks using FAISS
-
-4. **Prompt Assembly**  
-   - Retrieved context + user input is formatted into a prompt  
-   - Prompt passed to chosen Hugging Face model
-
-5. **LLM Response Generation**  
-   - LLM generates a context-aware response using PyTorch backend
-
-6. **Memory Update**  
-   - New interaction is embedded and stored locally using Pandas + FAISS
+June will be available at `http://localhost:8501`.
 
 ---
 
 ## Project Structure
 
-JuneAI/
+```
+JuneAI-app/
+├── app.py                    # Streamlit UI — entry point
+├── src/agent/
+│   ├── graph.py              # LangGraph agent definition
+│   ├── tools.py              # June's callable tools
+│   ├── memory.py             # Local JSON memory system
+│   ├── prompts.py            # June's personality & system prompt
+│   └── config.py             # Env config loader
+├── tests/
+│   ├── unit_tests/           # Agent compilation tests
+│   └── integration_tests/    # Live agent response tests
+├── .env.example              # Required environment variables
+├── requirements.txt          # Runtime dependencies
+├── pyproject.toml            # Project metadata & dev tooling
+├── langgraph.json            # LangGraph CLI config
+└── Makefile                  # Dev commands (test, lint, format)
+```
 
-- src/
-   - main.py           # Entry point
-   - llm_engine.py     # Model loading and inference
-   - memory_manager.py # Embedding & RAG logic
-   - config.py         # YAML/ENV config loader
-   - utils.py          # Misc utilities
-   - retriever.py      # LangChain + FAISS wrapper
+---
 
-- memory/              # Local conversation DB
+## Memory & Privacy
 
-- models/              # Downloaded or cached HF models
+All data lives on your machine:
 
-- docker/
-   - Dockerfile        # Build container
+- `memory/{user}_chat.json` — last 50 messages per user
+- `memory/{user}_moods.json` — full mood log with timestamps
+- `memory/{user}_journal.json` — saved journal entries
 
-- kubernetes/
-   - deployment.yaml   # K8s manifest
+Nothing is sent to any external service beyond the Gemini API for inference. You can inspect, edit, or delete any file directly.
 
-- requirements.txt
+---
 
-- config.yaml
+## Development
 
-- README.md
+```bash
+make test          # Run unit tests
+make integration   # Run integration tests (requires GEMINI_API_KEY)
+make lint          # Ruff lint
+make format        # Ruff format
+```
 
-## Privacy & Offline Use
-
-All data is:
-
-Stored locally
-Not sent to any external APIs
-Fully deletable with one command: python src/clear_memory.py
-
-## Contributing
-Pull requests, issues, and ideas are welcome!
-Please submit an issue first if you plan to make major changes.
+---
 
 ## License
-This project is licensed under the MIT License.
 
-## Maintainer
-JuneAI is maintained by the repo admin.
-A project aiming to make AI assistants offline-first, memory-aware, and open-source for everyone.
+MIT — see [LICENSE](JuneAI-app/LICENSE).
