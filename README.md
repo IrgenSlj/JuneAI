@@ -1,4 +1,4 @@
-# JuneAI 🌸
+# JuneAI
 
 > Your AI companion for love, life & growth.
 
@@ -10,13 +10,13 @@ Built on Google Gemini 2.0 Flash with a LangGraph-powered agent, June doesn't ju
 
 ## What June Can Do
 
-### 💬 Friend & Therapist Mode
+### Friend & Therapist Mode
 June listens deeply before offering advice. She validates feelings, asks the right follow-up questions, offers gentle perspective shifts, and never rushes to "fix" things. When something meaningful comes up, she saves it to your journal automatically.
 
-### 💘 Dating Coach Mode
+### Dating Coach Mode
 June helps you figure out what you actually want in a partner. She analyzes compatibility between people, builds authentic dating profiles, and generates specific, genuine conversation starters — never generic lines.
 
-### 📓 Mood Tracker Mode
+### Mood Tracker Mode
 June logs your emotional state as you talk and builds a timeline of how you've been feeling. Ask her "how have I been lately?" and she'll reflect your patterns back to you, helping you spot what lifts you up or drags you down.
 
 ---

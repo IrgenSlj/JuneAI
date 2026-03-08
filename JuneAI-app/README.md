@@ -1,4 +1,4 @@
-# JuneAI 🌸
+# JuneAI
 
 Your AI companion for love, life & growth — built with LangGraph, Google Gemini, and Streamlit.
 
