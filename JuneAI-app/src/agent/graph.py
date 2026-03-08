@@ -22,7 +22,7 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
-from .config import OPENROUTER_API_KEY, MODEL_NAME
+from .config import LLM_API_KEY, LLM_BASE_URL, MODEL_NAME
 from .prompts import JUNE_SYSTEM_PROMPT
 from .tools import JUNE_TOOLS
 
@@ -41,11 +41,11 @@ class AgentState(TypedDict):
 def create_june_agent():
     """Build and compile the JuneAI LangGraph agent."""
 
-    # LLM via OpenRouter — swap MODEL_NAME in .env to change models
+    # LLM — configure via .env (defaults to local Ollama)
     llm = ChatOpenAI(
         model=MODEL_NAME,
-        openai_api_key=OPENROUTER_API_KEY,
-        openai_api_base="https://openrouter.ai/api/v1",
+        openai_api_key=LLM_API_KEY,
+        openai_api_base=LLM_BASE_URL,
         temperature=0.8,
     ).bind_tools(JUNE_TOOLS)
 
