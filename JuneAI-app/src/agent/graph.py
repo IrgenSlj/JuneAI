@@ -2,12 +2,12 @@
 
 How it works (the ReAct loop):
   1. User sends a message
-  2. 'chat' node: Gemini reads the conversation + system prompt and decides:
+  2. 'chat' node: the LLM reads the conversation + system prompt and decides:
      a. Reply directly  →  END
      b. Call a tool     →  'tools' node
   3. 'tools' node: executes the tool, returns result as a ToolMessage
   4. Back to 'chat' node: Gemini reads the tool result and replies
-  5. Loop continues until Gemini stops calling tools
+  5. Loop continues until the LLM stops calling tools
 
 This is the standard agent pattern — simple, powerful, easy to extend.
 """
@@ -18,11 +18,11 @@ import operator
 from typing import Annotated, TypedDict
 
 from langchain_core.messages import SystemMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
-from .config import GEMINI_API_KEY, MODEL_NAME
+from .config import OPENROUTER_API_KEY, MODEL_NAME
 from .prompts import JUNE_SYSTEM_PROMPT
 from .tools import JUNE_TOOLS
 
@@ -41,18 +41,19 @@ class AgentState(TypedDict):
 def create_june_agent():
     """Build and compile the JuneAI LangGraph agent."""
 
-    # Gemini with tools bound — it will decide when to call them
-    llm = ChatGoogleGenerativeAI(
+    # LLM via OpenRouter — swap MODEL_NAME in .env to change models
+    llm = ChatOpenAI(
         model=MODEL_NAME,
-        google_api_key=GEMINI_API_KEY,
-        temperature=0.8,  # Slightly creative for warmth
+        openai_api_key=OPENROUTER_API_KEY,
+        openai_api_base="https://openrouter.ai/api/v1",
+        temperature=0.8,
     ).bind_tools(JUNE_TOOLS)
 
     # ToolNode handles executing whichever tool Gemini chose
     tool_node = ToolNode(JUNE_TOOLS)
 
     def chat(state: AgentState) -> dict:
-        """Main chat node — prepends system prompt and calls Gemini."""
+        """Main chat node — prepends system prompt and calls the LLM."""
         messages = [SystemMessage(content=JUNE_SYSTEM_PROMPT)] + state["messages"]
         response = llm.invoke(messages)
         return {"messages": [response]}
