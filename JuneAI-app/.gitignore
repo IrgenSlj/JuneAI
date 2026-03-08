@@ -1,37 +1,41 @@
-# Virtual environments
-junevenv/
-langchain-academy/
-.venv/
-.junenv/
-
-# Secrets
+# Environment
 .env
 .env.local
+
+# Memory data
+.june_memory/
 
 # Python
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+.Python
 *.egg-info/
 dist/
 build/
 .eggs/
+*.egg
 
-# Memory data
-.june_memory/
-
-# OS
-.DS_Store
-Thumbs.db
+# Virtual environments
+.venv/
+venv/
+env/
 
 # IDE
 .vscode/
 .idea/
 *.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
 
 # Testing
 .pytest_cache/
 .coverage
 htmlcov/
+
+# mypy
 .mypy_cache/

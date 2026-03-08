@@ -1,12 +1,17 @@
 import pytest
+from langchain_core.messages import HumanMessage
 
-from agent import graph
+from agent.graph import june_agent
 
 pytestmark = pytest.mark.anyio
 
 
 @pytest.mark.langsmith
-async def test_agent_simple_passthrough() -> None:
-    inputs = {"changeme": "some_val"}
-    res = await graph.ainvoke(inputs)
+async def test_agent_simple_response() -> None:
+    inputs = {
+        "messages": [HumanMessage(content="Hello, how are you?")],
+        "user_id": "test_user",
+    }
+    res = await june_agent.ainvoke(inputs)
     assert res is not None
+    assert len(res["messages"]) > 1

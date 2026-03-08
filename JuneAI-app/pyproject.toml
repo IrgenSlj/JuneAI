@@ -1,10 +1,8 @@
 [project]
-name = "agent"
-version = "0.0.1"
-description = "Starter template for making a new agent LangGraph."
-authors = [
-    { name = "William Fu-Hinthorn", email = "13333726+hinthornw@users.noreply.github.com" },
-]
+name = "juneai"
+version = "0.1.0"
+description = "JuneAI — your AI companion for love, life & growth."
+authors = []
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.9"

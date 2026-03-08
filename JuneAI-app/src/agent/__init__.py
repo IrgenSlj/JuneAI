@@ -1,8 +1,5 @@
-"""New LangGraph Agent.
+"""JuneAI agent package."""
 
-This module defines a custom graph.
-"""
+from .graph import june_agent
 
-from agent.graph import graph
-
-__all__ = ["graph"]
+__all__ = ["june_agent"]
