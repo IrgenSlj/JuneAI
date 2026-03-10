@@ -7,17 +7,37 @@ from __future__ import annotations
 
 from typing import Annotated
 
+from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
+from langchain_core.tools.base import InjectedToolCallId
 from langgraph.prebuilt import InjectedState
+from langgraph.types import Command
 
 from .memory import Memory
 
 AgentState = dict
+DEFAULT_UI_STATE = {
+    "layout": "split",
+    "focus_title": "Workspace",
+    "focus_body": "The model can pin structured notes here.",
+    "checklist_title": "Next steps",
+    "checklist_items": [],
+    "notice": "",
+}
 
 
 def _memory_for_state(state: AgentState) -> Memory:
     """Resolve memory for the active user."""
     return Memory(state["user_id"])
+
+
+def _merge_ui_state(current: dict | None, updates: dict) -> dict:
+    """Merge UI state updates onto defaults and current state."""
+    merged = dict(DEFAULT_UI_STATE)
+    if current:
+        merged.update(current)
+    merged.update(updates)
+    return merged
 
 
 @tool
@@ -322,6 +342,112 @@ def plan_difficult_conversation(
     )
 
 
+@tool
+def set_ui_focus(
+    title: str,
+    body: str,
+    footer: str = "",
+    state: Annotated[AgentState, InjectedState] = None,
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+) -> Command:
+    """Update the workspace focus panel with a title and body."""
+    next_ui_state = _merge_ui_state(
+        state.get("ui_state", {}) if state else {},
+        {
+            "focus_title": title.strip() or "Workspace",
+            "focus_body": body.strip(),
+            "notice": footer.strip(),
+        },
+    )
+    return Command(update={
+        "ui_state": next_ui_state,
+        "messages": [
+            ToolMessage(
+                content=f"Workspace focus updated to '{next_ui_state['focus_title']}'.",
+                tool_call_id=tool_call_id,
+            )
+        ],
+    })
+
+
+@tool
+def set_ui_checklist(
+    title: str,
+    items: str,
+    state: Annotated[AgentState, InjectedState] = None,
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+) -> Command:
+    """Update the workspace checklist with newline-separated items."""
+    checklist_items = [
+        item.strip("- ").strip()
+        for item in items.splitlines()
+        if item.strip()
+    ]
+    next_ui_state = _merge_ui_state(
+        state.get("ui_state", {}) if state else {},
+        {
+            "checklist_title": title.strip() or "Next steps",
+            "checklist_items": checklist_items,
+        },
+    )
+    return Command(update={
+        "ui_state": next_ui_state,
+        "messages": [
+            ToolMessage(
+                content=f"Workspace checklist updated with {len(checklist_items)} items.",
+                tool_call_id=tool_call_id,
+            )
+        ],
+    })
+
+
+@tool
+def set_ui_layout(
+    layout: str,
+    notice: str = "",
+    state: Annotated[AgentState, InjectedState] = None,
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+) -> Command:
+    """Set the workspace layout mode. Allowed values: split, focus, chat."""
+    chosen = layout.strip().lower()
+    if chosen not in {"split", "focus", "chat"}:
+        chosen = "split"
+    next_ui_state = _merge_ui_state(
+        state.get("ui_state", {}) if state else {},
+        {
+            "layout": chosen,
+            "notice": notice.strip(),
+        },
+    )
+    return Command(update={
+        "ui_state": next_ui_state,
+        "messages": [
+            ToolMessage(
+                content=f"Workspace layout set to '{chosen}'.",
+                tool_call_id=tool_call_id,
+            )
+        ],
+    })
+
+
+@tool
+def clear_ui_workspace(
+    state: Annotated[AgentState, InjectedState] = None,
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+) -> Command:
+    """Reset the workspace panel to its default state."""
+    next_ui_state = _merge_ui_state(state.get("ui_state", {}) if state else {}, DEFAULT_UI_STATE)
+    return Command(update={
+        "ui_state": next_ui_state,
+        "messages": [
+            ToolMessage(
+                content="Workspace reset to its default state.",
+                tool_call_id=tool_call_id,
+            )
+        ],
+    })
+
+
 # All tools exported to the agent
 JUNE_TOOLS = [
     log_mood,
@@ -339,4 +465,8 @@ JUNE_TOOLS = [
     generate_conversation_starters,
     draft_reply,
     plan_difficult_conversation,
+    set_ui_focus,
+    set_ui_checklist,
+    set_ui_layout,
+    clear_ui_workspace,
 ]

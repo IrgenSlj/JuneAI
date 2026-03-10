@@ -1,10 +1,10 @@
 # JuneAI
 
-> Your AI companion for love, life & growth.
+> Your AI companion for love, life, and growth.
 
-JuneAI is a conversational AI companion designed to feel like talking to a thoughtful, emotionally attuned friend. She listens without judgment, remembers what matters, helps users understand their emotions, and supports relationship conversations in one place.
+JuneAI is a conversational AI companion designed to feel like talking to a thoughtful, emotionally attuned friend. It listens without judgment, remembers what matters, helps users understand their emotions, and supports relationship conversations in one place.
 
-June is built as a LangGraph-powered agent with local memory and tool use. The app works with any model provider that exposes an OpenAI-compatible API, and it defaults to a local Ollama setup for simple offline development.
+June is built as a LangGraph-powered agent with local memory, explicit skills, tool use, and a live activity UI. The app works with any model provider that exposes an OpenAI-compatible API, and it defaults to a local Ollama setup for simple offline development.
 
 ---
 
@@ -19,6 +19,9 @@ June helps users think clearly about compatibility, attraction, communication st
 ### Mood Tracker Mode
 June can log moods during conversation, show recent emotional patterns, and connect current feelings to prior journal entries or mood history.
 
+### Relationship Strategist Mode
+June can track people, goals, unresolved loops, and hard conversations so the app behaves more like an active relationship workspace than a one-shot chatbot.
+
 ---
 
 ## Current Capabilities
@@ -29,15 +32,20 @@ June can log moods during conversation, show recent emotional patterns, and conn
 | **Mood Logging** | Tracks emotions with timestamps and optional notes |
 | **Mood History** | Retrieves recent mood patterns for reflection |
 | **Journal Entries** | Saves meaningful reflections as personal notes |
+| **Relationship Profiles** | Stores structured context about people, dynamics, needs, and cautions |
+| **Goals and Open Loops** | Tracks next steps, unresolved issues, and personal objectives |
 | **Compatibility Analysis** | Structures relationship analysis around values, personality, and communication |
 | **Conversation Starters** | Generates tailored openers for dating or friendship contexts |
+| **Drafting and Planning** | Helps draft replies and plan difficult conversations |
+| **Live Activity Console** | Streams model activity, tool calls, and graph events into the UI |
+| **Model-Controlled Workspace** | Lets the agent update a constrained workspace panel through dedicated UI tools |
 | **Multi-user** | Keeps each user's local memory isolated by name |
 
 ---
 
 ## How It Works
 
-June is implemented as a [LangGraph](https://github.com/langchain-ai/langgraph) ReAct agent. On each message, the model decides whether to answer directly or call one of June's tools first. That keeps the behavior flexible while preserving a simple architecture.
+June is implemented as a [LangGraph](https://github.com/langchain-ai/langgraph) ReAct agent. On each message, the model decides whether to answer directly or call one of June's tools first. The Streamlit app also renders a live activity view so users can see tool requests, graph steps, and response generation as they happen.
 
 ```text
 User Message
@@ -49,8 +57,18 @@ LangGraph ReAct Agent
   |- Tool: get_mood_history
   |- Tool: save_journal_entry
   |- Tool: get_journal
+  |- Tool: save_relationship_profile
+  |- Tool: get_relationship_context
+  |- Tool: track_goal
+  |- Tool: list_goals
+  |- Tool: save_open_loop
+  |- Tool: list_open_loops
+  |- Tool: summarize_progress
   |- Tool: analyze_compatibility
-  `- Tool: generate_conversation_starters
+  |- Tool: generate_conversation_starters
+  |- Tool: draft_reply
+  |- Tool: plan_difficult_conversation
+  `- UI tools: set_ui_focus, set_ui_checklist, set_ui_layout
   |
   v
 Streamlit UI + updated memory
@@ -95,7 +113,7 @@ MODEL_NAME=meta-llama/llama-3.1-8b-instruct:free
 | Agent | [LangGraph](https://github.com/langchain-ai/langgraph) ReAct |
 | LLM Client | [LangChain](https://github.com/langchain-ai/langchain) + `langchain-openai` |
 | Model Backend | Any OpenAI-compatible provider or local Ollama |
-| Memory | Local JSON files |
+| Memory | Local JSON files with structured relationship planning data |
 | Language | Python 3.9+ |
 
 ---
@@ -148,7 +166,8 @@ JuneAI-app/
 |   |-- graph.py              # LangGraph agent definition
 |   |-- tools.py              # Tool implementations
 |   |-- memory.py             # Local JSON memory system
-|   |-- prompts.py            # Personality and mode prompts
+|   |-- skills.py             # Skill registry and prompt construction
+|   |-- prompts.py            # Prompt compatibility layer
 |   `-- config.py             # Environment configuration
 |-- tests/
 |   |-- unit_tests/           # Memory and configuration tests
@@ -169,6 +188,9 @@ All user data is stored locally in `MEMORY_DIR` as JSON files:
 - `{user}_chat.json`
 - `{user}_moods.json`
 - `{user}_journal.json`
+- `{user}_relationships.json`
+- `{user}_goals.json`
+- `{user}_open_loops.json`
 
 The only external network traffic comes from whichever model provider you configure for inference. If you use a local Ollama model, inference can stay fully local.
 

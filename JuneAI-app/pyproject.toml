@@ -1,7 +1,7 @@
 [project]
 name = "juneai"
 version = "0.1.0"
-description = "JuneAI — your AI companion for love, life & growth."
+description = "JuneAI - a relationship-focused AI companion with skills, tools, and live agent activity."
 authors = []
 readme = "README.md"
 license = { text = "MIT" }

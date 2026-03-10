@@ -8,6 +8,7 @@ from langgraph.prebuilt import ToolNode
 
 from agent.memory import Memory
 from agent.tools import (
+    clear_ui_workspace,
     draft_reply,
     get_journal,
     get_mood_history,
@@ -18,6 +19,9 @@ from agent.tools import (
     save_open_loop,
     save_journal_entry,
     save_relationship_profile,
+    set_ui_checklist,
+    set_ui_focus,
+    set_ui_layout,
     summarize_progress,
     track_goal,
 )
@@ -133,11 +137,15 @@ def tool_node(memory_dir):
         list_open_loops,
         summarize_progress,
         draft_reply,
+        set_ui_focus,
+        set_ui_checklist,
+        set_ui_layout,
+        clear_ui_workspace,
     ])
 
 
 def _run_tool(tool_node, tool_name, args):
-    result = tool_node.invoke({
+    return tool_node.invoke({
         "messages": [
             AIMessage(
                 content="",
@@ -151,8 +159,15 @@ def _run_tool(tool_node, tool_name, args):
         ],
         "user_id": "test_user",
         "skill": "strategy",
+        "ui_state": {
+            "layout": "split",
+            "focus_title": "Workspace",
+            "focus_body": "",
+            "checklist_title": "Next steps",
+            "checklist_items": [],
+            "notice": "",
+        },
     })
-    return result["messages"][-1].content
 
 
 def test_log_mood_tool(tool_node, mem):
@@ -160,19 +175,19 @@ def test_log_mood_tool(tool_node, mem):
         tool_node,
         "log_mood",
         {"mood": "calm", "note": "quiet morning"},
-    )
+    )["messages"][-1].content
     assert "calm" in result
     assert len(mem.get_mood_history()) == 1
 
 
 def test_get_mood_history_tool_empty(tool_node):
-    result = _run_tool(tool_node, "get_mood_history", {})
+    result = _run_tool(tool_node, "get_mood_history", {})["messages"][-1].content
     assert "No mood history" in result
 
 
 def test_get_mood_history_tool_with_data(tool_node, mem):
     mem.log_mood("joyful", "sunshine")
-    result = _run_tool(tool_node, "get_mood_history", {})
+    result = _run_tool(tool_node, "get_mood_history", {})["messages"][-1].content
     assert "joyful" in result
 
 
@@ -181,14 +196,14 @@ def test_save_journal_tool(tool_node, mem):
         tool_node,
         "save_journal_entry",
         {"entry": "I faced my fear today."},
-    )
+    )["messages"][-1].content
     assert "saved" in result.lower()
     assert len(mem.get_journal()) == 1
 
 
 def test_get_journal_tool_with_data(tool_node, mem):
     mem.save_journal("A meaningful reflection.")
-    result = _run_tool(tool_node, "get_journal", {})
+    result = _run_tool(tool_node, "get_journal", {})["messages"][-1].content
     assert "A meaningful reflection." in result
 
 
@@ -203,7 +218,7 @@ def test_relationship_context_tool(tool_node, mem):
         tool_node,
         "get_relationship_context",
         {"person": "Taylor"},
-    )
+    )["messages"][-1].content
     assert "Taylor" in result
     assert "Clarity" in result
 
@@ -217,7 +232,7 @@ def test_goal_and_open_loop_tools(tool_node):
             "category": "relationship",
             "next_step": "Draft the opener",
         },
-    )
+    )["messages"][-1].content
     loop_result = _run_tool(
         tool_node,
         "save_open_loop",
@@ -225,9 +240,9 @@ def test_goal_and_open_loop_tools(tool_node):
             "topic": "Clarify exclusivity",
             "next_step": "Ask directly on Saturday",
         },
-    )
-    goals = _run_tool(tool_node, "list_goals", {})
-    loops = _run_tool(tool_node, "list_open_loops", {})
+    )["messages"][-1].content
+    goals = _run_tool(tool_node, "list_goals", {})["messages"][-1].content
+    loops = _run_tool(tool_node, "list_open_loops", {})["messages"][-1].content
     assert "Saved goal" in goal_result
     assert "Saved open loop" in loop_result
     assert "Have the boundary conversation" in goals
@@ -238,6 +253,46 @@ def test_summarize_progress_tool(tool_node, mem):
     mem.log_mood("steady", "less reactive than last week")
     mem.save_journal("I handled a tense conversation calmly.")
     mem.save_goal("Keep my standards clear", category="dating")
-    result = _run_tool(tool_node, "summarize_progress", {})
+    result = _run_tool(tool_node, "summarize_progress", {})["messages"][-1].content
     assert "Progress snapshot" in result
     assert "Latest mood: steady" in result
+
+
+def test_ui_tools_update_ui_state(tool_node):
+    result = _run_tool(
+        tool_node,
+        "set_ui_focus",
+        {
+            "title": "Boundary conversation",
+            "body": "State the issue clearly and ask for a direct answer.",
+            "footer": "Prepare before Friday.",
+        },
+    )[0].update
+    assert result["ui_state"]["focus_title"] == "Boundary conversation"
+    assert "Prepare before Friday." == result["ui_state"]["notice"]
+
+
+def test_ui_checklist_and_layout_tools(tool_node):
+    checklist_result = _run_tool(
+        tool_node,
+        "set_ui_checklist",
+        {
+            "title": "Next actions",
+            "items": "- Draft opener\n- Ask for clarity\n- Journal after",
+        },
+    )[0].update
+    layout_result = _run_tool(
+        tool_node,
+        "set_ui_layout",
+        {
+            "layout": "focus",
+            "notice": "Tighten the plan before sending anything.",
+        },
+    )[0].update
+    assert checklist_result["ui_state"]["checklist_items"][1] == "Ask for clarity"
+    assert layout_result["ui_state"]["layout"] == "focus"
+
+
+def test_clear_ui_workspace_tool(tool_node):
+    result = _run_tool(tool_node, "clear_ui_workspace", {})[0].update
+    assert result["ui_state"]["focus_title"] == "Workspace"

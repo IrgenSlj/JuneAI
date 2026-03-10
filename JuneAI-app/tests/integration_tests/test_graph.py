@@ -11,6 +11,15 @@ async def test_agent_simple_response() -> None:
     inputs = {
         "messages": [HumanMessage(content="Hello, how are you?")],
         "user_id": "test_user",
+        "skill": "friend",
+        "ui_state": {
+            "layout": "split",
+            "focus_title": "Workspace",
+            "focus_body": "",
+            "checklist_title": "Next steps",
+            "checklist_items": [],
+            "notice": "",
+        },
     }
     res = await june_agent.ainvoke(inputs)
     assert res is not None
