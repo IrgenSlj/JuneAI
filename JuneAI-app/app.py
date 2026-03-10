@@ -1,4 +1,4 @@
-"""JuneAI — Streamlit frontend.
+"""JuneAI Streamlit frontend.
 
 Run with:  streamlit run app.py
 """
@@ -8,19 +8,16 @@ from langchain_core.messages import AIMessage, HumanMessage
 
 from src.agent.graph import june_agent
 from src.agent.memory import Memory
-from src.agent.tools import set_memory
+from src.agent.skills import DEFAULT_SKILL, SKILLS
 
-# ── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="JuneAI",
-    page_icon="🌸",
     layout="centered",
 )
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.title("🌸 JuneAI")
-    st.caption("Your companion for love, life & growth")
+    st.title("JuneAI")
+    st.caption("Your companion for love, life and growth")
     st.divider()
 
     user_id = st.text_input(
@@ -29,98 +26,93 @@ with st.sidebar:
         key="user_id_input",
     )
 
-    mode = st.radio(
+    skill_labels = [skill.label for skill in SKILLS.values()]
+    selected_label = st.radio(
         "What do you need today?",
-        ["💬 Friend & Therapist", "💘 Dating Coach", "📓 Mood Tracker"],
-        index=0,
+        skill_labels,
+        index=skill_labels.index(SKILLS[DEFAULT_SKILL].label),
+    )
+    selected_skill = next(
+        key for key, skill in SKILLS.items() if skill.label == selected_label
     )
 
     st.divider()
 
-    if st.button("🗑️ Clear Chat", use_container_width=True):
+    if st.button("Clear Chat", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
 
-    # Show mood history in sidebar when in Mood Tracker mode
-    if mode == "📓 Mood Tracker":
-        mem_preview = Memory(user_id)
-        history = mem_preview.get_mood_history(10)
-        if history:
-            st.subheader("Your recent moods")
-            for m in reversed(history[-5:]):
-                st.write(f"**{m['timestamp'][:10]}** — {m['mood']}")
-                if m.get("note"):
-                    st.caption(m["note"])
-        else:
-            st.caption("No moods logged yet. Start chatting!")
+    mem_preview = Memory(user_id)
+    st.subheader("Saved context")
 
-# ── Main area ─────────────────────────────────────────────────────────────────
-mode_config = {
-    "💬 Friend & Therapist": {
-        "intro": "Hey, I'm June 🌸 I'm here to listen, support, and help you grow. What's on your mind?",
-        "hint": "Share what's on your mind...",
-    },
-    "💘 Dating Coach": {
-        "intro": "Hey, I'm June 🌸 Let's talk love! I can help with compatibility, profiles, or figuring out what you really want.",
-        "hint": "Ask about compatibility, conversation starters, dating advice...",
-    },
-    "📓 Mood Tracker": {
-        "intro": "Hey, I'm June 🌸 Tell me how you're feeling — I'll help you track and understand your emotional journey.",
-        "hint": "How are you feeling today?",
-    },
-}
+    history = mem_preview.get_mood_history(5)
+    if history:
+        st.caption("Recent moods")
+        for mood in reversed(history):
+            st.write(f"**{mood['timestamp'][:10]}** - {mood['mood']}")
+            if mood.get("note"):
+                st.caption(mood["note"])
 
-config = mode_config[mode]
+    loops = mem_preview.get_open_loops(limit=5)
+    if loops:
+        st.caption("Open loops")
+        for loop in reversed(loops):
+            text = loop["topic"]
+            if loop.get("next_step"):
+                text += f" | Next: {loop['next_step']}"
+            st.write(text)
 
-st.markdown(f"### {config['intro']}")
+skill = SKILLS[selected_skill]
+
+st.markdown(f"### {skill.intro}")
 st.divider()
 
-# ── Session state ─────────────────────────────────────────────────────────────
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    st.session_state.messages = Memory(user_id).load_chat_messages()
 
 if "last_user_id" not in st.session_state:
     st.session_state.last_user_id = user_id
 
-# Reset chat if user changes their name
+if "last_skill" not in st.session_state:
+    st.session_state.last_skill = selected_skill
+
 if st.session_state.last_user_id != user_id:
-    st.session_state.messages = []
+    st.session_state.messages = Memory(user_id).load_chat_messages()
     st.session_state.last_user_id = user_id
 
-# Inject memory into tools for this user
 memory = Memory(user_id)
-set_memory(memory)
 
-# ── Display chat history ───────────────────────────────────────────────────────
+if st.session_state.last_skill != selected_skill:
+    st.session_state.last_skill = selected_skill
+
 for msg in st.session_state.messages:
     if isinstance(msg, HumanMessage):
         with st.chat_message("user"):
             st.write(msg.content)
     elif isinstance(msg, AIMessage) and msg.content:
-        with st.chat_message("assistant", avatar="🌸"):
+        with st.chat_message("assistant"):
             st.write(msg.content)
 
-# ── Chat input ────────────────────────────────────────────────────────────────
-if prompt := st.chat_input(config["hint"]):
-    # Display user message immediately
+if prompt := st.chat_input(skill.hint):
     with st.chat_message("user"):
         st.write(prompt)
 
-    # Add to state
     user_msg = HumanMessage(content=prompt)
     st.session_state.messages.append(user_msg)
     memory.save_message("user", prompt)
 
-    # Run the agent
-    with st.chat_message("assistant", avatar="🌸"):
+    with st.chat_message("assistant"):
         with st.spinner("June is thinking..."):
-            result = june_agent.invoke({
-                "messages": st.session_state.messages,
-                "user_id": user_id,
-            })
+            try:
+                result = june_agent.invoke({
+                    "messages": st.session_state.messages,
+                    "user_id": user_id,
+                    "skill": selected_skill,
+                })
+            except Exception as e:
+                st.error(f"June ran into an issue: {e}")
+                st.stop()
 
-        # Extract the last AI message that has actual text content
-        # (tool call messages have no content, so we skip them)
         response = next(
             (
                 m for m in reversed(result["messages"])
