@@ -59,11 +59,10 @@ Avoid:
 
 ## UX Structure
 
-The current app direction is a 3-surface dashboard:
+The current app direction is a 2-column assistant layout:
 
-- Left column: snapshot, preferences, wellness routines
-- Center column: conversation
-- Right column: workspace, calendar, favorites, live activity
+- Left column: conversation
+- Right column: reminders, chapter buttons, chapter content, workspace, and logs
 
 This layout should remain the baseline unless there is a strong product reason to change it.
 
@@ -79,25 +78,34 @@ Important UI surfaces:
   - Checklists, focus summaries, current plan
   - Must be useful and sparse
 
+- Notifications
+  - Local reminders derived from calendar items and due plans
+  - Should be visible quickly and easy to scan
+
+- Chapters
+  - Grid of square buttons for major life areas
+  - Content opens inline below the grid and closes when toggled again
+  - The app should always make it obvious what is actually stored
+
 - Calendar
   - Conversation-derived events, reminders, and commitments
-  - Should feel like a captured planning surface, not a full calendar product yet
 
-- Favorites
-  - Books, movies, and saved recommendations
-  - Connected to user taste and preferences
+- Plans
+  - Goals and open loops
 
-- Preferences
-  - Stable user likes, dislikes, routines, and tendencies
-  - Used to personalize recommendations and planning
+- Gym / Food
+  - Saved wellness structure and repeatable routines
 
-- Routines
-  - Gym plans and food programs
-  - Should reinforce the idea that June helps manage real life, not just chat
+- Dating / Family / Birthdays / Trips
+  - Chaptered memory views for relational and life-event context
 
-- Activity
+- Logs
   - Internal agent actions and tool usage
-  - Useful for visibility and debugging
+  - Useful for visibility, debugging, and verifying memory capture
+
+- Capture Health
+  - Small coverage panel that shows how much memory exists in each chapter
+  - Helps verify tool usage and storage quality
 
 
 ## Assistant Behavior
@@ -120,6 +128,7 @@ June should proactively capture:
 - Favorites when the user wants to keep a recommendation
 - Goals and open loops when the conversation creates a clear follow-up
 - Gym and food plans when the user wants continuity in health routines
+- Birthdays, trips, and family/dating context when the user clearly shares them
 
 June should not:
 
@@ -165,6 +174,7 @@ Current memory domains:
 - favorites
 - gym plans
 - food programs
+- app state for quote rotation and daily check-ins
 
 Memory rules:
 
@@ -248,6 +258,7 @@ When adding features:
 
 Good future features:
 
+- Better typed storage for birthdays, trips, family, and dating
 - Better calendar visualization
 - Smarter reminders and recurring plans
 - Routine adherence tracking

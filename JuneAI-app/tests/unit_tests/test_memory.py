@@ -1,5 +1,6 @@
 """Unit tests for the Memory class and tool functions."""
 
+from datetime import date, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -73,11 +74,13 @@ def test_log_and_get_mood(mem):
 
 
 def test_save_calendar_items_are_sorted(mem):
+    mem.save_calendar_item("Old item", "2023-01-01", "09:00")
     mem.save_calendar_item("Dinner", "2026-04-02", "20:00")
     mem.save_calendar_item("Workout", "2026-03-15", "08:00")
     items = mem.get_calendar_items()
     assert items[0]["title"] == "Workout"
     assert items[1]["title"] == "Dinner"
+    assert items[-1]["title"] == "Old item"
 
 
 def test_save_preferences_and_favorites(mem):
@@ -110,6 +113,23 @@ def test_progress_snapshot_includes_new_surfaces(mem):
     assert snapshot["favorite_count"] == 1
     assert snapshot["gym_plan_count"] == 1
     assert snapshot["food_program_count"] == 1
+
+
+def test_daily_checkin_state(mem):
+    assert mem.should_send_daily_checkin() is True
+    mem.mark_daily_checkin_sent()
+    assert mem.should_send_daily_checkin() is False
+
+
+def test_upcoming_notifications(mem):
+    in_three_days = (date.today() + timedelta(days=3)).isoformat()
+    in_five_days = (date.today() + timedelta(days=5)).isoformat()
+    mem.save_calendar_item("Mom birthday", in_three_days, details="birthday dinner")
+    mem.save_open_loop("Book train", due_date=in_five_days, next_step="Choose the morning train")
+    notifications = mem.get_upcoming_notifications(limit=5)
+    titles = {item["title"] for item in notifications}
+    assert "Mom birthday" in titles
+    assert "Book train" in titles
 
 
 @pytest.fixture

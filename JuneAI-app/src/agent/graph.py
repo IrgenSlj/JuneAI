@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import operator
+from datetime import datetime
 from typing import Annotated, TypedDict
 
 from langchain_core.messages import SystemMessage
@@ -46,11 +47,13 @@ def create_june_agent():
     def chat(state: AgentState, writer: StreamWriter) -> dict:
         """Main chat node."""
         skill = state.get("skill", DEFAULT_SKILL)
-        prompt = build_system_prompt(skill)
+        now = datetime.now().astimezone()
+        prompt = build_system_prompt(skill, now=now)
         writer({
             "event": "chat_started",
             "skill": skill,
             "message_count": len(state["messages"]),
+            "local_time": now.strftime("%Y-%m-%d %H:%M"),
         })
         messages = [SystemMessage(content=prompt)] + state["messages"]
         response = llm.invoke(messages)

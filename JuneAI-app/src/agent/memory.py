@@ -6,7 +6,7 @@ Stores conversation history and assistant artifacts as local JSON files.
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import date, datetime
 from json import JSONDecodeError
 from pathlib import Path
 
@@ -32,6 +32,7 @@ class Memory:
         self.favorites_file = self.dir / f"{user_id}_favorites.json"
         self.gym_file = self.dir / f"{user_id}_gym_plans.json"
         self.food_file = self.dir / f"{user_id}_food_programs.json"
+        self.app_state_file = self.dir / f"{user_id}_app_state.json"
 
     # --- Chat history ---
 
@@ -320,7 +321,24 @@ class Memory:
                 for item in items
                 if item.get("status", "").strip().lower() == status.strip().lower()
             ]
-        return items[:limit]
+        today = date.today()
+        upcoming = []
+        undated = []
+        past = []
+
+        for item in items:
+            parsed_date = self._parse_date(item.get("date", ""))
+            if parsed_date is None:
+                undated.append(item)
+            elif parsed_date >= today:
+                upcoming.append(item)
+            else:
+                past.append(item)
+
+        upcoming.sort(key=lambda item: (item.get("date", ""), item.get("time", ""), item.get("title", "")))
+        undated.sort(key=lambda item: (item.get("title", ""), item.get("updated_at", "")))
+        past.sort(key=lambda item: (item.get("date", ""), item.get("time", ""), item.get("title", "")), reverse=True)
+        return (upcoming + undated + past)[:limit]
 
     # --- Favorites and recommendations ---
 
@@ -453,6 +471,64 @@ class Memory:
             ]
         return programs[-limit:]
 
+    # --- App behavior ---
+
+    def get_app_state(self) -> dict:
+        """Get persisted UI and assistant app state."""
+        return self._read(self.app_state_file, {})
+
+    def set_app_state_value(self, key: str, value) -> dict:
+        """Store one app state value."""
+        state = self.get_app_state()
+        state[key] = value
+        self._write(self.app_state_file, state)
+        return state
+
+    def should_send_daily_checkin(self) -> bool:
+        """Return whether June should send the daily proactive check-in."""
+        state = self.get_app_state()
+        return state.get("last_daily_checkin_date") != date.today().isoformat()
+
+    def mark_daily_checkin_sent(self) -> None:
+        """Persist that today's check-in has been sent."""
+        self.set_app_state_value("last_daily_checkin_date", date.today().isoformat())
+
+    def get_upcoming_notifications(self, limit: int = 5) -> list[dict]:
+        """Build notification items from calendar and planning memory."""
+        today = date.today()
+        notifications = []
+
+        for item in self.get_calendar_items(status="", limit=50):
+            parsed_date = self._parse_date(item.get("date", ""))
+            if parsed_date is None:
+                continue
+            days_until = (parsed_date - today).days
+            if 0 <= days_until <= 14:
+                notifications.append({
+                    "title": item.get("title", "Event"),
+                    "kind": self._infer_calendar_kind(item),
+                    "when": item.get("date", ""),
+                    "details": item.get("details", ""),
+                    "days_until": days_until,
+                })
+
+        for loop in self.get_open_loops(status="open", limit=20):
+            parsed_date = self._parse_date(loop.get("due_date", ""))
+            if parsed_date is None:
+                continue
+            days_until = (parsed_date - today).days
+            if 0 <= days_until <= 14:
+                notifications.append({
+                    "title": loop.get("topic", "Open loop"),
+                    "kind": "plan",
+                    "when": loop.get("due_date", ""),
+                    "details": loop.get("next_step", ""),
+                    "days_until": days_until,
+                })
+
+        notifications.sort(key=lambda item: (item["days_until"], item["when"], item["title"]))
+        return notifications[:limit]
+
     # --- Summary ---
 
     def get_progress_snapshot(self) -> dict:
@@ -524,3 +600,22 @@ class Memory:
         if isinstance(parsed, type(default)):
             return parsed
         return default
+
+    def _parse_date(self, value: str) -> date | None:
+        try:
+            return date.fromisoformat(value.strip())
+        except (TypeError, ValueError, AttributeError):
+            return None
+
+    def _infer_calendar_kind(self, item: dict) -> str:
+        haystack = " ".join(
+            str(item.get(field, "")).lower()
+            for field in ("title", "details", "source", "status")
+        )
+        if "birthday" in haystack:
+            return "birthday"
+        if "trip" in haystack or "travel" in haystack or "flight" in haystack:
+            return "trip"
+        if "date" in haystack or "anniversary" in haystack:
+            return "dating"
+        return "calendar"

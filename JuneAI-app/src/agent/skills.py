@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 
 
 @dataclass(frozen=True)
@@ -22,6 +23,15 @@ _BASE_INSTRUCTIONS = """You are June, a highly capable personal AI assistant.
 You are calm, direct, observant, and concise.
 Blend warmth with execution: understand the user, then move things forward.
 Use tools when they improve memory, planning, personalization, or continuity.
+Before you answer, check whether the user's message contains information that should be saved.
+If the message includes a concrete event, appointment, trip, birthday, or reminder, call the calendar tool.
+If it includes a gym routine or food structure the user wants to keep, call the relevant wellness tool.
+If it includes a relationship pattern, family context, or dating context worth remembering, call the relationship tool.
+If it includes a goal, plan, or unresolved follow-up, call the goals or open-loop tools.
+When the user gives a concrete plan with a date, time, or appointment, call the calendar tool.
+When the user states a stable preference, call the preference tool.
+When the conversation lands on a saved recommendation, call the favorites tool.
+When the user is defining a workout or nutrition structure, call the relevant wellness tool.
 Save stable preferences when the user clearly states them.
 Save calendar items when the conversation contains a concrete date, appointment, plan, or reminder.
 Save favorites when the user wants to keep a recommendation or expresses strong positive interest.
@@ -98,7 +108,58 @@ Your role right now: Taste Curator.
 DEFAULT_SKILL = "assistant"
 
 
-def build_system_prompt(skill_key: str) -> str:
+def build_system_prompt(skill_key: str, now: datetime | None = None) -> str:
     """Build the system prompt for the active skill."""
+    now = now or datetime.now().astimezone()
     skill = SKILLS.get(skill_key, SKILLS[DEFAULT_SKILL])
-    return _BASE_INSTRUCTIONS + "\n" + skill.instructions.strip()
+    temporal_context = (
+        "Current temporal context:\n"
+        f"- Local date: {now.date().isoformat()}\n"
+        f"- Local time: {now.strftime('%H:%M')}\n"
+        f"- Day of year: {now.timetuple().tm_yday}\n"
+        f"- Part of day: {_part_of_day(now.hour)}\n"
+        f"- Weekday: {now.strftime('%A')}\n"
+        "Use this context whenever the user refers to today, tonight, this week, upcoming events, habits, energy, or timing.\n"
+    )
+    return _BASE_INSTRUCTIONS + "\n" + temporal_context + "\n" + skill.instructions.strip()
+
+
+def infer_skill_from_text(text: str) -> str:
+    """Infer the most useful skill from the user's latest prompt."""
+    normalized = text.lower()
+
+    curator_terms = {
+        "book", "books", "movie", "movies", "film", "films", "show", "shows",
+        "watch", "read", "reading", "novel", "cinema", "recommend",
+        "recommendation", "favorite", "favourite",
+    }
+    wellness_terms = {
+        "gym", "workout", "training", "lift", "lifting", "run", "running",
+        "meal", "meals", "diet", "calories", "protein", "nutrition", "food",
+        "bulk", "cut", "steps", "exercise",
+    }
+    planner_terms = {
+        "calendar", "schedule", "agenda", "appointment", "meeting", "deadline",
+        "trip", "travel", "tomorrow", "today", "tonight", "week", "month",
+        "friday", "saturday", "sunday", "monday", "tuesday", "wednesday", "thursday",
+        "january", "february", "march", "april", "may", "june", "july",
+        "august", "september", "october", "november", "december", "remind",
+    }
+
+    if any(term in normalized for term in curator_terms):
+        return "curator"
+    if any(term in normalized for term in wellness_terms):
+        return "wellness"
+    if any(term in normalized for term in planner_terms):
+        return "planner"
+    return DEFAULT_SKILL
+
+
+def _part_of_day(hour: int) -> str:
+    if 5 <= hour < 12:
+        return "morning"
+    if 12 <= hour < 17:
+        return "afternoon"
+    if 17 <= hour < 22:
+        return "evening"
+    return "night"
