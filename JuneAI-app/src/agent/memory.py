@@ -1,11 +1,13 @@
 """JuneAI memory system.
 
-Stores conversation history, mood logs, journal entries, and structured
-relationship planning data as JSON files locally.
+Stores conversation history and assistant artifacts as local JSON files.
 """
+
+from __future__ import annotations
 
 import json
 from datetime import datetime
+from json import JSONDecodeError
 from pathlib import Path
 
 from .config import MEMORY_DIR
@@ -19,30 +21,34 @@ class Memory:
         self.dir = Path(MEMORY_DIR)
         self.dir.mkdir(exist_ok=True)
 
-        # Each user gets their own files
         self.chat_file = self.dir / f"{user_id}_chat.json"
         self.mood_file = self.dir / f"{user_id}_moods.json"
         self.journal_file = self.dir / f"{user_id}_journal.json"
         self.relationship_file = self.dir / f"{user_id}_relationships.json"
         self.goals_file = self.dir / f"{user_id}_goals.json"
         self.open_loops_file = self.dir / f"{user_id}_open_loops.json"
+        self.preferences_file = self.dir / f"{user_id}_preferences.json"
+        self.calendar_file = self.dir / f"{user_id}_calendar.json"
+        self.favorites_file = self.dir / f"{user_id}_favorites.json"
+        self.gym_file = self.dir / f"{user_id}_gym_plans.json"
+        self.food_file = self.dir / f"{user_id}_food_programs.json"
 
     # --- Chat history ---
 
     def save_message(self, role: str, content: str) -> None:
-        """Append a message to chat history (keeps last 50)."""
+        """Append a message to chat history and keep the latest 50."""
         history = self.load_chat()
         history.append({
             "role": role,
             "content": content,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": self._now(),
         })
         if len(history) > 50:
             history = history[-50:]
         self._write(self.chat_file, history)
 
     def load_chat(self) -> list:
-        """Load full chat history."""
+        """Load the raw chat history."""
         return self._read(self.chat_file, [])
 
     def load_chat_messages(self) -> list:
@@ -65,9 +71,9 @@ class Memory:
         """Save a mood entry with optional note."""
         moods = self._read(self.mood_file, [])
         entry = {
-            "mood": mood,
-            "note": note,
-            "timestamp": datetime.now().isoformat(),
+            "mood": mood.strip(),
+            "note": note.strip(),
+            "timestamp": self._now(),
         }
         moods.append(entry)
         self._write(self.mood_file, moods)
@@ -80,11 +86,11 @@ class Memory:
     # --- Journal ---
 
     def save_journal(self, entry: str) -> dict:
-        """Save a journal or therapy note."""
+        """Save a journal or reflection note."""
         journal = self._read(self.journal_file, [])
         item = {
-            "entry": entry,
-            "timestamp": datetime.now().isoformat(),
+            "entry": entry.strip(),
+            "timestamp": self._now(),
         }
         journal.append(item)
         self._write(self.journal_file, journal)
@@ -107,14 +113,13 @@ class Memory:
         """Create or update a structured relationship profile."""
         profiles = self._read(self.relationship_file, [])
         key = person.strip().lower()
-        now = datetime.now().isoformat()
         item = {
             "person": person.strip(),
             "relationship": relationship.strip(),
             "summary": summary.strip(),
             "user_needs": user_needs.strip(),
             "cautions": cautions.strip(),
-            "updated_at": now,
+            "updated_at": self._now(),
         }
 
         for index, existing in enumerate(profiles):
@@ -152,14 +157,13 @@ class Memory:
         """Save or update a goal by title."""
         goals = self._read(self.goals_file, [])
         key = title.strip().lower()
-        now = datetime.now().isoformat()
         item = {
             "title": title.strip(),
             "category": category.strip() or "personal",
             "target_date": target_date.strip(),
             "next_step": next_step.strip(),
             "status": status.strip() or "active",
-            "updated_at": now,
+            "updated_at": self._now(),
         }
 
         for index, existing in enumerate(goals):
@@ -195,13 +199,12 @@ class Memory:
         """Save or update an unresolved issue or follow-up."""
         loops = self._read(self.open_loops_file, [])
         key = topic.strip().lower()
-        now = datetime.now().isoformat()
         item = {
             "topic": topic.strip(),
             "next_step": next_step.strip(),
             "due_date": due_date.strip(),
             "status": status.strip() or "open",
-            "updated_at": now,
+            "updated_at": self._now(),
         }
 
         for index, existing in enumerate(loops):
@@ -225,13 +228,245 @@ class Memory:
             ]
         return loops[-limit:]
 
+    # --- Preferences ---
+
+    def save_preference(
+        self,
+        category: str,
+        value: str,
+        context: str = "",
+    ) -> dict:
+        """Save or update a user preference."""
+        preferences = self._read(self.preferences_file, [])
+        key = (category.strip().lower(), value.strip().lower())
+        item = {
+            "category": category.strip(),
+            "value": value.strip(),
+            "context": context.strip(),
+            "updated_at": self._now(),
+        }
+
+        for index, existing in enumerate(preferences):
+            existing_key = (
+                existing.get("category", "").strip().lower(),
+                existing.get("value", "").strip().lower(),
+            )
+            if existing_key == key:
+                preferences[index] = item
+                self._write(self.preferences_file, preferences)
+                return item
+
+        preferences.append(item)
+        self._write(self.preferences_file, preferences)
+        return item
+
+    def get_preferences(self, category: str = "", limit: int = 20) -> list:
+        """Get saved preferences, optionally filtered by category."""
+        preferences = self._read(self.preferences_file, [])
+        if category.strip():
+            preferences = [
+                item
+                for item in preferences
+                if item.get("category", "").strip().lower() == category.strip().lower()
+            ]
+        return preferences[-limit:]
+
+    # --- Calendar ---
+
+    def save_calendar_item(
+        self,
+        title: str,
+        date: str,
+        time: str = "",
+        details: str = "",
+        status: str = "planned",
+        source: str = "conversation",
+    ) -> dict:
+        """Save or update a calendar item."""
+        items = self._read(self.calendar_file, [])
+        key = (title.strip().lower(), date.strip().lower(), time.strip().lower())
+        item = {
+            "title": title.strip(),
+            "date": date.strip(),
+            "time": time.strip(),
+            "details": details.strip(),
+            "status": status.strip() or "planned",
+            "source": source.strip() or "conversation",
+            "updated_at": self._now(),
+        }
+
+        for index, existing in enumerate(items):
+            existing_key = (
+                existing.get("title", "").strip().lower(),
+                existing.get("date", "").strip().lower(),
+                existing.get("time", "").strip().lower(),
+            )
+            if existing_key == key:
+                items[index] = item
+                self._write(self.calendar_file, items)
+                return item
+
+        items.append(item)
+        items.sort(key=lambda entry: (entry.get("date", ""), entry.get("time", ""), entry.get("title", "")))
+        self._write(self.calendar_file, items)
+        return item
+
+    def get_calendar_items(self, status: str = "", limit: int = 20) -> list:
+        """Get calendar items, optionally filtered by status."""
+        items = self._read(self.calendar_file, [])
+        if status.strip():
+            items = [
+                item
+                for item in items
+                if item.get("status", "").strip().lower() == status.strip().lower()
+            ]
+        return items[:limit]
+
+    # --- Favorites and recommendations ---
+
+    def save_favorite(
+        self,
+        category: str,
+        title: str,
+        reason: str = "",
+        creator: str = "",
+        status: str = "saved",
+    ) -> dict:
+        """Save or update a recommendation or favorite."""
+        favorites = self._read(self.favorites_file, [])
+        key = (category.strip().lower(), title.strip().lower())
+        item = {
+            "category": category.strip(),
+            "title": title.strip(),
+            "reason": reason.strip(),
+            "creator": creator.strip(),
+            "status": status.strip() or "saved",
+            "updated_at": self._now(),
+        }
+
+        for index, existing in enumerate(favorites):
+            existing_key = (
+                existing.get("category", "").strip().lower(),
+                existing.get("title", "").strip().lower(),
+            )
+            if existing_key == key:
+                favorites[index] = item
+                self._write(self.favorites_file, favorites)
+                return item
+
+        favorites.append(item)
+        self._write(self.favorites_file, favorites)
+        return item
+
+    def get_favorites(self, category: str = "", limit: int = 20) -> list:
+        """Get favorites or recommendations."""
+        favorites = self._read(self.favorites_file, [])
+        if category.strip():
+            favorites = [
+                item
+                for item in favorites
+                if item.get("category", "").strip().lower() == category.strip().lower()
+            ]
+        return favorites[-limit:]
+
+    # --- Wellness plans ---
+
+    def save_gym_plan(
+        self,
+        name: str,
+        schedule: str,
+        goal: str = "",
+        notes: str = "",
+        status: str = "active",
+    ) -> dict:
+        """Save or update a gym plan."""
+        plans = self._read(self.gym_file, [])
+        key = name.strip().lower()
+        item = {
+            "name": name.strip(),
+            "schedule": schedule.strip(),
+            "goal": goal.strip(),
+            "notes": notes.strip(),
+            "status": status.strip() or "active",
+            "updated_at": self._now(),
+        }
+
+        for index, existing in enumerate(plans):
+            if existing.get("name", "").strip().lower() == key:
+                plans[index] = item
+                self._write(self.gym_file, plans)
+                return item
+
+        plans.append(item)
+        self._write(self.gym_file, plans)
+        return item
+
+    def get_gym_plans(self, status: str = "", limit: int = 10) -> list:
+        """Get gym plans, optionally filtered by status."""
+        plans = self._read(self.gym_file, [])
+        if status.strip():
+            plans = [
+                plan
+                for plan in plans
+                if plan.get("status", "").strip().lower() == status.strip().lower()
+            ]
+        return plans[-limit:]
+
+    def save_food_program(
+        self,
+        name: str,
+        goal: str,
+        daily_structure: str,
+        notes: str = "",
+        status: str = "active",
+    ) -> dict:
+        """Save or update a nutrition or meal program."""
+        programs = self._read(self.food_file, [])
+        key = name.strip().lower()
+        item = {
+            "name": name.strip(),
+            "goal": goal.strip(),
+            "daily_structure": daily_structure.strip(),
+            "notes": notes.strip(),
+            "status": status.strip() or "active",
+            "updated_at": self._now(),
+        }
+
+        for index, existing in enumerate(programs):
+            if existing.get("name", "").strip().lower() == key:
+                programs[index] = item
+                self._write(self.food_file, programs)
+                return item
+
+        programs.append(item)
+        self._write(self.food_file, programs)
+        return item
+
+    def get_food_programs(self, status: str = "", limit: int = 10) -> list:
+        """Get nutrition programs, optionally filtered by status."""
+        programs = self._read(self.food_file, [])
+        if status.strip():
+            programs = [
+                program
+                for program in programs
+                if program.get("status", "").strip().lower() == status.strip().lower()
+            ]
+        return programs[-limit:]
+
+    # --- Summary ---
+
     def get_progress_snapshot(self) -> dict:
-        """Summarize the user's recent activity across memory types."""
+        """Summarize the user's recent assistant activity."""
         moods = self.get_mood_history(10)
         journal = self.get_journal(5)
         goals = self.get_goals(limit=20)
         open_loops = self.get_open_loops(status="", limit=20)
         relationships = self.get_relationship_profiles()
+        preferences = self.get_preferences(limit=50)
+        calendar_items = self.get_calendar_items(limit=50)
+        favorites = self.get_favorites(limit=50)
+        gym_plans = self.get_gym_plans(limit=20)
+        food_programs = self.get_food_programs(limit=20)
         active_goals = [goal for goal in goals if goal.get("status") == "active"]
         unresolved_loops = [
             loop for loop in open_loops if loop.get("status", "open") == "open"
@@ -245,16 +480,47 @@ class Memory:
             "goal_count": len(goals),
             "active_goal_count": len(active_goals),
             "open_loop_count": len(unresolved_loops),
+            "preference_count": len(preferences),
+            "calendar_count": len(calendar_items),
+            "favorite_count": len(favorites),
+            "gym_plan_count": len(gym_plans),
+            "food_program_count": len(food_programs),
         }
 
     # --- Internal helpers ---
 
     def _read(self, path: Path, default):
         if path.exists():
-            with open(path) as f:
-                return json.load(f)
+            with open(path) as file:
+                raw = file.read()
+            if not raw.strip():
+                return default
+            try:
+                return json.loads(raw)
+            except JSONDecodeError:
+                recovered = self._recover_json(raw, default)
+                self._write(path, recovered)
+                return recovered
         return default
 
     def _write(self, path: Path, data) -> None:
-        with open(path, "w") as f:
-            json.dump(data, f, indent=2)
+        temp_path = path.with_suffix(f"{path.suffix}.tmp")
+        with open(temp_path, "w") as file:
+            json.dump(data, file, indent=2)
+        temp_path.replace(path)
+
+    def _now(self) -> str:
+        return datetime.now().isoformat()
+
+    def _recover_json(self, raw: str, default):
+        decoder = json.JSONDecoder()
+        cleaned = raw.lstrip()
+        if not cleaned:
+            return default
+        try:
+            parsed, _index = decoder.raw_decode(cleaned)
+        except JSONDecodeError:
+            return default
+        if isinstance(parsed, type(default)):
+            return parsed
+        return default

@@ -15,281 +15,253 @@ from src.agent.memory import Memory
 from src.agent.skills import DEFAULT_SKILL, SKILLS
 from src.agent.tools import DEFAULT_UI_STATE
 
-st.set_page_config(
-    page_title="JuneAI",
-    layout="wide",
-)
+st.set_page_config(page_title="June", layout="wide")
 
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
     :root {
         --june-bg: #ffffff;
-        --june-panel: rgba(255, 255, 255, 0.92);
-        --june-text: #111111;
-        --june-green: #1f6b3a;
-        --june-green-soft: #eef8f0;
-        --june-green-border: #d9ead9;
-        --june-radius: 18px;
-        --june-font: "Share Tech Mono", "IBM Plex Mono", "Menlo", monospace;
+        --june-panel: rgba(255, 255, 255, 0.9);
+        --june-panel-strong: rgba(255, 255, 255, 0.98);
+        --june-text: #161410;
+        --june-muted: #6e665d;
+        --june-line: rgba(22, 20, 16, 0.08);
+        --june-accent: #0f5f4a;
+        --june-accent-soft: rgba(15, 95, 74, 0.1);
+        --june-warm: #d96c43;
+        --june-radius: 26px;
+        --june-shadow: 0 18px 60px rgba(56, 38, 20, 0.08);
     }
-    html, body, [class*="css"], [data-testid="stAppViewContainer"], [data-testid="stMarkdownContainer"],
-    [data-testid="stText"], [data-testid="stButton"], [data-testid="stRadio"], [data-testid="stChatMessage"] {
-        font-family: var(--june-font);
+
+    html, body, [class*="css"], [data-testid="stAppViewContainer"], [data-testid="stMarkdownContainer"] {
+        font-family: "IBM Plex Mono", monospace;
         color: var(--june-text);
     }
+
     [data-testid="stAppViewContainer"], [data-testid="stApp"], .main, .block-container {
-        background: var(--june-bg);
+        background: #ffffff;
     }
+
     .block-container {
-        padding-top: 2rem;
-        max-width: 1180px;
+        max-width: 1440px;
+        padding-top: 1.2rem;
+        padding-bottom: 1.2rem;
     }
+
     [data-testid="stSidebar"] {
-        background: var(--june-bg);
+        background: rgba(255, 255, 255, 0.94);
+        border-right: 1px solid var(--june-line);
     }
+
     [data-testid="stSidebar"] * {
         color: var(--june-text);
-        font-family: var(--june-font);
     }
-    [data-testid="stSidebar"] > div {
-        background: var(--june-bg);
-    }
-    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span {
-        color: var(--june-green);
-    }
+
     [data-testid="stTextInput"] input,
-    [data-testid="stTextArea"] textarea,
-    [data-testid="stChatInputTextArea"] textarea {
-        background: var(--june-bg);
+    [data-testid="stTextArea"] textarea {
+        background: rgba(255, 255, 255, 0.55);
+        border: 1px solid var(--june-line);
+        border-radius: 18px;
         color: var(--june-text);
-        border: none;
+    }
+
+    .stButton > button, button[kind="primary"], button[kind="secondary"] {
         border-radius: 999px;
-    }
-    [data-testid="stTextInput"] input:focus,
-    [data-testid="stTextArea"] textarea:focus,
-    [data-testid="stChatInputTextArea"] textarea:focus {
-        border-color: var(--june-green);
-        box-shadow: 0 0 0 1px var(--june-green-soft);
-    }
-    .june-console, .june-workspace {
-        background: var(--june-panel);
-        border: none;
-        border-radius: var(--june-radius);
-        padding: 18px;
+        border: 1px solid var(--june-line);
+        background: rgba(255, 255, 255, 0.6);
         color: var(--june-text);
-        font-family: var(--june-font);
+        min-height: 2.5rem;
     }
-    .june-console {
-        min-height: 360px;
+
+    .stButton > button:hover, button[kind="primary"]:hover, button[kind="secondary"]:hover {
+        border-color: rgba(15, 95, 74, 0.26);
+        color: var(--june-accent);
+        background: rgba(15, 95, 74, 0.06);
+    }
+
+    .june-shell {
+        margin-bottom: 1rem;
+    }
+
+    .june-hero {
+        background: rgba(255, 255, 255, 0.98);
+        border: 1px solid rgba(22, 20, 16, 0.06);
+        border-radius: 34px;
+        box-shadow: var(--june-shadow);
+        padding: 1.4rem 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .june-kicker, .june-panel-kicker {
+        color: var(--june-accent);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-size: 11px;
+        margin-bottom: 0.55rem;
+    }
+
+    .june-title, .june-brand {
+        font-family: "Syne", sans-serif;
+        letter-spacing: -0.04em;
+        line-height: 0.95;
+        margin: 0;
+    }
+
+    .june-title {
+        font-size: 3.6rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .june-brand {
+        font-size: 2.7rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .june-subtitle, .june-meta {
+        color: var(--june-muted);
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    .june-surface {
+        background: var(--june-panel);
+        border: 1px solid rgba(22, 20, 16, 0.06);
+        border-radius: var(--june-radius);
+        box-shadow: var(--june-shadow);
+        padding: 1rem 1rem 1.1rem 1rem;
+        backdrop-filter: blur(12px);
+        margin-bottom: 1rem;
+    }
+
+    .june-surface-strong {
+        background: var(--june-panel-strong);
+    }
+
+    .june-panel-title {
+        font-family: "Syne", sans-serif;
+        font-size: 1.4rem;
+        margin: 0 0 0.9rem 0;
+        letter-spacing: -0.03em;
+    }
+
+    .june-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.7rem;
+    }
+
+    .june-stat {
+        border: 1px solid rgba(22, 20, 16, 0.06);
+        border-radius: 18px;
+        padding: 0.8rem 0.9rem;
+        background: rgba(255, 255, 255, 0.38);
+    }
+
+    .june-stat-label {
+        color: var(--june-muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin-bottom: 0.35rem;
+    }
+
+    .june-stat-value {
+        font-family: "Syne", sans-serif;
+        font-size: 1.8rem;
+        line-height: 1;
+    }
+
+    .june-list {
+        display: grid;
+        gap: 0.65rem;
+    }
+
+    .june-item {
+        border-top: 1px solid var(--june-line);
+        padding-top: 0.65rem;
+    }
+
+    .june-item:first-child {
+        border-top: none;
+        padding-top: 0;
+    }
+
+    .june-item-title {
+        font-family: "Syne", sans-serif;
+        font-size: 1.05rem;
+        margin-bottom: 0.18rem;
+    }
+
+    .june-item-meta {
+        color: var(--june-muted);
         font-size: 12px;
-        line-height: 1.45;
+        line-height: 1.55;
+    }
+
+    .june-chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+    }
+
+    .june-chip {
+        border-radius: 999px;
+        padding: 0.38rem 0.68rem;
+        background: rgba(15, 95, 74, 0.08);
+        color: var(--june-accent);
+        font-size: 12px;
+        border: 1px solid rgba(15, 95, 74, 0.1);
+    }
+
+    .june-transcript {
+        max-height: 60vh;
+        overflow-y: auto;
+        padding-right: 0.2rem;
+    }
+
+    .june-message {
+        margin-bottom: 0.95rem;
+        padding: 0.95rem 1rem;
+        border-radius: 20px;
+        border: 1px solid rgba(22, 20, 16, 0.05);
         white-space: pre-wrap;
         overflow-wrap: anywhere;
     }
-    .june-console-header, .june-workspace-header {
-        font-family: var(--june-font);
-        font-size: 12px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        margin-bottom: 12px;
-        color: var(--june-green);
-        border-bottom: 1px solid rgba(31, 107, 58, 0.12);
-        padding-bottom: 8px;
-    }
-    .june-workspace h3, .june-workspace h4, .june-workspace p, .june-workspace li,
-    .june-console, .june-console * {
-        color: var(--june-text);
-    }
-    .june-workspace h3 {
-        margin-bottom: 0.7rem;
-        font-size: 1.9rem;
-    }
-    .june-workspace h4 {
-        margin-top: 1.5rem;
-        margin-bottom: 0.45rem;
-        color: var(--june-green);
-    }
-    .june-workspace ul {
-        margin: 0;
-        padding-left: 18px;
-    }
-    .june-chat-shell {
-        max-width: 720px;
-    }
-    .june-transcript {
-        height: 70vh;
-        overflow-y: auto;
-        padding-right: 1rem;
-        mask-image: linear-gradient(to bottom, transparent 0%, black 18%, black 100%);
-    }
-    .june-message {
-        margin-bottom: 1.25rem;
-        color: var(--june-text);
-        animation: june-rise 180ms ease;
-    }
+
     .june-message-user {
-        font-weight: 700;
-        color: var(--june-green);
+        background: rgba(217, 108, 67, 0.10);
     }
+
     .june-message-assistant {
-        font-weight: 400;
-        color: var(--june-text);
+        background: rgba(255, 255, 255, 0.52);
     }
-    .june-message-live {
-        color: var(--june-green);
-    }
-    .june-input-wrap {
-        margin-top: 1.2rem;
-        background: transparent;
-    }
-    .june-writing {
-        color: var(--june-green);
-        font-size: 12px;
-        letter-spacing: 0.08em;
+
+    .june-message-label {
+        color: var(--june-accent);
         text-transform: uppercase;
-        margin-top: 1rem;
-    }
-    @keyframes june-rise {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    .june-drawer {
-        position: fixed;
-        right: 1rem;
-        width: 380px;
-        overflow-y: auto;
-        padding: 0.25rem 0.25rem 1rem 0.25rem;
-        background: transparent;
-        z-index: 30;
-        transform: translateX(calc(100% + 2rem));
-        transition: transform 180ms ease;
-    }
-    .june-drawer.open {
-        transform: translateX(0);
-    }
-    .june-workspace-drawer {
-        top: 4.5rem;
-        max-height: calc(52vh - 3rem);
-    }
-    .june-activity-drawer {
-        bottom: 1rem;
-        max-height: calc(42vh - 1rem);
-    }
-    .june-drawer-controls {
-        position: fixed;
-        top: 4.5rem;
-        right: 1rem;
-        width: 220px;
-        z-index: 40;
-    }
-    button[kind="secondary"], button[kind="primary"], .stButton > button {
-        background: var(--june-bg);
-        color: var(--june-text);
-        border: none;
-        border-radius: 999px;
-        transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
-    }
-    button[kind="secondary"]:hover, button[kind="primary"]:hover, .stButton > button:hover {
-        color: var(--june-green);
-        background: var(--june-green-soft);
-    }
-    button[kind="secondary"]:focus, button[kind="primary"]:focus, .stButton > button:focus {
-        box-shadow: 0 0 0 1px var(--june-green-soft);
-    }
-    [data-testid="stRadio"] label {
-        color: var(--june-text);
-    }
-    [data-testid="stRadio"] input:checked + div,
-    [data-testid="stRadio"] input:checked + div p {
-        color: var(--june-green);
-    }
-    [data-testid="stRadio"] svg {
-        color: var(--june-green);
-    }
-    [data-testid="stChatInput"] {
-        background: transparent;
-    }
-    hr, [data-testid="stSidebar"] hr {
-        border: none;
-        border-top: 1px solid rgba(31, 107, 58, 0.12);
-    }
-    .june-console-floating {
-        background: transparent;
-        backdrop-filter: blur(6px);
-        mask-image: linear-gradient(to bottom, transparent 0%, black 16%, black 100%);
-    }
-    .june-input-wrap [data-testid="stForm"] {
-        background: transparent;
-        border: none;
-        padding: 0;
-    }
-    .june-input-wrap input {
-        color: var(--june-green);
-        font-weight: 700;
-    }
-    .june-input-wrap input::placeholder {
-        color: rgba(31, 107, 58, 0.45);
-    }
-    .june-brand {
-        color: var(--june-green);
-        font-size: 2.2rem;
-        line-height: 1;
-        margin: 0 0 0.8rem 0;
-        letter-spacing: 0.02em;
-    }
-    .june-flashline {
-        position: relative;
-        color: rgba(31, 107, 58, 0.34);
-        overflow: hidden;
-        display: inline-block;
-        line-height: 1.5;
-        margin-bottom: 1.4rem;
-    }
-    .june-flashline::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(
-            110deg,
-            rgba(255,255,255,0) 0%,
-            rgba(255,255,255,0) 38%,
-            rgba(31,107,58,0.18) 48%,
-            rgba(255,255,255,0) 58%,
-            rgba(255,255,255,0) 100%
-        );
-        transform: translateX(-130%);
-        animation: june-flash 4.6s ease-in-out infinite;
-    }
-    @keyframes june-flash {
-        0% { transform: translateX(-130%); }
-        45% { transform: translateX(-130%); }
-        70% { transform: translateX(130%); }
-        100% { transform: translateX(130%); }
-    }
-    .june-side-label {
-        color: var(--june-green);
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        font-size: 12px;
+        letter-spacing: 0.14em;
+        font-size: 10px;
         margin-bottom: 0.4rem;
     }
-    .june-skill-wheel {
-        text-align: center;
-        margin: 0.5rem 0 1.2rem 0;
+
+    .june-live {
+        color: var(--june-accent);
     }
-    .june-skill-current {
-        color: var(--june-green);
-        font-weight: 700;
-        font-size: 1.1rem;
-        line-height: 1.5;
-        margin: 0.3rem 0;
+
+    .june-writing {
+        color: var(--june-accent);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-size: 11px;
+        margin-top: 0.6rem;
     }
-    .june-skill-neighbor {
-        color: rgba(31, 107, 58, 0.34);
-        font-size: 0.92rem;
-        line-height: 1.3;
+
+    hr, [data-testid="stSidebar"] hr {
+        border: none;
+        border-top: 1px solid var(--june-line);
     }
     </style>
     """,
@@ -324,59 +296,6 @@ def extract_text(content) -> str:
     return ""
 
 
-def workspace_drawer_class() -> str:
-    """Return the CSS class for the workspace drawer."""
-    base = "june-drawer june-workspace-drawer"
-    if st.session_state.workspace_drawer_open:
-        base += " open"
-    return base
-
-
-def activity_drawer_class() -> str:
-    """Return the CSS class for the activity drawer."""
-    base = "june-drawer june-activity-drawer"
-    if st.session_state.activity_drawer_open:
-        base += " open"
-    return base
-
-
-def render_workspace_drawer(container, ui_state: dict) -> None:
-    """Render the workspace inside a fixed right-side drawer."""
-    items = "".join(
-        f"<li>{html.escape(item)}</li>"
-        for item in ui_state.get("checklist_items", [])
-    )
-    drawer_html = (
-        f'<div class="{workspace_drawer_class()}">'
-        '<div class="june-workspace">'
-        '<div class="june-workspace-header">Workspace / '
-        f"{html.escape(ui_state.get('layout', 'split'))}"
-        "</div>"
-        f"<h3>{html.escape(ui_state.get('focus_title', 'Workspace'))}</h3>"
-        f"<p>{html.escape(ui_state.get('focus_body', ''))}</p>"
-        f"<h4>{html.escape(ui_state.get('checklist_title', 'Next steps'))}</h4>"
-        f"<ul>{items}</ul>"
-        f"<p><strong>Status:</strong> {html.escape(ui_state.get('notice', ''))}</p>"
-        "</div>"
-        "</div>"
-    )
-    container.markdown(drawer_html, unsafe_allow_html=True)
-
-
-def render_activity_drawer(container, activity_log: list[str]) -> None:
-    """Render the activity console inside a fixed right-side drawer."""
-    lines = "\n".join(activity_log[-40:]) or "No activity yet."
-    drawer_html = (
-        f'<div class="{activity_drawer_class()}">'
-        '<div class="june-console june-console-floating">'
-        '<div class="june-console-header">Live Activity</div>'
-        f"{html.escape(lines)}"
-        "</div>"
-        "</div>"
-    )
-    container.markdown(drawer_html, unsafe_allow_html=True)
-
-
 def has_active_notes(ui_state: dict) -> bool:
     """Return whether the workspace contains meaningful model notes."""
     if ui_state.get("focus_title") not in {"", "Workspace"}:
@@ -397,18 +316,21 @@ def transcript_html(messages: list, live_response: str = "") -> str:
         if isinstance(msg, HumanMessage):
             blocks.append(
                 '<div class="june-message june-message-user">'
+                '<div class="june-message-label">You</div>'
                 f"{html.escape(extract_text(msg.content))}"
                 "</div>"
             )
         elif isinstance(msg, AIMessage) and msg.content:
             blocks.append(
                 '<div class="june-message june-message-assistant">'
+                '<div class="june-message-label">June</div>'
                 f"{html.escape(extract_text(msg.content))}"
                 "</div>"
             )
     if live_response:
         blocks.append(
-            '<div class="june-message june-message-assistant june-message-live">'
+            '<div class="june-message june-message-assistant june-live">'
+            '<div class="june-message-label">June</div>'
             f"{html.escape(live_response)}"
             "</div>"
         )
@@ -432,6 +354,48 @@ def append_activity(message: str) -> None:
     st.session_state.activity_log.append(message)
 
 
+def render_stat_grid(snapshot: dict) -> str:
+    """Render the snapshot tiles."""
+    stats = [
+        ("Calendar", snapshot["calendar_count"]),
+        ("Favorites", snapshot["favorite_count"]),
+        ("Goals", snapshot["goal_count"]),
+        ("Plans", snapshot["gym_plan_count"] + snapshot["food_program_count"]),
+    ]
+    tiles = "".join(
+        (
+            '<div class="june-stat">'
+            f'<div class="june-stat-label">{html.escape(label)}</div>'
+            f'<div class="june-stat-value">{value}</div>'
+            "</div>"
+        )
+        for label, value in stats
+    )
+    return f'<div class="june-stat-grid">{tiles}</div>'
+
+
+def render_list(items: list[tuple[str, str]]) -> str:
+    """Render a generic list of titled items."""
+    if not items:
+        return '<div class="june-item-meta">Nothing saved yet.</div>'
+    return '<div class="june-list">' + "".join(
+        (
+            '<div class="june-item">'
+            f'<div class="june-item-title">{html.escape(title)}</div>'
+            f'<div class="june-item-meta">{html.escape(meta)}</div>'
+            "</div>"
+        )
+        for title, meta in items
+    ) + "</div>"
+
+
+def render_activity(activity_log: list[str]) -> str:
+    """Render the live activity feed."""
+    if not activity_log:
+        return '<div class="june-item-meta">No activity yet.</div>'
+    return render_list([("Agent activity", line) for line in activity_log[-12:]])
+
+
 def handle_stream_chunk(
     mode: str,
     data,
@@ -444,14 +408,14 @@ def handle_stream_chunk(
         event = data or {}
         if event.get("event") == "chat_started":
             append_activity(
-                f"[chat] skill={event.get('skill')} messages={event.get('message_count')}"
+                f"skill={event.get('skill')} | messages={event.get('message_count')}"
             )
         elif event.get("event") == "tool_calls_requested":
             tools = ", ".join(event.get("tools", []))
-            append_activity(f"[chat] tool calls requested: {tools}")
+            append_activity(f"tool calls requested | {tools}")
         elif event.get("event") == "response_completed":
-            append_activity("[chat] direct response completed")
-        render_activity_drawer(activity_placeholder, st.session_state.activity_log)
+            append_activity("direct response completed")
+        activity_placeholder.markdown(render_activity(st.session_state.activity_log), unsafe_allow_html=True)
         return
 
     if mode == "messages":
@@ -461,171 +425,121 @@ def handle_stream_chunk(
             if token_text:
                 st.session_state.live_response += token_text
                 transcript_placeholder.markdown(
-                    transcript_html(
-                        st.session_state.messages,
-                        st.session_state.live_response,
-                    ),
+                    transcript_html(st.session_state.messages, st.session_state.live_response),
                     unsafe_allow_html=True,
                 )
             for chunk in getattr(message, "tool_call_chunks", []) or []:
                 name = chunk.get("name")
                 if name:
-                    append_activity(f"[token] planning tool: {name}")
-        render_activity_drawer(activity_placeholder, st.session_state.activity_log)
+                    append_activity(f"planning tool | {name}")
+        activity_placeholder.markdown(render_activity(st.session_state.activity_log), unsafe_allow_html=True)
         return
 
     if mode == "updates":
         for node_name, payload in (data or {}).items():
-            append_activity(f"[node] {node_name}")
+            append_activity(f"node | {node_name}")
             if isinstance(payload, dict):
                 if "ui_state" in payload:
                     st.session_state.ui_state = payload["ui_state"]
-                    if has_active_notes(st.session_state.ui_state):
-                        render_workspace_drawer(
-                            workspace_placeholder,
-                            st.session_state.ui_state,
-                        )
-                    else:
-                        workspace_placeholder.empty()
-                    append_activity(
-                        f"[ui] layout={st.session_state.ui_state.get('layout')} "
-                        f"title={st.session_state.ui_state.get('focus_title')}"
+                    workspace_placeholder.markdown(
+                        render_workspace(st.session_state.ui_state),
+                        unsafe_allow_html=True,
                     )
                 for message in payload.get("messages", []):
                     if isinstance(message, ToolMessage):
-                        append_activity(
-                            f"[tool] {message.name}: {extract_text(message.content)}"
-                        )
+                        append_activity(f"tool | {extract_text(message.content)}")
                     elif isinstance(message, AIMessage):
                         for tool_call in getattr(message, "tool_calls", []) or []:
                             append_activity(
-                                f"[tool-request] {tool_call.get('name')} "
-                                f"args={tool_call.get('args')}"
+                                f"tool request | {tool_call.get('name')} {tool_call.get('args')}"
                             )
-        render_activity_drawer(activity_placeholder, st.session_state.activity_log)
+        activity_placeholder.markdown(render_activity(st.session_state.activity_log), unsafe_allow_html=True)
         return
 
     if mode == "values" and isinstance(data, dict):
         st.session_state.final_state = data
         if "ui_state" in data:
             st.session_state.ui_state = data["ui_state"]
-            if has_active_notes(st.session_state.ui_state):
-                render_workspace_drawer(workspace_placeholder, st.session_state.ui_state)
-            else:
-                workspace_placeholder.empty()
+            workspace_placeholder.markdown(
+                render_workspace(st.session_state.ui_state),
+                unsafe_allow_html=True,
+            )
+
+
+def render_workspace(ui_state: dict) -> str:
+    """Render the workspace board."""
+    checklist_items = ui_state.get("checklist_items", [])
+    checklist = (
+        "".join(f"<li>{html.escape(item)}</li>" for item in checklist_items)
+        if checklist_items
+        else "<li>No pinned actions.</li>"
+    )
+    return (
+        '<div class="june-surface june-surface-strong">'
+        '<div class="june-panel-kicker">Workspace</div>'
+        f'<h3 class="june-panel-title">{html.escape(ui_state.get("focus_title", "Workspace"))}</h3>'
+        f'<div class="june-item-meta">{html.escape(ui_state.get("focus_body", ""))}</div>'
+        f'<div class="june-panel-kicker" style="margin-top:1rem;">{html.escape(ui_state.get("checklist_title", "Next steps"))}</div>'
+        f'<div class="june-item-meta"><ul>{checklist}</ul></div>'
+        f'<div class="june-item-meta" style="margin-top:0.8rem;">{html.escape(ui_state.get("notice", ""))}</div>'
+        "</div>"
+    )
 
 
 with st.sidebar:
-    skill_keys = list(SKILLS.keys())
     if "selected_skill_key" not in st.session_state:
         st.session_state.selected_skill_key = DEFAULT_SKILL
 
-    st.markdown('<div class="june-brand">JuneAI</div>', unsafe_allow_html=True)
+    st.markdown('<div class="june-brand">June</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="june-flashline">Your companion for love,<br>life and growth</div>',
+        '',
         unsafe_allow_html=True,
     )
-    st.markdown('<div class="june-side-label">You are:</div>', unsafe_allow_html=True)
+    st.write("")
+    user_id = st.text_input("Profile", value="admin")
+    st.caption("Mode")
 
-    user_id = st.text_input(
-        "You are:",
-        value="friend",
-        key="user_id_input",
-        label_visibility="collapsed",
-    )
-
-    current_skill_index = skill_keys.index(st.session_state.selected_skill_key)
-    prev_skill = SKILLS[skill_keys[(current_skill_index - 1) % len(skill_keys)]].label
-    current_skill = SKILLS[skill_keys[current_skill_index]].label
-    next_skill = SKILLS[skill_keys[(current_skill_index + 1) % len(skill_keys)]].label
-
-    st.markdown(
-        '<div class="june-side-label">What do you need?</div>',
-        unsafe_allow_html=True,
-    )
-    skill_left, skill_mid, skill_right = st.columns([0.18, 0.64, 0.18], gap="small")
-    with skill_left:
-        if st.button("<", use_container_width=True):
-            st.session_state.selected_skill_key = skill_keys[
-                (current_skill_index - 1) % len(skill_keys)
-            ]
-            st.rerun()
-    with skill_mid:
-        st.markdown(
-            (
-                '<div class="june-skill-wheel">'
-                f'<div class="june-skill-neighbor">{html.escape(prev_skill)}</div>'
-                f'<div class="june-skill-current">{html.escape(current_skill)}</div>'
-                f'<div class="june-skill-neighbor">{html.escape(next_skill)}</div>'
-                "</div>"
-            ),
-            unsafe_allow_html=True,
-        )
-    with skill_right:
-        if st.button(">", use_container_width=True):
-            st.session_state.selected_skill_key = skill_keys[
-                (current_skill_index + 1) % len(skill_keys)
-            ]
-            st.rerun()
+    skill_keys = list(SKILLS.keys())
+    skill_cols = st.columns(2, gap="small")
+    for index, key in enumerate(skill_keys):
+        with skill_cols[index % 2]:
+            if st.button(SKILLS[key].label, key=f"skill_{key}", use_container_width=True):
+                st.session_state.selected_skill_key = key
+                st.rerun()
 
     selected_skill = st.session_state.selected_skill_key
+    skill = SKILLS[selected_skill]
+    st.write("")
+    st.caption(skill.sidebar_caption)
+    st.markdown(f"**{skill.intro}**")
 
-    if st.button("Clear Chat", use_container_width=True):
+    if st.button("Clear chat", use_container_width=True):
         st.session_state.messages = []
         st.session_state.activity_log = []
         st.session_state.ui_state = default_ui_state()
+        st.session_state.live_response = ""
+        st.session_state.final_state = None
+        st.session_state.pending_prompt = ""
+        st.session_state.is_generating = False
         st.rerun()
 
-    mem_preview = Memory(user_id)
-    history = mem_preview.get_mood_history(5)
-    if history:
-        st.caption("Recent moods")
-        for mood in reversed(history):
-            st.write(f"**{mood['timestamp'][:10]}** - {mood['mood']}")
-            if mood.get("note"):
-                st.caption(mood["note"])
-
-    loops = mem_preview.get_open_loops(limit=5)
-    if loops:
-        st.caption("Open loops")
-        for loop in reversed(loops):
-            text = loop["topic"]
-            if loop.get("next_step"):
-                text += f" | Next: {loop['next_step']}"
-            st.write(text)
-
-skill = SKILLS[selected_skill]
 
 if "messages" not in st.session_state:
     st.session_state.messages = Memory(user_id).load_chat_messages()
-
 if "last_user_id" not in st.session_state:
     st.session_state.last_user_id = user_id
-
 if "last_skill" not in st.session_state:
     st.session_state.last_skill = selected_skill
-
 if "activity_log" not in st.session_state:
     st.session_state.activity_log = []
-
 if "ui_state" not in st.session_state:
     st.session_state.ui_state = default_ui_state()
-
 if "live_response" not in st.session_state:
     st.session_state.live_response = ""
-
 if "final_state" not in st.session_state:
     st.session_state.final_state = None
-
-if "workspace_drawer_open" not in st.session_state:
-    st.session_state.workspace_drawer_open = True
-
-if "activity_drawer_open" not in st.session_state:
-    st.session_state.activity_drawer_open = True
-
 if "is_generating" not in st.session_state:
     st.session_state.is_generating = False
-
 if "pending_prompt" not in st.session_state:
     st.session_state.pending_prompt = ""
 
@@ -634,38 +548,81 @@ if st.session_state.last_user_id != user_id:
     st.session_state.activity_log = []
     st.session_state.ui_state = default_ui_state()
     st.session_state.live_response = ""
+    st.session_state.final_state = None
     st.session_state.pending_prompt = ""
     st.session_state.is_generating = False
     st.session_state.last_user_id = user_id
 
-memory = Memory(user_id)
-
 if st.session_state.last_skill != selected_skill:
     st.session_state.last_skill = selected_skill
 
-control_spacer, control_col = st.columns([0.78, 0.22], gap="small")
-with control_col:
-    workspace_label = (
-        "Hide Workspace" if st.session_state.workspace_drawer_open else "Show Workspace"
-    )
-    activity_label = (
-        "Hide Activity" if st.session_state.activity_drawer_open else "Show Activity"
-    )
-    if st.button(workspace_label, use_container_width=True):
-        st.session_state.workspace_drawer_open = not st.session_state.workspace_drawer_open
-        st.rerun()
-    if st.button(activity_label, use_container_width=True):
-        st.session_state.activity_drawer_open = not st.session_state.activity_drawer_open
-        st.rerun()
+memory = Memory(user_id)
+snapshot = memory.get_progress_snapshot()
+preferences = memory.get_preferences(limit=8)
+calendar_items = memory.get_calendar_items(limit=8)
+favorites = memory.get_favorites(limit=8)
+gym_plans = memory.get_gym_plans(limit=4)
+food_programs = memory.get_food_programs(limit=4)
 
-st.markdown('<div class="june-chat-shell">', unsafe_allow_html=True)
-transcript_placeholder = st.empty()
-transcript_placeholder.markdown(
-    transcript_html(st.session_state.messages, st.session_state.live_response),
+st.markdown('<div class="june-shell">', unsafe_allow_html=True)
+st.markdown(
+    (
+        '<div class="june-hero">'
+        '<div class="june-kicker">June</div>'
+        '<h1 class="june-title">Your assistant.</h1>'
+        f'<div class="june-subtitle">{html.escape(skill.hint)}</div>'
+        "</div>"
+    ),
     unsafe_allow_html=True,
 )
-if not st.session_state.is_generating:
-    st.markdown('<div class="june-input-wrap">', unsafe_allow_html=True)
+
+left_col, center_col, right_col = st.columns([1.0, 1.45, 1.0], gap="large")
+
+with left_col:
+    st.markdown('<div class="june-surface">', unsafe_allow_html=True)
+    st.markdown('<div class="june-panel-kicker">Snapshot</div>', unsafe_allow_html=True)
+    st.markdown(render_stat_grid(snapshot), unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    pref_chips = (
+        '<div class="june-chip-row">'
+        + "".join(
+            f'<div class="june-chip">{html.escape(item["category"])}: {html.escape(item["value"])}</div>'
+            for item in preferences
+        )
+        + "</div>"
+        if preferences
+        else '<div class="june-item-meta">No saved preferences yet.</div>'
+    )
+    st.markdown('<div class="june-surface">', unsafe_allow_html=True)
+    st.markdown('<div class="june-panel-kicker">Taste and Preferences</div>', unsafe_allow_html=True)
+    st.markdown('<h3 class="june-panel-title">What June has learned</h3>', unsafe_allow_html=True)
+    st.markdown(pref_chips, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    routine_items = [
+        (plan["name"], f"{plan['schedule']} | Goal: {plan['goal'] or 'not set'}")
+        for plan in gym_plans
+    ] + [
+        (program["name"], f"{program['goal']} | {program['daily_structure']}")
+        for program in food_programs
+    ]
+    st.markdown('<div class="june-surface">', unsafe_allow_html=True)
+    st.markdown('<div class="june-panel-kicker">Routines</div>', unsafe_allow_html=True)
+    st.markdown('<h3 class="june-panel-title">Gym and food programs</h3>', unsafe_allow_html=True)
+    st.markdown(render_list(routine_items), unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+with center_col:
+    transcript_placeholder = st.empty()
+    st.markdown('<div class="june-surface june-surface-strong">', unsafe_allow_html=True)
+    st.markdown('<div class="june-panel-kicker">Conversation</div>', unsafe_allow_html=True)
+    transcript_placeholder.markdown(
+        transcript_html(st.session_state.messages, st.session_state.live_response),
+        unsafe_allow_html=True,
+    )
+    if st.session_state.is_generating:
+        st.markdown('<div class="june-writing">June is writing</div>', unsafe_allow_html=True)
     with st.form("june_input_form", clear_on_submit=True):
         prompt = st.text_input(
             "Message June",
@@ -675,23 +632,48 @@ if not st.session_state.is_generating:
         )
         submitted = st.form_submit_button("Send", use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
-    if submitted and prompt.strip():
+    if submitted and prompt.strip() and not st.session_state.is_generating:
         st.session_state.pending_prompt = prompt.strip()
         st.session_state.is_generating = True
         st.rerun()
+
+with right_col:
+    workspace_placeholder = st.empty()
+    workspace_placeholder.markdown(render_workspace(st.session_state.ui_state), unsafe_allow_html=True)
+
+    calendar_list = [
+        (
+            item["title"],
+            f"{item['date']}{' ' + item['time'] if item.get('time') else ''} | {item.get('details') or item.get('status', '')}",
+        )
+        for item in calendar_items
+    ]
+    st.markdown('<div class="june-surface">', unsafe_allow_html=True)
+    st.markdown('<div class="june-panel-kicker">Calendar</div>', unsafe_allow_html=True)
+    st.markdown('<h3 class="june-panel-title">Upcoming and captured</h3>', unsafe_allow_html=True)
+    st.markdown(render_list(calendar_list), unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    favorite_list = [
+        (
+            item["title"],
+            f"{item['category']}{' | ' + item['creator'] if item.get('creator') else ''}{' | ' + item['reason'] if item.get('reason') else ''}",
+        )
+        for item in favorites
+    ]
+    st.markdown('<div class="june-surface">', unsafe_allow_html=True)
+    st.markdown('<div class="june-panel-kicker">Favorites</div>', unsafe_allow_html=True)
+    st.markdown('<h3 class="june-panel-title">Books, films, and saved picks</h3>', unsafe_allow_html=True)
+    st.markdown(render_list(favorite_list), unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    activity_placeholder = st.empty()
+    st.markdown('<div class="june-surface">', unsafe_allow_html=True)
+    st.markdown('<div class="june-panel-kicker">Live Activity</div>', unsafe_allow_html=True)
+    activity_placeholder.markdown(render_activity(st.session_state.activity_log), unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
 st.markdown("</div>", unsafe_allow_html=True)
-
-workspace_placeholder = st.empty()
-if has_active_notes(st.session_state.ui_state):
-    render_workspace_drawer(workspace_placeholder, st.session_state.ui_state)
-else:
-    workspace_placeholder.empty()
-
-activity_placeholder = st.empty()
-render_activity_drawer(activity_placeholder, st.session_state.activity_log)
-
-if st.session_state.is_generating:
-    st.markdown('<div class="june-writing">June is writing</div>', unsafe_allow_html=True)
 
 if st.session_state.is_generating and st.session_state.pending_prompt:
     prompt = st.session_state.pending_prompt
@@ -701,12 +683,12 @@ if st.session_state.is_generating and st.session_state.pending_prompt:
     st.session_state.pending_prompt = ""
     st.session_state.live_response = ""
     st.session_state.final_state = None
-    append_activity(f"[user] {prompt}")
+    append_activity(f"user | {prompt}")
     transcript_placeholder.markdown(
         transcript_html(st.session_state.messages, st.session_state.live_response),
         unsafe_allow_html=True,
     )
-    render_activity_drawer(activity_placeholder, st.session_state.activity_log)
+    activity_placeholder.markdown(render_activity(st.session_state.activity_log), unsafe_allow_html=True)
 
     try:
         for mode, data in june_agent.stream(
@@ -725,21 +707,20 @@ if st.session_state.is_generating and st.session_state.pending_prompt:
                 workspace_placeholder,
                 activity_placeholder,
             )
-    except Exception as e:
+    except Exception as exc:
         st.session_state.is_generating = False
-        st.error(f"June ran into an issue: {e}")
+        st.error(f"June ran into an issue: {exc}")
         st.stop()
 
     result = st.session_state.final_state
     if result:
         response = next(
             (
-                m for m in reversed(result["messages"])
-                if isinstance(m, AIMessage) and m.content
+                message for message in reversed(result["messages"])
+                if isinstance(message, AIMessage) and message.content
             ),
             None,
         )
-
         if response:
             final_text = extract_text(response.content)
             st.session_state.messages = result["messages"]
@@ -749,4 +730,6 @@ if st.session_state.is_generating and st.session_state.pending_prompt:
                 unsafe_allow_html=True,
             )
             memory.save_message("assistant", final_text)
+
     st.session_state.is_generating = False
+    st.rerun()

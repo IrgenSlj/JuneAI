@@ -11,7 +11,7 @@ async def test_agent_simple_response() -> None:
     inputs = {
         "messages": [HumanMessage(content="Hello, how are you?")],
         "user_id": "test_user",
-        "skill": "friend",
+        "skill": "assistant",
         "ui_state": {
             "layout": "split",
             "focus_title": "Workspace",

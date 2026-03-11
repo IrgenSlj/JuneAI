@@ -3,27 +3,33 @@
 from unittest.mock import patch
 
 import pytest
-from langchain_core.messages import AIMessage
-from langgraph.prebuilt import ToolNode
 
 from agent.memory import Memory
 from agent.tools import (
     clear_ui_workspace,
-    draft_reply,
     get_journal,
     get_mood_history,
-    get_relationship_context,
+    get_user_preferences,
+    list_calendar_items,
+    list_favorites,
+    list_food_programs,
     list_goals,
+    list_gym_plans,
     list_open_loops,
     log_mood,
-    save_open_loop,
+    save_calendar_item,
+    save_favorite_recommendation,
+    save_food_program,
     save_journal_entry,
+    save_open_loop,
     save_relationship_profile,
+    save_user_preference,
     set_ui_checklist,
     set_ui_focus,
     set_ui_layout,
     summarize_progress,
     track_goal,
+    save_gym_plan,
 )
 
 
@@ -39,8 +45,6 @@ def mem(memory_dir):
     """Memory instance backed by a temporary directory."""
     return Memory("test_user")
 
-
-# --- Memory class tests ---
 
 def test_save_and_load_message(mem):
     mem.save_message("user", "hello")
@@ -68,97 +72,52 @@ def test_log_and_get_mood(mem):
     assert moods[1]["note"] == "big meeting"
 
 
-def test_get_mood_history_limit(mem):
-    for i in range(15):
-        mem.log_mood(f"mood_{i}")
-    recent = mem.get_mood_history(5)
-    assert len(recent) == 5
-    assert recent[-1]["mood"] == "mood_14"
+def test_save_calendar_items_are_sorted(mem):
+    mem.save_calendar_item("Dinner", "2026-04-02", "20:00")
+    mem.save_calendar_item("Workout", "2026-03-15", "08:00")
+    items = mem.get_calendar_items()
+    assert items[0]["title"] == "Workout"
+    assert items[1]["title"] == "Dinner"
 
 
-def test_save_and_get_journal(mem):
-    mem.save_journal("Today I felt brave.")
-    mem.save_journal("I set a boundary.")
-    entries = mem.get_journal()
-    assert len(entries) == 2
-    assert entries[0]["entry"] == "Today I felt brave."
+def test_save_preferences_and_favorites(mem):
+    mem.save_preference("books", "literary fiction", "prefers character-driven novels")
+    mem.save_favorite("movie", "Past Lives", "quiet emotional tension")
+    preferences = mem.get_preferences()
+    favorites = mem.get_favorites()
+    assert preferences[0]["value"] == "literary fiction"
+    assert favorites[0]["title"] == "Past Lives"
 
 
-def test_journal_limit(mem):
-    for i in range(10):
-        mem.save_journal(f"entry {i}")
-    recent = mem.get_journal(3)
-    assert len(recent) == 3
-    assert recent[-1]["entry"] == "entry 9"
+def test_save_gym_and_food_programs(mem):
+    mem.save_gym_plan("Spring Split", "Mon push, Wed pull, Fri legs", goal="build muscle")
+    mem.save_food_program("Cut Phase", "fat loss", "High protein lunch and dinner")
+    gym_plans = mem.get_gym_plans()
+    food_programs = mem.get_food_programs()
+    assert gym_plans[0]["goal"] == "build muscle"
+    assert food_programs[0]["daily_structure"] == "High protein lunch and dinner"
 
 
-def test_save_and_get_relationship_profile(mem):
-    mem.save_relationship_profile(
-        person="Alex",
-        relationship="dating",
-        summary="Early stage, strong chemistry, uneven texting.",
-        user_needs="Consistency",
-        cautions="Avoid over-investing too early",
-    )
-    profiles = mem.get_relationship_profiles("Alex")
-    assert len(profiles) == 1
-    assert profiles[0]["relationship"] == "dating"
-    assert profiles[0]["user_needs"] == "Consistency"
-
-
-def test_save_and_filter_goals(mem):
-    mem.save_goal("Send a clear follow-up", category="dating")
-    mem.save_goal("Journal after the date", status="done")
-    active_goals = mem.get_goals(status="active")
-    assert len(active_goals) == 1
-    assert active_goals[0]["title"] == "Send a clear follow-up"
-
-
-def test_save_and_filter_open_loops(mem):
-    mem.save_open_loop("Decide whether to reach out", next_step="Wait until Friday")
-    mem.save_open_loop("Book therapy session", status="closed")
-    open_loops = mem.get_open_loops(status="open")
-    assert len(open_loops) == 1
-    assert open_loops[0]["topic"] == "Decide whether to reach out"
+def test_progress_snapshot_includes_new_surfaces(mem):
+    mem.save_preference("movie", "slow cinema")
+    mem.save_calendar_item("Dentist", "2026-05-01")
+    mem.save_favorite("book", "The Neapolitan Novels")
+    mem.save_gym_plan("Base", "Tue and Thu full body")
+    mem.save_food_program("Maintenance", "energy", "3 meals and 1 snack")
+    snapshot = mem.get_progress_snapshot()
+    assert snapshot["preference_count"] == 1
+    assert snapshot["calendar_count"] == 1
+    assert snapshot["favorite_count"] == 1
+    assert snapshot["gym_plan_count"] == 1
+    assert snapshot["food_program_count"] == 1
 
 
 @pytest.fixture
-def tool_node(memory_dir):
-    return ToolNode([
-        log_mood,
-        get_mood_history,
-        save_journal_entry,
-        get_journal,
-        save_relationship_profile,
-        get_relationship_context,
-        track_goal,
-        list_goals,
-        save_open_loop,
-        list_open_loops,
-        summarize_progress,
-        draft_reply,
-        set_ui_focus,
-        set_ui_checklist,
-        set_ui_layout,
-        clear_ui_workspace,
-    ])
-
-
-def _run_tool(tool_node, tool_name, args):
-    return tool_node.invoke({
-        "messages": [
-            AIMessage(
-                content="",
-                tool_calls=[{
-                    "name": tool_name,
-                    "args": args,
-                    "id": "call_1",
-                    "type": "tool_call",
-                }],
-            )
-        ],
+def tool_state():
+    return {
+        "messages": [],
         "user_id": "test_user",
-        "skill": "strategy",
+        "skill": "assistant",
         "ui_state": {
             "layout": "split",
             "focus_title": "Workspace",
@@ -167,132 +126,111 @@ def _run_tool(tool_node, tool_name, args):
             "checklist_items": [],
             "notice": "",
         },
-    })
+    }
 
 
-def test_log_mood_tool(tool_node, mem):
-    result = _run_tool(
-        tool_node,
-        "log_mood",
-        {"mood": "calm", "note": "quiet morning"},
-    )["messages"][-1].content
+def test_log_mood_tool(tool_state, mem):
+    result = log_mood.func(mood="calm", note="quiet morning", state=tool_state)
     assert "calm" in result
     assert len(mem.get_mood_history()) == 1
 
 
-def test_get_mood_history_tool_empty(tool_node):
-    result = _run_tool(tool_node, "get_mood_history", {})["messages"][-1].content
-    assert "No mood history" in result
-
-
-def test_get_mood_history_tool_with_data(tool_node, mem):
-    mem.log_mood("joyful", "sunshine")
-    result = _run_tool(tool_node, "get_mood_history", {})["messages"][-1].content
-    assert "joyful" in result
-
-
-def test_save_journal_tool(tool_node, mem):
-    result = _run_tool(
-        tool_node,
-        "save_journal_entry",
-        {"entry": "I faced my fear today."},
-    )["messages"][-1].content
-    assert "saved" in result.lower()
-    assert len(mem.get_journal()) == 1
-
-
-def test_get_journal_tool_with_data(tool_node, mem):
-    mem.save_journal("A meaningful reflection.")
-    result = _run_tool(tool_node, "get_journal", {})["messages"][-1].content
-    assert "A meaningful reflection." in result
-
-
-def test_relationship_context_tool(tool_node, mem):
-    mem.save_relationship_profile(
-        person="Taylor",
-        relationship="ex",
-        summary="Recent contact restarted old confusion.",
-        user_needs="Clarity",
+def test_preference_tool(tool_state, mem):
+    result = save_user_preference.func(
+        category="books",
+        value="lyrical fiction",
+        context="likes reflective novels",
+        state=tool_state,
     )
-    result = _run_tool(
-        tool_node,
-        "get_relationship_context",
-        {"person": "Taylor"},
-    )["messages"][-1].content
-    assert "Taylor" in result
-    assert "Clarity" in result
+    saved = mem.get_preferences("books")
+    assert "Saved preference" in result
+    assert saved[0]["value"] == "lyrical fiction"
 
 
-def test_goal_and_open_loop_tools(tool_node):
-    goal_result = _run_tool(
-        tool_node,
-        "track_goal",
-        {
-            "title": "Have the boundary conversation",
-            "category": "relationship",
-            "next_step": "Draft the opener",
-        },
-    )["messages"][-1].content
-    loop_result = _run_tool(
-        tool_node,
-        "save_open_loop",
-        {
-            "topic": "Clarify exclusivity",
-            "next_step": "Ask directly on Saturday",
-        },
-    )["messages"][-1].content
-    goals = _run_tool(tool_node, "list_goals", {})["messages"][-1].content
-    loops = _run_tool(tool_node, "list_open_loops", {})["messages"][-1].content
-    assert "Saved goal" in goal_result
-    assert "Saved open loop" in loop_result
-    assert "Have the boundary conversation" in goals
-    assert "Clarify exclusivity" in loops
+def test_calendar_and_favorites_tools(tool_state):
+    calendar_result = save_calendar_item.func(
+        title="Pick up dry cleaning",
+        date="2026-03-18",
+        time="18:00",
+        state=tool_state,
+    )
+    favorite_result = save_favorite_recommendation.func(
+        category="movie",
+        title="Perfect Days",
+        reason="quiet observational drama",
+        state=tool_state,
+    )
+    calendar = list_calendar_items.func(state=tool_state)
+    favorites = list_favorites.func(state=tool_state)
+    assert "Saved calendar item" in calendar_result
+    assert "Saved movie recommendation" in favorite_result
+    assert "Pick up dry cleaning" in calendar
+    assert "Perfect Days" in favorites
 
 
-def test_summarize_progress_tool(tool_node, mem):
+def test_wellness_tools(tool_state):
+    gym_result = save_gym_plan.func(
+        name="Lean Gain",
+        schedule="Mon upper, Wed lower, Sat full body",
+        goal="muscle",
+        state=tool_state,
+    )
+    food_result = save_food_program.func(
+        name="Workday Fuel",
+        goal="steady energy",
+        daily_structure="Protein breakfast, light lunch, solid dinner",
+        state=tool_state,
+    )
+    gym = list_gym_plans.func(state=tool_state)
+    food = list_food_programs.func(state=tool_state)
+    assert "Saved gym plan" in gym_result
+    assert "Saved food program" in food_result
+    assert "Lean Gain" in gym
+    assert "Workday Fuel" in food
+
+
+def test_summarize_progress_tool(tool_state, mem):
     mem.log_mood("steady", "less reactive than last week")
-    mem.save_journal("I handled a tense conversation calmly.")
-    mem.save_goal("Keep my standards clear", category="dating")
-    result = _run_tool(tool_node, "summarize_progress", {})["messages"][-1].content
+    mem.save_calendar_item("Design review", "2026-03-20")
+    mem.save_favorite("book", "Stoner")
+    result = summarize_progress.func(state=tool_state)
     assert "Progress snapshot" in result
     assert "Latest mood: steady" in result
+    assert "Calendar items: 1" in result
 
 
-def test_ui_tools_update_ui_state(tool_node):
-    result = _run_tool(
-        tool_node,
-        "set_ui_focus",
-        {
-            "title": "Boundary conversation",
-            "body": "State the issue clearly and ask for a direct answer.",
-            "footer": "Prepare before Friday.",
-        },
-    )[0].update
-    assert result["ui_state"]["focus_title"] == "Boundary conversation"
-    assert "Prepare before Friday." == result["ui_state"]["notice"]
+def test_ui_tools_update_ui_state(tool_state):
+    result = set_ui_focus.func(
+        title="Weekly review",
+        body="Capture open loops, schedule priorities, and clear friction.",
+        footer="Return here after the next planning pass.",
+        state=tool_state,
+        tool_call_id="call_1",
+    ).update
+    assert result["ui_state"]["focus_title"] == "Weekly review"
+    assert result["ui_state"]["notice"] == "Return here after the next planning pass."
 
 
-def test_ui_checklist_and_layout_tools(tool_node):
-    checklist_result = _run_tool(
-        tool_node,
-        "set_ui_checklist",
-        {
-            "title": "Next actions",
-            "items": "- Draft opener\n- Ask for clarity\n- Journal after",
-        },
-    )[0].update
-    layout_result = _run_tool(
-        tool_node,
-        "set_ui_layout",
-        {
-            "layout": "focus",
-            "notice": "Tighten the plan before sending anything.",
-        },
-    )[0].update
-    assert checklist_result["ui_state"]["checklist_items"][1] == "Ask for clarity"
+def test_ui_checklist_and_layout_tools(tool_state):
+    checklist_result = set_ui_checklist.func(
+        title="Next actions",
+        items="- Book trainer\n- Save meal rhythm\n- Add Friday dinner",
+        state=tool_state,
+        tool_call_id="call_1",
+    ).update
+    layout_result = set_ui_layout.func(
+        layout="focus",
+        notice="Surface the highest leverage moves.",
+        state=tool_state,
+        tool_call_id="call_1",
+    ).update
+    assert checklist_result["ui_state"]["checklist_items"][1] == "Save meal rhythm"
     assert layout_result["ui_state"]["layout"] == "focus"
 
 
-def test_clear_ui_workspace_tool(tool_node):
-    result = _run_tool(tool_node, "clear_ui_workspace", {})[0].update
+def test_clear_ui_workspace_tool(tool_state):
+    result = clear_ui_workspace.func(
+        state=tool_state,
+        tool_call_id="call_1",
+    ).update
     assert result["ui_state"]["focus_title"] == "Workspace"
