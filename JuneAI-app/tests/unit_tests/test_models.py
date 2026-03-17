@@ -4,6 +4,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 
 from agent.config import resolve_runtime_config
 from agent.graph import create_june_agent
+from agent.memory import Memory
 
 
 class FakeLLM:
@@ -102,3 +103,119 @@ def test_graph_tracks_tool_success():
     assert result["tool_stats"]["succeeded"] == 1
     assert result["tool_stats"]["failed"] == 0
     assert result["tool_stats"]["last_calls"][0]["name"] == "track_goal"
+
+
+def test_graph_recovers_food_program_tool_call_from_json(tmp_path):
+    fake_llm = FakeLLM(
+        [
+            AIMessage(
+                content=(
+                    '{"name":"save_food_program","parameters":'
+                    '{"name":"Weekday Fuel","goal":"steady energy",'
+                    '"daily_structure":"Protein breakfast, balanced lunch, light dinner"}}'
+                )
+            ),
+            AIMessage(content="I saved your food schedule."),
+        ]
+    )
+    agent = create_june_agent(llm=fake_llm)
+
+    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+        result = agent.invoke(
+            {
+                "messages": [HumanMessage(content="Suggest and save a food schedule.")],
+                "user_id": "food_test_user",
+                "skill": "wellness",
+                "ui_state": {
+                    "layout": "split",
+                    "focus_title": "Workspace",
+                    "focus_body": "",
+                    "checklist_title": "Next steps",
+                    "checklist_items": [],
+                    "notice": "",
+                },
+                "tool_stats": {"requested": 0, "succeeded": 0, "failed": 0, "last_calls": []},
+            }
+        )
+        memory = Memory("food_test_user")
+
+    assert result["tool_stats"]["succeeded"] == 1
+    assert memory.get_food_programs()[0]["name"] == "Weekday Fuel"
+
+
+def test_graph_remaps_birthday_journal_json_to_calendar_item(tmp_path):
+    fake_llm = FakeLLM(
+        [
+            AIMessage(
+                content=(
+                    '{"name":"save_journal_entry","parameters":'
+                    '{"entry":"{\\"event\\": \\"my son\'s birthday\\", '
+                    '\\"date\\": \\"2026-08-24\\", '
+                    '\\"note\\": \\"Reminder to celebrate my son\'s birthday on August 24th\\"}"}}'
+                )
+            ),
+            AIMessage(content="I saved the birthday reminder."),
+        ]
+    )
+    agent = create_june_agent(llm=fake_llm)
+
+    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+        result = agent.invoke(
+            {
+                "messages": [HumanMessage(content="Remember my son's birthday 24 August")],
+                "user_id": "birthday_test_user",
+                "skill": "planner",
+                "ui_state": {
+                    "layout": "split",
+                    "focus_title": "Workspace",
+                    "focus_body": "",
+                    "checklist_title": "Next steps",
+                    "checklist_items": [],
+                    "notice": "",
+                },
+                "tool_stats": {"requested": 0, "succeeded": 0, "failed": 0, "last_calls": []},
+            }
+        )
+        memory = Memory("birthday_test_user")
+
+    assert result["tool_stats"]["succeeded"] == 1
+    assert memory.get_calendar_items()[0]["date"] == "2026-08-24"
+    assert "birthday" in memory.get_calendar_items()[0]["title"].lower()
+
+
+def test_graph_recovers_html_escaped_tool_json_with_wrapper_text(tmp_path):
+    fake_llm = FakeLLM(
+        [
+            AIMessage(
+                content=(
+                    'I will save this now: {&quot;name&quot;:&quot;save_calendar_item&quot;,&quot;parameters&quot;:'
+                    '{&quot;title&quot;:&quot;My son birthday&quot;,&quot;date&quot;:&quot;2026-08-24&quot;,'
+                    '&quot;details&quot;:&quot;Birthday reminder&quot;}}'
+                )
+            ),
+            AIMessage(content="Saved."),
+        ]
+    )
+    agent = create_june_agent(llm=fake_llm)
+
+    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+        result = agent.invoke(
+            {
+                "messages": [HumanMessage(content="Remember my son's birthday 24 August")],
+                "user_id": "wrapped_json_user",
+                "skill": "planner",
+                "ui_state": {
+                    "layout": "split",
+                    "focus_title": "Workspace",
+                    "focus_body": "",
+                    "checklist_title": "Next steps",
+                    "checklist_items": [],
+                    "notice": "",
+                },
+                "tool_stats": {"requested": 0, "succeeded": 0, "failed": 0, "last_calls": []},
+            }
+        )
+        memory = Memory("wrapped_json_user")
+
+    assert result["tool_stats"]["succeeded"] == 1
+    assert memory.get_calendar_items()[0]["title"] == "My son birthday"

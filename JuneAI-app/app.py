@@ -357,11 +357,8 @@ st.markdown(
 
     /* ── Right panel ───────────────────────────────────────── */
     .june-right-panel {
-        background: #ffffff;
-        border: 1px solid var(--june-line);
-        border-radius: 22px;
-        box-shadow: var(--june-shadow-lg);
-        padding: 1rem;
+        display: grid;
+        gap: 0.85rem;
         animation: panelIn 0.28s ease both;
         max-height: calc(100vh - 2rem);
         overflow-y: auto;
@@ -369,15 +366,81 @@ st.markdown(
         top: 0.75rem;
     }
 
-    .june-panel-section {
-        padding-bottom: 0.8rem;
-        margin-bottom: 0.8rem;
-        border-bottom: 1px solid var(--june-line);
+    .june-panel-card {
+        background: #ffffff;
+        border: 1px solid var(--june-line);
+        border-radius: 22px;
+        box-shadow: var(--june-shadow-lg);
+        padding: 1rem;
     }
-    .june-panel-section:last-child {
-        border-bottom: none;
-        margin-bottom: 0;
-        padding-bottom: 0;
+
+    .june-panel-card-quiet {
+        box-shadow: var(--june-shadow);
+    }
+
+    .june-panel-divider {
+        height: 1px;
+        background: var(--june-line);
+        margin: 0.8rem 0;
+    }
+
+    .june-panel-kicker {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 0.55rem;
+    }
+
+    .june-panel-kicker-left {
+        min-width: 0;
+    }
+
+    .june-panel-kicker-right {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        min-width: 0;
+        flex: 1;
+    }
+
+    .june-active-tag {
+        border: 1px solid rgba(15, 95, 74, 0.18);
+        background: rgba(15, 95, 74, 0.07);
+        color: var(--june-accent);
+        border-radius: 999px;
+        padding: 0.18rem 0.5rem;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+
+    .june-compact-copy {
+        color: var(--june-muted);
+        font-size: 10px;
+        line-height: 1.45;
+        text-align: right;
+    }
+
+    .june-panel-caption {
+        color: var(--june-muted);
+        font-size: 10px;
+        line-height: 1.45;
+        margin-top: -0.15rem;
+        margin-bottom: 0.7rem;
+    }
+
+    .june-primary-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.65rem;
+    }
+
+    .june-primary-copy {
+        min-width: 0;
+        flex: 1;
     }
 
     /* ── Stats ─────────────────────────────────────────────── */
@@ -529,10 +592,16 @@ def transcript_html(messages: list, live_response: str = "") -> str:
     return (
         '<div class="june-transcript" id="june-transcript">'
         + "".join(blocks)
+        + '<div id="june-transcript-end"></div>'
         + "</div>"
         + """<script>
-        const t = window.parent.document.getElementById("june-transcript");
-        if (t) t.scrollTop = t.scrollHeight;
+        setTimeout(() => {
+            const doc = window.parent.document;
+            const t = doc.getElementById("june-transcript");
+            const end = doc.getElementById("june-transcript-end");
+            if (t) t.scrollTop = t.scrollHeight;
+            if (end) end.scrollIntoView({ block: "end" });
+        }, 0);
         </script>"""
     )
 
@@ -549,16 +618,23 @@ def render_list(items: list[tuple[str, str]]) -> str:
     ) + "</div>"
 
 
-def render_workspace(ui_state: dict) -> str:
+def render_workspace(ui_state: dict, include_header: bool = True) -> str:
     checklist_items = ui_state.get("checklist_items", [])
     checklist = (
         "".join(f"<li>{html.escape(item)}</li>" for item in checklist_items)
         if checklist_items
         else "<li>No pinned actions.</li>"
     )
-    return (
-        f'<div class="june-label">Workspace</div>'
-        f'<h3 class="june-title">{html.escape(ui_state.get("focus_title", "Workspace"))}</h3>'
+    header = ""
+    if include_header:
+        header = (
+            f'<div class="june-label">Workspace</div>'
+            f'<h3 class="june-title">{html.escape(ui_state.get("focus_title", "Workspace"))}</h3>'
+        )
+    else:
+        header = f'<h3 class="june-title">{html.escape(ui_state.get("focus_title", "Workspace"))}</h3>'
+
+    return header + (
         f'<div class="june-item-meta">{html.escape(ui_state.get("focus_body", ""))}</div>'
         f'<div class="june-label" style="margin-top:0.6rem;">'
         f'{html.escape(ui_state.get("checklist_title", "Next steps"))}</div>'
@@ -568,6 +644,20 @@ def render_workspace(ui_state: dict) -> str:
             f'{html.escape(ui_state.get("notice", ""))}</div>'
             if ui_state.get("notice") else ""
         )
+    )
+
+
+def chapter_saved_count(memory: Memory, chapter_key: str) -> int:
+    """Return saved item count for a chapter card."""
+    return len(chapter_items(memory, chapter_key))
+
+
+def render_memory_focus(memory: Memory, chapter_key: str) -> str:
+    """Render the active chapter in the primary right-panel card."""
+    items = chapter_items(memory, chapter_key)
+    return (
+        f'<div class="june-subtitle">{html.escape(chapter_subtitle(chapter_key))}</div>'
+        f'{render_list(items)}'
     )
 
 
@@ -866,10 +956,11 @@ def handle_stream_chunk(
             if isinstance(payload, dict):
                 if "ui_state" in payload:
                     st.session_state.ui_state = payload["ui_state"]
-                    workspace_placeholder.markdown(
-                        render_workspace(st.session_state.ui_state),
-                        unsafe_allow_html=True,
-                    )
+                    if not st.session_state.selected_chapter:
+                        workspace_placeholder.markdown(
+                            render_workspace(st.session_state.ui_state, include_header=False),
+                            unsafe_allow_html=True,
+                        )
                 for message in payload.get("messages", []):
                     if isinstance(message, ToolMessage):
                         append_activity(f"tool | {extract_text(message.content)}")
@@ -885,10 +976,11 @@ def handle_stream_chunk(
             st.session_state.tool_stats = data["tool_stats"]
         if "ui_state" in data:
             st.session_state.ui_state = data["ui_state"]
-            workspace_placeholder.markdown(
-                render_workspace(st.session_state.ui_state),
-                unsafe_allow_html=True,
-            )
+            if not st.session_state.selected_chapter:
+                workspace_placeholder.markdown(
+                    render_workspace(st.session_state.ui_state, include_header=False),
+                    unsafe_allow_html=True,
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -1167,53 +1259,93 @@ with plan_col:
     st.markdown('<div class="june-right-panel">', unsafe_allow_html=True)
 
     # Upcoming reminders
-    st.markdown('<div class="june-panel-section">', unsafe_allow_html=True)
-    st.markdown('<div class="june-label">Upcoming</div>', unsafe_allow_html=True)
+    st.markdown('<div class="june-panel-card june-panel-card-quiet">', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="june-panel-kicker">'
+        '<div class="june-panel-kicker-left"><div class="june-label">Upcoming</div></div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
     st.markdown(render_notifications(memory), unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Chapters
-    st.markdown('<div class="june-panel-section">', unsafe_allow_html=True)
-    st.markdown('<div class="june-label">Chapters</div>', unsafe_allow_html=True)
+    # Chapter navigation
+    st.markdown('<div class="june-panel-card">', unsafe_allow_html=True)
+    selected_chapter = st.session_state.selected_chapter
+    selected_label = dict(CHAPTERS).get(selected_chapter, "")
+    kicker_right = (
+        f'<div class="june-active-tag">Open: {html.escape(selected_label)}</div>'
+        if selected_chapter
+        else '<div class="june-compact-copy">Choose an area to inspect what June saved.</div>'
+    )
+    st.markdown(
+        '<div class="june-panel-kicker">'
+        '<div class="june-panel-kicker-left"><div class="june-label">Areas</div></div>'
+        f'<div class="june-panel-kicker-right">{kicker_right}</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="june-panel-caption">Switch the lower card between stored memory and the live workspace.</div>',
+        unsafe_allow_html=True,
+    )
     st.markdown('<div class="june-chapter-grid">', unsafe_allow_html=True)
     chapter_cols = st.columns(2, gap="small")
     for idx, (chapter_key, chapter_label) in enumerate(CHAPTERS):
         with chapter_cols[idx % 2]:
-            if st.button(chapter_label, key=f"ch_{chapter_key}", use_container_width=True):
+            count = chapter_saved_count(memory, chapter_key)
+            button_label = f"{chapter_label}\n{count} saved" if count else f"{chapter_label}\nempty"
+            if st.button(button_label, key=f"ch_{chapter_key}", use_container_width=True):
                 st.session_state.selected_chapter = (
                     "" if st.session_state.selected_chapter == chapter_key else chapter_key
                 )
                 st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    selected_chapter = st.session_state.selected_chapter
+    # Primary panel: memory focus or workspace
+    st.markdown('<div class="june-panel-card">', unsafe_allow_html=True)
+    workspace_placeholder = st.empty()
     if selected_chapter:
-        selected_label = dict(CHAPTERS)[selected_chapter]
-        st.markdown('<div style="margin-top:0.65rem;"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="june-label">Stored memory</div>', unsafe_allow_html=True)
-        st.markdown(f'<h3 class="june-title">{html.escape(selected_label)}</h3>', unsafe_allow_html=True)
         st.markdown(
-            f'<div class="june-subtitle">{html.escape(chapter_subtitle(selected_chapter))}</div>',
+            '<div class="june-primary-header">'
+            '<div class="june-primary-copy">'
+            f'<div class="june-label">Open Chapter</div>'
+            f'<h3 class="june-title">{html.escape(selected_label)}</h3>'
+            '</div>'
+            '</div>',
             unsafe_allow_html=True,
         )
-        st.markdown(render_list(chapter_items(memory, selected_chapter)), unsafe_allow_html=True)
-
+        back_col_left, back_col_right = st.columns([1, 0.42], gap="small")
+        with back_col_right:
+            if st.button("Back to workspace", key="back_to_workspace", use_container_width=True):
+                st.session_state.selected_chapter = ""
+                st.rerun()
+        workspace_placeholder.markdown(
+            render_memory_focus(memory, selected_chapter),
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            '<div class="june-primary-header">'
+            '<div class="june-primary-copy">'
+            '<div class="june-label">Workspace</div>'
+            '<div class="june-panel-caption">Pinned notes, next steps, and the current assistant focus live here.</div>'
+            '</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        workspace_placeholder.markdown(
+            render_workspace(st.session_state.ui_state, include_header=False),
+            unsafe_allow_html=True,
+        )
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Workspace (agent-pinned notes)
-    st.markdown('<div class="june-panel-section">', unsafe_allow_html=True)
-    workspace_placeholder = st.empty()
-    workspace_placeholder.markdown(render_workspace(st.session_state.ui_state), unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # Capture health (collapsible)
-    st.markdown('<div class="june-panel-section">', unsafe_allow_html=True)
+    # Diagnostics
+    st.markdown('<div class="june-panel-card june-panel-card-quiet">', unsafe_allow_html=True)
+    st.markdown('<div class="june-label">Diagnostics</div>', unsafe_allow_html=True)
     with st.expander("Capture health", expanded=False):
         st.markdown(render_capture_health(memory, st.session_state.activity_log), unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # Agent logs (collapsible)
-    st.markdown('<div class="june-panel-section">', unsafe_allow_html=True)
     with st.expander("Agent logs", expanded=False):
         activity_placeholder = st.empty()
         activity_placeholder.markdown(render_activity(st.session_state.activity_log), unsafe_allow_html=True)

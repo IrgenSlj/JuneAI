@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import operator
+from html import unescape
+from json import JSONDecodeError
 from datetime import datetime
 from typing import Annotated, TypedDict
+from uuid import uuid4
 
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 from langgraph.graph import StateGraph
@@ -73,6 +77,113 @@ def _summarize_tool_messages(tool_messages: list[ToolMessage], requested_calls: 
     }
 
 
+def _strip_code_fence(text: str) -> str:
+    stripped = text.strip()
+    if stripped.startswith("```") and stripped.endswith("```"):
+        lines = stripped.splitlines()
+        if len(lines) >= 3:
+            return "\n".join(lines[1:-1]).strip()
+    return stripped
+
+
+def _extract_json_object(text: str) -> dict | None:
+    """Extract the outermost JSON object from free-form model text."""
+    cleaned = unescape(_strip_code_fence(text)).strip()
+    if not cleaned:
+        return None
+
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+
+    candidate = cleaned[start : end + 1]
+    try:
+        return json.loads(candidate)
+    except JSONDecodeError:
+        pass
+
+    normalized = candidate.replace("\n", " ").replace("\t", " ")
+    try:
+        return json.loads(normalized)
+    except JSONDecodeError:
+        return None
+
+
+def _normalize_tool_call(name: str, args: dict) -> tuple[str, dict]:
+    """Correct common local-model tool formatting mistakes."""
+    args = dict(args or {})
+
+    if name == "save_calendar_item":
+        title = args.get("title") or args.get("event") or args.get("name") or ""
+        date = args.get("date") or args.get("day") or args.get("when") or ""
+        details = args.get("details") or args.get("note") or args.get("description") or ""
+        time = args.get("time") or args.get("at") or ""
+        normalized = {"title": title, "date": date, "time": time, "details": details}
+        return name, normalized
+
+    if name == "save_journal_entry":
+        entry = args.get("entry", "")
+        if isinstance(entry, str):
+            payload = _extract_json_object(entry)
+            if payload is None:
+                return name, args
+
+            date = str(payload.get("date", "")).strip()
+            if date:
+                title = str(
+                    payload.get("title")
+                    or payload.get("event")
+                    or payload.get("name")
+                    or "Saved reminder"
+                ).strip()
+                details = str(payload.get("details") or payload.get("note") or "").strip()
+                blob = " ".join(str(value).lower() for value in payload.values())
+                if "birthday" in blob and "birthday" not in title.lower():
+                    title = f"{title} birthday"
+                return "save_calendar_item", {
+                    "title": title,
+                    "date": date,
+                    "details": details,
+                    "source": "conversation",
+                }
+
+    return name, args
+
+
+def _recover_tool_call(response: AIMessage) -> AIMessage:
+    """Recover tool calls when a local model emits JSON text instead of structured tool metadata."""
+    if getattr(response, "tool_calls", None):
+        return response
+
+    raw_text = _extract_text(response.content)
+    payload = _extract_json_object(raw_text)
+    if payload is None:
+        return response
+
+    name = str(payload.get("name") or payload.get("tool") or "").strip()
+    parameters = payload.get("parameters") or payload.get("args") or payload.get("arguments") or {}
+    if not name or not isinstance(parameters, dict):
+        return response
+
+    name, parameters = _normalize_tool_call(name, parameters)
+    available_tools = {tool.name for tool in JUNE_TOOLS}
+    if name not in available_tools:
+        return response
+
+    return AIMessage(
+        content="",
+        tool_calls=[
+            {
+                "name": name,
+                "args": parameters,
+                "id": f"recovered_{uuid4().hex[:10]}",
+                "type": "tool_call",
+            }
+        ],
+    )
+
+
 def create_june_agent(llm=None, runtime: RuntimeConfig | None = None):
     """Build and compile the JuneAI LangGraph agent."""
 
@@ -100,7 +211,7 @@ def create_june_agent(llm=None, runtime: RuntimeConfig | None = None):
             }
         )
         messages = [SystemMessage(content=prompt)] + state["messages"]
-        response = llm.invoke(messages)
+        response = _recover_tool_call(llm.invoke(messages))
         if getattr(response, "tool_calls", None):
             writer(
                 {
