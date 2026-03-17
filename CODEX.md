@@ -191,8 +191,10 @@ Current stack:
 
 - UI: Streamlit
 - Agent orchestration: LangGraph
-- LLM client: LangChain + `langchain-openai`
-- Model backend: OpenAI-compatible APIs, with local Ollama as a key target
+- LLM client: LangChain with provider-specific adapters
+- Model backend:
+  - local OpenAI-compatible servers for small Mistral-class models
+  - Claude for high-performance cloud execution
 - Storage: local JSON files
 - Language: Python
 
@@ -232,6 +234,27 @@ Preferred future direction:
 - Keep memory transparent.
 - Keep tools focused and composable.
 - Add features by extending memory + tool + UI surfaces together.
+- Preserve dual runtime support:
+  - local-first runtime for privacy/offline usage
+  - Claude runtime for best quality when the user wants maximum performance
+- Treat small-model tool reliability as a product feature, not an implementation detail.
+
+Model/runtime priorities:
+
+- The local default should favor a Mistral-class 8B model when available.
+- A smaller Mistral-class 3B profile should remain available for lighter hardware.
+- Prompts and tools should be written so the smaller local model can succeed with short, explicit arguments and one-tool-at-a-time decisions.
+- Claude is the quality ceiling and should be the reference behavior for UX.
+
+Tool verification requirements:
+
+- Every tool-using turn should emit structured diagnostics for:
+  - requested calls
+  - succeeded calls
+  - failed calls
+- UI logs should make tool behavior inspectable without reading raw LangGraph traces.
+- Tests must cover tool success accounting without requiring a live model endpoint.
+- Avoid relying only on prompt intent; verify actual tool messages in graph state.
 
 Avoid:
 

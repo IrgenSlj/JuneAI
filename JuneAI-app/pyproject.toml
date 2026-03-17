@@ -1,13 +1,15 @@
 [project]
 name = "juneai"
 version = "0.1.0"
-description = "JuneAI - a relationship-focused AI companion with skills, tools, and live agent activity."
+description = "JuneAI - a local-first personal assistant with dual local/Claude runtimes, memory, and tool telemetry."
 authors = []
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.9"
 dependencies = [
     "langgraph>=0.2.6",
+    "langchain-anthropic>=0.3.0",
+    "langchain-openai>=0.3.0",
     "python-dotenv>=1.0.1",
 ]
 

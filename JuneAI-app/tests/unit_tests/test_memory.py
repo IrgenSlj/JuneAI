@@ -76,7 +76,7 @@ def test_log_and_get_mood(mem):
 def test_save_calendar_items_are_sorted(mem):
     mem.save_calendar_item("Old item", "2023-01-01", "09:00")
     mem.save_calendar_item("Dinner", "2026-04-02", "20:00")
-    mem.save_calendar_item("Workout", "2026-03-15", "08:00")
+    mem.save_calendar_item("Workout", "2026-03-20", "08:00")
     items = mem.get_calendar_items()
     assert items[0]["title"] == "Workout"
     assert items[1]["title"] == "Dinner"

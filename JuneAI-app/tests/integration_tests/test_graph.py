@@ -1,13 +1,21 @@
 import pytest
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 
-from agent.graph import june_agent
+from agent.graph import create_june_agent
 
 pytestmark = pytest.mark.anyio
 
 
-@pytest.mark.langsmith
+class FakeLLM:
+    def bind_tools(self, _tools):
+        return self
+
+    def invoke(self, _messages):
+        return AIMessage(content="Hello. I'm ready to help.")
+
+
 async def test_agent_simple_response() -> None:
+    agent = create_june_agent(llm=FakeLLM())
     inputs = {
         "messages": [HumanMessage(content="Hello, how are you?")],
         "user_id": "test_user",
@@ -20,7 +28,8 @@ async def test_agent_simple_response() -> None:
             "checklist_items": [],
             "notice": "",
         },
+        "tool_stats": {"requested": 0, "succeeded": 0, "failed": 0, "last_calls": []},
     }
-    res = await june_agent.ainvoke(inputs)
+    res = await agent.ainvoke(inputs)
     assert res is not None
     assert len(res["messages"]) > 1

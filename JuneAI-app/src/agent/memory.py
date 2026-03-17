@@ -33,6 +33,11 @@ class Memory:
         self.gym_file = self.dir / f"{user_id}_gym_plans.json"
         self.food_file = self.dir / f"{user_id}_food_programs.json"
         self.app_state_file = self.dir / f"{user_id}_app_state.json"
+        self.workout_sessions_file = self.dir / f"{user_id}_workout_sessions.json"
+        self.body_metrics_file = self.dir / f"{user_id}_body_metrics.json"
+        self.habits_file = self.dir / f"{user_id}_habits.json"
+        self.nutrition_file = self.dir / f"{user_id}_nutrition_logs.json"
+        self.water_file = self.dir / f"{user_id}_water_logs.json"
 
     # --- Chat history ---
 
@@ -471,6 +476,289 @@ class Memory:
             ]
         return programs[-limit:]
 
+    # --- Workout sessions ---
+
+    def log_workout_session(
+        self,
+        plan_name: str,
+        exercises: str = "",
+        duration_min: int = 0,
+        notes: str = "",
+        energy_rating: int = 0,
+    ) -> dict:
+        """Log an actual completed workout session."""
+        sessions = self._read(self.workout_sessions_file, [])
+        item = {
+            "date": date.today().isoformat(),
+            "plan_name": plan_name.strip(),
+            "exercises": exercises.strip(),
+            "duration_min": max(0, int(duration_min)),
+            "notes": notes.strip(),
+            "energy_rating": max(0, min(5, int(energy_rating))),
+            "timestamp": self._now(),
+        }
+        sessions.append(item)
+        self._write(self.workout_sessions_file, sessions)
+        return item
+
+    def get_workout_sessions(self, limit: int = 10) -> list:
+        """Get the most recent workout sessions."""
+        return self._read(self.workout_sessions_file, [])[-limit:]
+
+    def get_today_workout(self) -> dict | None:
+        """Get today's workout session if logged."""
+        today = date.today().isoformat()
+        for session in reversed(self._read(self.workout_sessions_file, [])):
+            if session.get("date") == today:
+                return session
+        return None
+
+    # --- Body metrics ---
+
+    def log_body_metrics(
+        self,
+        weight_kg: float = 0.0,
+        sleep_hours: float = 0.0,
+        sleep_quality: int = 0,
+        energy: int = 0,
+        notes: str = "",
+    ) -> dict:
+        """Log today's body metrics. Replaces any existing entry for today."""
+        metrics = self._read(self.body_metrics_file, [])
+        today = date.today().isoformat()
+        item = {
+            "date": today,
+            "weight_kg": round(float(weight_kg), 1) if weight_kg else 0.0,
+            "sleep_hours": round(float(sleep_hours), 1) if sleep_hours else 0.0,
+            "sleep_quality": max(0, min(5, int(sleep_quality))),
+            "energy": max(0, min(5, int(energy))),
+            "notes": notes.strip(),
+            "timestamp": self._now(),
+        }
+        for index, existing in enumerate(metrics):
+            if existing.get("date") == today:
+                metrics[index] = item
+                self._write(self.body_metrics_file, metrics)
+                return item
+        metrics.append(item)
+        self._write(self.body_metrics_file, metrics)
+        return item
+
+    def get_body_metrics(self, days: int = 30) -> list:
+        """Get body metrics for the last N entries."""
+        return self._read(self.body_metrics_file, [])[-days:]
+
+    def get_today_body_metrics(self) -> dict | None:
+        """Get today's body metrics entry if it exists."""
+        today = date.today().isoformat()
+        for item in reversed(self._read(self.body_metrics_file, [])):
+            if item.get("date") == today:
+                return item
+        return None
+
+    # --- Habits ---
+
+    def create_or_update_habit(
+        self,
+        name: str,
+        category: str = "health",
+        target_days: str = "daily",
+    ) -> dict:
+        """Create a new habit or update its metadata. Preserves existing completions."""
+        habits = self._read(self.habits_file, [])
+        key = name.strip().lower()
+        for index, existing in enumerate(habits):
+            if existing.get("name", "").strip().lower() == key:
+                habits[index]["category"] = category.strip() or "health"
+                habits[index]["target_days"] = target_days.strip() or "daily"
+                self._write(self.habits_file, habits)
+                return habits[index]
+        item = {
+            "name": name.strip(),
+            "category": category.strip() or "health",
+            "target_days": target_days.strip() or "daily",
+            "completions": [],
+            "created_at": self._now(),
+        }
+        habits.append(item)
+        self._write(self.habits_file, habits)
+        return item
+
+    def log_habit_completion(self, habit_name: str, date_str: str = "") -> dict:
+        """Mark a habit as done. Auto-creates the habit if not found."""
+        from datetime import timedelta as _td  # noqa: F401 (local import ok)
+        habits = self._read(self.habits_file, [])
+        target_date = date_str.strip() if date_str.strip() else date.today().isoformat()
+        key = habit_name.strip().lower()
+        for index, habit in enumerate(habits):
+            if habit.get("name", "").strip().lower() == key:
+                completions = habit.get("completions", [])
+                if target_date not in completions:
+                    completions.append(target_date)
+                    completions.sort()
+                    habits[index]["completions"] = completions
+                    self._write(self.habits_file, habits)
+                return habits[index]
+        item = {
+            "name": habit_name.strip(),
+            "category": "health",
+            "target_days": "daily",
+            "completions": [target_date],
+            "created_at": self._now(),
+        }
+        habits.append(item)
+        self._write(self.habits_file, habits)
+        return item
+
+    def get_habits(self) -> list:
+        """Get all habits with computed streak and today's completion status."""
+        from datetime import timedelta
+        habits = self._read(self.habits_file, [])
+        today = date.today()
+        result = []
+        for habit in habits:
+            completions = set(habit.get("completions", []))
+            done_today = today.isoformat() in completions
+            streak = 0
+            check = today
+            while check.isoformat() in completions:
+                streak += 1
+                check = check - timedelta(days=1)
+            result.append({**habit, "done_today": done_today, "streak": streak})
+        return result
+
+    # --- Nutrition logs ---
+
+    def log_nutrition(
+        self,
+        meal: str,
+        description: str,
+        calories_est: int = 0,
+        protein_est: int = 0,
+        notes: str = "",
+    ) -> dict:
+        """Log a meal entry for today."""
+        logs = self._read(self.nutrition_file, [])
+        item = {
+            "date": date.today().isoformat(),
+            "meal": meal.strip().lower(),
+            "description": description.strip(),
+            "calories_est": max(0, int(calories_est)),
+            "protein_est": max(0, int(protein_est)),
+            "notes": notes.strip(),
+            "timestamp": self._now(),
+        }
+        logs.append(item)
+        self._write(self.nutrition_file, logs)
+        return item
+
+    def get_nutrition_today(self) -> list:
+        """Get all meal logs for today."""
+        today = date.today().isoformat()
+        return [e for e in self._read(self.nutrition_file, []) if e.get("date") == today]
+
+    def get_nutrition_recent(self, limit: int = 28) -> list:
+        """Get recent meal log entries."""
+        return self._read(self.nutrition_file, [])[-limit:]
+
+    # --- Water tracking ---
+
+    def log_water(self, glasses: int = 1) -> int:
+        """Add glasses to today's water count. Returns updated daily total."""
+        logs = self._read(self.water_file, {})
+        today = date.today().isoformat()
+        logs[today] = max(0, logs.get(today, 0) + int(glasses))
+        self._write(self.water_file, logs)
+        return logs[today]
+
+    def set_water(self, glasses: int) -> int:
+        """Set today's water count directly."""
+        logs = self._read(self.water_file, {})
+        today = date.today().isoformat()
+        logs[today] = max(0, int(glasses))
+        self._write(self.water_file, logs)
+        return logs[today]
+
+    def get_water_today(self) -> int:
+        """Get today's total water glass count."""
+        return self._read(self.water_file, {}).get(date.today().isoformat(), 0)
+
+    # --- Chapter completeness ---
+
+    def get_chapter_completeness(self) -> dict:
+        """Return item count per chapter for completeness checking."""
+        calendar_all = self.get_calendar_items(limit=200)
+
+        def _text(item: dict) -> str:
+            return " ".join(str(item.get(f, "")).lower() for f in ("title", "details", "source"))
+
+        return {
+            "calendar": len(calendar_all),
+            "birthdays": len([i for i in calendar_all if "birthday" in _text(i)]),
+            "trips": len([i for i in calendar_all if any(k in _text(i) for k in ("trip", "travel", "flight"))]),
+            "gym": len(self.get_gym_plans(limit=100)),
+            "food": len(self.get_food_programs(limit=100)),
+            "goals": len(self.get_goals(status="", limit=100)),
+            "open_loops": len(self.get_open_loops(status="", limit=100)),
+            "dating": len([
+                p for p in self.get_relationship_profiles()
+                if any(t in p.get("relationship", "").lower()
+                       for t in ("dating", "love", "partner", "girlfriend", "boyfriend", "romantic", "spouse"))
+            ]),
+            "family": len([
+                p for p in self.get_relationship_profiles()
+                if any(t in p.get("relationship", "").lower()
+                       for t in ("family", "mother", "father", "mom", "dad", "brother",
+                                 "sister", "parent", "child", "cousin", "uncle", "aunt"))
+            ]),
+            "habits": len(self.get_habits()),
+            "body_metrics": len(self.get_body_metrics(days=30)),
+            "workout_sessions": len(self.get_workout_sessions(limit=50)),
+        }
+
+    def get_chapters_needing_attention(self) -> list:
+        """Return chapter display names where no data has been saved yet."""
+        c = self.get_chapter_completeness()
+        chapter_checks = [
+            ("habits",     "Habits",         c["habits"]),
+            ("gym",        "Gym Schedule",   c["gym"]),
+            ("food",       "Food Schedule",  c["food"]),
+            ("calendar",   "Calendar",       c["calendar"]),
+            ("birthdays",  "Birthdays",      c["birthdays"]),
+            ("family",     "Family",         c["family"]),
+            ("plans",      "Goals & Plans",  c["goals"] + c["open_loops"]),
+            ("trips",      "Trips",          c["trips"]),
+            ("dating",     "Dating/Love",    c["dating"]),
+        ]
+        return [label for _, label, count in chapter_checks if count == 0]
+
+    # --- Today summary ---
+
+    def get_today_summary(self) -> dict:
+        """Get a comprehensive summary of today's tracked activity."""
+        today_metrics = self.get_today_body_metrics()
+        today_workout = self.get_today_workout()
+        today_nutrition = self.get_nutrition_today()
+        habits = self.get_habits()
+        water = self.get_water_today()
+        habits_done = [h for h in habits if h.get("done_today")]
+        habits_pending = [h for h in habits if not h.get("done_today")]
+        total_calories = sum(e.get("calories_est", 0) for e in today_nutrition)
+        total_protein = sum(e.get("protein_est", 0) for e in today_nutrition)
+        return {
+            "date": date.today().isoformat(),
+            "body_metrics": today_metrics,
+            "workout": today_workout,
+            "habits_total": len(habits),
+            "habits_done": len(habits_done),
+            "habits_done_names": [h["name"] for h in habits_done],
+            "habits_pending_names": [h["name"] for h in habits_pending],
+            "water_glasses": water,
+            "meals_logged": len(today_nutrition),
+            "calories_est": total_calories,
+            "protein_est": total_protein,
+        }
+
     # --- App behavior ---
 
     def get_app_state(self) -> dict:
@@ -543,10 +831,12 @@ class Memory:
         favorites = self.get_favorites(limit=50)
         gym_plans = self.get_gym_plans(limit=20)
         food_programs = self.get_food_programs(limit=20)
+        habits = self.get_habits()
         active_goals = [goal for goal in goals if goal.get("status") == "active"]
         unresolved_loops = [
             loop for loop in open_loops if loop.get("status", "open") == "open"
         ]
+        habits_done_today = len([h for h in habits if h.get("done_today")])
 
         return {
             "mood_count": len(moods),
@@ -561,6 +851,10 @@ class Memory:
             "favorite_count": len(favorites),
             "gym_plan_count": len(gym_plans),
             "food_program_count": len(food_programs),
+            "habit_count": len(habits),
+            "habits_done_today": habits_done_today,
+            "water_today": self.get_water_today(),
+            "workout_session_count": len(self.get_workout_sessions(limit=50)),
         }
 
     # --- Internal helpers ---
