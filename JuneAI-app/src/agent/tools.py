@@ -15,11 +15,28 @@ from .memory import Memory
 AgentState = dict
 DEFAULT_UI_STATE = {
     "layout": "split",
+    "selected_chapter": "",
     "focus_title": "Workspace",
     "focus_body": "June can pin structured notes, plans, and highlights here.",
     "checklist_title": "Next steps",
     "checklist_items": [],
     "notice": "",
+}
+
+UI_CHAPTERS = {
+    "calendar",
+    "gym",
+    "food",
+    "trips",
+    "plans",
+    "habits",
+    "body",
+    "workouts",
+    "nutrition",
+    "water",
+    "dating",
+    "family",
+    "birthdays",
 }
 
 
@@ -182,6 +199,20 @@ def list_goals(
 
 
 @tool
+def update_goal_status(
+    title: str,
+    status: str,
+    state: Annotated[AgentState, InjectedState] = None,
+) -> str:
+    """Update an existing goal's status."""
+    memory = _memory_for_state(state)
+    goal = memory.update_goal_status(title=title, status=status)
+    if not goal:
+        return f"No goal found with title '{title}'."
+    return f"Goal '{goal['title']}' updated to status '{goal['status']}'."
+
+
+@tool
 def save_open_loop(
     topic: str,
     next_step: str = "",
@@ -219,6 +250,20 @@ def list_open_loops(
             line += f" | Due: {loop['due_date']}"
         lines.append(line)
     return "Open loops:\n" + "\n".join(lines)
+
+
+@tool
+def update_open_loop_status(
+    topic: str,
+    status: str,
+    state: Annotated[AgentState, InjectedState] = None,
+) -> str:
+    """Update an open loop's status."""
+    memory = _memory_for_state(state)
+    loop = memory.update_open_loop_status(topic=topic, status=status)
+    if not loop:
+        return f"No open loop found with topic '{topic}'."
+    return f"Open loop '{loop['topic']}' updated to status '{loop['status']}'."
 
 
 @tool
@@ -308,6 +353,28 @@ def list_calendar_items(
             line += f" [{item['status']}]"
         lines.append(line)
     return "Calendar:\n" + "\n".join(lines)
+
+
+@tool
+def update_calendar_item_status(
+    title: str,
+    status: str,
+    date: str = "",
+    time: str = "",
+    state: Annotated[AgentState, InjectedState] = None,
+) -> str:
+    """Update a calendar item's status."""
+    memory = _memory_for_state(state)
+    item = memory.update_calendar_item_status(title=title, status=status, date=date, time=time)
+    if not item:
+        extra = []
+        if date:
+            extra.append(f"date '{date}'")
+        if time:
+            extra.append(f"time '{time}'")
+        suffix = f" with {' and '.join(extra)}" if extra else ""
+        return f"No calendar item found with title '{title}'{suffix}."
+    return f"Calendar item '{item['title']}' updated to status '{item['status']}'."
 
 
 @tool
@@ -597,6 +664,33 @@ def set_ui_layout(
         "messages": [
             ToolMessage(
                 content=f"Workspace layout set to '{chosen}'.",
+                tool_call_id=tool_call_id,
+            )
+        ],
+    })
+
+
+@tool
+def set_ui_chapter(
+    chapter: str = "",
+    notice: str = "",
+    state: Annotated[AgentState, InjectedState] = None,
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+) -> Command:
+    """Open a chapter in the single-page right panel, or clear it to return to workspace."""
+    chosen = chapter.strip().lower()
+    if chosen and chosen not in UI_CHAPTERS:
+        chosen = ""
+    next_ui_state = _merge_ui_state(
+        state.get("ui_state", {}) if state else {},
+        {"selected_chapter": chosen, "notice": notice.strip()},
+    )
+    label = chosen or "workspace"
+    return Command(update={
+        "ui_state": next_ui_state,
+        "messages": [
+            ToolMessage(
+                content=f"UI focus switched to '{label}'.",
                 tool_call_id=tool_call_id,
             )
         ],
@@ -930,12 +1024,15 @@ JUNE_TOOLS = [
     get_relationship_context,
     track_goal,
     list_goals,
+    update_goal_status,
     save_open_loop,
     list_open_loops,
+    update_open_loop_status,
     save_user_preference,
     get_user_preferences,
     save_calendar_item,
     list_calendar_items,
+    update_calendar_item_status,
     save_favorite_recommendation,
     list_favorites,
     save_gym_plan,
@@ -958,6 +1055,7 @@ JUNE_TOOLS = [
     set_ui_focus,
     set_ui_checklist,
     set_ui_layout,
+    set_ui_chapter,
     clear_ui_workspace,
     check_chapter_completeness,
     ask_about_chapter,

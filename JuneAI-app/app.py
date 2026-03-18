@@ -11,11 +11,24 @@ from datetime import datetime
 import streamlit as st
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, ToolMessage
 
-from src.agent.graph import june_agent
-from src.agent.config import resolve_runtime_config
-from src.agent.memory import Memory
-from src.agent.skills import DEFAULT_SKILL, SKILLS, infer_skill_from_text
-from src.agent.tools import DEFAULT_UI_STATE
+from agent_ui.chapters import CHAPTERS, chapter_items, chapter_subtitle
+from agent_ui.rendering import (
+    default_ui_state,
+    energy_dots_html,
+    extract_text,
+    habit_ring_svg,
+    render_activity,
+    render_capture_health,
+    render_memory_focus,
+    render_notifications,
+    render_workspace,
+    transcript_html,
+    water_dots_html,
+)
+from agent.graph import june_agent
+from agent.config import resolve_runtime_config
+from agent.memory import Memory
+from agent.skills import DEFAULT_SKILL, SKILLS, infer_skill_from_text
 
 st.set_page_config(page_title="June", layout="wide")
 
@@ -488,310 +501,236 @@ st.markdown(
 WATER_GOAL = 8
 RUNTIME_CONFIG = resolve_runtime_config()
 
-CHAPTERS = [
-    ("calendar",  "Calendar"),
-    ("gym",       "Gym Schedule"),
-    ("food",      "Food Schedule"),
-    ("trips",     "Trips"),
-    ("plans",     "Plans"),
-    ("dating",    "Dating/Love"),
-    ("family",    "Family"),
-    ("birthdays", "Birthdays"),
-]
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def default_ui_state() -> dict:
-    return {
-        "layout":          DEFAULT_UI_STATE["layout"],
-        "focus_title":     DEFAULT_UI_STATE["focus_title"],
-        "focus_body":      DEFAULT_UI_STATE["focus_body"],
-        "checklist_title": DEFAULT_UI_STATE["checklist_title"],
-        "checklist_items": list(DEFAULT_UI_STATE["checklist_items"]),
-        "notice":          DEFAULT_UI_STATE["notice"],
-    }
-
-
-def extract_text(content) -> str:
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        parts = []
-        for item in content:
-            if isinstance(item, str):
-                parts.append(item)
-            elif isinstance(item, dict) and item.get("type") == "text":
-                parts.append(str(item.get("text", "")))
-        return "".join(parts)
-    return ""
-
-
-def habit_ring_svg(done: bool, size: int = 26) -> str:
-    r = 10
-    c = size // 2
-    circumference = round(2 * 3.14159 * r, 2)
-    offset = 0 if done else circumference
-    return (
-        f'<svg width="{size}" height="{size}" viewBox="0 0 {size} {size}" '
-        f'style="display:block;flex-shrink:0;">'
-        f'<circle cx="{c}" cy="{c}" r="{r}" fill="none" '
-        f'stroke="rgba(22,20,16,0.10)" stroke-width="2"/>'
-        f'<circle cx="{c}" cy="{c}" r="{r}" fill="none" '
-        f'stroke="#0f5f4a" stroke-width="2" '
-        f'stroke-dasharray="{circumference}" stroke-dashoffset="{offset}" '
-        f'transform="rotate(-90 {c} {c})" '
-        f'style="transition:stroke-dashoffset 0.55s cubic-bezier(0.34,1.56,0.64,1);"/>'
-        f'</svg>'
-    )
-
-
-def water_dots_html(count: int, goal: int = WATER_GOAL) -> str:
-    dots = []
-    for i in range(goal):
-        css = "filled" if i < count else "empty"
-        delay = f"animation-delay:{i * 0.04}s;" if i < count else ""
-        dots.append(f'<span class="june-water-dot {css}" style="{delay}"></span>')
-    return f'<div class="june-water-track">{"".join(dots)}</div>'
-
-
-def energy_dots_html(value: int, max_val: int = 5) -> str:
-    dots = "".join(
-        f'<span class="june-metric-dot {"active" if i < value else "inactive"}"></span>'
-        for i in range(max_val)
-    )
-    return f'<div class="june-metric-dots">{dots}</div>'
-
-
-def transcript_html(messages: list, live_response: str = "") -> str:
-    blocks = []
-    for msg in messages:
-        if isinstance(msg, HumanMessage):
-            blocks.append(
-                '<div class="june-message june-message-user">'
-                '<div class="june-message-label">You</div>'
-                f"{html.escape(extract_text(msg.content))}"
-                "</div>"
-            )
-        elif isinstance(msg, AIMessage) and msg.content:
-            blocks.append(
-                '<div class="june-message june-message-assistant">'
-                '<div class="june-message-label">June</div>'
-                f"{html.escape(extract_text(msg.content))}"
-                "</div>"
-            )
-    if live_response:
-        blocks.append(
-            '<div class="june-message june-message-assistant">'
-            '<div class="june-message-label">June</div>'
-            f"{html.escape(live_response)}"
-            "</div>"
-        )
-    return (
-        '<div class="june-transcript" id="june-transcript">'
-        + "".join(blocks)
-        + '<div id="june-transcript-end"></div>'
-        + "</div>"
-        + """<script>
-        setTimeout(() => {
-            const doc = window.parent.document;
-            const t = doc.getElementById("june-transcript");
-            const end = doc.getElementById("june-transcript-end");
-            if (t) t.scrollTop = t.scrollHeight;
-            if (end) end.scrollIntoView({ block: "end" });
-        }, 0);
-        </script>"""
-    )
-
-
-def render_list(items: list[tuple[str, str]]) -> str:
-    if not items:
-        return '<div class="june-item-meta">Nothing saved yet.</div>'
-    return '<div class="june-list">' + "".join(
-        f'<div class="june-item">'
-        f'<div class="june-item-title">{html.escape(title)}</div>'
-        f'<div class="june-item-meta">{html.escape(meta)}</div>'
-        f'</div>'
-        for title, meta in items
-    ) + "</div>"
-
-
-def render_workspace(ui_state: dict, include_header: bool = True) -> str:
-    checklist_items = ui_state.get("checklist_items", [])
-    checklist = (
-        "".join(f"<li>{html.escape(item)}</li>" for item in checklist_items)
-        if checklist_items
-        else "<li>No pinned actions.</li>"
-    )
-    header = ""
-    if include_header:
-        header = (
-            f'<div class="june-label">Workspace</div>'
-            f'<h3 class="june-title">{html.escape(ui_state.get("focus_title", "Workspace"))}</h3>'
-        )
-    else:
-        header = f'<h3 class="june-title">{html.escape(ui_state.get("focus_title", "Workspace"))}</h3>'
-
-    return header + (
-        f'<div class="june-item-meta">{html.escape(ui_state.get("focus_body", ""))}</div>'
-        f'<div class="june-label" style="margin-top:0.6rem;">'
-        f'{html.escape(ui_state.get("checklist_title", "Next steps"))}</div>'
-        f'<div class="june-item-meta"><ul>{checklist}</ul></div>'
-        + (
-            f'<div class="june-item-meta" style="margin-top:0.5rem;">'
-            f'{html.escape(ui_state.get("notice", ""))}</div>'
-            if ui_state.get("notice") else ""
-        )
-    )
-
-
 def chapter_saved_count(memory: Memory, chapter_key: str) -> int:
     """Return saved item count for a chapter card."""
     return len(chapter_items(memory, chapter_key))
-
-
-def render_memory_focus(memory: Memory, chapter_key: str) -> str:
-    """Render the active chapter in the primary right-panel card."""
-    items = chapter_items(memory, chapter_key)
-    return (
-        f'<div class="june-subtitle">{html.escape(chapter_subtitle(chapter_key))}</div>'
-        f'{render_list(items)}'
-    )
-
-
-def render_activity(activity_log: list[str]) -> str:
-    if not activity_log:
-        return '<div class="june-item-meta">No activity yet.</div>'
-    return '<div class="june-list">' + "".join(
-        f'<div class="june-item">'
-        f'<div class="june-item-meta">{html.escape(line)}</div>'
-        f'</div>'
-        for line in activity_log[-10:]
-    ) + "</div>"
 
 
 def append_activity(message: str) -> None:
     st.session_state.activity_log.append(message)
 
 
-def chapter_items(memory: Memory, chapter_key: str) -> list[tuple[str, str]]:
-    if chapter_key == "calendar":
-        return [
-            (
-                item["title"],
-                f"{item['date']}{' ' + item['time'] if item.get('time') else ''}"
-                f"{' | ' + item['details'] if item.get('details') else ''}",
-            )
-            for item in memory.get_calendar_items(limit=12)
-        ]
-    if chapter_key == "gym":
-        return [
-            (item["name"], f"{item['schedule']}{' | Goal: ' + item['goal'] if item.get('goal') else ''}")
-            for item in memory.get_gym_plans(limit=12)
-        ]
-    if chapter_key == "food":
-        return [
-            (item["name"], f"{item['daily_structure']}{' | Goal: ' + item['goal'] if item.get('goal') else ''}")
-            for item in memory.get_food_programs(limit=12)
-        ]
+def sync_ui_chapter(chapter_key: str = "") -> None:
+    """Keep local chapter selection aligned with UI state."""
+    normalized = chapter_key.strip().lower()
+    st.session_state.selected_chapter = normalized
+    st.session_state.ui_state["selected_chapter"] = normalized
+
+
+def sync_ui_layout(layout: str) -> None:
+    """Persist the active single-page layout mode."""
+    chosen = layout.strip().lower()
+    if chosen not in {"split", "focus", "chat"}:
+        chosen = "split"
+    st.session_state.ui_state["layout"] = chosen
+
+
+def layout_column_widths(layout: str) -> list[float]:
+    """Return conversation/right-panel widths for the current page mode."""
+    return {
+        "chat": [2.45, 0.8],
+        "focus": [1.3, 1.55],
+        "split": [1.9, 1.0],
+    }.get(layout, [1.9, 1.0])
+
+
+def render_layout_controls() -> None:
+    """Let the user shrink or expand the single-page layout."""
+    st.markdown('<div class="june-label">Window</div>', unsafe_allow_html=True)
+    current = st.session_state.ui_state.get("layout", "split")
+    for label, value in (("Chat", "chat"), ("Split", "split"), ("Focus", "focus")):
+        pressed = st.button(
+            f"{label}{' · active' if current == value else ''}",
+            key=f"layout_{value}",
+            use_container_width=True,
+            disabled=current == value,
+        )
+        if pressed:
+            sync_ui_layout(value)
+            append_activity(f"layout | {value}")
+            st.rerun()
+
+
+def _calendar_focus_items(memory: Memory, chapter_key: str) -> list[dict]:
+    items = memory.get_calendar_items(status="", limit=20)
     if chapter_key == "trips":
         return [
-            (item["title"], f"{item['date']}{' | ' + item['details'] if item.get('details') else ''}")
-            for item in memory.get_calendar_items(limit=30)
-            if any(kw in _cal_text(item) for kw in ("trip", "travel", "flight"))
-        ]
-    if chapter_key == "plans":
-        return [
-            (item["title"], f"Goal | {item['status']}{' | Next: ' + item['next_step'] if item.get('next_step') else ''}")
-            for item in memory.get_goals(status="", limit=20)
-        ] + [
-            (item["topic"], f"Open loop | {item['status']}{' | Due: ' + item['due_date'] if item.get('due_date') else ''}")
-            for item in memory.get_open_loops(status="", limit=20)
-        ]
-    if chapter_key == "dating":
-        return [
-            (item["person"], f"{item['relationship']} | {item['summary']}")
-            for item in memory.get_relationship_profiles()
-            if any(t in item.get("relationship", "").lower()
-                   for t in ("dating", "love", "partner", "girlfriend", "boyfriend", "romantic", "spouse"))
-        ]
-    if chapter_key == "family":
-        return [
-            (item["person"], f"{item['relationship']} | {item['summary']}")
-            for item in memory.get_relationship_profiles()
-            if any(t in item.get("relationship", "").lower()
-                   for t in ("family", "mother", "father", "mom", "dad", "brother",
-                             "sister", "parent", "child", "cousin", "uncle", "aunt"))
+            item for item in items
+            if any(term in " ".join(str(item.get(field, "")).lower() for field in ("title", "details", "source"))
+                   for term in ("trip", "travel", "flight"))
         ]
     if chapter_key == "birthdays":
         return [
-            (item["title"], f"{item['date']}{' | ' + item['details'] if item.get('details') else ''}")
-            for item in memory.get_calendar_items(limit=30)
-            if "birthday" in _cal_text(item)
+            item for item in items
+            if "birthday" in " ".join(str(item.get(field, "")).lower() for field in ("title", "details", "source"))
         ]
-    return []
+    return items
 
 
-def _cal_text(item: dict) -> str:
-    return " ".join(str(item.get(f, "")).lower() for f in ("title", "details", "source", "status"))
+def render_calendar_focus(memory: Memory, chapter_key: str) -> None:
+    """Render calendar-like entries with inline status actions."""
+    items = _calendar_focus_items(memory, chapter_key)
+    if not items:
+        st.markdown(render_memory_focus(memory, chapter_key), unsafe_allow_html=True)
+        return
+    st.markdown(f'<div class="june-subtitle">{html.escape(chapter_subtitle(chapter_key))}</div>', unsafe_allow_html=True)
+    for index, item in enumerate(items):
+        label = (
+            f"{item.get('date', 'date?')}"
+            f"{' ' + item.get('time', '') if item.get('time') else ''}"
+            f" · {item.get('title', 'Item')}"
+            f" · {item.get('status', 'planned')}"
+        )
+        with st.expander(label, expanded=index == 0):
+            if item.get("details"):
+                st.write(item["details"])
+            st.caption(f"source: {item.get('source', 'conversation')}")
+            cols = st.columns(3, gap="small")
+            options = [("planned", "Plan"), ("completed", "Done"), ("cancelled", "Cancel")]
+            for col, (status, button_label) in zip(cols, options):
+                with col:
+                    if st.button(
+                        button_label,
+                        key=f"{chapter_key}_{index}_{status}",
+                        use_container_width=True,
+                        disabled=item.get("status", "").lower() == status,
+                    ):
+                        memory.update_calendar_item_status(
+                            title=item["title"],
+                            status=status,
+                            date=item.get("date", ""),
+                            time=item.get("time", ""),
+                        )
+                        append_activity(f"calendar status | {item['title']} -> {status}")
+                        st.rerun()
 
 
-def chapter_subtitle(chapter_key: str) -> str:
-    return {
-        "calendar":  "Appointments, reminders, and events.",
-        "gym":       "Training routines and weekly splits.",
-        "food":      "Food structure and nutrition plans.",
-        "trips":     "Travel plans and movement events.",
-        "plans":     "Goals, open loops, and next steps.",
-        "dating":    "Relationship memory for love and dating.",
-        "family":    "Family context and relationship notes.",
-        "birthdays": "Birthday reminders and personal dates.",
-    }.get(chapter_key, "")
+def render_plan_focus(memory: Memory) -> None:
+    """Render goals and open loops with status controls."""
+    goals = memory.get_goals(status="", limit=20)
+    loops = memory.get_open_loops(status="", limit=20)
+    st.markdown(f'<div class="june-subtitle">{html.escape(chapter_subtitle("plans"))}</div>', unsafe_allow_html=True)
+    if not goals and not loops:
+        return
+    if goals:
+        st.markdown('<div class="june-panel-divider"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="june-label">Goals</div>', unsafe_allow_html=True)
+        for index, goal in enumerate(goals):
+            with st.expander(
+                f"{goal['title']} · {goal.get('status', 'active')} · {goal.get('category', 'personal')}",
+                expanded=index == 0,
+            ):
+                if goal.get("next_step"):
+                    st.write(f"Next: {goal['next_step']}")
+                if goal.get("target_date"):
+                    st.caption(f"Target: {goal['target_date']}")
+                cols = st.columns(3, gap="small")
+                for col, (status, label) in zip(cols, [("active", "Active"), ("paused", "Pause"), ("completed", "Done")]):
+                    with col:
+                        if st.button(
+                            label,
+                            key=f"goal_{index}_{status}",
+                            use_container_width=True,
+                            disabled=goal.get("status", "").lower() == status,
+                        ):
+                            memory.update_goal_status(goal["title"], status)
+                            append_activity(f"goal status | {goal['title']} -> {status}")
+                            st.rerun()
+    if loops:
+        st.markdown('<div class="june-panel-divider"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="june-label">Open Loops</div>', unsafe_allow_html=True)
+        for index, loop in enumerate(loops):
+            with st.expander(
+                f"{loop['topic']} · {loop.get('status', 'open')}",
+                expanded=not goals and index == 0,
+            ):
+                if loop.get("next_step"):
+                    st.write(f"Next: {loop['next_step']}")
+                if loop.get("due_date"):
+                    st.caption(f"Due: {loop['due_date']}")
+                cols = st.columns(3, gap="small")
+                for col, (status, label) in zip(cols, [("open", "Open"), ("resolved", "Resolve"), ("closed", "Close")]):
+                    with col:
+                        if st.button(
+                            label,
+                            key=f"loop_{index}_{status}",
+                            use_container_width=True,
+                            disabled=loop.get("status", "").lower() == status,
+                        ):
+                            memory.update_open_loop_status(loop["topic"], status)
+                            append_activity(f"loop status | {loop['topic']} -> {status}")
+                            st.rerun()
 
 
-def render_notifications(memory: Memory) -> str:
-    notifications = memory.get_upcoming_notifications(limit=5)
-    items = []
-    for item in notifications:
-        prefix = "today" if item["days_until"] == 0 else f"in {item['days_until']}d"
-        items.append((
-            item["title"],
-            f"{item['kind']} · {item['when']} · {prefix}"
-            f"{' | ' + item['details'] if item.get('details') else ''}",
-        ))
-    return render_list(items)
+def render_habits_focus(memory: Memory) -> None:
+    """Render tracked habits with inline completion controls."""
+    habits = memory.get_habits()
+    st.markdown(f'<div class="june-subtitle">{html.escape(chapter_subtitle("habits"))}</div>', unsafe_allow_html=True)
+    if not habits:
+        return
+    st.markdown('<div class="june-panel-divider"></div>', unsafe_allow_html=True)
+    for index, habit in enumerate(habits):
+        cols = st.columns([1.25, 0.7, 0.55], gap="small")
+        with cols[0]:
+            st.markdown(f"**{habit['name']}**")
+            st.caption(
+                f"{habit.get('category', 'health')} · {habit.get('target_days', 'daily')} · "
+                f"streak {habit.get('streak', 0)}d"
+            )
+        with cols[1]:
+            status = "done today" if habit.get("done_today") else "pending"
+            st.caption(status)
+        with cols[2]:
+            if st.button(
+                "Done",
+                key=f"habit_done_{index}",
+                use_container_width=True,
+                disabled=habit.get("done_today", False),
+            ):
+                item = memory.log_habit_completion(habit["name"])
+                append_activity(f"habit done | {item['name']} | streak {item.get('streak', 0)}")
+                st.rerun()
 
 
-def render_capture_health(memory: Memory, activity_log: list[str]) -> str:
-    chapter_counts = {
-        "Agenda":    len(memory.get_calendar_items(limit=100)),
-        "Birthdays": len(chapter_items(memory, "birthdays")),
-        "Trips":     len(chapter_items(memory, "trips")),
-        "Gym":       len(memory.get_gym_plans(limit=100)),
-        "Food":      len(memory.get_food_programs(limit=100)),
-        "Plans":     len(memory.get_goals(status="", limit=100)) + len(memory.get_open_loops(status="", limit=100)),
-        "Dating":    len(chapter_items(memory, "dating")),
-        "Family":    len(chapter_items(memory, "family")),
-    }
-    cards = "".join(
-        f'<div class="june-stat-card">'
-        f'<div class="june-stat-label">{html.escape(label)}</div>'
-        f'<div class="june-stat-value">{count}</div>'
-        f'</div>'
-        for label, count in chapter_counts.items()
-    )
-    recent_saves = [
-        line for line in activity_log[-30:]
-        if "save_" in line or "Saved " in line or "saved " in line
-    ][-5:]
-    save_html = (
-        render_list([("Capture", line) for line in recent_saves])
-        if recent_saves
-        else '<div class="june-item-meta">No recent captures this session.</div>'
-    )
-    return f'<div class="june-stat-grid">{cards}</div><div style="margin-top:0.6rem;"></div>' + save_html
+def render_water_focus(memory: Memory) -> None:
+    """Render today's hydration controls inline."""
+    count = memory.get_water_today()
+    st.markdown(f'<div class="june-subtitle">{html.escape(chapter_subtitle("water"))}</div>', unsafe_allow_html=True)
+    st.markdown(water_dots_html(count, WATER_GOAL), unsafe_allow_html=True)
+    cols = st.columns([1, 0.5, 0.5], gap="small")
+    with cols[0]:
+        st.caption(f"{count}/{WATER_GOAL} glasses")
+    with cols[1]:
+        if st.button("−", key="focus_water_minus", use_container_width=True, disabled=count <= 0):
+            memory.set_water(count - 1)
+            append_activity("water | decrement")
+            st.rerun()
+    with cols[2]:
+        if st.button("+", key="focus_water_plus", use_container_width=True):
+            memory.log_water(1)
+            append_activity("water | increment")
+            st.rerun()
+
+
+def render_detail_focus(memory: Memory, chapter_key: str) -> None:
+    """Render the selected right-panel surface inline on the same page."""
+    if chapter_key in {"calendar", "trips", "birthdays"}:
+        render_calendar_focus(memory, chapter_key)
+        return
+    if chapter_key == "plans":
+        render_plan_focus(memory)
+        return
+    if chapter_key == "habits":
+        render_habits_focus(memory)
+        return
+    if chapter_key == "water":
+        render_water_focus(memory)
+        return
+    st.markdown(render_memory_focus(memory, chapter_key), unsafe_allow_html=True)
 
 
 def current_local_time() -> datetime:
@@ -853,6 +792,10 @@ def build_daily_checkin(memory: Memory) -> str:
 
     notifications = memory.get_upcoming_notifications(limit=3)
     empty_chapters = memory.get_chapters_needing_attention()
+    today_metrics = memory.get_today_body_metrics()
+    today_workout = memory.get_today_workout()
+    today_nutrition = memory.get_nutrition_today()
+    water_today = memory.get_water_today()
 
     lines = [
         f"{opening} It's {now.strftime('%A')}, day {now.timetuple().tm_yday} of the year.",
@@ -877,6 +820,10 @@ def build_daily_checkin(memory: Memory) -> str:
         "Goals & Plans": "What are you working toward right now? I'll track your goals and next steps.",
         "Trips":         "Any travel planned in the coming months?",
         "Dating/Love":   "Are you in a relationship or dating? Context helps me support you better.",
+        "Body Metrics":  "Want to log your weight, sleep, or energy for today?",
+        "Workout Sessions": "Did you train today, or should I mark this as a rest day?",
+        "Nutrition":     "What have you eaten so far today?",
+        "Water":         f"You're at {water_today}/{WATER_GOAL} glasses today. Want to log more water?",
     }
 
     if empty_chapters:
@@ -884,17 +831,26 @@ def build_daily_checkin(memory: Memory) -> str:
         if question:
             lines.append(question)
     else:
-        # Maintenance rotation by day of week
-        maintenance = {
-            0: "How did training go this week?",
-            1: "Any new plans or appointments coming up?",
-            2: "How are your habits holding up?",
-            3: "Anything on your mind that needs a plan?",
-            4: "How are you feeling heading into the weekend?",
-            5: "Any goals you want to review or update?",
-            6: "How was the week? Anything worth capturing before Monday?",
-        }
-        lines.append(maintenance.get(now.weekday(), "What is on your mind?"))
+        if not today_workout:
+            lines.append("Did you train today, or is today a rest day?")
+        elif not today_metrics:
+            lines.append("Want to log your weight, sleep, or energy for today?")
+        elif not today_nutrition:
+            lines.append("What have you eaten so far today?")
+        elif water_today < WATER_GOAL:
+            lines.append(f"You're at {water_today}/{WATER_GOAL} glasses today. Want to log more water?")
+        else:
+            # Maintenance rotation by day of week
+            maintenance = {
+                0: "How did training go this week?",
+                1: "Any new plans or appointments coming up?",
+                2: "How are your habits holding up?",
+                3: "Anything on your mind that needs a plan?",
+                4: "How are you feeling heading into the weekend?",
+                5: "Any goals you want to review or update?",
+                6: "How was the week? Anything worth capturing before Monday?",
+            }
+            lines.append(maintenance.get(now.weekday(), "What is on your mind?"))
 
     return "\n\n".join(lines)
 
@@ -956,6 +912,7 @@ def handle_stream_chunk(
             if isinstance(payload, dict):
                 if "ui_state" in payload:
                     st.session_state.ui_state = payload["ui_state"]
+                    sync_ui_chapter(st.session_state.ui_state.get("selected_chapter", ""))
                     if not st.session_state.selected_chapter:
                         workspace_placeholder.markdown(
                             render_workspace(st.session_state.ui_state, include_header=False),
@@ -976,6 +933,7 @@ def handle_stream_chunk(
             st.session_state.tool_stats = data["tool_stats"]
         if "ui_state" in data:
             st.session_state.ui_state = data["ui_state"]
+            sync_ui_chapter(st.session_state.ui_state.get("selected_chapter", ""))
             if not st.session_state.selected_chapter:
                 workspace_placeholder.markdown(
                     render_workspace(st.session_state.ui_state, include_header=False),
@@ -1177,6 +1135,9 @@ if "selected_chapter" not in st.session_state:
 if "tool_stats" not in st.session_state:
     st.session_state.tool_stats = {"requested": 0, "succeeded": 0, "failed": 0, "last_calls": []}
 
+if st.session_state.ui_state.get("selected_chapter") and st.session_state.selected_chapter != st.session_state.ui_state.get("selected_chapter"):
+    st.session_state.selected_chapter = st.session_state.ui_state.get("selected_chapter", "")
+
 if st.session_state.last_user_id != user_id:
     st.session_state.messages = Memory(user_id).load_chat_messages()
     st.session_state.activity_log = []
@@ -1205,12 +1166,13 @@ if not st.session_state.is_generating and memory.should_send_daily_checkin():
 
 snapshot = memory.get_progress_snapshot()
 active_skill = SKILLS.get(st.session_state.active_skill_key, SKILLS[DEFAULT_SKILL])
+current_layout = st.session_state.ui_state.get("layout", "split")
 
 # ---------------------------------------------------------------------------
 # Main layout: Conversation | Right panel
 # ---------------------------------------------------------------------------
 
-chat_col, plan_col = st.columns([1.9, 1], gap="medium")
+chat_col, plan_col = st.columns(layout_column_widths(current_layout), gap="medium")
 
 # ── Conversation ──────────────────────────────────────────────────────────
 
@@ -1258,98 +1220,93 @@ with chat_col:
 with plan_col:
     st.markdown('<div class="june-right-panel">', unsafe_allow_html=True)
 
-    # Upcoming reminders
-    st.markdown('<div class="june-panel-card june-panel-card-quiet">', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="june-panel-kicker">'
-        '<div class="june-panel-kicker-left"><div class="june-label">Upcoming</div></div>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(render_notifications(memory), unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    with st.expander("Window", expanded=True):
+        st.markdown(
+            '<div class="june-panel-caption">Everything stays on this page. Shrink chat or expand the right rail as needed.</div>',
+            unsafe_allow_html=True,
+        )
+        render_layout_controls()
 
-    # Chapter navigation
-    st.markdown('<div class="june-panel-card">', unsafe_allow_html=True)
+    with st.expander("Upcoming", expanded=True):
+        st.markdown(
+            '<div class="june-panel-caption">Keep the latest reminders visible without leaving the page.</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(render_notifications(memory), unsafe_allow_html=True)
+
     selected_chapter = st.session_state.selected_chapter
     selected_label = dict(CHAPTERS).get(selected_chapter, "")
-    kicker_right = (
-        f'<div class="june-active-tag">Open: {html.escape(selected_label)}</div>'
-        if selected_chapter
-        else '<div class="june-compact-copy">Choose an area to inspect what June saved.</div>'
-    )
-    st.markdown(
-        '<div class="june-panel-kicker">'
-        '<div class="june-panel-kicker-left"><div class="june-label">Areas</div></div>'
-        f'<div class="june-panel-kicker-right">{kicker_right}</div>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<div class="june-panel-caption">Switch the lower card between stored memory and the live workspace.</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown('<div class="june-chapter-grid">', unsafe_allow_html=True)
-    chapter_cols = st.columns(2, gap="small")
-    for idx, (chapter_key, chapter_label) in enumerate(CHAPTERS):
-        with chapter_cols[idx % 2]:
-            count = chapter_saved_count(memory, chapter_key)
-            button_label = f"{chapter_label}\n{count} saved" if count else f"{chapter_label}\nempty"
-            if st.button(button_label, key=f"ch_{chapter_key}", use_container_width=True):
-                st.session_state.selected_chapter = (
-                    "" if st.session_state.selected_chapter == chapter_key else chapter_key
-                )
-                st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
 
-    # Primary panel: memory focus or workspace
-    st.markdown('<div class="june-panel-card">', unsafe_allow_html=True)
-    workspace_placeholder = st.empty()
-    if selected_chapter:
+    with st.expander("Areas", expanded=True):
+        kicker_right = (
+            f'<div class="june-active-tag">Open: {html.escape(selected_label)}</div>'
+            if selected_chapter
+            else '<div class="june-compact-copy">Tap a chapter to expand its memory here.</div>'
+        )
         st.markdown(
-            '<div class="june-primary-header">'
-            '<div class="june-primary-copy">'
-            f'<div class="june-label">Open Chapter</div>'
-            f'<h3 class="june-title">{html.escape(selected_label)}</h3>'
-            '</div>'
+            '<div class="june-panel-kicker">'
+            '<div class="june-panel-kicker-left"><div class="june-label">Areas</div></div>'
+            f'<div class="june-panel-kicker-right">{kicker_right}</div>'
             '</div>',
             unsafe_allow_html=True,
         )
-        back_col_left, back_col_right = st.columns([1, 0.42], gap="small")
-        with back_col_right:
-            if st.button("Back to workspace", key="back_to_workspace", use_container_width=True):
-                st.session_state.selected_chapter = ""
-                st.rerun()
-        workspace_placeholder.markdown(
-            render_memory_focus(memory, selected_chapter),
-            unsafe_allow_html=True,
-        )
-    else:
         st.markdown(
-            '<div class="june-primary-header">'
-            '<div class="june-primary-copy">'
-            '<div class="june-label">Workspace</div>'
-            '<div class="june-panel-caption">Pinned notes, next steps, and the current assistant focus live here.</div>'
-            '</div>'
-            '</div>',
+            '<div class="june-panel-caption">Chapter cards stay in one page and expand inline when selected.</div>',
             unsafe_allow_html=True,
         )
-        workspace_placeholder.markdown(
-            render_workspace(st.session_state.ui_state, include_header=False),
-            unsafe_allow_html=True,
-        )
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown('<div class="june-chapter-grid">', unsafe_allow_html=True)
+        chapter_cols = st.columns(2, gap="small")
+        for idx, (chapter_key, chapter_label) in enumerate(CHAPTERS):
+            with chapter_cols[idx % 2]:
+                count = chapter_saved_count(memory, chapter_key)
+                button_label = f"{chapter_label}\n{count} saved" if count else f"{chapter_label}\nempty"
+                if st.button(button_label, key=f"ch_{chapter_key}", use_container_width=True):
+                    sync_ui_chapter("" if st.session_state.selected_chapter == chapter_key else chapter_key)
+                    st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    # Diagnostics
-    st.markdown('<div class="june-panel-card june-panel-card-quiet">', unsafe_allow_html=True)
-    st.markdown('<div class="june-label">Diagnostics</div>', unsafe_allow_html=True)
-    with st.expander("Capture health", expanded=False):
-        st.markdown(render_capture_health(memory, st.session_state.activity_log), unsafe_allow_html=True)
-    with st.expander("Agent logs", expanded=False):
-        activity_placeholder = st.empty()
-        activity_placeholder.markdown(render_activity(st.session_state.activity_log), unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    with st.expander("Chapter Focus", expanded=bool(selected_chapter)):
+        workspace_placeholder = st.empty()
+        if selected_chapter:
+            detail_container = st.container()
+            detail_container.markdown(
+                '<div class="june-primary-header">'
+                '<div class="june-primary-copy">'
+                f'<div class="june-label">Open Chapter</div>'
+                f'<h3 class="june-title">{html.escape(selected_label)}</h3>'
+                '</div>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+            back_col_left, back_col_right = st.columns([1, 0.42], gap="small")
+            with back_col_right:
+                if st.button("Back to workspace", key="back_to_workspace", use_container_width=True):
+                    sync_ui_chapter("")
+                    st.rerun()
+            with detail_container:
+                render_detail_focus(memory, selected_chapter)
+        else:
+            st.markdown(
+                '<div class="june-primary-header">'
+                '<div class="june-primary-copy">'
+                '<div class="june-label">Workspace</div>'
+                '<div class="june-panel-caption">Pinned notes, next steps, and the current assistant focus live here.</div>'
+                '</div>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+            workspace_placeholder.markdown(
+                render_workspace(st.session_state.ui_state, include_header=False),
+                unsafe_allow_html=True,
+            )
+
+    with st.expander("Diagnostics", expanded=False):
+        st.markdown('<div class="june-label">Diagnostics</div>', unsafe_allow_html=True)
+        with st.expander("Capture health", expanded=False):
+            st.markdown(render_capture_health(memory, st.session_state.activity_log), unsafe_allow_html=True)
+        with st.expander("Agent logs", expanded=False):
+            activity_placeholder = st.empty()
+            activity_placeholder.markdown(render_activity(st.session_state.activity_log), unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)  # close june-right-panel
 

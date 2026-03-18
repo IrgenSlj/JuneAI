@@ -17,6 +17,7 @@ from agent.tools import (
     list_goals,
     list_gym_plans,
     list_open_loops,
+    log_habit_completion,
     log_mood,
     save_calendar_item,
     save_favorite_recommendation,
@@ -25,6 +26,10 @@ from agent.tools import (
     save_open_loop,
     save_relationship_profile,
     save_user_preference,
+    set_ui_chapter,
+    update_calendar_item_status,
+    update_goal_status,
+    update_open_loop_status,
     set_ui_checklist,
     set_ui_focus,
     set_ui_layout,
@@ -125,11 +130,68 @@ def test_upcoming_notifications(mem):
     in_three_days = (date.today() + timedelta(days=3)).isoformat()
     in_five_days = (date.today() + timedelta(days=5)).isoformat()
     mem.save_calendar_item("Mom birthday", in_three_days, details="birthday dinner")
+    mem.save_calendar_item("Archived call", in_three_days, status="completed")
     mem.save_open_loop("Book train", due_date=in_five_days, next_step="Choose the morning train")
     notifications = mem.get_upcoming_notifications(limit=5)
     titles = {item["title"] for item in notifications}
     assert "Mom birthday" in titles
     assert "Book train" in titles
+    assert "Archived call" not in titles
+
+
+def test_status_transition_methods(mem):
+    mem.save_calendar_item("Dentist", "2026-04-02")
+    mem.save_goal("Write proposal")
+    mem.save_open_loop("Book train")
+
+    calendar_item = mem.update_calendar_item_status("Dentist", "completed")
+    goal = mem.update_goal_status("Write proposal", "paused")
+    loop = mem.update_open_loop_status("Book train", "closed")
+
+    assert calendar_item["status"] == "completed"
+    assert goal["status"] == "paused"
+    assert loop["status"] == "closed"
+
+
+def test_status_transition_tools(tool_state, mem):
+    mem.save_calendar_item("Dentist", "2026-04-02")
+    mem.save_goal("Write proposal")
+    mem.save_open_loop("Book train")
+
+    calendar_result = update_calendar_item_status.func(
+        title="Dentist",
+        status="completed",
+        date="2026-04-02",
+        state=tool_state,
+    )
+    goal_result = update_goal_status.func(
+        title="Write proposal",
+        status="completed",
+        state=tool_state,
+    )
+    loop_result = update_open_loop_status.func(
+        topic="Book train",
+        status="resolved",
+        state=tool_state,
+    )
+
+    assert "updated to status 'completed'" in calendar_result
+    assert "updated to status 'completed'" in goal_result
+    assert "updated to status 'resolved'" in loop_result
+    assert mem.get_calendar_items(status="completed")[0]["title"] == "Dentist"
+    assert mem.get_goals(status="completed")[0]["title"] == "Write proposal"
+    assert mem.get_open_loops(status="resolved")[0]["topic"] == "Book train"
+
+
+def test_habit_streak_is_reported_by_memory_and_tool(tool_state, mem):
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    mem.log_habit_completion("Meditate", date_str=yesterday)
+
+    habit = mem.log_habit_completion("Meditate")
+    result = log_habit_completion.func(habit_name="Meditate", state=tool_state)
+
+    assert habit["streak"] == 2
+    assert "Streak: 2 day(s)." in result
 
 
 @pytest.fixture
@@ -140,6 +202,7 @@ def tool_state():
         "skill": "assistant",
         "ui_state": {
             "layout": "split",
+            "selected_chapter": "",
             "focus_title": "Workspace",
             "focus_body": "",
             "checklist_title": "Next steps",
@@ -165,6 +228,16 @@ def test_preference_tool(tool_state, mem):
     saved = mem.get_preferences("books")
     assert "Saved preference" in result
     assert saved[0]["value"] == "lyrical fiction"
+
+
+def test_ui_chapter_tool(tool_state):
+    result = set_ui_chapter.func(
+        chapter="plans",
+        state=tool_state,
+        tool_call_id="tool_ui_chapter",
+    )
+    assert result.update["ui_state"]["selected_chapter"] == "plans"
+    assert result.update["messages"][0].content == "UI focus switched to 'plans'."
 
 
 def test_calendar_and_favorites_tools(tool_state):

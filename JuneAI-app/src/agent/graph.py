@@ -86,28 +86,72 @@ def _strip_code_fence(text: str) -> str:
     return stripped
 
 
-def _extract_json_object(text: str) -> dict | None:
-    """Extract the outermost JSON object from free-form model text."""
+def _extract_json_payload(text: str):
+    """Extract the outermost JSON object or array from free-form model text."""
     cleaned = unescape(_strip_code_fence(text)).strip()
     if not cleaned:
         return None
 
-    start = cleaned.find("{")
-    end = cleaned.rfind("}")
-    if start == -1 or end == -1 or end <= start:
+    pairs = []
+    object_start = cleaned.find("{")
+    object_end = cleaned.rfind("}")
+    if object_start != -1 and object_end != -1 and object_end > object_start:
+        pairs.append((object_start, object_end))
+    array_start = cleaned.find("[")
+    array_end = cleaned.rfind("]")
+    if array_start != -1 and array_end != -1 and array_end > array_start:
+        pairs.append((array_start, array_end))
+    if not pairs:
         return None
 
-    candidate = cleaned[start : end + 1]
-    try:
-        return json.loads(candidate)
-    except JSONDecodeError:
-        pass
+    for start, end in sorted(pairs, key=lambda item: item[0]):
+        candidate = cleaned[start : end + 1]
+        try:
+            return json.loads(candidate)
+        except JSONDecodeError:
+            normalized = candidate.replace("\n", " ").replace("\t", " ")
+            try:
+                return json.loads(normalized)
+            except JSONDecodeError:
+                continue
 
-    normalized = candidate.replace("\n", " ").replace("\t", " ")
-    try:
-        return json.loads(normalized)
-    except JSONDecodeError:
-        return None
+    return None
+
+
+def _coerce_tool_calls(payload) -> list[tuple[str, dict]]:
+    """Convert model-emitted JSON into normalized tool calls."""
+    if isinstance(payload, dict):
+        if isinstance(payload.get("tool_calls"), list):
+            items = payload["tool_calls"]
+        elif isinstance(payload.get("calls"), list):
+            items = payload["calls"]
+        elif isinstance(payload.get("tools"), list):
+            items = payload["tools"]
+        else:
+            items = [payload]
+    elif isinstance(payload, list):
+        items = payload
+    else:
+        return []
+
+    normalized_calls = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or item.get("tool") or "").strip()
+        parameters = (
+            item.get("parameters")
+            or item.get("args")
+            or item.get("arguments")
+            or item.get("input")
+            or {}
+        )
+        if isinstance(parameters, str):
+            parsed = _extract_json_payload(parameters)
+            parameters = parsed if isinstance(parsed, dict) else {}
+        if name and isinstance(parameters, dict):
+            normalized_calls.append((name, parameters))
+    return normalized_calls
 
 
 def _normalize_tool_call(name: str, args: dict) -> tuple[str, dict]:
@@ -125,7 +169,7 @@ def _normalize_tool_call(name: str, args: dict) -> tuple[str, dict]:
     if name == "save_journal_entry":
         entry = args.get("entry", "")
         if isinstance(entry, str):
-            payload = _extract_json_object(entry)
+            payload = _extract_json_payload(entry)
             if payload is None:
                 return name, args
 
@@ -157,30 +201,30 @@ def _recover_tool_call(response: AIMessage) -> AIMessage:
         return response
 
     raw_text = _extract_text(response.content)
-    payload = _extract_json_object(raw_text)
+    payload = _extract_json_payload(raw_text)
     if payload is None:
         return response
 
-    name = str(payload.get("name") or payload.get("tool") or "").strip()
-    parameters = payload.get("parameters") or payload.get("args") or payload.get("arguments") or {}
-    if not name or not isinstance(parameters, dict):
-        return response
-
-    name, parameters = _normalize_tool_call(name, parameters)
     available_tools = {tool.name for tool in JUNE_TOOLS}
-    if name not in available_tools:
+    recovered_calls = []
+    for name, parameters in _coerce_tool_calls(payload):
+        name, parameters = _normalize_tool_call(name, parameters)
+        if name in available_tools:
+            recovered_calls.append(
+                {
+                    "name": name,
+                    "args": parameters,
+                    "id": f"recovered_{uuid4().hex[:10]}",
+                    "type": "tool_call",
+                }
+            )
+
+    if not recovered_calls:
         return response
 
     return AIMessage(
         content="",
-        tool_calls=[
-            {
-                "name": name,
-                "args": parameters,
-                "id": f"recovered_{uuid4().hex[:10]}",
-                "type": "tool_call",
-            }
-        ],
+        tool_calls=recovered_calls,
     )
 
 
@@ -228,6 +272,27 @@ def create_june_agent(llm=None, runtime: RuntimeConfig | None = None):
         last_message = state["messages"][-1] if state.get("messages") else None
         requested_calls = list(getattr(last_message, "tool_calls", []) or [])
         result = tool_node.invoke(state)
+        if isinstance(result, list):
+            base_ui_state = dict(state.get("ui_state") or {})
+            combined = {"messages": []}
+            current_ui_state = dict(base_ui_state)
+            for item in result:
+                update = getattr(item, "update", None)
+                if isinstance(update, dict):
+                    if "ui_state" in update and isinstance(update["ui_state"], dict):
+                        for key, value in update["ui_state"].items():
+                            if key not in base_ui_state or base_ui_state.get(key) != value:
+                                current_ui_state[key] = value
+                        combined["ui_state"] = current_ui_state
+                    if "messages" in update:
+                        combined["messages"].extend(update.get("messages", []))
+                    for key, value in update.items():
+                        if key in {"ui_state", "messages"}:
+                            continue
+                        combined[key] = value
+                else:
+                    combined["messages"].append(item)
+            result = combined
         tool_messages = [
             message for message in result.get("messages", []) if isinstance(message, ToolMessage)
         ]

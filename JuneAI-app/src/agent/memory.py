@@ -182,6 +182,18 @@ class Memory:
         self._write(self.goals_file, goals)
         return item
 
+    def update_goal_status(self, title: str, status: str) -> dict | None:
+        """Update a goal's status by title."""
+        goals = self._read(self.goals_file, [])
+        key = title.strip().lower()
+        for index, existing in enumerate(goals):
+            if existing.get("title", "").strip().lower() == key:
+                goals[index]["status"] = status.strip() or existing.get("status", "active")
+                goals[index]["updated_at"] = self._now()
+                self._write(self.goals_file, goals)
+                return goals[index]
+        return None
+
     def get_goals(self, status: str = "", limit: int = 10) -> list:
         """Get goals filtered by status."""
         goals = self._read(self.goals_file, [])
@@ -222,6 +234,18 @@ class Memory:
         loops.append(item)
         self._write(self.open_loops_file, loops)
         return item
+
+    def update_open_loop_status(self, topic: str, status: str) -> dict | None:
+        """Update an open loop's status by topic."""
+        loops = self._read(self.open_loops_file, [])
+        key = topic.strip().lower()
+        for index, existing in enumerate(loops):
+            if existing.get("topic", "").strip().lower() == key:
+                loops[index]["status"] = status.strip() or existing.get("status", "open")
+                loops[index]["updated_at"] = self._now()
+                self._write(self.open_loops_file, loops)
+                return loops[index]
+        return None
 
     def get_open_loops(self, status: str = "open", limit: int = 10) -> list:
         """Get unresolved or filtered open loops."""
@@ -316,6 +340,31 @@ class Memory:
         items.sort(key=lambda entry: (entry.get("date", ""), entry.get("time", ""), entry.get("title", "")))
         self._write(self.calendar_file, items)
         return item
+
+    def update_calendar_item_status(
+        self,
+        title: str,
+        status: str,
+        date: str = "",
+        time: str = "",
+    ) -> dict | None:
+        """Update a calendar item's status by title and optional date/time."""
+        items = self._read(self.calendar_file, [])
+        title_key = title.strip().lower()
+        date_key = date.strip().lower()
+        time_key = time.strip().lower()
+        for index, existing in enumerate(items):
+            if existing.get("title", "").strip().lower() != title_key:
+                continue
+            if date_key and existing.get("date", "").strip().lower() != date_key:
+                continue
+            if time_key and existing.get("time", "").strip().lower() != time_key:
+                continue
+            items[index]["status"] = status.strip() or existing.get("status", "planned")
+            items[index]["updated_at"] = self._now()
+            self._write(self.calendar_file, items)
+            return items[index]
+        return None
 
     def get_calendar_items(self, status: str = "", limit: int = 20) -> list:
         """Get calendar items, optionally filtered by status."""
@@ -586,7 +635,6 @@ class Memory:
 
     def log_habit_completion(self, habit_name: str, date_str: str = "") -> dict:
         """Mark a habit as done. Auto-creates the habit if not found."""
-        from datetime import timedelta as _td  # noqa: F401 (local import ok)
         habits = self._read(self.habits_file, [])
         target_date = date_str.strip() if date_str.strip() else date.today().isoformat()
         key = habit_name.strip().lower()
@@ -598,7 +646,7 @@ class Memory:
                     completions.sort()
                     habits[index]["completions"] = completions
                     self._write(self.habits_file, habits)
-                return habits[index]
+                return self._habit_snapshot(habits[index])
         item = {
             "name": habit_name.strip(),
             "category": "health",
@@ -608,23 +656,17 @@ class Memory:
         }
         habits.append(item)
         self._write(self.habits_file, habits)
-        return item
+        return self._habit_snapshot(item)
 
     def get_habits(self) -> list:
         """Get all habits with computed streak and today's completion status."""
-        from datetime import timedelta
         habits = self._read(self.habits_file, [])
         today = date.today()
         result = []
         for habit in habits:
             completions = set(habit.get("completions", []))
             done_today = today.isoformat() in completions
-            streak = 0
-            check = today
-            while check.isoformat() in completions:
-                streak += 1
-                check = check - timedelta(days=1)
-            result.append({**habit, "done_today": done_today, "streak": streak})
+            result.append({**habit, "done_today": done_today, "streak": self._habit_streak(completions, today)})
         return result
 
     # --- Nutrition logs ---
@@ -790,6 +832,9 @@ class Memory:
             parsed_date = self._parse_date(item.get("date", ""))
             if parsed_date is None:
                 continue
+            status = item.get("status", "").strip().lower()
+            if status in {"completed", "done", "canceled", "cancelled", "archived"}:
+                continue
             days_until = (parsed_date - today).days
             if 0 <= days_until <= 14:
                 notifications.append({
@@ -913,3 +958,24 @@ class Memory:
         if "date" in haystack or "anniversary" in haystack:
             return "dating"
         return "calendar"
+
+    def _habit_streak(self, completions: set[str], start_date: date | None = None) -> int:
+        """Count the current streak ending at start_date or today."""
+        from datetime import timedelta
+
+        check = start_date or date.today()
+        streak = 0
+        while check.isoformat() in completions:
+            streak += 1
+            check = check - timedelta(days=1)
+        return streak
+
+    def _habit_snapshot(self, habit: dict) -> dict:
+        """Return a habit record with computed streak metadata."""
+        completions = set(habit.get("completions", []))
+        today = date.today()
+        return {
+            **habit,
+            "done_today": today.isoformat() in completions,
+            "streak": self._habit_streak(completions, today),
+        }
