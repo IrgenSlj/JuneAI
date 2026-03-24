@@ -22,18 +22,18 @@ def build_chat_model(runtime: RuntimeConfig):
             raise RuntimeError("ANTHROPIC_API_KEY is required when MODEL_PROVIDER=anthropic.")
 
         return ChatAnthropic(
-            model=runtime.model,
-            anthropic_api_key=runtime.api_key,
+            model_name=runtime.model,
+            api_key=runtime.api_key,
             temperature=runtime.temperature,
-            max_tokens=runtime.max_tokens,
+            max_tokens_to_sample=runtime.max_tokens,
             streaming=True,
         )
 
     return ChatOpenAI(
         model=runtime.model,
-        openai_api_key=runtime.api_key,
-        openai_api_base=runtime.base_url,
+        api_key=runtime.api_key,
+        base_url=runtime.base_url,
         temperature=runtime.temperature,
-        max_tokens=runtime.max_tokens,
+        max_completion_tokens=runtime.max_tokens,
         streaming=True,
     )

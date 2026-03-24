@@ -3,8 +3,9 @@ from unittest.mock import patch
 from langchain_core.messages import AIMessage, HumanMessage
 
 from agent.config import resolve_runtime_config
-from agent.graph import create_june_agent
+from agent.graph import _build_memory_context, create_june_agent
 from agent.memory import Memory
+from agent.models import build_chat_model
 
 
 class FakeLLM:
@@ -219,3 +220,162 @@ def test_graph_recovers_html_escaped_tool_json_with_wrapper_text(tmp_path):
 
     assert result["tool_stats"]["succeeded"] == 1
     assert memory.get_calendar_items()[0]["title"] == "My son birthday"
+
+
+def test_graph_recovers_single_quoted_multiple_tool_calls_with_aliases(tmp_path):
+    fake_llm = FakeLLM(
+        [
+            AIMessage(
+                content=(
+                    "I'll save both now: "
+                    "[{'tool':'save_goal','args':{'goal':'Book summer trip','next':'Pick flights'}},"
+                    "{'tool':'open_chapter','args':{'section':'plans'}}]"
+                )
+            ),
+            AIMessage(content="Saved."),
+        ]
+    )
+    agent = create_june_agent(llm=fake_llm)
+
+    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+        result = agent.invoke(
+            {
+                "messages": [HumanMessage(content="Track booking the trip and show my plans.")],
+                "user_id": "alias_tool_user",
+                "skill": "planner",
+                "ui_state": {
+                    "layout": "split",
+                    "focus_title": "Workspace",
+                    "focus_body": "",
+                    "checklist_title": "Next steps",
+                    "checklist_items": [],
+                    "notice": "",
+                },
+                "tool_stats": {"requested": 0, "succeeded": 0, "failed": 0, "last_calls": []},
+            }
+        )
+        memory = Memory("alias_tool_user")
+
+    assert result["tool_stats"]["succeeded"] == 2
+    assert memory.get_goals()[0]["title"] == "Book summer trip"
+    assert result["ui_state"]["selected_chapter"] == "plans"
+
+
+def test_graph_recovers_function_wrapper_tool_payload(tmp_path):
+    fake_llm = FakeLLM(
+        [
+            AIMessage(
+                content=(
+                    '{"tool_calls":[{"function":{"name":"save_food_program",'
+                    '"arguments":"{\\"title\\":\\"Cut Plan\\",\\"structure\\":\\"Protein breakfast, salad lunch\\",'
+                    '\\"goal\\":\\"fat loss\\"}"}}]}'
+                )
+            ),
+            AIMessage(content="Saved."),
+        ]
+    )
+    agent = create_june_agent(llm=fake_llm)
+
+    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+        result = agent.invoke(
+            {
+                "messages": [HumanMessage(content="Save my cut plan.")],
+                "user_id": "function_wrapper_user",
+                "skill": "wellness",
+                "ui_state": {
+                    "layout": "split",
+                    "focus_title": "Workspace",
+                    "focus_body": "",
+                    "checklist_title": "Next steps",
+                    "checklist_items": [],
+                    "notice": "",
+                },
+                "tool_stats": {"requested": 0, "succeeded": 0, "failed": 0, "last_calls": []},
+            }
+        )
+        memory = Memory("function_wrapper_user")
+
+    assert result["tool_stats"]["succeeded"] == 1
+    assert memory.get_food_programs()[0]["name"] == "Cut Plan"
+    assert memory.get_food_programs()[0]["daily_structure"] == "Protein breakfast, salad lunch"
+
+
+def test_build_chat_model_uses_current_openai_signature():
+    runtime = resolve_runtime_config()
+    captured = {}
+
+    class FakeChatOpenAI:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    with patch("agent.models.ChatOpenAI", FakeChatOpenAI):
+        build_chat_model(runtime)
+
+    assert captured["model"] == runtime.model
+    assert captured["api_key"] == runtime.api_key
+    assert captured["base_url"] == runtime.base_url
+    assert captured["max_completion_tokens"] == runtime.max_tokens
+    assert captured["streaming"] is True
+
+
+def test_build_chat_model_uses_current_anthropic_signature():
+    runtime = resolve_runtime_config()
+    runtime = runtime.__class__(
+        preset_key="claude_high",
+        label="Claude High Performance",
+        provider="anthropic",
+        model="claude-test",
+        api_key="test-key",
+        base_url="",
+        temperature=0.3,
+        max_tokens=777,
+        tool_strategy="balanced_reasoning",
+    )
+    captured = {}
+
+    class FakeChatAnthropic:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    with patch.dict("sys.modules", {"langchain_anthropic": type("M", (), {"ChatAnthropic": FakeChatAnthropic})}):
+        build_chat_model(runtime)
+
+    assert captured["model_name"] == "claude-test"
+    assert captured["api_key"] == "test-key"
+    assert captured["max_tokens_to_sample"] == 777
+    assert captured["streaming"] is True
+
+
+def test_memory_context_includes_detailed_body_metrics(tmp_path):
+    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+        memory = Memory("body_context_user")
+        memory.log_body_metrics(
+            weight_kg=80.2,
+            sleep_hours=7.2,
+            sleep_quality=4,
+            energy=3,
+            stress=2,
+            soreness=2,
+            resting_hr=58,
+            steps=9100,
+            notes="Solid baseline day.",
+        )
+        memory.log_body_metrics(
+            weight_kg=79.8,
+            sleep_hours=6.5,
+            sleep_quality=3,
+            energy=2,
+            stress=4,
+            soreness=3,
+            resting_hr=61,
+            steps=8450,
+            notes="Travel fatigue.",
+        )
+
+        context = _build_memory_context("body_context_user")
+
+    assert "Today's body metrics" in context
+    assert "sleep 6.5h" in context
+    assert "stress 4/5" in context
+    assert "resting HR 61" in context
+    assert "Travel fatigue." in context

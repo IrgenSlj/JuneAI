@@ -99,7 +99,13 @@ def chapter_items(memory: "Memory", chapter_key: str) -> list[tuple[str, str]]:
                     for part in [
                         f"weight {item['weight_kg']}kg" if item.get("weight_kg") else "",
                         f"sleep {item['sleep_hours']}h" if item.get("sleep_hours") else "",
+                        f"sleep quality {item['sleep_quality']}/5" if item.get("sleep_quality") else "",
                         f"energy {item['energy']}/5" if item.get("energy") else "",
+                        f"stress {item['stress']}/5" if item.get("stress") else "",
+                        f"soreness {item['soreness']}/5" if item.get("soreness") else "",
+                        f"resting HR {item['resting_hr']}" if item.get("resting_hr") else "",
+                        f"steps {item['steps']}" if item.get("steps") else "",
+                        item["notes"] if item.get("notes") else "",
                     ]
                     if part
                 )

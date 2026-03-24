@@ -16,6 +16,7 @@ from .chapters import chapter_items, chapter_subtitle
 def default_ui_state() -> dict:
     return {
         "layout": DEFAULT_UI_STATE["layout"],
+        "show_right_panel": DEFAULT_UI_STATE["show_right_panel"],
         "selected_chapter": DEFAULT_UI_STATE["selected_chapter"],
         "focus_title": DEFAULT_UI_STATE["focus_title"],
         "focus_body": DEFAULT_UI_STATE["focus_body"],
@@ -105,13 +106,14 @@ def transcript_html(messages: list, live_response: str = "") -> str:
         + '<div id="june-transcript-end"></div>'
         + "</div>"
         + """<script>
-        setTimeout(() => {
-            const doc = window.parent.document;
-            const t = doc.getElementById("june-transcript");
-            const end = doc.getElementById("june-transcript-end");
+        const scrollJuneTranscript = () => {
+            const t = document.getElementById("june-transcript");
+            const end = document.getElementById("june-transcript-end");
             if (t) t.scrollTop = t.scrollHeight;
-            if (end) end.scrollIntoView({ block: "end" });
-        }, 0);
+            if (end) end.scrollIntoView({ block: "end", behavior: "auto" });
+        };
+        setTimeout(scrollJuneTranscript, 0);
+        setTimeout(scrollJuneTranscript, 80);
         </script>"""
     )
 

@@ -194,6 +194,27 @@ def test_habit_streak_is_reported_by_memory_and_tool(tool_state, mem):
     assert "Streak: 2 day(s)." in result
 
 
+def test_body_metrics_store_detailed_fields(mem):
+    item = mem.log_body_metrics(
+        weight_kg=82.4,
+        sleep_hours=7.5,
+        sleep_quality=4,
+        energy=3,
+        stress=2,
+        soreness=1,
+        resting_hr=56,
+        steps=9876,
+        notes="Recovered better than expected.",
+    )
+
+    assert item["sleep_quality"] == 4
+    assert item["stress"] == 2
+    assert item["soreness"] == 1
+    assert item["resting_hr"] == 56
+    assert item["steps"] == 9876
+    assert mem.get_today_summary()["body_metrics"]["notes"] == "Recovered better than expected."
+
+
 @pytest.fixture
 def tool_state():
     return {

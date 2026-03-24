@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Any, Annotated, Optional
+
+from typing_extensions import TypeAlias
 
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
@@ -12,9 +14,14 @@ from langgraph.types import Command
 
 from .memory import Memory
 
-AgentState = dict
-DEFAULT_UI_STATE = {
+AgentPayload: TypeAlias = dict[str, Any]
+AgentState: TypeAlias = Optional[AgentPayload]
+InjectedAgentState = Annotated[AgentState, InjectedState]
+ToolCommand: TypeAlias = Command[str]
+
+DEFAULT_UI_STATE: dict[str, Any] = {
     "layout": "split",
+    "show_right_panel": True,
     "selected_chapter": "",
     "focus_title": "Workspace",
     "focus_body": "June can pin structured notes, plans, and highlights here.",
@@ -42,10 +49,12 @@ UI_CHAPTERS = {
 
 def _memory_for_state(state: AgentState) -> Memory:
     """Resolve memory for the active user."""
+    if state is None:
+        raise ValueError("Tool execution requires injected agent state.")
     return Memory(state["user_id"])
 
 
-def _merge_ui_state(current: dict | None, updates: dict) -> dict:
+def _merge_ui_state(current: Optional[dict[str, Any]], updates: dict[str, Any]) -> dict[str, Any]:
     """Merge UI state updates onto defaults and current state."""
     merged = dict(DEFAULT_UI_STATE)
     if current:
@@ -590,9 +599,9 @@ def set_ui_focus(
     title: str,
     body: str,
     footer: str = "",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
-) -> Command:
+) -> ToolCommand:
     """Update the workspace focus panel with a title and body."""
     next_ui_state = _merge_ui_state(
         state.get("ui_state", {}) if state else {},
@@ -617,9 +626,9 @@ def set_ui_focus(
 def set_ui_checklist(
     title: str,
     items: str,
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
-) -> Command:
+) -> ToolCommand:
     """Update the workspace checklist with newline-separated items."""
     checklist_items = [
         item.strip("- ").strip()
@@ -648,9 +657,9 @@ def set_ui_checklist(
 def set_ui_layout(
     layout: str,
     notice: str = "",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
-) -> Command:
+) -> ToolCommand:
     """Set the workspace layout mode. Allowed values: split, focus, chat."""
     chosen = layout.strip().lower()
     if chosen not in {"split", "focus", "chat"}:
@@ -674,9 +683,9 @@ def set_ui_layout(
 def set_ui_chapter(
     chapter: str = "",
     notice: str = "",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
-) -> Command:
+) -> ToolCommand:
     """Open a chapter in the single-page right panel, or clear it to return to workspace."""
     chosen = chapter.strip().lower()
     if chosen and chosen not in UI_CHAPTERS:
@@ -699,9 +708,9 @@ def set_ui_chapter(
 
 @tool
 def clear_ui_workspace(
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
-) -> Command:
+) -> ToolCommand:
     """Reset the workspace panel to its default state."""
     next_ui_state = _merge_ui_state(
         state.get("ui_state", {}) if state else {},
@@ -745,16 +754,24 @@ def log_body_metrics(
     sleep_hours: float = 0.0,
     sleep_quality: int = 0,
     energy: int = 0,
+    stress: int = 0,
+    soreness: int = 0,
+    resting_hr: int = 0,
+    steps: int = 0,
     notes: str = "",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
-    """Log today's body metrics: weight (kg), sleep hours, sleep quality (1-5), energy (1-5)."""
+    """Log today's body metrics: recovery, strain, and activity signals."""
     memory = _memory_for_state(state)
     item = memory.log_body_metrics(
         weight_kg=weight_kg,
         sleep_hours=sleep_hours,
         sleep_quality=sleep_quality,
         energy=energy,
+        stress=stress,
+        soreness=soreness,
+        resting_hr=resting_hr,
+        steps=steps,
         notes=notes,
     )
     parts = []
@@ -762,8 +779,18 @@ def log_body_metrics(
         parts.append(f"weight {item['weight_kg']}kg")
     if item["sleep_hours"]:
         parts.append(f"sleep {item['sleep_hours']}h")
+    if item["sleep_quality"]:
+        parts.append(f"sleep quality {item['sleep_quality']}/5")
     if item["energy"]:
         parts.append(f"energy {item['energy']}/5")
+    if item["stress"]:
+        parts.append(f"stress {item['stress']}/5")
+    if item["soreness"]:
+        parts.append(f"soreness {item['soreness']}/5")
+    if item["resting_hr"]:
+        parts.append(f"resting HR {item['resting_hr']}")
+    if item["steps"]:
+        parts.append(f"steps {item['steps']}")
     return f"Body metrics logged: {', '.join(parts) or 'recorded'}."
 
 
@@ -863,8 +890,18 @@ def get_today_summary(
             metric_parts.append(f"weight {m['weight_kg']}kg")
         if m.get("sleep_hours"):
             metric_parts.append(f"sleep {m['sleep_hours']}h")
+        if m.get("sleep_quality"):
+            metric_parts.append(f"sleep quality {m['sleep_quality']}/5")
         if m.get("energy"):
             metric_parts.append(f"energy {m['energy']}/5")
+        if m.get("stress"):
+            metric_parts.append(f"stress {m['stress']}/5")
+        if m.get("soreness"):
+            metric_parts.append(f"soreness {m['soreness']}/5")
+        if m.get("resting_hr"):
+            metric_parts.append(f"resting HR {m['resting_hr']}")
+        if m.get("steps"):
+            metric_parts.append(f"steps {m['steps']}")
         if metric_parts:
             parts.append("Body: " + ", ".join(metric_parts))
     else:
@@ -990,8 +1027,9 @@ _CHAPTER_INTAKE_PROMPTS: dict[str, str] = {
     "body": (
         "Ask the user:\n"
         "- What is your current weight?\n"
-        "- How many hours of sleep are you getting on average?\n"
-        "- How would you rate your energy levels this week (1 to 5)?\n"
+        "- How many hours of sleep are you getting, and how is the quality?\n"
+        "- How would you rate your energy, stress, and soreness this week (1 to 5)?\n"
+        "- If you know it, what are your resting heart rate and daily steps looking like?\n"
         "Log with log_body_metrics."
     ),
 }

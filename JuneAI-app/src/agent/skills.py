@@ -53,7 +53,7 @@ AUTOMATIC CAPTURE — do this every single turn without being asked:
 - If the user states a clear preference → save_user_preference
 - If the user mentions a book, film, or recommendation → save_favorite_recommendation
 - If the user says they worked out or describes a session → log_workout_session
-- If the user mentions their weight, sleep hours, or energy level → log_body_metrics
+- If the user mentions their weight, sleep hours, sleep quality, energy, stress, soreness, resting heart rate, or steps → log_body_metrics
 - If the user says they completed a habit → log_habit_completion
 - If the user describes eating a meal → log_nutrition
 - If the user mentions drinking water → log_water
@@ -72,7 +72,7 @@ Do not ask if the user is actively talking about something else — wait for an 
 DAILY TRACKING BEHAVIOUR
 Every day, ask at least one question to keep chapters fresh. Use the daily chapter focus in the temporal context below.
 When the user confirms completing a habit → log it with log_habit_completion.
-When the user mentions their weight, sleep, or energy → log it with log_body_metrics.
+When the user mentions their weight, sleep, sleep quality, energy, stress, soreness, resting heart rate, or steps → log it with log_body_metrics.
 When the user finishes a workout → log it with log_workout_session.
 Use get_today_summary when the user asks how they are doing today.
 
@@ -111,7 +111,7 @@ _DAILY_MAINTENANCE_QUESTIONS = [
     "How is the family side of things? Anything new to note?",
     "Any birthdays or important dates coming up I should add?",
     "How are things on the relationship front? Anything worth noting?",
-    "How are you feeling physically? Want to log your weight, sleep, or energy?",
+    "How are you feeling physically? Want to log your weight, sleep, energy, stress, soreness, heart rate, or steps?",
 ]
 
 

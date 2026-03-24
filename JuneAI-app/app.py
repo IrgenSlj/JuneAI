@@ -529,8 +529,15 @@ def sync_ui_layout(layout: str) -> None:
     st.session_state.ui_state["layout"] = chosen
 
 
-def layout_column_widths(layout: str) -> list[float]:
+def sync_right_panel_visibility(is_visible: bool) -> None:
+    """Persist whether the right rail is visible."""
+    st.session_state.ui_state["show_right_panel"] = bool(is_visible)
+
+
+def layout_column_widths(layout: str, show_right_panel: bool) -> list[float]:
     """Return conversation/right-panel widths for the current page mode."""
+    if not show_right_panel:
+        return [1.0]
     return {
         "chat": [2.45, 0.8],
         "focus": [1.3, 1.55],
@@ -542,6 +549,7 @@ def render_layout_controls() -> None:
     """Let the user shrink or expand the single-page layout."""
     st.markdown('<div class="june-label">Window</div>', unsafe_allow_html=True)
     current = st.session_state.ui_state.get("layout", "split")
+    rail_visible = st.session_state.ui_state.get("show_right_panel", True)
     for label, value in (("Chat", "chat"), ("Split", "split"), ("Focus", "focus")):
         pressed = st.button(
             f"{label}{' · active' if current == value else ''}",
@@ -553,6 +561,20 @@ def render_layout_controls() -> None:
             sync_ui_layout(value)
             append_activity(f"layout | {value}")
             st.rerun()
+    toggle_label = "Hide right rail" if rail_visible else "Show right rail"
+    if st.button(toggle_label, key="toggle_right_rail", use_container_width=True):
+        sync_right_panel_visibility(not rail_visible)
+        append_activity(f"right rail | {'shown' if not rail_visible else 'hidden'}")
+        st.rerun()
+
+
+def render_right_rail_toggle(is_visible: bool) -> None:
+    """Render a quick rail visibility toggle near the chat header."""
+    label = "Hide right rail" if is_visible else "Show right rail"
+    if st.button(label, key=f"quick_toggle_right_rail_{'on' if is_visible else 'off'}", use_container_width=False):
+        sync_right_panel_visibility(not is_visible)
+        append_activity(f"right rail | {'hidden' if is_visible else 'shown'}")
+        st.rerun()
 
 
 def _calendar_focus_items(memory: Memory, chapter_key: str) -> list[dict]:
@@ -716,6 +738,159 @@ def render_water_focus(memory: Memory) -> None:
             st.rerun()
 
 
+def _recent_body_series(memory: Memory, days: int = 7) -> list[dict]:
+    """Return recent body entries in ascending date order."""
+    items = memory.get_body_metrics(days=days)
+    return sorted(items, key=lambda item: item.get("date", ""))
+
+
+def _body_metric_stats(items: list[dict], key: str) -> tuple[float | None, float | None, float | None]:
+    """Return current, delta-vs-previous, and simple average for one body metric."""
+    values = [float(item.get(key, 0)) for item in items if item.get(key)]
+    if not values:
+        return None, None, None
+    current = values[-1]
+    previous = values[-2] if len(values) > 1 else None
+    delta = current - previous if previous is not None else None
+    average = sum(values) / len(values)
+    return current, delta, average
+
+
+def _metric_card(label: str, current: float | None, delta: float | None, average: float | None, suffix: str = "") -> str:
+    """Render a compact metric card for the body trend section."""
+    if current is None:
+        return (
+            '<div class="june-stat-card">'
+            f'<div class="june-stat-label">{html.escape(label)}</div>'
+            '<div class="june-stat-value">-</div>'
+            '<div class="june-item-meta">No data</div>'
+            '</div>'
+        )
+    current_text = f"{current:.1f}{suffix}" if isinstance(current, float) and not current.is_integer() else f"{int(current) if float(current).is_integer() else current}{suffix}"
+    if delta is None:
+        delta_text = "first entry"
+    else:
+        sign = "+" if delta > 0 else ""
+        delta_value = f"{delta:.1f}" if isinstance(delta, float) and not float(delta).is_integer() else f"{int(delta)}"
+        delta_text = f"vs prev {sign}{delta_value}{suffix}"
+    avg_text = (
+        f"7d avg {average:.1f}{suffix}"
+        if average is not None and not float(average).is_integer()
+        else (f"7d avg {int(average)}{suffix}" if average is not None else "")
+    )
+    return (
+        '<div class="june-stat-card">'
+        f'<div class="june-stat-label">{html.escape(label)}</div>'
+        f'<div class="june-stat-value">{html.escape(current_text)}</div>'
+        f'<div class="june-item-meta">{html.escape(delta_text)}</div>'
+        f'<div class="june-item-meta">{html.escape(avg_text)}</div>'
+        '</div>'
+    )
+
+
+def render_body_trend_card(memory: Memory, days: int = 7) -> None:
+    """Render compact 7-day trend cards for key body metrics."""
+    items = _recent_body_series(memory, days=days)
+    if not items:
+        st.caption("No body trend data yet.")
+        return
+
+    cards = []
+    for label, key, suffix in [
+        ("Sleep", "sleep_hours", "h"),
+        ("Energy", "energy", "/5"),
+        ("Stress", "stress", "/5"),
+        ("Soreness", "soreness", "/5"),
+        ("Weight", "weight_kg", "kg"),
+    ]:
+        current, delta, average = _body_metric_stats(items, key)
+        cards.append(_metric_card(label, current, delta, average, suffix))
+    st.markdown('<div class="june-stat-grid">' + "".join(cards) + '</div>', unsafe_allow_html=True)
+
+
+def _body_snapshot_line(item: dict) -> str:
+    """Build a compact one-line summary for a body check-in."""
+    parts = []
+    if item.get("sleep_hours"):
+        parts.append(f"sleep {item['sleep_hours']:.1f}h")
+    if item.get("energy"):
+        parts.append(f"energy {item['energy']}/5")
+    if item.get("stress"):
+        parts.append(f"stress {item['stress']}/5")
+    if item.get("soreness"):
+        parts.append(f"soreness {item['soreness']}/5")
+    if item.get("weight_kg"):
+        parts.append(f"weight {item['weight_kg']:.1f}kg")
+    return " · ".join(parts) if parts else "No body metrics recorded."
+
+
+def render_body_focus(memory: Memory) -> None:
+    """Render detailed body metrics with a richer daily log form."""
+    today = memory.get_today_body_metrics()
+    recent = memory.get_body_metrics(days=7)
+    st.markdown(f'<div class="june-subtitle">{html.escape(chapter_subtitle("body"))}</div>', unsafe_allow_html=True)
+
+    if today:
+        details = []
+        if today.get("weight_kg"):
+            details.append(f"Weight {today['weight_kg']} kg")
+        if today.get("sleep_hours"):
+            details.append(f"Sleep {today['sleep_hours']} h")
+        if today.get("sleep_quality"):
+            details.append(f"Sleep quality {today['sleep_quality']}/5")
+        if today.get("energy"):
+            details.append(f"Energy {today['energy']}/5")
+        if today.get("stress"):
+            details.append(f"Stress {today['stress']}/5")
+        if today.get("soreness"):
+            details.append(f"Soreness {today['soreness']}/5")
+        if today.get("resting_hr"):
+            details.append(f"Resting HR {today['resting_hr']}")
+        if today.get("steps"):
+            details.append(f"Steps {today['steps']}")
+        st.markdown("**Today**")
+        st.caption(" | ".join(details) if details else "No body metrics logged today.")
+        if today.get("notes"):
+            st.write(today["notes"])
+    else:
+        st.caption("No body metrics logged today.")
+
+    if recent:
+        st.markdown("**7-day trend**")
+        render_body_trend_card(memory, days=7)
+        st.markdown("**Recent check-ins**")
+        st.markdown(render_memory_focus(memory, "body"), unsafe_allow_html=True)
+
+    with st.expander("Log body check-in", expanded=not bool(today)):
+        with st.form("body_focus_form", clear_on_submit=False):
+            top_left, top_right = st.columns(2, gap="small")
+            with top_left:
+                weight_kg = st.number_input("Weight kg", min_value=0.0, max_value=300.0, step=0.1, value=float(today.get("weight_kg", 0.0)) if today else 0.0)
+                sleep_hours = st.number_input("Sleep hours", min_value=0.0, max_value=24.0, step=0.5, value=float(today.get("sleep_hours", 0.0)) if today else 0.0)
+                resting_hr = st.number_input("Resting HR", min_value=0, max_value=240, step=1, value=int(today.get("resting_hr", 0)) if today else 0)
+                steps = st.number_input("Steps", min_value=0, max_value=100000, step=500, value=int(today.get("steps", 0)) if today else 0)
+            with top_right:
+                sleep_quality = st.select_slider("Sleep quality", options=[0, 1, 2, 3, 4, 5], value=int(today.get("sleep_quality", 3)) if today else 3)
+                energy = st.select_slider("Energy", options=[0, 1, 2, 3, 4, 5], value=int(today.get("energy", 3)) if today else 3)
+                stress = st.select_slider("Stress", options=[0, 1, 2, 3, 4, 5], value=int(today.get("stress", 0)) if today else 0)
+                soreness = st.select_slider("Soreness", options=[0, 1, 2, 3, 4, 5], value=int(today.get("soreness", 0)) if today else 0)
+            notes = st.text_area("Notes", value=today.get("notes", "") if today else "", placeholder="Recovery notes, pain points, appetite, mood-body link, cycle, illness, etc.")
+            if st.form_submit_button("Save body check-in", use_container_width=True):
+                memory.log_body_metrics(
+                    weight_kg=weight_kg,
+                    sleep_hours=sleep_hours,
+                    sleep_quality=sleep_quality,
+                    energy=energy,
+                    stress=stress,
+                    soreness=soreness,
+                    resting_hr=resting_hr,
+                    steps=steps,
+                    notes=notes,
+                )
+                append_activity("body | detailed check-in saved")
+                st.rerun()
+
+
 def render_detail_focus(memory: Memory, chapter_key: str) -> None:
     """Render the selected right-panel surface inline on the same page."""
     if chapter_key in {"calendar", "trips", "birthdays"}:
@@ -729,6 +904,9 @@ def render_detail_focus(memory: Memory, chapter_key: str) -> None:
         return
     if chapter_key == "water":
         render_water_focus(memory)
+        return
+    if chapter_key == "body":
+        render_body_focus(memory)
         return
     st.markdown(render_memory_focus(memory, chapter_key), unsafe_allow_html=True)
 
@@ -820,7 +998,7 @@ def build_daily_checkin(memory: Memory) -> str:
         "Goals & Plans": "What are you working toward right now? I'll track your goals and next steps.",
         "Trips":         "Any travel planned in the coming months?",
         "Dating/Love":   "Are you in a relationship or dating? Context helps me support you better.",
-        "Body Metrics":  "Want to log your weight, sleep, or energy for today?",
+        "Body Metrics":  "Want to log a body check-in for today? Weight, sleep, energy, stress, soreness, resting heart rate, and steps all help me reason better.",
         "Workout Sessions": "Did you train today, or should I mark this as a rest day?",
         "Nutrition":     "What have you eaten so far today?",
         "Water":         f"You're at {water_today}/{WATER_GOAL} glasses today. Want to log more water?",
@@ -1035,6 +1213,8 @@ with st.sidebar:
 
     # Body metrics
     today_metrics = memory_for_sidebar.get_today_body_metrics()
+    sidebar_body_series = _recent_body_series(memory_for_sidebar, days=7)
+    latest_body = sidebar_body_series[-1] if sidebar_body_series else None
     st.markdown('<div class="june-section-label">Body</div>', unsafe_allow_html=True)
 
     if today_metrics:
@@ -1044,22 +1224,93 @@ with st.sidebar:
             f'<div class="june-body-row"><span class="june-body-key">sleep</span>'
             f'<span style="font-size:10px;">{today_metrics.get("sleep_hours", 0)}h</span></div>'
             + (
+                f'<div class="june-body-row"><span class="june-body-key">stress</span>'
+                f'<span style="font-size:10px;">{today_metrics.get("stress", 0)}/5</span></div>'
+                if today_metrics.get("stress")
+                else ""
+            )
+            + (
+                f'<div class="june-body-row"><span class="june-body-key">soreness</span>'
+                f'<span style="font-size:10px;">{today_metrics.get("soreness", 0)}/5</span></div>'
+                if today_metrics.get("soreness")
+                else ""
+            )
+            + (
                 f'<div class="june-body-row"><span class="june-body-key">weight</span>'
                 f'<span style="font-size:10px;">{today_metrics.get("weight_kg", 0)}kg</span></div>'
                 if today_metrics.get("weight_kg") else ""
             ),
             unsafe_allow_html=True,
         )
+        st.markdown(
+            '<div style="font-size:9px;color:var(--june-accent);margin-top:0.15rem;">Today\'s check-in</div>',
+            unsafe_allow_html=True,
+        )
     else:
-        st.markdown('<div style="font-size:10px;color:var(--june-muted);">Not logged today.</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:10px;color:var(--june-muted);">No check-in today.</div>', unsafe_allow_html=True)
+        if latest_body:
+            st.markdown(
+                '<div style="font-size:9px;color:var(--june-accent);margin-top:0.15rem;">'
+                + f"Last check-in · {html.escape(latest_body.get('date', ''))}"
+                + '</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                '<div style="font-size:9px;color:var(--june-muted);margin-top:0.15rem;">'
+                + html.escape(_body_snapshot_line(latest_body))
+                + '</div>',
+                unsafe_allow_html=True,
+            )
+
+    if sidebar_body_series:
+        sleep_now, sleep_delta, _sleep_avg = _body_metric_stats(sidebar_body_series, "sleep_hours")
+        energy_now, energy_delta, _energy_avg = _body_metric_stats(sidebar_body_series, "energy")
+        stress_now, stress_delta, _stress_avg = _body_metric_stats(sidebar_body_series, "stress")
+        trend_bits = []
+        if sleep_now is not None:
+            delta_txt = "" if sleep_delta is None else f" ({sleep_delta:+.1f}h)"
+            trend_bits.append(f"sleep {sleep_now:.1f}h{delta_txt}")
+        if energy_now is not None:
+            delta_txt = "" if energy_delta is None else f" ({energy_delta:+.0f})"
+            trend_bits.append(f"energy {energy_now:.0f}/5{delta_txt}")
+        if stress_now is not None:
+            delta_txt = "" if stress_delta is None else f" ({stress_delta:+.0f})"
+            trend_bits.append(f"stress {stress_now:.0f}/5{delta_txt}")
+        if trend_bits:
+            st.markdown(
+                '<div style="font-size:9px;color:var(--june-muted);margin-top:0.25rem;">7d trend</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                '<div style="font-size:9px;color:var(--june-muted);margin-top:0.1rem;">'
+                + " · ".join(html.escape(bit) for bit in trend_bits)
+                + '</div>',
+                unsafe_allow_html=True,
+            )
 
     with st.expander("Log body", expanded=False):
         with st.form("sb_body_form", clear_on_submit=True):
-            e_in = st.select_slider("Energy", options=[1, 2, 3, 4, 5], value=3)
+            e_in = st.select_slider("Energy", options=[0, 1, 2, 3, 4, 5], value=3)
+            sq_in = st.select_slider("Sleep quality", options=[0, 1, 2, 3, 4, 5], value=3)
+            stress_in = st.select_slider("Stress", options=[0, 1, 2, 3, 4, 5], value=0)
+            soreness_in = st.select_slider("Soreness", options=[0, 1, 2, 3, 4, 5], value=0)
             s_in = st.number_input("Sleep h", min_value=0.0, max_value=24.0, step=0.5, value=0.0)
             w_in = st.number_input("Weight kg", min_value=0.0, max_value=300.0, step=0.1, value=0.0)
+            hr_in = st.number_input("Resting HR", min_value=0, max_value=240, step=1, value=0)
+            steps_in = st.number_input("Steps", min_value=0, max_value=100000, step=500, value=0)
+            notes_in = st.text_area("Notes", value="", placeholder="Anything affecting recovery or performance?")
             if st.form_submit_button("Save", use_container_width=True):
-                memory_for_sidebar.log_body_metrics(weight_kg=w_in, sleep_hours=s_in, energy=e_in)
+                memory_for_sidebar.log_body_metrics(
+                    weight_kg=w_in,
+                    sleep_hours=s_in,
+                    sleep_quality=sq_in,
+                    energy=e_in,
+                    stress=stress_in,
+                    soreness=soreness_in,
+                    resting_hr=hr_in,
+                    steps=steps_in,
+                    notes=notes_in,
+                )
                 st.rerun()
 
     # Workout
@@ -1134,9 +1385,12 @@ if "selected_chapter" not in st.session_state:
     st.session_state.selected_chapter = ""
 if "tool_stats" not in st.session_state:
     st.session_state.tool_stats = {"requested": 0, "succeeded": 0, "failed": 0, "last_calls": []}
+if "show_right_panel" not in st.session_state:
+    st.session_state.show_right_panel = st.session_state.ui_state.get("show_right_panel", True)
 
 if st.session_state.ui_state.get("selected_chapter") and st.session_state.selected_chapter != st.session_state.ui_state.get("selected_chapter"):
     st.session_state.selected_chapter = st.session_state.ui_state.get("selected_chapter", "")
+st.session_state.show_right_panel = st.session_state.ui_state.get("show_right_panel", True)
 
 if st.session_state.last_user_id != user_id:
     st.session_state.messages = Memory(user_id).load_chat_messages()
@@ -1167,18 +1421,26 @@ if not st.session_state.is_generating and memory.should_send_daily_checkin():
 snapshot = memory.get_progress_snapshot()
 active_skill = SKILLS.get(st.session_state.active_skill_key, SKILLS[DEFAULT_SKILL])
 current_layout = st.session_state.ui_state.get("layout", "split")
+show_right_panel = st.session_state.ui_state.get("show_right_panel", True)
 
 # ---------------------------------------------------------------------------
 # Main layout: Conversation | Right panel
 # ---------------------------------------------------------------------------
 
-chat_col, plan_col = st.columns(layout_column_widths(current_layout), gap="medium")
+layout_widths = layout_column_widths(current_layout, show_right_panel)
+columns = st.columns(layout_widths, gap="medium")
+chat_col = columns[0]
+plan_col = columns[1] if show_right_panel else None
 
 # ── Conversation ──────────────────────────────────────────────────────────
 
 with chat_col:
     st.markdown('<div class="june-surface">', unsafe_allow_html=True)
-    st.markdown('<div class="june-label">Conversation</div>', unsafe_allow_html=True)
+    header_left, header_right = st.columns([1, 0.28], gap="small")
+    with header_left:
+        st.markdown('<div class="june-label">Conversation</div>', unsafe_allow_html=True)
+    with header_right:
+        render_right_rail_toggle(show_right_panel)
     st.markdown(
         '<div class="june-meta-row">'
         f'<div class="june-chip">profile: {html.escape(user_id)}</div>'
@@ -1217,98 +1479,102 @@ with chat_col:
 
 # ── Right panel ───────────────────────────────────────────────────────────
 
-with plan_col:
-    st.markdown('<div class="june-right-panel">', unsafe_allow_html=True)
+if show_right_panel and plan_col is not None:
+    with plan_col:
+        st.markdown('<div class="june-right-panel">', unsafe_allow_html=True)
 
-    with st.expander("Window", expanded=True):
-        st.markdown(
-            '<div class="june-panel-caption">Everything stays on this page. Shrink chat or expand the right rail as needed.</div>',
-            unsafe_allow_html=True,
-        )
-        render_layout_controls()
-
-    with st.expander("Upcoming", expanded=True):
-        st.markdown(
-            '<div class="june-panel-caption">Keep the latest reminders visible without leaving the page.</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(render_notifications(memory), unsafe_allow_html=True)
-
-    selected_chapter = st.session_state.selected_chapter
-    selected_label = dict(CHAPTERS).get(selected_chapter, "")
-
-    with st.expander("Areas", expanded=True):
-        kicker_right = (
-            f'<div class="june-active-tag">Open: {html.escape(selected_label)}</div>'
-            if selected_chapter
-            else '<div class="june-compact-copy">Tap a chapter to expand its memory here.</div>'
-        )
-        st.markdown(
-            '<div class="june-panel-kicker">'
-            '<div class="june-panel-kicker-left"><div class="june-label">Areas</div></div>'
-            f'<div class="june-panel-kicker-right">{kicker_right}</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            '<div class="june-panel-caption">Chapter cards stay in one page and expand inline when selected.</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown('<div class="june-chapter-grid">', unsafe_allow_html=True)
-        chapter_cols = st.columns(2, gap="small")
-        for idx, (chapter_key, chapter_label) in enumerate(CHAPTERS):
-            with chapter_cols[idx % 2]:
-                count = chapter_saved_count(memory, chapter_key)
-                button_label = f"{chapter_label}\n{count} saved" if count else f"{chapter_label}\nempty"
-                if st.button(button_label, key=f"ch_{chapter_key}", use_container_width=True):
-                    sync_ui_chapter("" if st.session_state.selected_chapter == chapter_key else chapter_key)
-                    st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with st.expander("Chapter Focus", expanded=bool(selected_chapter)):
-        workspace_placeholder = st.empty()
-        if selected_chapter:
-            detail_container = st.container()
-            detail_container.markdown(
-                '<div class="june-primary-header">'
-                '<div class="june-primary-copy">'
-                f'<div class="june-label">Open Chapter</div>'
-                f'<h3 class="june-title">{html.escape(selected_label)}</h3>'
-                '</div>'
-                '</div>',
-                unsafe_allow_html=True,
-            )
-            back_col_left, back_col_right = st.columns([1, 0.42], gap="small")
-            with back_col_right:
-                if st.button("Back to workspace", key="back_to_workspace", use_container_width=True):
-                    sync_ui_chapter("")
-                    st.rerun()
-            with detail_container:
-                render_detail_focus(memory, selected_chapter)
-        else:
+        with st.expander("Window", expanded=True):
             st.markdown(
-                '<div class="june-primary-header">'
-                '<div class="june-primary-copy">'
-                '<div class="june-label">Workspace</div>'
-                '<div class="june-panel-caption">Pinned notes, next steps, and the current assistant focus live here.</div>'
-                '</div>'
+                '<div class="june-panel-caption">Everything stays on this page. Shrink chat, expand focus, or hide the rail entirely.</div>',
+                unsafe_allow_html=True,
+            )
+            render_layout_controls()
+
+        with st.expander("Upcoming", expanded=True):
+            st.markdown(
+                '<div class="june-panel-caption">Keep the latest reminders visible without leaving the page.</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(render_notifications(memory), unsafe_allow_html=True)
+
+        selected_chapter = st.session_state.selected_chapter
+        selected_label = dict(CHAPTERS).get(selected_chapter, "")
+
+        with st.expander("Areas", expanded=True):
+            kicker_right = (
+                f'<div class="june-active-tag">Open: {html.escape(selected_label)}</div>'
+                if selected_chapter
+                else '<div class="june-compact-copy">Tap a chapter to expand its memory here.</div>'
+            )
+            st.markdown(
+                '<div class="june-panel-kicker">'
+                '<div class="june-panel-kicker-left"><div class="june-label">Areas</div></div>'
+                f'<div class="june-panel-kicker-right">{kicker_right}</div>'
                 '</div>',
                 unsafe_allow_html=True,
             )
-            workspace_placeholder.markdown(
-                render_workspace(st.session_state.ui_state, include_header=False),
+            st.markdown(
+                '<div class="june-panel-caption">Chapter cards stay in one page and expand inline when selected.</div>',
                 unsafe_allow_html=True,
             )
+            st.markdown('<div class="june-chapter-grid">', unsafe_allow_html=True)
+            chapter_cols = st.columns(2, gap="small")
+            for idx, (chapter_key, chapter_label) in enumerate(CHAPTERS):
+                with chapter_cols[idx % 2]:
+                    count = chapter_saved_count(memory, chapter_key)
+                    button_label = f"{chapter_label}\n{count} saved" if count else f"{chapter_label}\nempty"
+                    if st.button(button_label, key=f"ch_{chapter_key}", use_container_width=True):
+                        sync_ui_chapter("" if st.session_state.selected_chapter == chapter_key else chapter_key)
+                        st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
 
-    with st.expander("Diagnostics", expanded=False):
-        st.markdown('<div class="june-label">Diagnostics</div>', unsafe_allow_html=True)
-        with st.expander("Capture health", expanded=False):
-            st.markdown(render_capture_health(memory, st.session_state.activity_log), unsafe_allow_html=True)
-        with st.expander("Agent logs", expanded=False):
-            activity_placeholder = st.empty()
-            activity_placeholder.markdown(render_activity(st.session_state.activity_log), unsafe_allow_html=True)
+        with st.expander("Chapter Focus", expanded=bool(selected_chapter)):
+            workspace_placeholder = st.empty()
+            if selected_chapter:
+                detail_container = st.container()
+                detail_container.markdown(
+                    '<div class="june-primary-header">'
+                    '<div class="june-primary-copy">'
+                    f'<div class="june-label">Open Chapter</div>'
+                    f'<h3 class="june-title">{html.escape(selected_label)}</h3>'
+                    '</div>'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
+                back_col_left, back_col_right = st.columns([1, 0.42], gap="small")
+                with back_col_right:
+                    if st.button("Back to workspace", key="back_to_workspace", use_container_width=True):
+                        sync_ui_chapter("")
+                        st.rerun()
+                with detail_container:
+                    render_detail_focus(memory, selected_chapter)
+            else:
+                st.markdown(
+                    '<div class="june-primary-header">'
+                    '<div class="june-primary-copy">'
+                    '<div class="june-label">Workspace</div>'
+                    '<div class="june-panel-caption">Pinned notes, next steps, and the current assistant focus live here.</div>'
+                    '</div>'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
+                workspace_placeholder.markdown(
+                    render_workspace(st.session_state.ui_state, include_header=False),
+                    unsafe_allow_html=True,
+                )
 
-    st.markdown("</div>", unsafe_allow_html=True)  # close june-right-panel
+        with st.expander("Diagnostics", expanded=False):
+            st.markdown('<div class="june-label">Diagnostics</div>', unsafe_allow_html=True)
+            with st.expander("Capture health", expanded=False):
+                st.markdown(render_capture_health(memory, st.session_state.activity_log), unsafe_allow_html=True)
+            with st.expander("Agent logs", expanded=False):
+                activity_placeholder = st.empty()
+                activity_placeholder.markdown(render_activity(st.session_state.activity_log), unsafe_allow_html=True)
+
+        st.markdown("</div>", unsafe_allow_html=True)  # close june-right-panel
+else:
+    workspace_placeholder = st.empty()
+    activity_placeholder = st.empty()
 
 # ---------------------------------------------------------------------------
 # Generation loop

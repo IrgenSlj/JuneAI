@@ -7,6 +7,8 @@ readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.9"
 dependencies = [
+    "streamlit>=1.40.0",
+    "langchain>=0.3.0",
     "langgraph>=0.2.6",
     "langchain-anthropic>=0.3.0",
     "langchain-openai>=0.3.0",
@@ -15,7 +17,13 @@ dependencies = [
 
 
 [project.optional-dependencies]
-dev = ["mypy>=1.11.1", "ruff>=0.6.1"]
+dev = [
+    "anyio>=4.7.0",
+    "langgraph-cli[inmem]>=0.2.8",
+    "mypy>=1.13.0",
+    "pytest>=8.3.5",
+    "ruff>=0.8.2",
+]
 
 [build-system]
 requires = ["setuptools>=73.0.0", "wheel"]
@@ -55,11 +63,10 @@ lint.ignore = [
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
-[dependency-groups]
-dev = [
-    "anyio>=4.7.0",
-    "langgraph-cli[inmem]>=0.2.8",
-    "mypy>=1.13.0",
-    "pytest>=8.3.5",
-    "ruff>=0.8.2",
-]
+[tool.mypy]
+python_version = "3.9"
+strict = true
+
+[[tool.mypy.overrides]]
+module = "agent.memory"
+ignore_errors = true

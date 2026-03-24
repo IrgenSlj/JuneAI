@@ -86,7 +86,7 @@ June currently stores:
 git clone https://github.com/IrgenSlj/JuneAI.git
 cd JuneAI/JuneAI-app
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/python -m pip install -e ".[dev]"
 ```
 
 Set your model configuration:
@@ -163,6 +163,8 @@ This makes it possible to validate whether a local model is actually calling too
 ## Development
 
 ```bash
+.venv/bin/python -m ruff check .
+.venv/bin/python -m mypy --strict src tests
 .venv/bin/python -m pytest tests/unit_tests -q
 .venv/bin/python -m pytest tests/integration_tests/test_graph.py -q
 ```

@@ -367,7 +367,11 @@ class Memory:
         return None
 
     def get_calendar_items(self, status: str = "", limit: int = 20) -> list:
-        """Get calendar items, optionally filtered by status."""
+        """Get calendar items, optionally filtered by status.
+
+        Dated items are ordered by proximity to today so the most relevant
+        recent or upcoming events surface first, while undated items stay last.
+        """
         items = self._read(self.calendar_file, [])
         if status.strip():
             items = [
@@ -376,23 +380,26 @@ class Memory:
                 if item.get("status", "").strip().lower() == status.strip().lower()
             ]
         today = date.today()
-        upcoming = []
+        dated = []
         undated = []
-        past = []
 
         for item in items:
             parsed_date = self._parse_date(item.get("date", ""))
             if parsed_date is None:
                 undated.append(item)
-            elif parsed_date >= today:
-                upcoming.append(item)
-            else:
-                past.append(item)
+                continue
+            dated.append((parsed_date, item))
 
-        upcoming.sort(key=lambda item: (item.get("date", ""), item.get("time", ""), item.get("title", "")))
+        dated.sort(
+            key=lambda entry: (
+                abs((entry[0] - today).days),
+                entry[0],
+                entry[1].get("time", ""),
+                entry[1].get("title", ""),
+            )
+        )
         undated.sort(key=lambda item: (item.get("title", ""), item.get("updated_at", "")))
-        past.sort(key=lambda item: (item.get("date", ""), item.get("time", ""), item.get("title", "")), reverse=True)
-        return (upcoming + undated + past)[:limit]
+        return ([item for _, item in dated] + undated)[:limit]
 
     # --- Favorites and recommendations ---
 
@@ -570,6 +577,10 @@ class Memory:
         sleep_hours: float = 0.0,
         sleep_quality: int = 0,
         energy: int = 0,
+        stress: int = 0,
+        soreness: int = 0,
+        resting_hr: int = 0,
+        steps: int = 0,
         notes: str = "",
     ) -> dict:
         """Log today's body metrics. Replaces any existing entry for today."""
@@ -581,6 +592,10 @@ class Memory:
             "sleep_hours": round(float(sleep_hours), 1) if sleep_hours else 0.0,
             "sleep_quality": max(0, min(5, int(sleep_quality))),
             "energy": max(0, min(5, int(energy))),
+            "stress": max(0, min(5, int(stress))),
+            "soreness": max(0, min(5, int(soreness))),
+            "resting_hr": max(0, int(resting_hr)),
+            "steps": max(0, int(steps)),
             "notes": notes.strip(),
             "timestamp": self._now(),
         }
@@ -790,6 +805,7 @@ class Memory:
         return {
             "date": date.today().isoformat(),
             "body_metrics": today_metrics,
+            "recent_body_metrics": self.get_body_metrics(days=7),
             "workout": today_workout,
             "habits_total": len(habits),
             "habits_done": len(habits_done),
