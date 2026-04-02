@@ -2,17 +2,29 @@
 
 from __future__ import annotations
 
-from typing import Any, Annotated, Optional
-
-from typing_extensions import TypeAlias
+from typing import Annotated, Any, Optional
 
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
 from langchain_core.tools.base import InjectedToolCallId
 from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
+from typing_extensions import TypeAlias
 
+from .context_intelligence import (
+    build_active_commitments_summary,
+    build_recovery_readiness_summary,
+    format_active_commitments_summary,
+    format_recovery_readiness_summary,
+)
+from .config import apply_runtime_preset_switch
 from .memory import Memory
+from .runtime_privacy import (
+    build_runtime_privacy_status,
+    build_runtime_preset_switch_preview,
+    format_runtime_privacy_status,
+    format_runtime_preset_switch_plan,
+)
 
 AgentPayload: TypeAlias = dict[str, Any]
 AgentState: TypeAlias = Optional[AgentPayload]
@@ -543,6 +555,35 @@ def summarize_progress(
 
 
 @tool
+def get_runtime_privacy_status() -> str:
+    """Get the current runtime and privacy mode for the active model configuration."""
+    status = build_runtime_privacy_status()
+    return format_runtime_privacy_status(status)
+
+
+@tool
+def preview_runtime_preset_switch(
+    preset_key: str,
+) -> str:
+    """Preview a runtime preset switch without mutating the current process."""
+    plan = build_runtime_preset_switch_preview(preset_key)
+    return format_runtime_preset_switch_plan(plan)
+
+
+@tool
+def switch_runtime_preset(
+    preset_key: str,
+    confirm_api_transition: bool = False,
+) -> str:
+    """Apply a runtime preset switch safely, requiring confirmation for local-to-API transitions."""
+    result = apply_runtime_preset_switch(
+        preset_key,
+        confirm_api_transition=confirm_api_transition,
+    )
+    return format_runtime_preset_switch_plan(result)
+
+
+@tool
 def analyze_compatibility(person1_description: str, person2_description: str) -> str:
     """Structure a compatibility analysis for two people."""
     return (
@@ -916,6 +957,26 @@ def get_today_summary(
 
 
 @tool
+def get_recovery_readiness_summary(
+    state: Annotated[AgentState, InjectedState] = None,
+) -> str:
+    """Get June's derived recovery and readiness summary."""
+    memory = _memory_for_state(state)
+    summary = build_recovery_readiness_summary(memory)
+    return format_recovery_readiness_summary(summary)
+
+
+@tool
+def get_active_commitments_summary(
+    state: Annotated[AgentState, InjectedState] = None,
+) -> str:
+    """Get June's unified active commitments summary."""
+    memory = _memory_for_state(state)
+    summary = build_active_commitments_summary(memory)
+    return format_active_commitments_summary(summary)
+
+
+@tool
 def check_chapter_completeness(
     state: Annotated[AgentState, InjectedState] = None,
 ) -> str:
@@ -1085,7 +1146,12 @@ JUNE_TOOLS = [
     log_nutrition,
     log_water,
     get_today_summary,
+    get_recovery_readiness_summary,
+    get_active_commitments_summary,
     summarize_progress,
+    get_runtime_privacy_status,
+    preview_runtime_preset_switch,
+    switch_runtime_preset,
     analyze_compatibility,
     generate_conversation_starters,
     draft_reply,

@@ -7,28 +7,63 @@ from __future__ import annotations
 
 import html
 from datetime import datetime
+from typing import Any
 
 import streamlit as st
+import streamlit.components.v1 as components
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, ToolMessage
 
-from agent_ui.chapters import CHAPTERS, chapter_items, chapter_subtitle
+from agent.config import RuntimeConfig, resolve_runtime_config, runtime_preset_options
+from agent.graph import create_june_agent
+from agent.memory import Memory
+from agent.runtime_privacy import build_runtime_privacy_status
+from agent.skills import DEFAULT_SKILL, SKILLS, infer_skill_from_text
+from agent_ui.chapters import (
+    chapter_items,
+    chapter_subtitle,
+)
+from agent_ui.focus_views import (
+    body_metric_stats as detail_body_metric_stats,
+    body_snapshot_line as detail_body_snapshot_line,
+    recent_body_series as detail_recent_body_series,
+    render_detail_focus as render_chapter_detail_focus,
+)
+from agent_ui.layout import (
+    layout_column_widths,
+    sync_rail_view,
+    sync_right_panel_visibility,
+    sync_ui_layout,
+)
+from agent_ui.panels import (
+    SetupProgressModel,
+    build_debug_panel_model,
+    build_memory_panel_model,
+    build_today_panel_model,
+    build_workspace_panel_model,
+)
+from agent_ui.onboarding import FirstRunSummary, first_run_setup_summary
 from agent_ui.rendering import (
-    default_ui_state,
     energy_dots_html,
     extract_text,
     habit_ring_svg,
     render_activity,
-    render_capture_health,
+    render_list,
     render_memory_focus,
-    render_notifications,
     render_workspace,
     transcript_html,
     water_dots_html,
 )
-from agent.graph import june_agent
-from agent.config import resolve_runtime_config
-from agent.memory import Memory
-from agent.skills import DEFAULT_SKILL, SKILLS, infer_skill_from_text
+from agent_ui.shell_views import (
+    render_command_bar as render_shell_command_bar,
+    render_layout_controls as render_shell_layout_controls,
+    render_onboarding_surface,
+    render_turn_save_feedback,
+)
+from agent_ui.state import (
+    initialize_session_state,
+    reset_session_state,
+    sync_selected_chapter,
+)
 
 st.set_page_config(page_title="June", layout="wide")
 
@@ -43,6 +78,7 @@ st.markdown(
         --june-line:        rgba(22, 20, 16, 0.08);
         --june-accent:      #0f5f4a;
         --june-accent-soft: rgba(15, 95, 74, 0.08);
+        --june-accent-mist: rgba(15, 95, 74, 0.04);
         --june-user:        rgba(15, 95, 74, 0.07);
         --june-panel:       #ffffff;
         --june-radius:      18px;
@@ -71,9 +107,9 @@ st.markdown(
 
     /* ── Sidebar ───────────────────────────────────────────── */
     [data-testid="stSidebar"] {
-        background: #ffffff;
+        background: linear-gradient(180deg, #ffffff 0%, #fbfaf8 100%);
         border-right: 1px solid var(--june-line);
-        box-shadow: 4px 0 24px rgba(40, 28, 18, 0.04);
+        box-shadow: 4px 0 18px rgba(40, 28, 18, 0.035);
     }
 
     [data-testid="stSidebar"] > div:first-child {
@@ -98,7 +134,7 @@ st.markdown(
         color: var(--june-text);
         min-height: 2.2rem;
         font-family: "IBM Plex Mono", monospace;
-        font-size: 11px;
+        font-size: 10px;
         transition: border-color 0.18s, color 0.18s, background 0.18s, box-shadow 0.18s;
     }
 
@@ -211,6 +247,21 @@ st.markdown(
         background: #ffffff;
     }
 
+    .june-command-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .june-command-label {
+        color: var(--june-accent);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-size: 9px;
+        margin-bottom: 0.35rem;
+    }
+
     /* ── Conversation ──────────────────────────────────────── */
     .june-transcript {
         max-height: 62vh;
@@ -257,10 +308,14 @@ st.markdown(
         border: 1px solid var(--june-line);
         border-radius: 12px;
         padding: 0.55rem 0.7rem;
-        background: #ffffff;
-        transition: border-color 0.18s;
+        background: linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.86) 100%);
+        transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s;
     }
-    .june-item:hover { border-color: rgba(15, 95, 74, 0.22); }
+    .june-item:hover {
+        border-color: rgba(15, 95, 74, 0.22);
+        transform: translateY(-1px);
+        box-shadow: 0 8px 18px rgba(40, 28, 18, 0.05);
+    }
 
     .june-item-title {
         font-family: "Syne", sans-serif;
@@ -286,8 +341,8 @@ st.markdown(
         text-transform: uppercase;
         letter-spacing: 0.14em;
         font-size: 9px;
-        margin: 0.6rem 0 0.3rem 0;
-        padding-top: 0.5rem;
+        margin: 0.5rem 0 0.25rem 0;
+        padding-top: 0.45rem;
         border-top: 1px solid var(--june-line);
     }
     .june-section-label.first { border-top: none; margin-top: 0; padding-top: 0; }
@@ -371,7 +426,7 @@ st.markdown(
     /* ── Right panel ───────────────────────────────────────── */
     .june-right-panel {
         display: grid;
-        gap: 0.85rem;
+        gap: 0.65rem;
         animation: panelIn 0.28s ease both;
         max-height: calc(100vh - 2rem);
         overflow-y: auto;
@@ -456,6 +511,107 @@ st.markdown(
         flex: 1;
     }
 
+    .june-attention-strip {
+        display: grid;
+        gap: 0.4rem;
+        margin-bottom: 0.7rem;
+    }
+
+    .june-attention-card {
+        border: 1px solid rgba(15, 95, 74, 0.16);
+        background: linear-gradient(135deg, rgba(15, 95, 74, 0.08), rgba(15, 95, 74, 0.02));
+        border-radius: 14px;
+        padding: 0.7rem 0.8rem;
+        box-shadow: 0 10px 22px rgba(15, 95, 74, 0.05);
+    }
+
+    .june-attention-title {
+        font-family: "Syne", sans-serif;
+        font-size: 0.92rem;
+        margin-bottom: 0.15rem;
+    }
+
+    .june-attention-copy {
+        color: var(--june-muted);
+        font-size: 10px;
+        line-height: 1.45;
+    }
+
+    .june-rail-grid {
+        display: grid;
+        gap: 0.8rem;
+    }
+
+    .june-rail-card {
+        background: linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.94) 100%);
+        border: 1px solid var(--june-line);
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(40, 28, 18, 0.045);
+        padding: 0.85rem;
+    }
+
+    .june-rail-card-primary {
+        border-color: rgba(15, 95, 74, 0.14);
+        box-shadow: 0 14px 34px rgba(15, 95, 74, 0.08);
+        background: linear-gradient(180deg, #ffffff 0%, rgba(15, 95, 74, 0.025) 100%);
+    }
+
+    .june-rail-card-quiet {
+        box-shadow: none;
+        background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.78) 100%);
+    }
+
+    .june-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.45rem;
+    }
+
+    .june-kpi {
+        border: 1px solid var(--june-line);
+        border-radius: 14px;
+        padding: 0.6rem;
+        background: rgba(255, 255, 255, 0.8);
+    }
+
+    .june-kpi-value {
+        font-family: "Syne", sans-serif;
+        font-size: 1rem;
+        line-height: 1;
+        margin-bottom: 0.15rem;
+    }
+
+    .june-kpi-label {
+        color: var(--june-muted);
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+    }
+
+    .june-runtime-pill {
+        border: 1px solid rgba(15, 95, 74, 0.16);
+        background: rgba(15, 95, 74, 0.06);
+        color: var(--june-accent);
+        border-radius: 999px;
+        padding: 0.18rem 0.5rem;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        display: inline-block;
+    }
+
+    .june-starter-grid {
+        display: grid;
+        gap: 0.55rem;
+        margin: 0.55rem 0 0.35rem 0;
+    }
+
+    .june-starter-copy {
+        color: var(--june-muted);
+        font-size: 10px;
+        line-height: 1.5;
+    }
+
     /* ── Stats ─────────────────────────────────────────────── */
     .june-stat-grid {
         display: grid;
@@ -467,7 +623,7 @@ st.markdown(
         border: 1px solid var(--june-line);
         border-radius: 12px;
         padding: 0.55rem;
-        background: #ffffff;
+        background: linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.84) 100%);
         transition: border-color 0.18s, box-shadow 0.18s;
     }
     .june-stat-card:hover {
@@ -486,6 +642,49 @@ st.markdown(
     .june-stat-value {
         font-family: "Syne", sans-serif;
         font-size: 1.1rem;
+        line-height: 1;
+    }
+
+    .june-focus-hero {
+        border: 1px solid rgba(15, 95, 74, 0.12);
+        background: linear-gradient(135deg, rgba(15,95,74,0.08), rgba(15,95,74,0.015));
+        border-radius: 16px;
+        padding: 0.75rem 0.85rem;
+        margin-bottom: 0.7rem;
+    }
+
+    .june-focus-copy {
+        color: var(--june-muted);
+        font-size: 10px;
+        line-height: 1.5;
+        margin-top: 0.2rem;
+    }
+
+    .june-mini-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.45rem;
+        margin: 0.55rem 0 0.7rem 0;
+    }
+
+    .june-mini-card {
+        border: 1px solid var(--june-line);
+        border-radius: 12px;
+        padding: 0.55rem 0.6rem;
+        background: var(--june-accent-mist);
+    }
+
+    .june-mini-label {
+        color: var(--june-muted);
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin-bottom: 0.2rem;
+    }
+
+    .june-mini-value {
+        font-family: "Syne", sans-serif;
+        font-size: 1rem;
         line-height: 1;
     }
 
@@ -514,70 +713,279 @@ def append_activity(message: str) -> None:
     st.session_state.activity_log.append(message)
 
 
-def sync_ui_chapter(chapter_key: str = "") -> None:
-    """Keep local chapter selection aligned with UI state."""
-    normalized = chapter_key.strip().lower()
-    st.session_state.selected_chapter = normalized
-    st.session_state.ui_state["selected_chapter"] = normalized
+@st.cache_resource(show_spinner=False)
+def get_compiled_agent(
+    preset_key: str,
+    provider: str,
+    model: str,
+    base_url: str,
+    temperature: float,
+    max_tokens: int,
+    tool_strategy: str,
+) -> Any:
+    """Compile and cache a LangGraph agent for one resolved runtime profile."""
+    runtime = resolve_runtime_config(preset_key)
+    runtime = runtime.__class__(
+        preset_key=preset_key,
+        label=runtime.label,
+        provider=provider,
+        model=model,
+        api_key=runtime.api_key,
+        base_url=base_url,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        tool_strategy=tool_strategy,
+    )
+    return create_june_agent(runtime=runtime)
 
 
-def sync_ui_layout(layout: str) -> None:
-    """Persist the active single-page layout mode."""
-    chosen = layout.strip().lower()
-    if chosen not in {"split", "focus", "chat"}:
-        chosen = "split"
-    st.session_state.ui_state["layout"] = chosen
+def runtime_for_preset(preset_key: str) -> RuntimeConfig:
+    """Resolve one runtime preset for the current app session."""
+    return resolve_runtime_config(preset_key)
 
 
-def sync_right_panel_visibility(is_visible: bool) -> None:
-    """Persist whether the right rail is visible."""
-    st.session_state.ui_state["show_right_panel"] = bool(is_visible)
-
-
-def layout_column_widths(layout: str, show_right_panel: bool) -> list[float]:
-    """Return conversation/right-panel widths for the current page mode."""
-    if not show_right_panel:
-        return [1.0]
+def build_turn_save_summary(last_calls: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Build a compact in-chat summary of what June saved this turn."""
+    label_map = {
+        "save_goal": "Goal saved",
+        "save_open_loop": "Open loop saved",
+        "save_calendar_item": "Calendar item saved",
+        "save_relationship_profile": "Relationship note saved",
+        "save_user_preference": "Preference saved",
+        "save_favorite_recommendation": "Favorite saved",
+        "save_journal_entry": "Journal saved",
+        "log_body_metrics": "Body check-in saved",
+        "log_workout_session": "Workout saved",
+        "log_nutrition": "Meal log saved",
+        "log_water": "Water updated",
+        "log_habit_completion": "Habit completion saved",
+        "track_goal": "Goal saved",
+        "create_habit": "Habit saved",
+    }
+    chapter_map = {
+        "save_goal": ("plans", "Plans"),
+        "track_goal": ("plans", "Plans"),
+        "save_open_loop": ("plans", "Plans"),
+        "save_calendar_item": ("calendar", "Calendar"),
+        "save_relationship_profile": ("family", "Family"),
+        "log_body_metrics": ("body", "Body"),
+        "log_workout_session": ("gym", "Gym"),
+        "log_nutrition": ("food", "Food"),
+        "log_water": ("water", "Water"),
+        "log_habit_completion": ("habits", "Habits"),
+        "create_habit": ("habits", "Habits"),
+    }
+    items: list[str] = []
+    actions: list[dict[str, str]] = []
+    for call in last_calls:
+        if call.get("status") != "success":
+            continue
+        tool_name = str(call.get("name", "")).strip()
+        if not tool_name.startswith(("save_", "log_", "track_", "create_")):
+            continue
+        preview = str(call.get("preview", "")).strip() or "Saved to memory."
+        label = label_map.get(tool_name, tool_name.replace("_", " ").title())
+        items.append(f"{label}: {preview}")
+        chapter = chapter_map.get(tool_name)
+        if chapter and not any(item.get("chapter_key") == chapter[0] for item in actions):
+            actions.append({"chapter_key": chapter[0], "chapter_label": chapter[1]})
+    if not items:
+        return None
     return {
-        "chat": [2.45, 0.8],
-        "focus": [1.3, 1.55],
-        "split": [1.9, 1.0],
-    }.get(layout, [1.9, 1.0])
+        "type": "save_summary",
+        "label": "What June saved",
+        "items": items[:5],
+        "actions": actions[:3],
+    }
+
+
+def onboarding_prompt(summary: FirstRunSummary) -> tuple[str, str, str]:
+    """Return the highest-value starter prompt for the current setup state."""
+    if not summary.missing_surfaces:
+        return (
+            "Keep one active priority visible",
+            "My current priority is to keep one active goal visible and I want you to help me track the next step.",
+            "onboarding | maintain priority",
+        )
+    target = summary.missing_surfaces[0].lower()
+    prompt_map = {
+        "calendar": (
+            "Add an upcoming event",
+            "Save this upcoming event to my calendar: Launch review on 2026-04-02. Remind me to review the onboarding copy.",
+            "onboarding | calendar",
+        ),
+        "plans": (
+            "Capture a current goal",
+            "Track this goal for me: ship the next June onboarding sprint, next step is to polish the Today view.",
+            "onboarding | plans",
+        ),
+        "habits": (
+            "Add one habit",
+            "Create a habit for me: 20 minute walk every day.",
+            "onboarding | habits",
+        ),
+        "body metrics": (
+            "Log a body check-in",
+            "Log my body check-in: 7.5 hours sleep, energy 4/5, stress 2/5, soreness 1/5, resting heart rate 55, 9200 steps.",
+            "onboarding | body",
+        ),
+        "family": (
+            "Add one family profile",
+            "Save this family context: Ava is my sister and we talk every Sunday.",
+            "onboarding | family",
+        ),
+        "birthdays": (
+            "Save one birthday",
+            "Remember this birthday: Anna on 2026-04-14.",
+            "onboarding | birthdays",
+        ),
+    }
+    return prompt_map.get(
+        target,
+        (
+            "Teach June one useful thing",
+            "Save one useful detail about my life so you can remember it later.",
+            "onboarding | starter",
+        ),
+    )
+
+
+def render_first_run_onboarding(memory: Memory) -> None:
+    """Render a staged onboarding card with one recommended next action."""
+    summary = first_run_setup_summary(memory)
+    if summary.has_data and len(summary.missing_surfaces) <= 1:
+        return
+    label, prompt, reason = onboarding_prompt(summary)
+    render_onboarding_surface(
+        summary,
+        recommended_label=label,
+        on_recommended=lambda: queue_prompt(prompt, reason),
+    )
 
 
 def render_layout_controls() -> None:
     """Let the user shrink or expand the single-page layout."""
-    st.markdown('<div class="june-label">Window</div>', unsafe_allow_html=True)
-    current = st.session_state.ui_state.get("layout", "split")
-    rail_visible = st.session_state.ui_state.get("show_right_panel", True)
-    for label, value in (("Chat", "chat"), ("Split", "split"), ("Focus", "focus")):
-        pressed = st.button(
-            f"{label}{' · active' if current == value else ''}",
-            key=f"layout_{value}",
-            use_container_width=True,
-            disabled=current == value,
-        )
-        if pressed:
-            sync_ui_layout(value)
-            append_activity(f"layout | {value}")
-            st.rerun()
-    toggle_label = "Hide right rail" if rail_visible else "Show right rail"
-    if st.button(toggle_label, key="toggle_right_rail", use_container_width=True):
-        sync_right_panel_visibility(not rail_visible)
-        append_activity(f"right rail | {'shown' if not rail_visible else 'hidden'}")
+    def on_layout_change(value: str) -> None:
+        sync_ui_layout(st.session_state, value)
+        append_activity(f"layout | {value}")
         st.rerun()
 
+    render_shell_layout_controls(
+        st.session_state.ui_state.get("layout", "split"),
+        on_change=on_layout_change,
+    )
 
-def render_right_rail_toggle(is_visible: bool) -> None:
-    """Render a quick rail visibility toggle near the chat header."""
-    label = "Hide right rail" if is_visible else "Show right rail"
-    if st.button(label, key=f"quick_toggle_right_rail_{'on' if is_visible else 'off'}", use_container_width=False):
-        sync_right_panel_visibility(not is_visible)
-        append_activity(f"right rail | {'hidden' if is_visible else 'shown'}")
+
+def render_panel_lines(items: list[tuple[str, str]]) -> None:
+    """Render compact title/copy rows inside a rail card."""
+    if not items:
+        return
+    st.markdown(render_list(items), unsafe_allow_html=True)
+
+
+def render_setup_progress_card(setup_model: SetupProgressModel) -> None:
+    """Render setup progress from the structured panel model."""
+    if setup_model.is_complete:
+        return
+    st.markdown(
+        '<div class="june-rail-card">'
+        '<div class="june-label">Setup</div>'
+        f'<div class="june-title">{html.escape(setup_model.title)}</div>'
+        f'<div class="june-panel-caption">{html.escape(setup_model.caption)}</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    render_panel_lines([(item.title, item.copy) for item in setup_model.missing_rows])
+
+
+def queue_prompt(prompt: str, reason: str) -> None:
+    """Queue a starter prompt into the normal generation flow."""
+    st.session_state.pending_prompt = prompt.strip()
+    st.session_state.active_skill_key = infer_skill_from_text(prompt)
+    st.session_state.is_generating = True
+    append_activity(reason)
+    st.rerun()
+
+
+def render_command_bar(show_right_panel: bool) -> None:
+    """Render the primary command bar for shell navigation."""
+    summary = first_run_setup_summary(Memory(st.session_state.get("profile_input", "admin")))
+    def on_select_view(value: str) -> None:
+        sync_rail_view(st.session_state, value)
+        if not show_right_panel:
+            sync_right_panel_visibility(st.session_state, True)
+        append_activity(f"rail view | {value}")
         st.rerun()
 
+    def on_toggle_rail(visible: bool) -> None:
+        sync_right_panel_visibility(st.session_state, visible)
+        append_activity(f"right rail | {'shown' if visible else 'hidden'}")
+        st.rerun()
 
-def _calendar_focus_items(memory: Memory, chapter_key: str) -> list[dict]:
+    render_shell_command_bar(
+        active_view=st.session_state.rail_view,
+        layout=str(st.session_state.ui_state.get("layout", "split")),
+        show_right_panel=show_right_panel,
+        show_onboarding=not (summary.has_data and len(summary.missing_surfaces) <= 1),
+        on_select_view=on_select_view,
+        on_toggle_rail=on_toggle_rail,
+    )
+
+
+def _daily_focus_items(memory: Memory) -> list[tuple[str, str]]:
+    """Return high-priority daily attention items for the Today surface."""
+    items: list[tuple[str, str]] = []
+    notifications = memory.get_upcoming_notifications(limit=3)
+    for item in notifications:
+        timing = "today" if item["days_until"] == 0 else f"in {item['days_until']}d"
+        items.append((item["title"], f"{item['kind']} · {timing}"))
+    loops = memory.get_open_loops(status="open", limit=2)
+    for loop in loops:
+        suffix = f"due {loop['due_date']}" if loop.get("due_date") else "needs resolution"
+        items.append((loop["topic"], f"open loop · {suffix}"))
+    return items[:4]
+
+
+def render_attention_strip(memory: Memory) -> None:
+    """Render a concise 'what matters now' strip for the conversation column."""
+    items = _daily_focus_items(memory)
+    if not items:
+        return
+    cards = "".join(
+        '<div class="june-attention-card">'
+        f'<div class="june-attention-title">{html.escape(title)}</div>'
+        f'<div class="june-attention-copy">{html.escape(copy)}</div>'
+        '</div>'
+        for title, copy in items[:2]
+    )
+    st.markdown('<div class="june-attention-strip">' + cards + '</div>', unsafe_allow_html=True)
+
+
+def render_starter_prompts(memory: Memory) -> None:
+    """Render guided starter prompts when the profile is still sparse."""
+    if memory.get_progress_snapshot()["calendar_count"] or st.session_state.messages:
+        return
+    st.markdown(
+        '<div class="june-rail-card"><div class="june-label">Start Here</div>'
+        '<div class="june-title">Build June into your daily console</div>'
+        '<div class="june-starter-copy">Seed the key surfaces once, then June can carry continuity forward with more useful suggestions and reminders.</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    prompt_specs = [
+        ("Set my weekly gym split", "Track my weekly gym split: push on Monday, pull on Wednesday, legs on Friday.", "starter | gym"),
+        ("Log today’s body check-in", "Log my body check-in: 7.5 hours sleep, energy 4/5, stress 2/5, soreness 1/5, 10200 steps.", "starter | body"),
+        ("Save key birthdays", "Save these birthdays: Anna on May 14 and Lucas on August 24.", "starter | birthdays"),
+        ("Capture current priorities", "My current priorities are to improve sleep consistency, plan the mountain trip, and finish the website relaunch.", "starter | plans"),
+    ]
+    cols = st.columns(2, gap="small")
+    for index, (label, prompt, reason) in enumerate(prompt_specs):
+        with cols[index % 2]:
+            if st.button(label, key=f"starter_prompt_{index}", use_container_width=True):
+                queue_prompt(prompt, reason)
+
+
+def _calendar_focus_items(memory: Memory, chapter_key: str) -> list[dict[str, Any]]:
     items = memory.get_calendar_items(status="", limit=20)
     if chapter_key == "trips":
         return [
@@ -738,13 +1146,13 @@ def render_water_focus(memory: Memory) -> None:
             st.rerun()
 
 
-def _recent_body_series(memory: Memory, days: int = 7) -> list[dict]:
+def _recent_body_series(memory: Memory, days: int = 7) -> list[dict[str, Any]]:
     """Return recent body entries in ascending date order."""
     items = memory.get_body_metrics(days=days)
     return sorted(items, key=lambda item: item.get("date", ""))
 
 
-def _body_metric_stats(items: list[dict], key: str) -> tuple[float | None, float | None, float | None]:
+def _body_metric_stats(items: list[dict[str, Any]], key: str) -> tuple[float | None, float | None, float | None]:
     """Return current, delta-vs-previous, and simple average for one body metric."""
     values = [float(item.get(key, 0)) for item in items if item.get(key)]
     if not values:
@@ -808,7 +1216,7 @@ def render_body_trend_card(memory: Memory, days: int = 7) -> None:
     st.markdown('<div class="june-stat-grid">' + "".join(cards) + '</div>', unsafe_allow_html=True)
 
 
-def _body_snapshot_line(item: dict) -> str:
+def _body_snapshot_line(item: dict[str, Any]) -> str:
     """Build a compact one-line summary for a body check-in."""
     parts = []
     if item.get("sleep_hours"):
@@ -958,7 +1366,7 @@ def get_rotating_sidebar_phrase(memory: Memory, now: datetime) -> str:
         memory.set_app_state_value("sidebar_phrase_text", phrase)
         memory.set_app_state_value("sidebar_phrase_bucket", bucket)
         return phrase
-    return state.get("sidebar_phrase_text", generate_sidebar_phrase(now))
+    return str(state.get("sidebar_phrase_text", generate_sidebar_phrase(now)))
 
 
 def build_daily_checkin(memory: Memory) -> str:
@@ -1033,12 +1441,192 @@ def build_daily_checkin(memory: Memory) -> str:
     return "\n\n".join(lines)
 
 
+def render_today_panel(memory: Memory, snapshot: dict[str, int]) -> None:
+    """Render the primary daily operating surface in the right rail."""
+    model = build_today_panel_model(memory, snapshot)
+    kpi_html = "".join(
+        '<div class="june-kpi">'
+        f'<div class="june-kpi-value">{html.escape(metric.value)}</div>'
+        f'<div class="june-kpi-label">{html.escape(metric.label)} · {html.escape(metric.detail)}</div>'
+        '</div>'
+        for metric in model.kpis
+    )
+    st.markdown(
+        '<div class="june-rail-card june-rail-card-primary">'
+        '<div class="june-label">Today</div>'
+        f'<div class="june-title">{html.escape(model.title)}</div>'
+        f'<div class="june-panel-caption">{html.escape(model.caption)}</div>'
+        f'<div class="june-item-meta">{html.escape(model.subheadline)}</div>'
+        f'<div class="june-kpi-grid">{kpi_html}</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    render_setup_progress_card(model.setup)
+    for section in model.sections:
+        if not section.items and not section.note:
+            continue
+        st.markdown(
+            '<div class="june-rail-card june-rail-card-quiet">'
+            f'<div class="june-label">{html.escape(section.title)}</div>'
+            f'<div class="june-item-meta">{html.escape(section.note)}</div>',
+            unsafe_allow_html=True,
+        )
+        render_panel_lines([(item.title, item.copy) for item in section.items])
+        st.markdown('</div>', unsafe_allow_html=True)
+
+
+def render_memory_panel(memory: Memory) -> None:
+    """Render memory browsing and chapter access in the right rail."""
+    model = build_memory_panel_model(memory, st.session_state.selected_chapter)
+    selected_chapter = model.selected_key
+    selected_label = model.selected_label
+    kicker_right = (
+        f'<div class="june-active-tag">Open: {html.escape(selected_label)}</div>'
+        if selected_chapter
+        else f'<div class="june-compact-copy">{html.escape(model.kicker_copy)}</div>'
+    )
+    st.markdown(
+        '<div class="june-rail-card">'
+        '<div class="june-panel-kicker">'
+        f'<div class="june-panel-kicker-left"><div class="june-label">Memory</div><div class="june-title">{html.escape(model.title)}</div></div>'
+        f'<div class="june-panel-kicker-right">{kicker_right}</div>'
+        '</div>'
+        f'<div class="june-panel-caption">{html.escape(model.caption)}</div>',
+        unsafe_allow_html=True,
+    )
+    chapter_cols = st.columns(2, gap="small")
+    for idx, status in enumerate(model.chapter_cards):
+        with chapter_cols[idx % 2]:
+            title = status["title"]
+            if status["attention"] == "needs_attention":
+                subtitle = "needs setup"
+            elif status["attention"] == "watch":
+                subtitle = status["preview"][:44]
+            else:
+                subtitle = f'{status["freshness"]} · {status["last_updated"]}'
+            button_label = f"{title}\n{subtitle}"
+            if st.button(button_label, key=f'ch_{status["key"]}', use_container_width=True):
+                sync_selected_chapter(st.session_state, "" if st.session_state.selected_chapter == status["key"] else status["key"])
+                st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    if selected_chapter:
+        st.markdown('<div class="june-rail-card">', unsafe_allow_html=True)
+        render_chapter_detail_focus(
+            memory,
+            selected_chapter,
+            water_goal=WATER_GOAL,
+            on_activity=append_activity,
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+
+def render_workspace_panel() -> None:
+    """Render the current workspace surface."""
+    model = build_workspace_panel_model(st.session_state.ui_state)
+    st.markdown(
+        '<div class="june-rail-card">'
+        '<div class="june-label">Workspace</div>'
+        f'<div class="june-title">{html.escape(model.focus_title)}</div>'
+        f'<div class="june-panel-caption">{html.escape(model.caption)}</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(render_workspace(st.session_state.ui_state, include_header=False), unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def render_debug_panel(memory: Memory) -> None:
+    """Render a quieter debug/trust surface separate from the main workflow."""
+    model = build_debug_panel_model(memory, st.session_state.activity_log)
+    st.markdown(
+        '<div class="june-rail-card">'
+        '<div class="june-label">Trust</div>'
+        f'<div class="june-title">{html.escape(model.title)}</div>'
+        f'<div class="june-panel-caption">{html.escape(model.caption)}</div>',
+        unsafe_allow_html=True,
+    )
+    if model.what_june_saved:
+        st.markdown('<div class="june-label">What June saved</div>', unsafe_allow_html=True)
+        render_panel_lines([(item.title, item.copy) for item in model.what_june_saved])
+        st.markdown('<div class="june-panel-divider"></div>', unsafe_allow_html=True)
+    if model.recent_assistant_actions:
+        st.markdown('<div class="june-label">Recent assistant actions</div>', unsafe_allow_html=True)
+        render_panel_lines([(item.title, item.copy) for item in model.recent_assistant_actions])
+        st.markdown('<div class="june-panel-divider"></div>', unsafe_allow_html=True)
+    health_rows = [(label, str(count)) for label, count in model.capture_health_counts.items() if count > 0][:6]
+    if health_rows:
+        st.markdown('<div class="june-label">Light health check</div>', unsafe_allow_html=True)
+        render_panel_lines(health_rows)
+        st.markdown('<div class="june-panel-divider"></div>', unsafe_allow_html=True)
+    with st.expander("Raw diagnostics", expanded=False):
+        if model.recent_events:
+            render_panel_lines([
+                (
+                    f'{event.get("event_type", "event")} · {event.get("name", "")}'.strip(" ·"),
+                    f'{event.get("status", "ok")} · {event.get("timestamp", "")[:16]}',
+                )
+                for event in model.recent_events
+            ])
+        st.markdown(render_activity(st.session_state.activity_log), unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def open_memory_chapter(chapter_key: str) -> None:
+    """Open a chapter from post-turn save feedback."""
+    sync_selected_chapter(st.session_state, chapter_key)
+    sync_rail_view(st.session_state, "memory")
+    sync_right_panel_visibility(st.session_state, True)
+    append_activity(f"memory open | {chapter_key}")
+    st.rerun()
+
+
+def render_scroll_to_latest() -> None:
+    """Force the transcript to open on the latest visible message."""
+    components.html(
+        """
+        <script>
+        const tryScroll = () => {
+            const parentDoc = window.parent.document;
+            const transcript = parentDoc.getElementById("june-transcript");
+            const end = parentDoc.getElementById("june-transcript-end");
+            if (transcript) {
+                transcript.scrollTop = transcript.scrollHeight;
+            }
+            if (end) {
+                end.scrollIntoView({block: "end", behavior: "auto"});
+            }
+            window.parent.scrollTo({top: parentDoc.body.scrollHeight, behavior: "auto"});
+        };
+        const bindObserver = () => {
+            const parentDoc = window.parent.document;
+            const transcript = parentDoc.getElementById("june-transcript");
+            if (!transcript || transcript.dataset.juneObserverBound === "1") {
+                return;
+            }
+            transcript.dataset.juneObserverBound = "1";
+            const observer = new MutationObserver(() => {
+                requestAnimationFrame(tryScroll);
+            });
+            observer.observe(transcript, {childList: true, subtree: true});
+        };
+        setTimeout(tryScroll, 0);
+        setTimeout(bindObserver, 0);
+        setTimeout(tryScroll, 120);
+        setTimeout(tryScroll, 260);
+        setTimeout(tryScroll, 520);
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
+
+
 def handle_stream_chunk(
     mode: str,
-    data,
-    transcript_placeholder,
-    workspace_placeholder,
-    activity_placeholder,
+    data: Any,
+    transcript_placeholder: Any,
+    workspace_placeholder: Any,
+    activity_placeholder: Any,
 ) -> None:
     if mode == "custom":
         event = data or {}
@@ -1046,8 +1634,8 @@ def handle_stream_chunk(
             append_activity(f"route | {event.get('skill')}")
             append_activity(
                 "runtime | "
-                + f"{event.get('runtime_label', RUNTIME_CONFIG.label)}"
-                + f" | {event.get('runtime_model', RUNTIME_CONFIG.model)}"
+                + f"{event.get('runtime_label', st.session_state.get('current_runtime_label', RUNTIME_CONFIG.label))}"
+                + f" | {event.get('runtime_model', st.session_state.get('current_runtime_model', RUNTIME_CONFIG.model))}"
             )
         elif event.get("event") == "tool_calls_requested":
             append_activity("tool request | " + ", ".join(event.get("tools", [])))
@@ -1077,6 +1665,7 @@ def handle_stream_chunk(
                     transcript_html(st.session_state.messages, st.session_state.live_response),
                     unsafe_allow_html=True,
                 )
+                render_scroll_to_latest()
             for chunk in getattr(message, "tool_call_chunks", []) or []:
                 name = chunk.get("name")
                 if name:
@@ -1090,7 +1679,7 @@ def handle_stream_chunk(
             if isinstance(payload, dict):
                 if "ui_state" in payload:
                     st.session_state.ui_state = payload["ui_state"]
-                    sync_ui_chapter(st.session_state.ui_state.get("selected_chapter", ""))
+                    sync_selected_chapter(st.session_state, st.session_state.ui_state.get("selected_chapter", ""))
                     if not st.session_state.selected_chapter:
                         workspace_placeholder.markdown(
                             render_workspace(st.session_state.ui_state, include_header=False),
@@ -1111,7 +1700,7 @@ def handle_stream_chunk(
             st.session_state.tool_stats = data["tool_stats"]
         if "ui_state" in data:
             st.session_state.ui_state = data["ui_state"]
-            sync_ui_chapter(st.session_state.ui_state.get("selected_chapter", ""))
+            sync_selected_chapter(st.session_state, st.session_state.ui_state.get("selected_chapter", ""))
             if not st.session_state.selected_chapter:
                 workspace_placeholder.markdown(
                     render_workspace(st.session_state.ui_state, include_header=False),
@@ -1133,6 +1722,16 @@ with st.sidebar:
     # Brand
     user_id = st.session_state.get("profile_input", "admin")
     memory_for_sidebar = Memory(user_id)
+    stored_runtime_preset = str(
+        st.session_state.get(
+            "selected_runtime_preset",
+            memory_for_sidebar.get_app_state().get("runtime_preset", RUNTIME_CONFIG.preset_key),
+        )
+    )
+    if "selected_runtime_preset" not in st.session_state:
+        st.session_state.selected_runtime_preset = stored_runtime_preset
+    current_runtime = runtime_for_preset(stored_runtime_preset)
+    current_privacy = build_runtime_privacy_status(current_runtime)
     sidebar_phrase = get_rotating_sidebar_phrase(memory_for_sidebar, now)
 
     st.markdown('<div class="june-brand">June</div>', unsafe_allow_html=True)
@@ -1141,7 +1740,44 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     st.caption(f"{now.strftime('%A %d %B')} · {current_part_of_day(now)} · day {now.timetuple().tm_yday}")
-    st.caption(f"{RUNTIME_CONFIG.label} · {RUNTIME_CONFIG.model}")
+    st.caption(f"{current_runtime.label} · {current_runtime.model}")
+    st.caption(f"{current_privacy['mode_label']} · {current_privacy['privacy_label']}")
+
+    preset_options = list(runtime_preset_options())
+    preset_keys = [preset.key for preset in preset_options]
+    selected_index = preset_keys.index(stored_runtime_preset) if stored_runtime_preset in preset_keys else 0
+    chosen_preset = st.selectbox(
+        "Runtime",
+        options=preset_keys,
+        index=selected_index,
+        format_func=lambda key: runtime_for_preset(key).label,
+        key="runtime_preset_picker",
+        disabled=st.session_state.get("is_generating", False),
+    )
+    chosen_runtime = runtime_for_preset(chosen_preset)
+    chosen_privacy = build_runtime_privacy_status(chosen_runtime)
+    if chosen_preset != stored_runtime_preset:
+        if current_runtime.is_local and chosen_runtime.is_api:
+            st.markdown(
+                '<div class="june-item-meta">'
+                + html.escape(chosen_privacy["summary"])
+                + "</div>",
+                unsafe_allow_html=True,
+            )
+            confirm_col, cancel_col = st.columns(2, gap="small")
+            with confirm_col:
+                if st.button("Use API runtime", key="confirm_runtime_switch", use_container_width=True):
+                    st.session_state.selected_runtime_preset = chosen_preset
+                    memory_for_sidebar.set_app_state_value("runtime_preset", chosen_preset)
+                    st.rerun()
+            with cancel_col:
+                if st.button("Keep local runtime", key="cancel_runtime_switch", use_container_width=True):
+                    st.session_state.runtime_preset_picker = stored_runtime_preset
+                    st.rerun()
+        else:
+            st.session_state.selected_runtime_preset = chosen_preset
+            memory_for_sidebar.set_app_state_value("runtime_preset", chosen_preset)
+            st.rerun()
 
     # Today divider
     st.markdown('<hr class="june-today-divider">', unsafe_allow_html=True)
@@ -1213,7 +1849,7 @@ with st.sidebar:
 
     # Body metrics
     today_metrics = memory_for_sidebar.get_today_body_metrics()
-    sidebar_body_series = _recent_body_series(memory_for_sidebar, days=7)
+    sidebar_body_series = detail_recent_body_series(memory_for_sidebar, days=7)
     latest_body = sidebar_body_series[-1] if sidebar_body_series else None
     st.markdown('<div class="june-section-label">Body</div>', unsafe_allow_html=True)
 
@@ -1257,15 +1893,15 @@ with st.sidebar:
             )
             st.markdown(
                 '<div style="font-size:9px;color:var(--june-muted);margin-top:0.15rem;">'
-                + html.escape(_body_snapshot_line(latest_body))
+                + html.escape(detail_body_snapshot_line(latest_body))
                 + '</div>',
                 unsafe_allow_html=True,
             )
 
     if sidebar_body_series:
-        sleep_now, sleep_delta, _sleep_avg = _body_metric_stats(sidebar_body_series, "sleep_hours")
-        energy_now, energy_delta, _energy_avg = _body_metric_stats(sidebar_body_series, "energy")
-        stress_now, stress_delta, _stress_avg = _body_metric_stats(sidebar_body_series, "stress")
+        sleep_now, sleep_delta, _sleep_avg = detail_body_metric_stats(sidebar_body_series, "sleep_hours")
+        energy_now, energy_delta, _energy_avg = detail_body_metric_stats(sidebar_body_series, "energy")
+        stress_now, stress_delta, _stress_avg = detail_body_metric_stats(sidebar_body_series, "stress")
         trend_bits = []
         if sleep_now is not None:
             delta_txt = "" if sleep_delta is None else f" ({sleep_delta:+.1f}h)"
@@ -1347,15 +1983,8 @@ with st.sidebar:
     st.markdown('<hr class="june-today-divider">', unsafe_allow_html=True)
     user_id = st.text_input("Profile", value=user_id, key="profile_input")
     if st.button("Clear chat", use_container_width=True):
+        reset_session_state(st.session_state, user_id)
         st.session_state.messages = []
-        st.session_state.activity_log = []
-        st.session_state.ui_state = default_ui_state()
-        st.session_state.live_response = ""
-        st.session_state.final_state = None
-        st.session_state.pending_prompt = ""
-        st.session_state.is_generating = False
-        st.session_state.active_skill_key = DEFAULT_SKILL
-        st.session_state.tool_stats = {"requested": 0, "succeeded": 0, "failed": 0, "last_calls": []}
         st.rerun()
 
 
@@ -1363,53 +1992,28 @@ with st.sidebar:
 # Session state
 # ---------------------------------------------------------------------------
 
-if "messages" not in st.session_state:
-    st.session_state.messages = Memory(user_id).load_chat_messages()
-if "last_user_id" not in st.session_state:
-    st.session_state.last_user_id = user_id
-if "activity_log" not in st.session_state:
-    st.session_state.activity_log = []
-if "ui_state" not in st.session_state:
-    st.session_state.ui_state = default_ui_state()
-if "live_response" not in st.session_state:
-    st.session_state.live_response = ""
-if "final_state" not in st.session_state:
-    st.session_state.final_state = None
-if "is_generating" not in st.session_state:
-    st.session_state.is_generating = False
-if "pending_prompt" not in st.session_state:
-    st.session_state.pending_prompt = ""
-if "active_skill_key" not in st.session_state:
-    st.session_state.active_skill_key = DEFAULT_SKILL
-if "selected_chapter" not in st.session_state:
-    st.session_state.selected_chapter = ""
-if "tool_stats" not in st.session_state:
-    st.session_state.tool_stats = {"requested": 0, "succeeded": 0, "failed": 0, "last_calls": []}
-if "show_right_panel" not in st.session_state:
-    st.session_state.show_right_panel = st.session_state.ui_state.get("show_right_panel", True)
+initialize_session_state(st.session_state, user_id)
 
 if st.session_state.ui_state.get("selected_chapter") and st.session_state.selected_chapter != st.session_state.ui_state.get("selected_chapter"):
     st.session_state.selected_chapter = st.session_state.ui_state.get("selected_chapter", "")
 st.session_state.show_right_panel = st.session_state.ui_state.get("show_right_panel", True)
 
 if st.session_state.last_user_id != user_id:
-    st.session_state.messages = Memory(user_id).load_chat_messages()
-    st.session_state.activity_log = []
-    st.session_state.ui_state = default_ui_state()
-    st.session_state.live_response = ""
-    st.session_state.final_state = None
-    st.session_state.pending_prompt = ""
-    st.session_state.is_generating = False
-    st.session_state.active_skill_key = DEFAULT_SKILL
-    st.session_state.selected_chapter = ""
-    st.session_state.tool_stats = {"requested": 0, "succeeded": 0, "failed": 0, "last_calls": []}
-    st.session_state.last_user_id = user_id
+    reset_session_state(st.session_state, user_id)
 
 # ---------------------------------------------------------------------------
 # Memory, daily check-in, snapshot
 # ---------------------------------------------------------------------------
 
 memory = Memory(user_id)
+if "selected_runtime_preset" not in st.session_state:
+    st.session_state.selected_runtime_preset = str(memory.get_app_state().get("runtime_preset", RUNTIME_CONFIG.preset_key))
+if "turn_summary_message" not in st.session_state:
+    st.session_state.turn_summary_message = None
+active_runtime = runtime_for_preset(str(st.session_state.selected_runtime_preset))
+active_privacy = build_runtime_privacy_status(active_runtime)
+st.session_state.current_runtime_label = active_runtime.label
+st.session_state.current_runtime_model = active_runtime.model
 
 if not st.session_state.is_generating and memory.should_send_daily_checkin():
     daily_message = build_daily_checkin(memory)
@@ -1436,11 +2040,8 @@ plan_col = columns[1] if show_right_panel else None
 
 with chat_col:
     st.markdown('<div class="june-surface">', unsafe_allow_html=True)
-    header_left, header_right = st.columns([1, 0.28], gap="small")
-    with header_left:
-        st.markdown('<div class="june-label">Conversation</div>', unsafe_allow_html=True)
-    with header_right:
-        render_right_rail_toggle(show_right_panel)
+    st.markdown('<div class="june-label">Conversation</div>', unsafe_allow_html=True)
+    render_command_bar(show_right_panel)
     st.markdown(
         '<div class="june-meta-row">'
         f'<div class="june-chip">profile: {html.escape(user_id)}</div>'
@@ -1453,11 +2054,22 @@ with chat_col:
         '</div>',
         unsafe_allow_html=True,
     )
+    render_attention_strip(memory)
+    render_first_run_onboarding(memory)
+    render_starter_prompts(memory)
     transcript_placeholder = st.empty()
     transcript_placeholder.markdown(
-        transcript_html(st.session_state.messages, st.session_state.live_response),
+        transcript_html(
+            st.session_state.messages,
+            st.session_state.live_response,
+            extra_messages=[{"role": "assistant", "content": st.session_state.turn_summary_message}]
+            if st.session_state.turn_summary_message
+            else None,
+        ),
         unsafe_allow_html=True,
     )
+    render_turn_save_feedback(st.session_state.turn_summary_message, on_open_chapter=open_memory_chapter)
+    render_scroll_to_latest()
     if st.session_state.is_generating:
         st.markdown('<div class="june-writing">June is writing</div>', unsafe_allow_html=True)
     with st.form("june_input_form", clear_on_submit=True):
@@ -1482,94 +2094,35 @@ with chat_col:
 if show_right_panel and plan_col is not None:
     with plan_col:
         st.markdown('<div class="june-right-panel">', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="june-rail-card june-rail-card-quiet">'
+            '<div class="june-label">Window</div>'
+            '<div class="june-title">Single-page workspace</div>'
+            '<div class="june-panel-caption">Switch the page posture without losing context. The rail surface below adapts to the task you are doing.</div>'
+            f'<div class="june-item-meta">{html.escape(active_privacy["summary"])}</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div style="margin-top:-0.25rem;margin-bottom:0.35rem;">'
+            f'<span class="june-runtime-pill">{"local-first" if active_runtime.is_local else "api-assisted"}</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        render_layout_controls()
 
-        with st.expander("Window", expanded=True):
-            st.markdown(
-                '<div class="june-panel-caption">Everything stays on this page. Shrink chat, expand focus, or hide the rail entirely.</div>',
-                unsafe_allow_html=True,
-            )
-            render_layout_controls()
-
-        with st.expander("Upcoming", expanded=True):
-            st.markdown(
-                '<div class="june-panel-caption">Keep the latest reminders visible without leaving the page.</div>',
-                unsafe_allow_html=True,
-            )
-            st.markdown(render_notifications(memory), unsafe_allow_html=True)
-
-        selected_chapter = st.session_state.selected_chapter
-        selected_label = dict(CHAPTERS).get(selected_chapter, "")
-
-        with st.expander("Areas", expanded=True):
-            kicker_right = (
-                f'<div class="june-active-tag">Open: {html.escape(selected_label)}</div>'
-                if selected_chapter
-                else '<div class="june-compact-copy">Tap a chapter to expand its memory here.</div>'
-            )
-            st.markdown(
-                '<div class="june-panel-kicker">'
-                '<div class="june-panel-kicker-left"><div class="june-label">Areas</div></div>'
-                f'<div class="june-panel-kicker-right">{kicker_right}</div>'
-                '</div>',
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                '<div class="june-panel-caption">Chapter cards stay in one page and expand inline when selected.</div>',
-                unsafe_allow_html=True,
-            )
-            st.markdown('<div class="june-chapter-grid">', unsafe_allow_html=True)
-            chapter_cols = st.columns(2, gap="small")
-            for idx, (chapter_key, chapter_label) in enumerate(CHAPTERS):
-                with chapter_cols[idx % 2]:
-                    count = chapter_saved_count(memory, chapter_key)
-                    button_label = f"{chapter_label}\n{count} saved" if count else f"{chapter_label}\nempty"
-                    if st.button(button_label, key=f"ch_{chapter_key}", use_container_width=True):
-                        sync_ui_chapter("" if st.session_state.selected_chapter == chapter_key else chapter_key)
-                        st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        with st.expander("Chapter Focus", expanded=bool(selected_chapter)):
-            workspace_placeholder = st.empty()
-            if selected_chapter:
-                detail_container = st.container()
-                detail_container.markdown(
-                    '<div class="june-primary-header">'
-                    '<div class="june-primary-copy">'
-                    f'<div class="june-label">Open Chapter</div>'
-                    f'<h3 class="june-title">{html.escape(selected_label)}</h3>'
-                    '</div>'
-                    '</div>',
-                    unsafe_allow_html=True,
-                )
-                back_col_left, back_col_right = st.columns([1, 0.42], gap="small")
-                with back_col_right:
-                    if st.button("Back to workspace", key="back_to_workspace", use_container_width=True):
-                        sync_ui_chapter("")
-                        st.rerun()
-                with detail_container:
-                    render_detail_focus(memory, selected_chapter)
-            else:
-                st.markdown(
-                    '<div class="june-primary-header">'
-                    '<div class="june-primary-copy">'
-                    '<div class="june-label">Workspace</div>'
-                    '<div class="june-panel-caption">Pinned notes, next steps, and the current assistant focus live here.</div>'
-                    '</div>'
-                    '</div>',
-                    unsafe_allow_html=True,
-                )
-                workspace_placeholder.markdown(
-                    render_workspace(st.session_state.ui_state, include_header=False),
-                    unsafe_allow_html=True,
-                )
-
-        with st.expander("Diagnostics", expanded=False):
-            st.markdown('<div class="june-label">Diagnostics</div>', unsafe_allow_html=True)
-            with st.expander("Capture health", expanded=False):
-                st.markdown(render_capture_health(memory, st.session_state.activity_log), unsafe_allow_html=True)
-            with st.expander("Agent logs", expanded=False):
-                activity_placeholder = st.empty()
-                activity_placeholder.markdown(render_activity(st.session_state.activity_log), unsafe_allow_html=True)
+        workspace_placeholder = st.empty()
+        activity_placeholder = st.empty()
+        if st.session_state.rail_view == "today":
+            render_today_panel(memory, snapshot)
+        elif st.session_state.rail_view == "onboarding":
+            render_first_run_onboarding(memory)
+        elif st.session_state.rail_view == "memory":
+            render_memory_panel(memory)
+        elif st.session_state.rail_view == "workspace":
+            render_workspace_panel()
+        else:
+            render_debug_panel(memory)
 
         st.markdown("</div>", unsafe_allow_html=True)  # close june-right-panel
 else:
@@ -1588,11 +2141,14 @@ if st.session_state.is_generating and st.session_state.pending_prompt:
     st.session_state.pending_prompt = ""
     st.session_state.live_response = ""
     st.session_state.final_state = None
+    st.session_state.turn_summary_message = None
     append_activity(f"user | {prompt}")
     transcript_placeholder.markdown(
         transcript_html(st.session_state.messages, st.session_state.live_response),
         unsafe_allow_html=True,
     )
+    render_turn_save_feedback(None, on_open_chapter=open_memory_chapter)
+    render_scroll_to_latest()
 
     # activity_placeholder may be inside a collapsed expander; guard against it
     try:
@@ -1601,7 +2157,16 @@ if st.session_state.is_generating and st.session_state.pending_prompt:
         pass
 
     try:
-        for mode, data in june_agent.stream(
+        active_agent = get_compiled_agent(
+            active_runtime.preset_key,
+            active_runtime.provider,
+            active_runtime.model,
+            active_runtime.base_url,
+            active_runtime.temperature,
+            active_runtime.max_tokens,
+            active_runtime.tool_strategy,
+        )
+        for mode, data in active_agent.stream(
             {
                 "messages": st.session_state.messages,
                 "user_id":  user_id,
@@ -1632,7 +2197,20 @@ if st.session_state.is_generating and st.session_state.pending_prompt:
             final_text = extract_text(response.content)
             st.session_state.messages = result["messages"]
             st.session_state.live_response = ""
-            transcript_placeholder.markdown(transcript_html(st.session_state.messages), unsafe_allow_html=True)
+            st.session_state.turn_summary_message = build_turn_save_summary(
+                list(st.session_state.tool_stats.get("last_calls", []))
+            )
+            transcript_placeholder.markdown(
+                transcript_html(
+                    st.session_state.messages,
+                    extra_messages=[{"role": "assistant", "content": st.session_state.turn_summary_message}]
+                    if st.session_state.turn_summary_message
+                    else None,
+                ),
+                unsafe_allow_html=True,
+            )
+            render_turn_save_feedback(st.session_state.turn_summary_message, on_open_chapter=open_memory_chapter)
+            render_scroll_to_latest()
             memory.save_message("assistant", final_text)
 
     st.session_state.is_generating = False

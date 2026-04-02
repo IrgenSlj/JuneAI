@@ -6,20 +6,26 @@ Stores conversation history and assistant artifacts as local JSON files.
 from __future__ import annotations
 
 import json
+import os
+from collections.abc import Mapping
 from datetime import date, datetime
 from json import JSONDecodeError
 from pathlib import Path
+from uuid import uuid4
 
 from .config import MEMORY_DIR
+
+APP_STATE_SCHEMA_VERSION = 1
 
 
 class Memory:
     """Manages all persistent storage for a single user."""
 
     def __init__(self, user_id: str):
+        """Initialize per-user memory file paths."""
         self.user_id = user_id
         self.dir = Path(MEMORY_DIR)
-        self.dir.mkdir(exist_ok=True)
+        self.dir.mkdir(parents=True, exist_ok=True)
 
         self.chat_file = self.dir / f"{user_id}_chat.json"
         self.mood_file = self.dir / f"{user_id}_moods.json"
@@ -38,6 +44,7 @@ class Memory:
         self.habits_file = self.dir / f"{user_id}_habits.json"
         self.nutrition_file = self.dir / f"{user_id}_nutrition_logs.json"
         self.water_file = self.dir / f"{user_id}_water_logs.json"
+        self.telemetry_file = self.dir / f"{user_id}_telemetry.json"
 
     # --- Chat history ---
 
@@ -817,17 +824,119 @@ class Memory:
             "protein_est": total_protein,
         }
 
+    # --- Telemetry ---
+
+    def append_event(
+        self,
+        event_type: str,
+        name: str = "",
+        status: str = "ok",
+        source: str = "memory",
+        route: str = "",
+        payload: Mapping[str, object] | None = None,
+    ) -> dict:
+        """Append a structured telemetry event to the persistent event log."""
+        store = self._load_event_store()
+        event = self._normalize_event_record(
+            {
+                "schema_version": 1,
+                "event_id": uuid4().hex,
+                "event_type": event_type.strip() or "event",
+                "name": name.strip(),
+                "status": status.strip() or "ok",
+                "source": source.strip() or "memory",
+                "route": route.strip(),
+                "timestamp": self._now(),
+                "payload": self._json_safe_value(payload or {}),
+            }
+        )
+        store["events"].append(event)
+        self._write(self.telemetry_file, store)
+        return event
+
+    def record_tool_call(
+        self,
+        tool_name: str,
+        status: str = "started",
+        source: str = "graph",
+        route: str = "",
+        payload: Mapping[str, object] | None = None,
+    ) -> dict:
+        """Record a tool call event."""
+        details = dict(payload or {})
+        details.setdefault("tool_name", tool_name.strip())
+        return self.append_event(
+            event_type="tool_call",
+            name=tool_name,
+            status=status,
+            source=source,
+            route=route,
+            payload=details,
+        )
+
+    def record_route_selection(
+        self,
+        route: str,
+        source: str = "graph",
+        payload: Mapping[str, object] | None = None,
+    ) -> dict:
+        """Record a route selection event."""
+        details = dict(payload or {})
+        details.setdefault("route", route.strip())
+        return self.append_event(
+            event_type="route_selection",
+            name=route,
+            status="selected",
+            source=source,
+            route=route,
+            payload=details,
+        )
+
+    def record_save_event(
+        self,
+        kind: str,
+        name: str,
+        status: str = "saved",
+        source: str = "memory",
+        route: str = "",
+        payload: Mapping[str, object] | None = None,
+    ) -> dict:
+        """Record a persistence event for a saved artifact."""
+        details = dict(payload or {})
+        details.setdefault("kind", kind.strip())
+        return self.append_event(
+            event_type="save_event",
+            name=name,
+            status=status,
+            source=source,
+            route=route,
+            payload=details,
+        )
+
+    def get_recent_events(self, limit: int = 20, event_type: str = "") -> list:
+        """Read recent telemetry events, optionally filtered by type."""
+        store = self._load_event_store()
+        events = store["events"]
+        if event_type.strip():
+            events = [
+                event
+                for event in events
+                if event.get("event_type", "").strip().lower() == event_type.strip().lower()
+            ]
+        return events[-limit:]
+
     # --- App behavior ---
 
     def get_app_state(self) -> dict:
         """Get persisted UI and assistant app state."""
-        return self._read(self.app_state_file, {})
+        store = self._load_app_state_store()
+        return dict(store["data"])
 
     def set_app_state_value(self, key: str, value) -> dict:
         """Store one app state value."""
         state = self.get_app_state()
         state[key] = value
-        self._write(self.app_state_file, state)
+        self._write_app_state_store(state)
         return state
 
     def should_send_daily_checkin(self) -> bool:
@@ -922,7 +1031,7 @@ class Memory:
 
     def _read(self, path: Path, default):
         if path.exists():
-            with open(path) as file:
+            with path.open("r", encoding="utf-8") as file:
                 raw = file.read()
             if not raw.strip():
                 return default
@@ -935,9 +1044,12 @@ class Memory:
         return default
 
     def _write(self, path: Path, data) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
         temp_path = path.with_suffix(f"{path.suffix}.tmp")
-        with open(temp_path, "w") as file:
+        with temp_path.open("w", encoding="utf-8") as file:
             json.dump(data, file, indent=2)
+            file.flush()
+            os.fsync(file.fileno())
         temp_path.replace(path)
 
     def _now(self) -> str:
@@ -955,6 +1067,101 @@ class Memory:
         if isinstance(parsed, type(default)):
             return parsed
         return default
+
+    def _schema_version(self, value: object, default: int = 1) -> int:
+        try:
+            version = int(value)
+        except (TypeError, ValueError):
+            return default
+        return version if version > 0 else default
+
+    def _load_event_store(self) -> dict:
+        default = {"schema_version": 1, "events": []}
+        store = self._read(self.telemetry_file, default)
+        if isinstance(store, list):
+            return {
+                "schema_version": 1,
+                "events": [self._normalize_event_record(item) for item in store if isinstance(item, dict)],
+            }
+        if not isinstance(store, dict):
+            return default
+
+        raw_events = store.get("events", [])
+        if not isinstance(raw_events, list):
+            raw_events = []
+        return {
+            "schema_version": self._schema_version(store.get("schema_version", 1)),
+            "events": [self._normalize_event_record(item) for item in raw_events if isinstance(item, dict)],
+        }
+
+    def _normalize_event_record(self, event: Mapping[str, object]) -> dict:
+        return {
+            "schema_version": self._schema_version(event.get("schema_version", 1)),
+            "event_id": str(event.get("event_id") or uuid4().hex),
+            "event_type": str(event.get("event_type", "event")).strip() or "event",
+            "name": str(event.get("name", "")).strip(),
+            "status": str(event.get("status", "ok")).strip() or "ok",
+            "source": str(event.get("source", "memory")).strip() or "memory",
+            "route": str(event.get("route", "")).strip(),
+            "timestamp": str(event.get("timestamp", self._now())).strip() or self._now(),
+            "payload": self._json_safe_value(event.get("payload", {})),
+        }
+
+    def _json_safe_value(self, value):
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return value
+        if isinstance(value, Mapping):
+            return {str(key): self._json_safe_value(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [self._json_safe_value(item) for item in value]
+        if isinstance(value, tuple):
+            return [self._json_safe_value(item) for item in value]
+        if isinstance(value, set):
+            return [self._json_safe_value(item) for item in sorted(value, key=str)]
+        if isinstance(value, (date, datetime)):
+            return value.isoformat()
+        return str(value)
+
+    def _load_app_state_store(self) -> dict:
+        default = {"schema_version": APP_STATE_SCHEMA_VERSION, "data": {}}
+        store = self._read(self.app_state_file, default)
+        if isinstance(store, list):
+            return default
+        if not isinstance(store, dict):
+            return default
+
+        if isinstance(store.get("data"), dict):
+            schema_version = self._schema_version(
+                store.get("schema_version", APP_STATE_SCHEMA_VERSION),
+                APP_STATE_SCHEMA_VERSION,
+            )
+            normalized = {
+                "schema_version": schema_version,
+                "data": dict(store.get("data", {})),
+            }
+            if store != normalized:
+                self._write(self.app_state_file, normalized)
+            return normalized
+
+        data = {
+            key: value
+            for key, value in store.items()
+            if key != "schema_version"
+        }
+        normalized = {
+            "schema_version": APP_STATE_SCHEMA_VERSION,
+            "data": data,
+        }
+        if store != normalized:
+            self._write(self.app_state_file, normalized)
+        return normalized
+
+    def _write_app_state_store(self, data: Mapping[str, object]) -> None:
+        store = {
+            "schema_version": APP_STATE_SCHEMA_VERSION,
+            "data": self._json_safe_value(dict(data)),
+        }
+        self._write(self.app_state_file, store)
 
     def _parse_date(self, value: str) -> date | None:
         try:

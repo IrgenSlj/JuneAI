@@ -3,17 +3,45 @@
 from __future__ import annotations
 
 import html
-from datetime import datetime
-
-from langchain_core.messages import AIMessage, HumanMessage
+from typing import Any
 
 from agent.memory import Memory
 from agent.tools import DEFAULT_UI_STATE
 
 from .chapters import chapter_items, chapter_subtitle
+from .onboarding import (
+    chapter_onboarding_plan,
+    notification_onboarding_plan,
+    workspace_onboarding_plan,
+)
+from .shell import (
+    empty_state_html,
+    list_html,
+    onboarding_card_html,
+    stat_card_html,
+    stat_grid_html,
+)
+from .transcript import extract_text, render_save_summary_html as _render_save_summary_html, render_transcript_html
+
+__all__ = [
+    "default_ui_state",
+    "energy_dots_html",
+    "extract_text",
+    "habit_ring_svg",
+    "render_activity",
+    "render_capture_health",
+    "render_list",
+    "render_memory_focus",
+    "render_notifications",
+    "render_save_summary_html",
+    "render_trust_panel",
+    "render_workspace",
+    "transcript_html",
+    "water_dots_html",
+]
 
 
-def default_ui_state() -> dict:
+def default_ui_state() -> dict[str, Any]:
     return {
         "layout": DEFAULT_UI_STATE["layout"],
         "show_right_panel": DEFAULT_UI_STATE["show_right_panel"],
@@ -24,20 +52,6 @@ def default_ui_state() -> dict:
         "checklist_items": list(DEFAULT_UI_STATE["checklist_items"]),
         "notice": DEFAULT_UI_STATE["notice"],
     }
-
-
-def extract_text(content) -> str:
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        parts = []
-        for item in content:
-            if isinstance(item, str):
-                parts.append(item)
-            elif isinstance(item, dict) and item.get("type") == "text":
-                parts.append(str(item.get("text", "")))
-        return "".join(parts)
-    return ""
 
 
 def habit_ring_svg(done: bool, size: int = 26) -> str:
@@ -76,103 +90,117 @@ def energy_dots_html(value: int, max_val: int = 5) -> str:
     return f'<div class="june-metric-dots">{dots}</div>'
 
 
-def transcript_html(messages: list, live_response: str = "") -> str:
-    blocks = []
-    for msg in messages:
-        if isinstance(msg, HumanMessage):
-            blocks.append(
-                '<div class="june-message june-message-user">'
-                '<div class="june-message-label">You</div>'
-                f"{html.escape(extract_text(msg.content))}"
-                "</div>"
-            )
-        elif isinstance(msg, AIMessage) and msg.content:
-            blocks.append(
-                '<div class="june-message june-message-assistant">'
-                '<div class="june-message-label">June</div>'
-                f"{html.escape(extract_text(msg.content))}"
-                "</div>"
-            )
-    if live_response:
-        blocks.append(
-            '<div class="june-message june-message-assistant">'
-            '<div class="june-message-label">June</div>'
-            f"{html.escape(live_response)}"
-            "</div>"
-        )
-    return (
-        '<div class="june-transcript" id="june-transcript">'
-        + "".join(blocks)
-        + '<div id="june-transcript-end"></div>'
-        + "</div>"
-        + """<script>
-        const scrollJuneTranscript = () => {
-            const t = document.getElementById("june-transcript");
-            const end = document.getElementById("june-transcript-end");
-            if (t) t.scrollTop = t.scrollHeight;
-            if (end) end.scrollIntoView({ block: "end", behavior: "auto" });
-        };
-        setTimeout(scrollJuneTranscript, 0);
-        setTimeout(scrollJuneTranscript, 80);
-        </script>"""
+def transcript_html(messages: list[Any], live_response: str = "", extra_messages: list[Any] | None = None) -> str:
+    return render_transcript_html(messages, live_response=live_response, extra_messages=extra_messages)
+
+
+def render_save_summary_html(
+    title: object,
+    items: list[tuple[object, object]],
+    *,
+    note: object = "",
+    collapse_threshold: int = 900,
+) -> str:
+    """Render a compact inline summary of what June saved from a turn."""
+    return _render_save_summary_html(
+        title,
+        items,
+        note=note,
+        collapse_threshold=collapse_threshold,
     )
 
 
 def render_list(items: list[tuple[str, str]]) -> str:
-    if not items:
-        return '<div class="june-item-meta">Nothing saved yet.</div>'
-    return '<div class="june-list">' + "".join(
-        f'<div class="june-item">'
-        f'<div class="june-item-title">{html.escape(title)}</div>'
-        f'<div class="june-item-meta">{html.escape(meta)}</div>'
-        f'</div>'
-        for title, meta in items
-    ) + "</div>"
+    return list_html(items)
 
 
-def render_workspace(ui_state: dict, include_header: bool = True) -> str:
-    checklist_items = ui_state.get("checklist_items", [])
-    checklist = (
-        "".join(f"<li>{html.escape(item)}</li>" for item in checklist_items)
-        if checklist_items
-        else "<li>No pinned actions.</li>"
+def render_workspace(ui_state: dict[str, Any], include_header: bool = True) -> str:
+    title = ui_state.get("focus_title") or "Workspace"
+    body = ui_state.get("focus_body") or ""
+    checklist_items = [str(item) for item in ui_state.get("checklist_items", []) if str(item)]
+    checklist_title = ui_state.get("checklist_title") or "Next steps"
+    notice = ui_state.get("notice") or ""
+    header = (
+        f'<div class="june-label">Workspace</div>'
+        f'<h3 class="june-title">{html.escape(title)}</h3>'
+        if include_header
+        else f'<h3 class="june-title">{html.escape(title)}</h3>'
     )
-    if include_header:
-        header = (
-            f'<div class="june-label">Workspace</div>'
-            f'<h3 class="june-title">{html.escape(ui_state.get("focus_title", "Workspace"))}</h3>'
+    if not body and not checklist_items and not notice:
+        plan = workspace_onboarding_plan(ui_state)
+        return header + onboarding_card_html(
+            **plan.as_kwargs(),
         )
-    else:
-        header = f'<h3 class="june-title">{html.escape(ui_state.get("focus_title", "Workspace"))}</h3>'
 
-    return header + (
-        f'<div class="june-item-meta">{html.escape(ui_state.get("focus_body", ""))}</div>'
-        f'<div class="june-label" style="margin-top:0.6rem;">'
-        f'{html.escape(ui_state.get("checklist_title", "Next steps"))}</div>'
-        f'<div class="june-item-meta"><ul>{checklist}</ul></div>'
-        + (
-            f'<div class="june-item-meta" style="margin-top:0.5rem;">'
-            f'{html.escape(ui_state.get("notice", ""))}</div>'
-            if ui_state.get("notice")
-            else ""
-        )
+    parts = [header]
+    if body:
+        parts.append(f'<div class="june-item-meta">{html.escape(body)}</div>')
+    parts.append(f'<div class="june-label" style="margin-top:0.6rem;">{html.escape(checklist_title)}</div>')
+    parts.append(
+        '<div class="june-item-meta"><ul>'
+        + "".join(f"<li>{html.escape(item)}</li>" for item in checklist_items)
+        + ("</ul></div>" if checklist_items else "<li>No pinned actions.</li></ul></div>")
     )
+    if notice:
+        parts.append(f'<div class="june-item-meta" style="margin-top:0.5rem;">{html.escape(notice)}</div>')
+    return "".join(parts)
 
 
 def render_memory_focus(memory: Memory, chapter_key: str) -> str:
     items = chapter_items(memory, chapter_key)
-    return f'<div class="june-subtitle">{html.escape(chapter_subtitle(chapter_key))}</div>{render_list(items)}'
+    subtitle = chapter_subtitle(chapter_key)
+    if not items:
+        plan = chapter_onboarding_plan(memory, chapter_key)
+        return (
+            f'<div class="june-subtitle">{html.escape(subtitle)}</div>'
+            + empty_state_html(**plan.as_kwargs())
+        )
+    return f'<div class="june-subtitle">{html.escape(subtitle)}</div>{list_html(items)}'
 
 
 def render_activity(activity_log: list[str]) -> str:
     if not activity_log:
-        return '<div class="june-item-meta">No activity yet.</div>'
-    return '<div class="june-list">' + "".join(
-        f'<div class="june-item">'
-        f'<div class="june-item-meta">{html.escape(line)}</div>'
-        f'</div>'
-        for line in activity_log[-10:]
-    ) + "</div>"
+        return empty_state_html(
+            title="Assistant activity",
+            body="June's recent actions, tool calls, and routing choices will appear here.",
+            tips=("This stays secondary to the main conversation.",),
+            eyebrow="Activity",
+        )
+    return list_html([("", line) for line in activity_log[-10:]])
+
+
+def _section_html(title: str, items: list[tuple[str, str]], empty_title: str, empty_body: str) -> str:
+    if not items:
+        return empty_state_html(
+            title=empty_title,
+            body=empty_body,
+            tips=("The surface will fill as June saves more context.",),
+            eyebrow=title,
+        )
+    return f'<div class="june-label" style="margin-top:0.6rem;">{html.escape(title)}</div>' + render_list(items)
+
+
+def render_trust_panel(memory: Memory, activity_log: list[str]) -> str:
+    """Render a user-facing summary of what June saved and recent assistant actions."""
+    from .panels import build_trust_panel_model
+
+    model = build_trust_panel_model(memory, activity_log)
+    saved_items = [(item.title, item.copy) for item in model.what_june_saved]
+    action_items = [(item.title, item.copy) for item in model.recent_assistant_actions]
+    health_count_items = [
+        (label, str(count))
+        for label, count in model.capture_health_counts.items()
+        if count > 0
+    ][:6]
+    parts = [
+        '<div class="june-label">Trust</div>',
+        f'<h3 class="june-title">{html.escape(model.title)}</h3>',
+        f'<div class="june-item-meta">{html.escape(model.caption)}</div>',
+        _section_html("What June saved", saved_items, "Nothing saved yet.", "June will show the latest saved items here."),
+        _section_html("Recent assistant actions", action_items, "No assistant actions yet.", "June's recent routes, tool calls, and responses will appear here."),
+        _section_html("Light health check", health_count_items, "No captures yet.", "The health check becomes useful once June has a few saved items."),
+    ]
+    return "".join(parts)
 
 
 def render_notifications(memory: Memory) -> str:
@@ -187,6 +215,8 @@ def render_notifications(memory: Memory) -> str:
                 f"{' | ' + item['details'] if item.get('details') else ''}",
             )
         )
+    if not items:
+        return empty_state_html(**notification_onboarding_plan(memory).as_kwargs())
     return render_list(items)
 
 
@@ -206,20 +236,13 @@ def render_capture_health(memory: Memory, activity_log: list[str]) -> str:
         "Dating": len(chapter_items(memory, "dating")),
         "Family": len(chapter_items(memory, "family")),
     }
-    cards = "".join(
-        f'<div class="june-stat-card">'
-        f'<div class="june-stat-label">{html.escape(label)}</div>'
-        f'<div class="june-stat-value">{count}</div>'
-        f'</div>'
-        for label, count in chapter_counts.items()
-    )
     recent_saves = [
         line for line in activity_log[-30:]
         if "save_" in line or "Saved " in line or "saved " in line
     ][-5:]
     save_html = (
-        render_list([("Capture", line) for line in recent_saves])
+        render_list([("", line) for line in recent_saves])
         if recent_saves
         else '<div class="june-item-meta">No recent captures this session.</div>'
     )
-    return f'<div class="june-stat-grid">{cards}</div><div style="margin-top:0.6rem;"></div>' + save_html
+    return stat_grid_html([stat_card_html(label, count) for label, count in chapter_counts.items()]) + '<div style="margin-top:0.6rem;"></div>' + save_html

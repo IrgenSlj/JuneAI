@@ -1,25 +1,53 @@
-.PHONY: all format lint test tests test_watch integration_tests docker_tests help extended_tests
+.PHONY: all bootstrap bootstrap-force format lint test tests test_watch integration_tests docker_tests help extended_tests verify-env run smoke
 
 # Default target executed when no arguments are given to make.
 all: help
 
+# Define the interpreters used by make targets.
+SYSTEM_PYTHON ?= python3
+VENV_DIR ?= .venv
+ifeq ($(OS),Windows_NT)
+VENV_PYTHON := $(VENV_DIR)/Scripts/python.exe
+CODESPELL := $(VENV_DIR)/Scripts/codespell.exe
+else
+VENV_PYTHON := $(VENV_DIR)/bin/python
+CODESPELL := $(VENV_DIR)/bin/codespell
+endif
+
 # Define a variable for the test file path.
 TEST_FILE ?= tests/unit_tests/
+SMOKE_PORT ?= 8501
+SMOKE_TIMEOUT ?= 45
+
+bootstrap:
+	$(SYSTEM_PYTHON) scripts/bootstrap_env.py
+
+bootstrap-force:
+	$(SYSTEM_PYTHON) scripts/bootstrap_env.py --force
+
+verify-env:
+	$(VENV_PYTHON) scripts/verify_env.py
+
+run:
+	$(VENV_PYTHON) -m streamlit run app.py --server.headless true --server.port 8501
+
+smoke:
+	$(VENV_PYTHON) scripts/smoke_app.py --port $(SMOKE_PORT) --timeout $(SMOKE_TIMEOUT)
 
 test:
-	python -m pytest $(TEST_FILE)
+	$(VENV_PYTHON) -m pytest $(TEST_FILE)
 
 integration_tests:
-	python -m pytest tests/integration_tests 
+	$(VENV_PYTHON) -m pytest tests/integration_tests
 
 test_watch:
-	python -m ptw --snapshot-update --now . -- -vv tests/unit_tests
+	$(VENV_PYTHON) -m ptw --snapshot-update --now . -- -vv tests/unit_tests
 
 test_profile:
-	python -m pytest -vv tests/unit_tests/ --profile-svg
+	$(VENV_PYTHON) -m pytest -vv tests/unit_tests/ --profile-svg
 
 extended_tests:
-	python -m pytest --only-extended $(TEST_FILE)
+	$(VENV_PYTHON) -m pytest --only-extended $(TEST_FILE)
 
 
 ######################
@@ -36,21 +64,21 @@ lint_tests: PYTHON_FILES=tests
 lint_tests: MYPY_CACHE=.mypy_cache_test
 
 lint lint_diff lint_package lint_tests:
-	python -m ruff check .
-	[ "$(PYTHON_FILES)" = "" ] || python -m ruff format $(PYTHON_FILES) --diff
-	[ "$(PYTHON_FILES)" = "" ] || python -m ruff check --select I $(PYTHON_FILES)
-	[ "$(PYTHON_FILES)" = "" ] || python -m mypy --strict $(PYTHON_FILES)
-	[ "$(PYTHON_FILES)" = "" ] || mkdir -p $(MYPY_CACHE) && python -m mypy --strict $(PYTHON_FILES) --cache-dir $(MYPY_CACHE)
+	$(VENV_PYTHON) -m ruff check .
+	[ "$(PYTHON_FILES)" = "" ] || $(VENV_PYTHON) -m ruff format $(PYTHON_FILES) --diff
+	[ "$(PYTHON_FILES)" = "" ] || $(VENV_PYTHON) -m ruff check --select I $(PYTHON_FILES)
+	[ "$(PYTHON_FILES)" = "" ] || $(VENV_PYTHON) -m mypy --strict $(PYTHON_FILES)
+	[ "$(PYTHON_FILES)" = "" ] || mkdir -p $(MYPY_CACHE) && $(VENV_PYTHON) -m mypy --strict $(PYTHON_FILES) --cache-dir $(MYPY_CACHE)
 
 format format_diff:
-	ruff format $(PYTHON_FILES)
-	ruff check --select I --fix $(PYTHON_FILES)
+	$(VENV_PYTHON) -m ruff format $(PYTHON_FILES)
+	$(VENV_PYTHON) -m ruff check --select I --fix $(PYTHON_FILES)
 
 spell_check:
-	codespell --toml pyproject.toml
+	$(CODESPELL) --toml pyproject.toml README.md src/
 
 spell_fix:
-	codespell --toml pyproject.toml -w
+	$(CODESPELL) --toml pyproject.toml README.md src/ -w
 
 ######################
 # HELP
@@ -58,10 +86,14 @@ spell_fix:
 
 help:
 	@echo '----'
+	@echo 'bootstrap                   - create .venv, install dependencies, and verify the environment'
+	@echo 'bootstrap-force             - recreate .venv before bootstrapping'
 	@echo 'format                       - run code formatters'
 	@echo 'lint                         - run linters'
+	@echo 'run                          - start Streamlit locally from the venv'
+	@echo 'smoke                        - start Streamlit and verify HTTP 200'
 	@echo 'test                         - run unit tests'
 	@echo 'tests                        - run unit tests'
 	@echo 'test TEST_FILE=<test_file>   - run all tests in file'
 	@echo 'test_watch                   - run unit tests in watch mode'
-
+	@echo 'verify-env                   - run the environment verification script'

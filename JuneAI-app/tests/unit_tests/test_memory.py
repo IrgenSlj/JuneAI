@@ -1,6 +1,7 @@
 """Unit tests for the Memory class and tool functions."""
 
 from datetime import date, timedelta
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -8,34 +9,25 @@ import pytest
 from agent.memory import Memory
 from agent.tools import (
     clear_ui_workspace,
-    get_journal,
-    get_mood_history,
-    get_user_preferences,
     list_calendar_items,
     list_favorites,
     list_food_programs,
-    list_goals,
     list_gym_plans,
-    list_open_loops,
     log_habit_completion,
     log_mood,
     save_calendar_item,
     save_favorite_recommendation,
     save_food_program,
-    save_journal_entry,
-    save_open_loop,
-    save_relationship_profile,
+    save_gym_plan,
     save_user_preference,
     set_ui_chapter,
-    update_calendar_item_status,
-    update_goal_status,
-    update_open_loop_status,
     set_ui_checklist,
     set_ui_focus,
     set_ui_layout,
     summarize_progress,
-    track_goal,
-    save_gym_plan,
+    update_calendar_item_status,
+    update_goal_status,
+    update_open_loop_status,
 )
 
 
@@ -61,12 +53,37 @@ def test_save_and_load_message(mem):
     assert history[1]["content"] == "hi there"
 
 
+def test_memory_creates_nested_directories(tmp_path):
+    nested_dir = tmp_path / "nested" / "memory" / "state"
+    with patch("agent.memory.MEMORY_DIR", str(nested_dir)):
+        memory = Memory("test_user")
+
+    memory.save_message("user", "hello")
+    assert nested_dir.exists()
+    assert (nested_dir / "test_user_chat.json").exists()
+
+
 def test_chat_history_capped_at_50(mem):
     for i in range(60):
         mem.save_message("user", f"msg {i}")
     history = mem.load_chat()
     assert len(history) == 50
     assert history[0]["content"] == "msg 10"
+
+
+def test_chat_history_recovers_from_trailing_garbage(mem):
+    chat_file = Path(mem.chat_file)
+    chat_file.write_text(
+        '[{"role": "user", "content": "hello", "timestamp": "2026-03-26T10:00:00"}]\n'
+        "unexpected trailing bytes",
+        encoding="utf-8",
+    )
+
+    history = mem.load_chat()
+
+    assert len(history) == 1
+    assert history[0]["content"] == "hello"
+    assert chat_file.read_text(encoding="utf-8").strip().startswith("[")
 
 
 def test_log_and_get_mood(mem):
@@ -79,9 +96,10 @@ def test_log_and_get_mood(mem):
 
 
 def test_save_calendar_items_are_sorted(mem):
-    mem.save_calendar_item("Old item", "2023-01-01", "09:00")
-    mem.save_calendar_item("Dinner", "2026-04-02", "20:00")
-    mem.save_calendar_item("Workout", "2026-03-20", "08:00")
+    today = date.today()
+    mem.save_calendar_item("Old item", (today - timedelta(days=30)).isoformat(), "09:00")
+    mem.save_calendar_item("Dinner", (today + timedelta(days=5)).isoformat(), "20:00")
+    mem.save_calendar_item("Workout", (today + timedelta(days=1)).isoformat(), "08:00")
     items = mem.get_calendar_items()
     assert items[0]["title"] == "Workout"
     assert items[1]["title"] == "Dinner"

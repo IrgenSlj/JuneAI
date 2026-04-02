@@ -1,102 +1,102 @@
 # JuneAI
 
-> An offline-first personal assistant with memory, routines, reminders, and chaptered life context.
+A local-first personal AI that feels like a friend who actually remembers you.
 
-JuneAI is a local-first assistant designed to help a user stay organized, active, healthy, and consistent over time. It is not a generic chatbot and it is no longer centered on relationship coaching. The product direction is a private life console: one place to talk, remember, plan, and keep continuity across daily life.
+June is not a generic chatbot. She is a private life console: one place to talk, remember,
+plan, and keep continuity across your daily life. Every conversation makes her more useful.
+Everything stays on your machine.
 
-June is built with Streamlit, LangGraph, and local JSON memory. It now supports two execution modes:
+---
 
-- Local-first mode with a small Mistral-class model behind an OpenAI-compatible endpoint
-- High-performance mode with Claude for stronger reasoning and higher tool reliability
+## The Idea
+
+Most AI tools answer questions. June builds a picture of you over time.
+
+She tracks your goals, your gym programme, your calendar, your moods, your sleep, the
+people you care about, and your open threads. She cross-references all of it and uses it
+to give you context-aware responses that feel less like a search engine and more like
+talking to someone who knows you well.
+
+The more you tell June, the more useful she becomes. That is the entire product.
+
+---
 
 ## What June Does
 
-- Captures appointments, reminders, birthdays, trips, and other agenda items from conversation
-- Stores goals, open loops, and pinned workspace notes
-- Saves gym schedules and food programs
-- Tracks preferences, favorites, and recommendations
-- Remembers relationship and family context when relevant
-- Shows chapter-based stored memory for categories like `Calendar`, `Plans`, `Birthdays`, `Family`, and `Dating/Love`
-- Starts the day proactively with a local daily check-in and upcoming reminders
-- Stays aware of local date, time, weekday, part of day, and day of year
+- Captures appointments, reminders, birthdays, trips, and commitments from natural conversation
+- Tracks goals and open follow-ups, flags when something has gone stale
+- Logs workouts, body metrics, nutrition, water, and habits
+- Remembers people, relationships, and personal context
+- Notices patterns: low energy streaks, broken habit chains, upcoming deadlines
+- Opens each session with context-aware observations, not a blank slate
+- Generates weekly summaries and contextual suggestions
+- Updates the right-rail dashboard in real time as the conversation progresses
 
-## Current Interface
-
-The current UI is intentionally minimal:
-
-- Left side: conversation
-- Right side: reminders, chapter buttons, stored chapter content, workspace, and tool logs
-
-Chapter buttons currently include:
-
-- `Calendar`
-- `Gym Schedule`
-- `Food Schedule`
-- `Trips`
-- `Plans`
-- `Dating/Love`
-- `Family`
-- `Birthdays`
-
-Each chapter opens inline and shows what June has actually stored from previous chats.
-
-## How It Works
-
-On each message:
-
-1. The user sends a prompt in Streamlit.
-2. June auto-selects an internal skill route from the prompt.
-3. A LangGraph agent decides whether to answer directly or use tools.
-4. Tools update local memory and, when useful, the workspace panel.
-5. The UI shows streamed responses plus tool activity logs.
-
-Memory is persisted as plain JSON files on disk. There is no database and no required cloud sync layer.
-
-## Core Memory Types
-
-June currently stores:
-
-- Chat history
-- Mood logs
-- Journal entries
-- Relationship profiles
-- Goals
-- Open loops
-- Preferences
-- Calendar items
-- Favorites
-- Gym plans
-- Food programs
-- App state for daily check-ins and rotating quote timing
+---
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| UI | [Streamlit](https://streamlit.io) |
-| Agent | [LangGraph](https://github.com/langchain-ai/langgraph) |
-| LLM Client | [LangChain](https://github.com/langchain-ai/langchain) + `langchain-openai` |
-| Model Backend | OpenAI-compatible APIs or local Ollama |
-| Storage | Local JSON files |
-| Language | Python |
+| Layer | Technology | Notes |
+|-------|------------|-------|
+| UI | Streamlit | Single-page, split layout |
+| Agent | LangGraph | Two-node graph: chat + tools |
+| LLM (primary) | Mistral 7B Instruct v0.3 via Ollama | Local, fully private |
+| LLM (optional) | Claude Sonnet/Opus via Anthropic API | Cloud, max capability |
+| LLM (any) | Any OpenAI-compatible endpoint | LM Studio, OpenRouter, etc. |
+| Memory | SQLite (single local file) | Queryable, atomic, inspectable |
+| Language | Python 3.9+ | |
 
-## Run Locally
+Memory lives in `.june_memory/june.db`. No cloud sync. No accounts. One file.
+
+---
+
+## Quick Start
+
+You need [Ollama](https://ollama.com) installed and running.
+
+```bash
+ollama pull mistral
+```
+
+Then:
 
 ```bash
 git clone https://github.com/IrgenSlj/JuneAI.git
 cd JuneAI/JuneAI-app
-python3 -m venv .venv
-.venv/bin/python -m pip install -e ".[dev]"
+make bootstrap
+make run
 ```
 
-Set your model configuration:
+Open `http://localhost:8501`.
+
+On first run, June will introduce herself and begin learning about you through conversation.
+
+To verify your environment before running:
+
+```bash
+make check-ollama    # confirms Ollama is running and model is available
+make verify-env      # confirms Python environment is correct
+make smoke           # confirms the Streamlit app serves HTTP 200
+```
+
+---
+
+## Runtime Profiles
+
+JuneAI supports three named profiles and any custom OpenAI-compatible endpoint.
+
+| Profile | Model | Where inference runs | Best for |
+|---------|-------|----------------------|----------|
+| `local_mistral_7b` | mistral:7b-instruct-v0.3 | Your machine | Default — fast, private, reliable tool calling |
+| `local_mistral_3b` | mistral:3b | Your machine | Low-resource machines |
+| `claude_high` | claude-sonnet-4-6 | Anthropic API | Maximum reasoning quality |
+
+Set in `.env`:
 
 ```env
-MODEL_PRESET=local_mistral_8b
+MODEL_PRESET=local_mistral_7b
 LLM_BASE_URL=http://localhost:11434/v1
 LLM_API_KEY=ollama
-LOCAL_SMALL_MODEL_NAME=mistral
-LOCAL_LARGE_MODEL_NAME=mistral-nemo
 ```
 
 For Claude:
@@ -104,76 +104,128 @@ For Claude:
 ```env
 MODEL_PRESET=claude_high
 ANTHROPIC_API_KEY=your_key_here
-CLAUDE_MODEL_NAME=claude-3-5-sonnet-latest
 ```
 
-Then run:
+The active profile is shown as a badge in the UI. You can switch profiles mid-session
+without restarting.
 
-```bash
-PYTHONPATH=src .venv/bin/streamlit run app.py --server.headless true --server.port 8501
-```
+---
 
-Open:
+## Memory Chapters
 
-- `http://localhost:8501`
+June organises everything you share into chapters. Each chapter is a domain of your life.
+
+| Chapter | What June stores |
+|---------|-----------------|
+| Calendar | Events, appointments, reminders, trips, birthdays |
+| Goals | Active goals with deadlines and status |
+| Open Loops | Unresolved threads and follow-ups |
+| Habits | Daily habits, streaks, and completions |
+| Body | Weight, sleep, energy, HRV, steps — logged daily |
+| Workouts | Sessions, exercises, duration, energy before/after |
+| Gym Plan | Active training programme |
+| Nutrition | Meals, calories, protein |
+| Food Program | Nutrition approach and daily structure |
+| Water | Daily glass count |
+| Mood | Daily mood and note |
+| Journal | Free-form entries |
+| Relationships | People, context, communication notes, birthdays |
+| Preferences | How you like things |
+| Favourites | Books, films, places, recommendations |
+
+Chapters are filled through conversation — no forms, no setup wizard.
+
+---
 
 ## Project Structure
 
-```text
+```
 JuneAI-app/
-|-- app.py
-|-- src/agent/
-|   |-- graph.py
-|   |-- tools.py
-|   |-- memory.py
-|   |-- skills.py
-|   `-- config.py
+|-- app.py                     # Streamlit entry point
+|-- src/
+|   |-- agent/
+|   |   |-- graph.py           # LangGraph agent (chat + tools nodes)
+|   |   |-- tools.py           # 48 tools the LLM can call
+|   |   |-- memory.py          # SQLite memory layer
+|   |   |-- skills.py          # Role-based system prompts
+|   |   |-- config.py          # Runtime profile resolution
+|   |   |-- patterns.py        # Cross-chapter pattern detection
+|   |   |-- context_intelligence.py  # Recovery readiness + commitment summaries
+|   |   |-- telemetry.py       # Tool call event logging
+|   |   `-- runtime_privacy.py # Privacy status and preset switching
+|   `-- agent_ui/
+|       |-- panels.py          # Right-rail panel builders
+|       |-- rendering.py       # HTML rendering helpers
+|       |-- chapters.py        # Chapter metadata
+|       |-- chapter_surface.py # Chapter status and freshness
+|       |-- onboarding.py      # First-run flow
+|       |-- transcript.py      # Chat message rendering
+|       `-- state.py           # Session state management
 |-- tests/
 |   |-- unit_tests/
 |   `-- integration_tests/
-|-- requirements.txt
+|-- scripts/
+|   |-- bootstrap_env.py
+|   |-- verify_env.py
+|   |-- check_ollama.py        # Ollama health check
+|   `-- migrate_json_to_sqlite.py  # Memory migration tool
+|-- docs/
+|   |-- PLAN.md                # Development roadmap
+|   `-- architecture.html      # System diagrams
 |-- pyproject.toml
-`-- langgraph.json
+`-- Makefile
 ```
 
-## Runtime Profiles
-
-- `local_mistral_3b`
-  - Small local profile for fast offline use
-  - Tuned for short turns and conservative tool calling
-- `local_mistral_8b`
-  - Default local profile
-  - Better tool-call reliability and still local/offline-friendly
-- `claude_high`
-  - Cloud profile for stronger reasoning and best overall assistant quality
-
-The active profile is shown in the sidebar and logged for each turn.
-
-## Tool Reliability
-
-June now tracks tool-call diagnostics in the graph state:
-
-- Requested tool calls
-- Successful tool executions
-- Failed tool executions
-- Per-tool preview logs in the UI activity panel
-
-This makes it possible to validate whether a local model is actually calling tools correctly instead of only producing plausible text.
+---
 
 ## Development
 
 ```bash
-.venv/bin/python -m ruff check .
-.venv/bin/python -m mypy --strict src tests
-.venv/bin/python -m pytest tests/unit_tests -q
-.venv/bin/python -m pytest tests/integration_tests/test_graph.py -q
+make bootstrap          # create .venv and install deps
+make check-ollama       # verify Ollama is running and model available
+make run                # start the app
+make test               # run unit tests
+make integration_tests  # run integration tests
+make lint               # run ruff and mypy
+make smoke              # HTTP smoke test
+make migrate-memory     # migrate JSON files to SQLite (if upgrading)
+make export-memory      # export all memory as readable markdown
+make docker-run         # start app + Ollama via docker compose
 ```
 
-## Notes
+---
 
-- June is designed to work offline-friendly, but live model responses still depend on the configured LLM endpoint.
-- Memory files are local and human-inspectable.
-- The UI includes tool logs, tool success counters, and capture-health counts so you can verify whether the model is actually storing information.
+## How It Works
+
+On each message turn:
+
+1. The user sends a message in the chat.
+2. June selects an internal skill (assistant, planner, wellness, curator) based on context.
+3. Memory context is injected into the system prompt: today's summary, recovery readiness,
+   active commitments, and any active pattern observations.
+4. The LangGraph agent invokes Mistral (or the configured model).
+5. Mistral decides to call tools, reply directly, or both.
+6. Tools read and write the SQLite memory database.
+7. The right-rail dashboard updates to reflect the new memory state.
+8. June's reply streams back to the user.
+
+The chat history is capped at 20 recent messages in full fidelity. Older messages are
+summarized and injected as compressed context so nothing is truly forgotten.
+
+---
+
+## Privacy
+
+The default configuration runs entirely on your machine. No messages, no memory, no
+model calls leave your device when using a local Ollama model.
+
+When using Claude (`claude_high`), messages are sent to Anthropic's API. The privacy
+badge in the UI shows a green dot for local and an amber dot for API-assisted inference.
+
+Memory files are stored at `.june_memory/june.db` and are fully readable with any
+SQLite viewer. You own your data.
+
+---
 
 ## License
 

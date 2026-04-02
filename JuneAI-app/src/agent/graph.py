@@ -8,7 +8,7 @@ import operator
 from datetime import datetime
 from html import unescape
 from json import JSONDecodeError
-from typing import Any, Annotated, TypedDict
+from typing import Annotated, Any, TypedDict
 from uuid import uuid4
 
 from langchain_core.messages import AIMessage, AnyMessage, SystemMessage, ToolMessage
@@ -17,9 +17,16 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.types import StreamWriter
 
 from .config import RuntimeConfig, resolve_runtime_config
+from .context_intelligence import (
+    build_active_commitments_summary,
+    build_recovery_readiness_summary,
+    format_active_commitments_summary,
+    format_recovery_readiness_summary,
+)
 from .memory import Memory
 from .models import build_chat_model
 from .skills import DEFAULT_SKILL, build_system_prompt
+from .telemetry import record_route_selection, record_save_event, record_tool_call
 from .tools import JUNE_TOOLS
 
 
@@ -81,6 +88,56 @@ def _summarize_tool_messages(
         "failed": existing.get("failed", 0) + error_count,
         "last_calls": call_results,
     }
+
+
+def _append_messages(target: list[Any], payload: Any) -> None:
+    """Append a tool-node message payload without assuming a fixed container type."""
+    if payload is None:
+        return
+    if isinstance(payload, list):
+        target.extend(payload)
+        return
+    target.append(payload)
+
+
+def _normalize_tool_node_result(result: Any, base_ui_state: dict[str, Any]) -> dict[str, Any]:
+    """Flatten ToolNode results into a dict we can summarize and return safely."""
+    combined: dict[str, Any] = {"messages": []}
+    current_ui_state = dict(base_ui_state)
+    ui_state_seen = False
+
+    def merge(item: Any) -> None:
+        nonlocal ui_state_seen
+        if isinstance(item, dict):
+            if "ui_state" in item and isinstance(item["ui_state"], dict):
+                for key, value in item["ui_state"].items():
+                    if key not in base_ui_state or base_ui_state.get(key) != value:
+                        current_ui_state[key] = value
+                ui_state_seen = True
+            if "messages" in item:
+                _append_messages(combined["messages"], item.get("messages"))
+            for key, value in item.items():
+                if key in {"ui_state", "messages"}:
+                    continue
+                combined[key] = value
+            return
+
+        update = getattr(item, "update", None)
+        if isinstance(update, dict):
+            merge(update)
+            return
+
+        _append_messages(combined["messages"], item)
+
+    if isinstance(result, list):
+        for item in result:
+            merge(item)
+    else:
+        merge(result)
+
+    if ui_state_seen:
+        combined["ui_state"] = current_ui_state
+    return combined
 
 
 def _strip_code_fence(text: str) -> str:
@@ -504,13 +561,16 @@ def _build_memory_context(user_id: str) -> str:
                 + ", ".join(previous_parts)
             )
 
+    lines.append("")
+    lines.append(format_recovery_readiness_summary(build_recovery_readiness_summary(memory)))
+    lines.append("")
+    lines.append(format_active_commitments_summary(build_active_commitments_summary(memory)))
     lines.append("Use this context in reasoning, recommendations, and follow-up questions.")
     return "\n".join(lines)
 
 
 def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> Any:
     """Build and compile the JuneAI LangGraph agent."""
-
     runtime = runtime or resolve_runtime_config()
     llm = llm or build_chat_model(runtime)
     if hasattr(llm, "bind_tools"):
@@ -519,10 +579,20 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
     tool_node = ToolNode(JUNE_TOOLS, handle_tool_errors=True)
 
     def chat(state: AgentState, writer: StreamWriter) -> dict[str, Any]:
-        """Main chat node."""
+        """Run the main chat node."""
         skill = state.get("skill", DEFAULT_SKILL)
         now = datetime.now().astimezone()
         prompt = build_system_prompt(skill, now=now, runtime=runtime)
+        record_route_selection(
+            Memory(state["user_id"]),
+            skill,
+            source="graph",
+            payload={
+                "runtime_label": runtime.label,
+                "runtime_provider": runtime.provider,
+                "runtime_model": runtime.model,
+            },
+        )
         writer(
             {
                 "event": "chat_started",
@@ -555,43 +625,45 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
         """Execute tools and report structured diagnostics."""
         last_message = state["messages"][-1] if state.get("messages") else None
         requested_calls = list(getattr(last_message, "tool_calls", []) or [])
-        result = tool_node.invoke(state)
-        if isinstance(result, list):
-            base_ui_state = dict(state.get("ui_state") or {})
-            combined: dict[str, Any] = {"messages": []}
-            current_ui_state = dict(base_ui_state)
-            for item in result:
-                if isinstance(item, dict):
-                    if "ui_state" in item and isinstance(item["ui_state"], dict):
-                        current_ui_state.update(item["ui_state"])
-                        combined["ui_state"] = current_ui_state
-                    if "messages" in item:
-                        combined["messages"].extend(item.get("messages", []))
-                    for key, value in item.items():
-                        if key in {"ui_state", "messages"}:
-                            continue
-                        combined[key] = value
-                    continue
-                update = getattr(item, "update", None)
-                if isinstance(update, dict):
-                    if "ui_state" in update and isinstance(update["ui_state"], dict):
-                        for key, value in update["ui_state"].items():
-                            if key not in base_ui_state or base_ui_state.get(key) != value:
-                                current_ui_state[key] = value
-                        combined["ui_state"] = current_ui_state
-                    if "messages" in update:
-                        combined["messages"].extend(update.get("messages", []))
-                    for key, value in update.items():
-                        if key in {"ui_state", "messages"}:
-                            continue
-                        combined[key] = value
-                else:
-                    combined["messages"].append(item)
-            result = combined
+        memory = Memory(state["user_id"])
+        for call in requested_calls:
+            record_tool_call(
+                memory,
+                call.get("name", ""),
+                status="requested",
+                source="graph",
+                route=state.get("skill", DEFAULT_SKILL),
+                payload={"tool_call_id": call.get("id", "")},
+            )
+        result = _normalize_tool_node_result(tool_node.invoke(state), state.get("ui_state") or {})
         tool_messages = [
             message for message in result.get("messages", []) if isinstance(message, ToolMessage)
         ]
         tool_stats = _summarize_tool_messages(tool_messages, requested_calls, state.get("tool_stats"))
+        for call in tool_stats.get("last_calls", []):
+            tool_name = call.get("name", "")
+            payload = {
+                "tool_call_id": call.get("id", ""),
+                "preview": call.get("preview", ""),
+            }
+            record_tool_call(
+                memory,
+                tool_name,
+                status=call.get("status", "error"),
+                source="graph",
+                route=state.get("skill", DEFAULT_SKILL),
+                payload=payload,
+            )
+            if call.get("status") == "success" and tool_name.startswith(("save_", "log_", "track_", "set_ui_")):
+                record_save_event(
+                    memory,
+                    kind=tool_name,
+                    name=tool_name,
+                    status="saved",
+                    source="graph",
+                    route=state.get("skill", DEFAULT_SKILL),
+                    payload=payload,
+                )
         writer({"event": "tool_results", "calls": tool_stats["last_calls"], "summary": tool_stats})
         result["tool_stats"] = tool_stats
         return dict(result)

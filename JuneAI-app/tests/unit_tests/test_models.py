@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from langchain_core.messages import AIMessage, HumanMessage
 
-from agent.config import resolve_runtime_config
+from agent.config import resolve_runtime_config, runtime_preset_options
 from agent.graph import _build_memory_context, create_june_agent
 from agent.memory import Memory
 from agent.models import build_chat_model
@@ -57,6 +57,22 @@ def test_resolve_runtime_config_for_claude():
     assert runtime.label == "Claude High Performance"
     assert runtime.model == "claude-test"
     assert runtime.api_key == "test-key"
+
+
+def test_resolve_runtime_config_accepts_explicit_preset_key():
+    with patch.dict("os.environ", {}, clear=False):
+        runtime = resolve_runtime_config("local_mistral_8b")
+
+    assert runtime.preset_key == "local_mistral_8b"
+    assert runtime.label == "Local Mistral 8B"
+
+
+def test_runtime_preset_options_expose_known_presets():
+    option_keys = [preset.key for preset in runtime_preset_options()]
+
+    assert "local_mistral_3b" in option_keys
+    assert "local_mistral_8b" in option_keys
+    assert "claude_high" in option_keys
 
 
 def test_graph_tracks_tool_success():

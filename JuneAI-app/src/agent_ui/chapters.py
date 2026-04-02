@@ -2,7 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from .chapter_surface import (
+    ChapterStatus,
+    TodayMemoryCard,
+    chapter_status,
+    chapter_status_cards,
+    chapter_statuses,
+    today_memory_cards,
+    today_memory_summary,
+)
 
 if TYPE_CHECKING:
     from agent.memory import Memory
@@ -24,15 +34,28 @@ CHAPTERS = [
     ("birthdays", "Birthdays"),
 ]
 
+__all__ = [
+    "CHAPTERS",
+    "ChapterStatus",
+    "TodayMemoryCard",
+    "chapter_items",
+    "chapter_status",
+    "chapter_status_cards",
+    "chapter_statuses",
+    "chapter_subtitle",
+    "today_memory_cards",
+    "today_memory_summary",
+]
 
-def _cal_text(item: dict) -> str:
+
+def _cal_text(item: dict[str, Any]) -> str:
     return " ".join(
         str(item.get(field, "")).lower()
         for field in ("title", "details", "source", "status")
     )
 
 
-def chapter_items(memory: "Memory", chapter_key: str) -> list[tuple[str, str]]:
+def chapter_items(memory: Memory, chapter_key: str) -> list[tuple[str, str]]:
     if chapter_key == "calendar":
         return [
             (
