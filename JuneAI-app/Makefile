@@ -10,7 +10,7 @@ ifeq ($(OS),Windows_NT)
 VENV_PYTHON := $(VENV_DIR)/Scripts/python.exe
 CODESPELL := $(VENV_DIR)/Scripts/codespell.exe
 else
-VENV_PYTHON := $(VENV_DIR)/bin/python
+VENV_PYTHON := $(VENV_DIR)/bin/python3.9
 CODESPELL := $(VENV_DIR)/bin/codespell
 endif
 
