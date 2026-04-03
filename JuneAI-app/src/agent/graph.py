@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-import ast
 import json
+import logging
 import operator
+import re
+import time
 from datetime import datetime
 from html import unescape
 from json import JSONDecodeError
@@ -17,6 +19,9 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.types import StreamWriter
 
 from .config import RuntimeConfig, resolve_runtime_config
+
+_CONTEXT_CACHE: dict[str, tuple[float, str]] = {}  # user_id -> (timestamp, context)
+_CONTEXT_TTL = 30.0  # seconds
 from .context_intelligence import (
     build_active_commitments_summary,
     build_recovery_readiness_summary,
@@ -169,21 +174,34 @@ def _extract_json_payload(text: str) -> Any | None:
 
     for start, end in sorted(pairs, key=lambda item: item[0]):
         candidate = cleaned[start : end + 1]
+        # strategy 1: direct parse
         try:
             return json.loads(candidate)
         except JSONDecodeError:
-            normalized = candidate.replace("\n", " ").replace("\t", " ")
-            try:
-                return json.loads(normalized)
-            except JSONDecodeError:
-                try:
-                    return ast.literal_eval(candidate)
-                except (SyntaxError, ValueError):
-                    try:
-                        return ast.literal_eval(normalized)
-                    except (SyntaxError, ValueError):
-                        continue
+            pass
+        # strategy 2: collapse whitespace
+        normalized = candidate.replace("\n", " ").replace("\t", " ")
+        try:
+            return json.loads(normalized)
+        except JSONDecodeError:
+            pass
+        # strategy 3: replace single quotes with double quotes (common local-model mistake)
+        single_to_double = re.sub(r"(?<!\\)'", '"', normalized)
+        try:
+            return json.loads(single_to_double)
+        except JSONDecodeError:
+            pass
+        # strategy 4: unescape HTML entities and retry
+        unescaped = unescape(normalized)
+        try:
+            return json.loads(unescaped)
+        except JSONDecodeError:
+            continue
 
+    logging.warning(
+        "_extract_json_payload: all JSON strategies failed. Raw (first 120 chars): %s",
+        text[:120],
+    )
     return None
 
 
@@ -487,9 +505,13 @@ def _recover_tool_call(response: AIMessage) -> AIMessage:
     )
 
 
-def _build_memory_context(user_id: str) -> str:
-    """Build compact memory context for the current turn."""
-    memory = Memory(user_id)
+def invalidate_context_cache(user_id: str) -> None:
+    """Remove a user's cached memory context so the next turn re-reads from disk."""
+    _CONTEXT_CACHE.pop(user_id, None)
+
+
+def _compute_memory_context(memory: Memory) -> str:
+    """Read memory files and build the compact context string."""
     summary = memory.get_today_summary()
     lines = ["Current user context:"]
 
@@ -567,6 +589,18 @@ def _build_memory_context(user_id: str) -> str:
     lines.append(format_active_commitments_summary(build_active_commitments_summary(memory)))
     lines.append("Use this context in reasoning, recommendations, and follow-up questions.")
     return "\n".join(lines)
+
+
+def _build_memory_context(user_id: str) -> str:
+    """Return cached memory context, refreshing from disk when the TTL has expired."""
+    now = time.monotonic()
+    cached = _CONTEXT_CACHE.get(user_id)
+    if cached and (now - cached[0]) < _CONTEXT_TTL:
+        return cached[1]
+    memory = Memory(user_id)
+    result = _compute_memory_context(memory)
+    _CONTEXT_CACHE[user_id] = (now, result)
+    return result
 
 
 def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> Any:
@@ -666,6 +700,7 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
                 )
         writer({"event": "tool_results", "calls": tool_stats["last_calls"], "summary": tool_stats})
         result["tool_stats"] = tool_stats
+        invalidate_context_cache(state["user_id"])
         return dict(result)
 
     graph = StateGraph(AgentState)
@@ -679,4 +714,9 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
     return graph.compile()
 
 
-june_agent = create_june_agent()
+startup_error: str | None = None
+try:
+    june_agent = create_june_agent()
+except Exception as exc:
+    june_agent = None  # type: ignore[assignment]
+    startup_error = str(exc)

@@ -28,6 +28,9 @@ bootstrap-force:
 verify-env:
 	$(VENV_PYTHON) scripts/verify_env.py
 
+check-ollama:
+	$(VENV_PYTHON) scripts/check_ollama.py
+
 run:
 	$(VENV_PYTHON) -m streamlit run app.py --server.headless true --server.port 8501
 

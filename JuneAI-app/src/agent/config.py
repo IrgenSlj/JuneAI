@@ -141,8 +141,13 @@ def _resolve_runtime_config_for_preset(preset: RuntimePreset) -> RuntimeConfig:
     model = _env_text(preset.model_env_var) or _env_text("MODEL_NAME") or preset.default_model
 
     if provider == "anthropic":
-        api_key = _env_text("ANTHROPIC_API_KEY") or _env_text("LLM_API_KEY")
+        api_key = _env_text("ANTHROPIC_API_KEY") or _env_text("LLM_API_KEY") or preset.default_api_key
         base_url = _env_text("LLM_BASE_URL")
+        if not api_key:
+            raise ValueError(
+                "ANTHROPIC_API_KEY is required for the 'claude_high' preset but was not set. "
+                "Set it in your .env file."
+            )
     else:
         api_key = _env_text("LLM_API_KEY") or preset.default_api_key
         base_url = _env_text("LLM_BASE_URL") or preset.default_base_url

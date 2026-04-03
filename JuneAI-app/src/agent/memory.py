@@ -6,6 +6,7 @@ Stores conversation history and assistant artifacts as local JSON files.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from collections.abc import Mapping
 from datetime import date, datetime
@@ -1063,7 +1064,12 @@ class Memory:
         try:
             parsed, _index = decoder.raw_decode(cleaned)
         except JSONDecodeError:
-            return default
+            logging.warning(
+                "JuneAI memory: JSON parse failed, returning default. "
+                "Raw (first 80 chars): %s",
+                raw[:80],
+            )
+            return default() if callable(default) else default
         if isinstance(parsed, type(default)):
             return parsed
         return default

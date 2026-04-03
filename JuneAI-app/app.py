@@ -14,7 +14,7 @@ import streamlit.components.v1 as components
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, ToolMessage
 
 from agent.config import RuntimeConfig, resolve_runtime_config, runtime_preset_options
-from agent.graph import create_june_agent
+from agent.graph import create_june_agent, startup_error
 from agent.memory import Memory
 from agent.runtime_privacy import build_runtime_privacy_status
 from agent.skills import DEFAULT_SKILL, SKILLS, infer_skill_from_text
@@ -696,6 +696,13 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+if startup_error:
+    st.error("June could not start.")
+    st.markdown("**Reason:** " + startup_error)
+    st.markdown("**Fix:** Make sure Ollama is running and the model is available.")
+    st.code("ollama serve\nollama pull mistral")
+    st.stop()
 
 WATER_GOAL = 8
 RUNTIME_CONFIG = resolve_runtime_config()
