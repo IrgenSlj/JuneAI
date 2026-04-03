@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from unittest.mock import patch
 
 from agent.memory import Memory
@@ -64,8 +65,8 @@ def test_build_setup_progress_model_tracks_core_surfaces(tmp_path) -> None:
 def test_build_today_panel_model_exposes_actionable_summary(tmp_path) -> None:
     memory = _make_memory(tmp_path, "today_panel_user")
     memory.save_goal("Ship onboarding helpers", next_step="Wire the new panels")
-    memory.save_open_loop("Confirm UI copy", next_step="Check the empty states", due_date="2026-04-01")
-    memory.save_calendar_item("Launch review", "2026-04-02", details="Review onboarding copy")
+    memory.save_open_loop("Confirm UI copy", next_step="Check the empty states", due_date=(date.today() + timedelta(days=3)).isoformat())
+    memory.save_calendar_item("Launch review", date.today().isoformat(), details="Review onboarding copy")
     memory.create_or_update_habit("Walk")
     memory.log_habit_completion("Walk")
     memory.log_body_metrics(
