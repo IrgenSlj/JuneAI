@@ -20,6 +20,15 @@ from langgraph.types import StreamWriter
 
 from .config import RuntimeConfig, resolve_runtime_config
 
+
+def _get_tool_strategy() -> str:
+    """Return the tool strategy for the current runtime config."""
+    try:
+        from .config import resolve_runtime_config as _resolve
+        return _resolve().tool_strategy
+    except Exception:
+        return "recovery"
+
 _CONTEXT_CACHE: dict[str, tuple[float, str]] = {}  # user_id -> (timestamp, context)
 _CONTEXT_TTL = 30.0  # seconds
 from .context_intelligence import (
@@ -32,7 +41,7 @@ from .memory import Memory
 from .models import build_chat_model
 from .skills import DEFAULT_SKILL, build_system_prompt
 from .telemetry import record_route_selection, record_save_event, record_tool_call
-from .tools import JUNE_TOOLS
+from .tools import JUNE_TOOLS, JUNE_TOOLS_CORE
 
 
 class AgentState(TypedDict):
@@ -607,10 +616,11 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
     """Build and compile the JuneAI LangGraph agent."""
     runtime = runtime or resolve_runtime_config()
     llm = llm or build_chat_model(runtime)
+    _tools = JUNE_TOOLS_CORE if runtime.preset_key == "local_mistral_3b" else JUNE_TOOLS
     if hasattr(llm, "bind_tools"):
-        llm = llm.bind_tools(JUNE_TOOLS)
+        llm = llm.bind_tools(_tools)
 
-    tool_node = ToolNode(JUNE_TOOLS, handle_tool_errors=True)
+    tool_node = ToolNode(_tools, handle_tool_errors=True)
 
     def chat(state: AgentState, writer: StreamWriter) -> dict[str, Any]:
         """Run the main chat node."""
@@ -643,7 +653,11 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
             SystemMessage(content=prompt),
             SystemMessage(content=memory_context),
         ] + state["messages"]
-        response = _recover_tool_call(llm.invoke(messages))
+        raw_response = llm.invoke(messages)
+        if _get_tool_strategy() == "native" and getattr(raw_response, "tool_calls", None):
+            response = raw_response
+        else:
+            response = _recover_tool_call(raw_response)
         if getattr(response, "tool_calls", None):
             writer(
                 {

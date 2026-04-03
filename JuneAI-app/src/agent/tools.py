@@ -1114,6 +1114,29 @@ def ask_about_chapter(
     return f"Intake prompt for '{key}':\n\n{prompt}"
 
 
+JUNE_TOOLS_CORE = [
+    log_mood,
+    save_journal_entry,
+    track_goal,
+    update_goal_status,
+    save_open_loop,
+    update_open_loop_status,
+    save_calendar_item,
+    list_calendar_items,
+    update_calendar_item_status,
+    save_user_preference,
+    log_body_metrics,
+    log_workout_session,
+    log_habit_completion,
+    create_habit,
+    log_nutrition,
+    log_water,
+    set_ui_chapter,
+    set_ui_focus,
+    set_ui_checklist,
+    clear_ui_workspace,
+]
+
 JUNE_TOOLS = [
     log_mood,
     get_mood_history,

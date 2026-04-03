@@ -100,6 +100,18 @@ RUNTIME_PRESETS: dict[str, RuntimePreset] = {
         max_tokens=900,
         tool_strategy="strict_json_short_turns",
     ),
+    "local_mistral_7b": RuntimePreset(
+        key="local_mistral_7b",
+        label="Mistral 7B (local)",
+        provider="openai_compatible",
+        model_env_var="LOCAL_LARGE_MODEL_NAME",
+        default_model="mistral:7b-instruct-v0.3",
+        default_base_url="http://localhost:11434/v1",
+        default_api_key="ollama",
+        temperature=0.3,
+        max_tokens=4096,
+        tool_strategy="native",
+    ),
     "claude_high": RuntimePreset(
         key="claude_high",
         label="Claude High Performance",
@@ -114,7 +126,24 @@ RUNTIME_PRESETS: dict[str, RuntimePreset] = {
     ),
 }
 
-DEFAULT_RUNTIME_PRESET = "local_mistral_8b"
+DEFAULT_RUNTIME_PRESET = "local_mistral_7b"
+
+
+def detect_tool_strategy(model_name: str) -> str:
+    """Return 'native' for models known to support OpenAI-style function calling, else 'recovery'."""
+    model_lower = model_name.lower()
+    native_patterns = (
+        "7b-instruct-v0.3",
+        "mistral-nemo",
+        "mistral-small",
+        "mistral-large",
+        "mixtral",
+        "claude",
+        "gpt-4",
+        "gpt-3.5-turbo",
+        "gemini",
+    )
+    return "native" if any(p in model_lower for p in native_patterns) else "recovery"
 
 
 def resolve_runtime_config(preset_key: str | None = None) -> RuntimeConfig:
@@ -154,7 +183,8 @@ def _resolve_runtime_config_for_preset(preset: RuntimePreset) -> RuntimeConfig:
 
     temperature = float(_env_text("MODEL_TEMPERATURE", str(preset.temperature)))
     max_tokens = int(_env_text("MODEL_MAX_TOKENS", str(preset.max_tokens)))
-    tool_strategy = _env_text("MODEL_TOOL_STRATEGY", preset.tool_strategy)
+    _env_tool_strategy = _env_text("MODEL_TOOL_STRATEGY")
+    tool_strategy = _env_tool_strategy or preset.tool_strategy or detect_tool_strategy(model)
 
     return RuntimeConfig(
         preset_key=preset.key,

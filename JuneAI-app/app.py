@@ -1566,6 +1566,11 @@ def render_debug_panel(memory: Memory) -> None:
         render_panel_lines(health_rows)
         st.markdown('<div class="june-panel-divider"></div>', unsafe_allow_html=True)
     with st.expander("Raw diagnostics", expanded=False):
+        success = st.session_state.get("tool_stats", {}).get("succeeded", 0)
+        total = st.session_state.get("tool_stats", {}).get("requested", 0)
+        if total > 0:
+            colour = "🟢" if success == total else "🟡"
+            st.caption(f"{colour} Tools: {success}/{total} saved this turn")
         if model.recent_events:
             render_panel_lines([
                 (
