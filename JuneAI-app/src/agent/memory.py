@@ -950,7 +950,11 @@ class Memory:
         self.set_app_state_value("last_daily_checkin_date", date.today().isoformat())
 
     def get_upcoming_notifications(self, limit: int = 5) -> list[dict]:
-        """Build notification items from calendar and planning memory."""
+        """Build notification items from calendar and planning memory.
+
+        Include yesterday's items so the Today surface can keep just-finished
+        reminders visible through the next day.
+        """
         today = date.today()
         notifications = []
 
@@ -962,7 +966,7 @@ class Memory:
             if status in {"completed", "done", "canceled", "cancelled", "archived"}:
                 continue
             days_until = (parsed_date - today).days
-            if 0 <= days_until <= 14:
+            if -1 <= days_until <= 14:
                 notifications.append({
                     "title": item.get("title", "Event"),
                     "kind": self._infer_calendar_kind(item),
@@ -976,7 +980,7 @@ class Memory:
             if parsed_date is None:
                 continue
             days_until = (parsed_date - today).days
-            if 0 <= days_until <= 14:
+            if -1 <= days_until <= 14:
                 notifications.append({
                     "title": loop.get("topic", "Open loop"),
                     "kind": "plan",

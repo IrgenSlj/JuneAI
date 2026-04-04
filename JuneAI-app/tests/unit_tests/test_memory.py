@@ -147,13 +147,16 @@ def test_daily_checkin_state(mem):
 def test_upcoming_notifications(mem):
     in_three_days = (date.today() + timedelta(days=3)).isoformat()
     in_five_days = (date.today() + timedelta(days=5)).isoformat()
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
     mem.save_calendar_item("Mom birthday", in_three_days, details="birthday dinner")
     mem.save_calendar_item("Archived call", in_three_days, status="completed")
+    mem.save_calendar_item("Yesterday trip", yesterday, details="weekend getaway")
     mem.save_open_loop("Book train", due_date=in_five_days, next_step="Choose the morning train")
     notifications = mem.get_upcoming_notifications(limit=5)
     titles = {item["title"] for item in notifications}
     assert "Mom birthday" in titles
     assert "Book train" in titles
+    assert "Yesterday trip" in titles
     assert "Archived call" not in titles
 
 

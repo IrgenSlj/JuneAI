@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
 
 from .config import RuntimeConfig
 
 
-def build_chat_model(runtime: RuntimeConfig):
+def build_chat_model(runtime: RuntimeConfig) -> Any:
     """Create a chat model for the resolved runtime."""
-
     if runtime.provider == "anthropic":
         try:
             from langchain_anthropic import ChatAnthropic
@@ -23,15 +25,17 @@ def build_chat_model(runtime: RuntimeConfig):
 
         return ChatAnthropic(
             model_name=runtime.model,
-            api_key=runtime.api_key,
+            api_key=SecretStr(runtime.api_key),
             temperature=runtime.temperature,
             max_tokens_to_sample=runtime.max_tokens,
             streaming=True,
+            timeout=None,
+            stop=None,
         )
 
     return ChatOpenAI(
         model=runtime.model,
-        api_key=runtime.api_key,
+        api_key=SecretStr(runtime.api_key),
         base_url=runtime.base_url,
         temperature=runtime.temperature,
         max_completion_tokens=runtime.max_tokens,

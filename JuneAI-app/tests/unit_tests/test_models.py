@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 from langchain_core.messages import AIMessage, HumanMessage
+from pydantic import SecretStr
 
 from agent.config import resolve_runtime_config, runtime_preset_options
 from agent.graph import _build_memory_context, create_june_agent
@@ -328,7 +329,8 @@ def test_build_chat_model_uses_current_openai_signature():
         build_chat_model(runtime)
 
     assert captured["model"] == runtime.model
-    assert captured["api_key"] == runtime.api_key
+    assert isinstance(captured["api_key"], SecretStr)
+    assert captured["api_key"].get_secret_value() == runtime.api_key
     assert captured["base_url"] == runtime.base_url
     assert captured["max_completion_tokens"] == runtime.max_tokens
     assert captured["streaming"] is True
@@ -357,7 +359,8 @@ def test_build_chat_model_uses_current_anthropic_signature():
         build_chat_model(runtime)
 
     assert captured["model_name"] == "claude-test"
-    assert captured["api_key"] == "test-key"
+    assert isinstance(captured["api_key"], SecretStr)
+    assert captured["api_key"].get_secret_value() == "test-key"
     assert captured["max_tokens_to_sample"] == 777
     assert captured["streaming"] is True
 

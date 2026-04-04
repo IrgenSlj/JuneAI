@@ -43,10 +43,10 @@ The more you tell June, the more useful she becomes. That is the entire product.
 | LLM (primary) | Mistral 7B Instruct v0.3 via Ollama | Local, fully private |
 | LLM (optional) | Claude Sonnet/Opus via Anthropic API | Cloud, max capability |
 | LLM (any) | Any OpenAI-compatible endpoint | LM Studio, OpenRouter, etc. |
-| Memory | SQLite (single local file) | Queryable, atomic, inspectable |
+| Memory | Local JSON files (per user, per chapter) | Simple, inspectable, migration path planned |
 | Language | Python 3.9+ | |
 
-Memory lives in `.june_memory/june.db`. No cloud sync. No accounts. One file.
+Memory lives in `.june_memory/` as local JSON files. No cloud sync. No accounts.
 
 ---
 
@@ -87,7 +87,7 @@ JuneAI supports three named profiles and any custom OpenAI-compatible endpoint.
 
 | Profile | Model | Where inference runs | Best for |
 |---------|-------|----------------------|----------|
-| `local_mistral_7b` | mistral:7b-instruct-v0.3 | Your machine | Default — fast, private, reliable tool calling |
+| `local_mistral_7b` | mistral:7b-instruct-v0.3 | Your machine | Default, fast, private, most reliable tool calling |
 | `local_mistral_3b` | mistral:3b | Your machine | Low-resource machines |
 | `claude_high` | claude-sonnet-4-6 | Anthropic API | Maximum reasoning quality |
 
@@ -146,10 +146,9 @@ JuneAI-app/
 |   |-- agent/
 |   |   |-- graph.py           # LangGraph agent (chat + tools nodes)
 |   |   |-- tools.py           # 48 tools the LLM can call
-|   |   |-- memory.py          # SQLite memory layer
+|   |   |-- memory.py          # Local JSON memory layer
 |   |   |-- skills.py          # Role-based system prompts
 |   |   |-- config.py          # Runtime profile resolution
-|   |   |-- patterns.py        # Cross-chapter pattern detection
 |   |   |-- context_intelligence.py  # Recovery readiness + commitment summaries
 |   |   |-- telemetry.py       # Tool call event logging
 |   |   `-- runtime_privacy.py # Privacy status and preset switching
@@ -168,7 +167,6 @@ JuneAI-app/
 |   |-- bootstrap_env.py
 |   |-- verify_env.py
 |   |-- check_ollama.py        # Ollama health check
-|   `-- migrate_json_to_sqlite.py  # Memory migration tool
 |-- docs/
 |   |-- PLAN.md                # Development roadmap
 |   `-- architecture.html      # System diagrams
@@ -188,9 +186,6 @@ make test               # run unit tests
 make integration_tests  # run integration tests
 make lint               # run ruff and mypy
 make smoke              # HTTP smoke test
-make migrate-memory     # migrate JSON files to SQLite (if upgrading)
-make export-memory      # export all memory as readable markdown
-make docker-run         # start app + Ollama via docker compose
 ```
 
 ---
@@ -205,7 +200,7 @@ On each message turn:
    active commitments, and any active pattern observations.
 4. The LangGraph agent invokes Mistral (or the configured model).
 5. Mistral decides to call tools, reply directly, or both.
-6. Tools read and write the SQLite memory database.
+6. Tools read and write the local memory store in `.june_memory/`.
 7. The right-rail dashboard updates to reflect the new memory state.
 8. June's reply streams back to the user.
 
