@@ -41,7 +41,7 @@ from .memory import Memory
 from .models import build_chat_model
 from .skills import DEFAULT_SKILL, build_system_prompt
 from .telemetry import record_route_selection, record_save_event, record_tool_call
-from .tools import JUNE_TOOLS, JUNE_TOOLS_CORE
+from .tools import JUNE_TOOLS, JUNE_TOOLS_CORE, JUNE_TOOLS_GEMMA
 
 
 class AgentState(TypedDict):
@@ -163,9 +163,15 @@ def _strip_code_fence(text: str) -> str:
     return stripped
 
 
+def _strip_internal_thoughts(text: str) -> str:
+    """Remove Gemma thought-channel markup before display or reuse."""
+    cleaned = re.sub(r"<\|channel>thought\s*.*?<channel\|>", "", text, flags=re.DOTALL)
+    return cleaned.strip()
+
+
 def _extract_json_payload(text: str) -> Any | None:
     """Extract the outermost JSON object or array from free-form model text."""
-    cleaned = unescape(_strip_code_fence(text)).strip()
+    cleaned = unescape(_strip_internal_thoughts(_strip_code_fence(text))).strip()
     if not cleaned:
         return None
 
@@ -612,11 +618,20 @@ def _build_memory_context(user_id: str) -> str:
     return result
 
 
+def _select_tools_for_runtime(runtime: RuntimeConfig) -> list[Any]:
+    """Choose a tool set sized for the active runtime."""
+    if runtime.preset_key == "local_mistral_3b":
+        return JUNE_TOOLS_CORE
+    if runtime.preset_key == "local_gemma_4" or "gemma4" in runtime.model.lower():
+        return JUNE_TOOLS_GEMMA
+    return JUNE_TOOLS
+
+
 def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> Any:
     """Build and compile the JuneAI LangGraph agent."""
     runtime = runtime or resolve_runtime_config()
     llm = llm or build_chat_model(runtime)
-    _tools = JUNE_TOOLS_CORE if runtime.preset_key == "local_mistral_3b" else JUNE_TOOLS
+    _tools = _select_tools_for_runtime(runtime)
     if hasattr(llm, "bind_tools"):
         llm = llm.bind_tools(_tools)
 
@@ -654,6 +669,8 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
             SystemMessage(content=memory_context),
         ] + state["messages"]
         raw_response = llm.invoke(messages)
+        if isinstance(getattr(raw_response, "content", None), str):
+            raw_response.content = _strip_internal_thoughts(str(raw_response.content))
         if _get_tool_strategy() == "native" and getattr(raw_response, "tool_calls", None):
             response = raw_response
         else:

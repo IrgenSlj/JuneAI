@@ -206,16 +206,26 @@ def build_system_prompt(
     skill = SKILLS.get(skill_key, SKILLS[DEFAULT_SKILL])
     runtime_context = ""
     if runtime is not None:
+        is_gemma = runtime.preset_key == "local_gemma_4" or "gemma4" in runtime.model.lower()
+        tool_rules = (
+            "- For Gemma 4, prefer one tool call at a time and only use two when they are tightly coupled.\n"
+            "- For Gemma 4, call tools directly instead of describing the tool call in prose.\n"
+            "- For Gemma 4, use exact tool names, short literal strings, and ISO dates when known.\n"
+            "- For Gemma 4, save concrete facts only and leave unknown fields blank.\n"
+            "- After tool use, continue with a concise user-facing answer.\n"
+            if is_gemma
+            else "- For local small models, prefer one tool at a time.\n"
+            "- Use exact tool arguments with short plain strings.\n"
+            "- If the user message does not justify a tool, answer directly.\n"
+            "- After tool use, continue with a concise user-facing answer.\n"
+        )
         runtime_context = (
             "Model runtime:\n"
             f"- Active profile: {runtime.label}\n"
             f"- Provider: {runtime.provider}\n"
             f"- Tool strategy: {runtime.tool_strategy}\n"
             "Tool calling rules:\n"
-            "- For local small models, prefer one tool at a time.\n"
-            "- Use exact tool arguments with short plain strings.\n"
-            "- If the user message does not justify a tool, answer directly.\n"
-            "- After tool use, continue with a concise user-facing answer.\n"
+            + tool_rules
         )
 
     temporal_context = (

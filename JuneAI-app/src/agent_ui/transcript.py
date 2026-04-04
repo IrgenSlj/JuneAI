@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -50,12 +51,18 @@ def _save_summary_html(text: str) -> str:
     return '<div class="june-list">' + cards + "</div>"
 
 
+def _strip_internal_thoughts(text: str) -> str:
+    """Remove Gemma thought-channel markup from transcript text."""
+    cleaned = re.sub(r"<\|channel>thought\s*.*?<channel\|>", "", text, flags=re.DOTALL)
+    return cleaned.strip()
+
+
 def extract_text(content: Any) -> str:
     """Flatten message content into readable text."""
     if content is None:
         return ""
     if isinstance(content, str):
-        return content
+        return _strip_internal_thoughts(content)
     if isinstance(content, list):
         flattened_parts = [extract_text(item) for item in content]
         return "\n".join(part for part in flattened_parts if part)

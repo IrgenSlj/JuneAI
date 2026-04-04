@@ -37,6 +37,20 @@ def test_transcript_renders_structured_assistant_blocks_and_collapses_long_text(
     assert "June" in html
 
 
+def test_transcript_strips_gemma_thought_blocks() -> None:
+    html = transcript_html(
+        [
+            AIMessage(
+                content="<|channel>thought\ninternal reasoning<channel|>Final answer only."
+            )
+        ]
+    )
+
+    assert "Final answer only." in html
+    assert "internal reasoning" not in html
+    assert "<|channel>thought" not in html
+
+
 def test_transcript_renders_compact_save_summary_block() -> None:
     html = transcript_html(
         [AIMessage(content="Saved it.")],

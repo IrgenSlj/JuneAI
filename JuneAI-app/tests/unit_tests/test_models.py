@@ -71,6 +71,7 @@ def test_resolve_runtime_config_accepts_explicit_preset_key():
 def test_runtime_preset_options_expose_known_presets():
     option_keys = [preset.key for preset in runtime_preset_options()]
 
+    assert "local_gemma_4" in option_keys
     assert "local_mistral_3b" in option_keys
     assert "local_mistral_8b" in option_keys
     assert "claude_high" in option_keys

@@ -4,7 +4,7 @@
 
 Move JuneAI toward a real personal assistant architecture that can run in two modes:
 
-- Local mode with a small Mistral-class model for privacy and offline-friendly use
+- Local mode with a Gemma 4 or Mistral-class model for privacy and offline-friendly use
 - Claude mode for best reasoning quality and stronger tool reliability
 
 The assistant should keep the same product promise in both modes: memory, planning, proactive capture, and visible tool execution.
@@ -24,6 +24,7 @@ Before this pass, the codebase had three issues that blocked the migration:
 - Added runtime presets in [`src/agent/config.py`](/Users/admin/JuneAI/JuneAI-app/src/agent/config.py)
 - Added provider-specific model construction in [`src/agent/models.py`](/Users/admin/JuneAI/JuneAI-app/src/agent/models.py)
 - The agent now supports:
+  - `local_gemma_4`
   - `local_mistral_3b`
   - `local_mistral_8b`
   - `claude_high`
@@ -73,13 +74,13 @@ PYTHONPATH=src .venv/bin/streamlit run app.py --server.headless true --server.po
 
 ## Runtime Setup Examples
 
-### Local Mistral
+### Local Gemma 4
 
 ```env
-MODEL_PRESET=local_mistral_8b
+MODEL_PRESET=local_gemma_4
 LLM_BASE_URL=http://localhost:11434/v1
 LLM_API_KEY=ollama
-LOCAL_LARGE_MODEL_NAME=mistral-nemo
+LOCAL_GEMMA_MODEL_NAME=gemma4
 ```
 
 ### Claude

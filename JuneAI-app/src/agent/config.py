@@ -112,6 +112,18 @@ RUNTIME_PRESETS: dict[str, RuntimePreset] = {
         max_tokens=4096,
         tool_strategy="native",
     ),
+    "local_gemma_4": RuntimePreset(
+        key="local_gemma_4",
+        label="Gemma 4 (local)",
+        provider="openai_compatible",
+        model_env_var="LOCAL_GEMMA_MODEL_NAME",
+        default_model="gemma4",
+        default_base_url="http://localhost:11434/v1",
+        default_api_key="ollama",
+        temperature=1.0,
+        max_tokens=4096,
+        tool_strategy="native",
+    ),
     "claude_high": RuntimePreset(
         key="claude_high",
         label="Claude High Performance",
@@ -126,13 +138,15 @@ RUNTIME_PRESETS: dict[str, RuntimePreset] = {
     ),
 }
 
-DEFAULT_RUNTIME_PRESET = "local_mistral_7b"
+DEFAULT_RUNTIME_PRESET = "local_gemma_4"
 
 
 def detect_tool_strategy(model_name: str) -> str:
     """Return 'native' for models known to support OpenAI-style function calling, else 'recovery'."""
     model_lower = model_name.lower()
     native_patterns = (
+        "gemma4",
+        "gemma-4",
         "7b-instruct-v0.3",
         "mistral-nemo",
         "mistral-small",
