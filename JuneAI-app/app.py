@@ -1186,6 +1186,7 @@ def get_compiled_agent(
     temperature: float,
     max_tokens: int,
     tool_strategy: str,
+    prompt_style: str,
 ) -> Any:
     """Compile and cache a LangGraph agent for one resolved runtime profile."""
     runtime = resolve_runtime_config(preset_key)
@@ -1199,6 +1200,7 @@ def get_compiled_agent(
         temperature=temperature,
         max_tokens=max_tokens,
         tool_strategy=tool_strategy,
+        prompt_style=prompt_style,
     )
     return create_june_agent(runtime=runtime)
 
@@ -2628,6 +2630,7 @@ if st.session_state.is_generating and st.session_state.pending_prompt:
             active_runtime.temperature,
             active_runtime.max_tokens,
             active_runtime.tool_strategy,
+            active_runtime.prompt_style,
         )
         for mode, data in active_agent.stream(
             {
