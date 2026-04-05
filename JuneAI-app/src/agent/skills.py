@@ -206,19 +206,34 @@ def build_system_prompt(
     skill = SKILLS.get(skill_key, SKILLS[DEFAULT_SKILL])
     runtime_context = ""
     if runtime is not None:
-        is_gemma = runtime.preset_key == "local_gemma_4" or "gemma4" in runtime.model.lower()
-        tool_rules = (
-            "- For Gemma 4, prefer one tool call at a time and only use two when they are tightly coupled.\n"
-            "- For Gemma 4, call tools directly instead of describing the tool call in prose.\n"
-            "- For Gemma 4, use exact tool names, short literal strings, and ISO dates when known.\n"
-            "- For Gemma 4, save concrete facts only and leave unknown fields blank.\n"
-            "- After tool use, continue with a concise user-facing answer.\n"
-            if is_gemma
-            else "- For local small models, prefer one tool at a time.\n"
-            "- Use exact tool arguments with short plain strings.\n"
-            "- If the user message does not justify a tool, answer directly.\n"
-            "- After tool use, continue with a concise user-facing answer.\n"
-        )
+        # Each prompt_style maps to the specific tool-calling rules that work best
+        # for that model family. This is the only place model-specific logic lives.
+        _tool_rules_by_style = {
+            "gemma": (
+                "- Call one tool at a time. Use two only when they are tightly coupled.\n"
+                "- Call tools directly — do not describe the call in prose first.\n"
+                "- Use exact tool names, short literal strings, and ISO dates (YYYY-MM-DD).\n"
+                "- Save concrete facts only. Leave unknown fields as empty strings.\n"
+                "- After tool use, give a concise user-facing answer.\n"
+            ),
+            "mistral_instruct": (
+                "- Call one tool at a time.\n"
+                "- Use exact tool names and short plain string values.\n"
+                "- If the message does not justify a tool call, answer directly.\n"
+                "- After tool use, give a concise user-facing answer.\n"
+            ),
+            "claude": (
+                "- You may call multiple tools in parallel when they are independent.\n"
+                "- Use exact tool names. Prefer structured data over prose in tool arguments.\n"
+                "- After tool use, synthesise results into a coherent user-facing answer.\n"
+            ),
+            "openai_compatible": (
+                "- Call one tool at a time.\n"
+                "- Use exact tool names and short plain string values.\n"
+                "- After tool use, give a concise user-facing answer.\n"
+            ),
+        }
+        tool_rules = _tool_rules_by_style.get(runtime.prompt_style, _tool_rules_by_style["openai_compatible"])
         runtime_context = (
             "Model runtime:\n"
             f"- Active profile: {runtime.label}\n"
@@ -262,8 +277,16 @@ def build_system_prompt(
 
 
 def infer_skill_from_text(text: str) -> str:
-    """Infer the most useful skill from the user's latest prompt."""
+    """Infer the most useful skill from the user's latest prompt.
+
+    Uses whole-word matching so common words that are also month/day names
+    (e.g. "may", "march") don't generate false positives.
+    """
+    import re
     normalized = text.lower()
+
+    def _any_word(terms: set[str]) -> bool:
+        return any(re.search(r"\b" + re.escape(t) + r"\b", normalized) for t in terms)
 
     curator_terms = {
         "book", "books", "movie", "movies", "film", "films", "show", "shows",
@@ -276,20 +299,22 @@ def infer_skill_from_text(text: str) -> str:
         "bulk", "cut", "steps", "exercise", "sleep", "energy", "weight",
         "habit", "habits", "water", "recovery",
     }
+    # "may" removed — too ambiguous as a modal verb.
+    # Month names are kept but now matched as whole words only.
     planner_terms = {
         "calendar", "schedule", "agenda", "appointment", "meeting", "deadline",
         "trip", "travel", "tomorrow", "today", "tonight", "week", "month",
         "friday", "saturday", "sunday", "monday", "tuesday", "wednesday", "thursday",
-        "january", "february", "march", "april", "may", "july",
+        "january", "february", "april", "july",
         "august", "september", "october", "november", "december", "remind",
         "birthday", "anniversary",
     }
 
-    if any(term in normalized for term in curator_terms):
+    if _any_word(curator_terms):
         return "curator"
-    if any(term in normalized for term in wellness_terms):
+    if _any_word(wellness_terms):
         return "wellness"
-    if any(term in normalized for term in planner_terms):
+    if _any_word(planner_terms):
         return "planner"
     return DEFAULT_SKILL
 

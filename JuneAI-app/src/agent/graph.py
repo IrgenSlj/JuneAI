@@ -21,14 +21,6 @@ from langgraph.types import StreamWriter
 from .config import RuntimeConfig, resolve_runtime_config
 
 
-def _get_tool_strategy() -> str:
-    """Return the tool strategy for the current runtime config."""
-    try:
-        from .config import resolve_runtime_config as _resolve
-        return _resolve().tool_strategy
-    except Exception:
-        return "recovery"
-
 _CONTEXT_CACHE: dict[str, tuple[float, str]] = {}  # user_id -> (timestamp, context)
 _CONTEXT_TTL = 30.0  # seconds
 from .context_intelligence import (
@@ -267,13 +259,6 @@ def _coerce_tool_calls(payload: Any) -> list[tuple[str, dict[str, Any]]]:
             )
         if not name and isinstance(item.get("tool_name"), str):
             name = item["tool_name"].strip()
-        parameters = (
-            item.get("parameters")
-            or item.get("args")
-            or item.get("arguments")
-            or item.get("input")
-            or parameters
-        )
         if isinstance(parameters, str):
             parsed = _extract_json_payload(parameters)
             parameters = parsed if isinstance(parsed, dict) else {}
@@ -487,8 +472,13 @@ def _normalize_tool_call(name: str, args: dict[str, Any]) -> tuple[str, dict[str
     return name, args
 
 
-def _recover_tool_call(response: AIMessage) -> AIMessage:
-    """Recover tool calls when a local model emits JSON text instead of structured tool metadata."""
+def _recover_tool_call(response: AIMessage, bound_tool_names: set[str]) -> AIMessage:
+    """Recover tool calls when a local model emits JSON text instead of structured tool metadata.
+
+    bound_tool_names must be the set of tools actually bound to this agent instance —
+    not the global JUNE_TOOLS — so recovery never constructs calls for tools that
+    ToolNode cannot dispatch.
+    """
     if getattr(response, "tool_calls", None):
         return response
 
@@ -497,11 +487,10 @@ def _recover_tool_call(response: AIMessage) -> AIMessage:
     if payload is None:
         return response
 
-    available_tools = {tool.name for tool in JUNE_TOOLS}
     recovered_calls = []
     for name, parameters in _coerce_tool_calls(payload):
         name, parameters = _normalize_tool_call(name, parameters)
-        if name in available_tools:
+        if name in bound_tool_names:
             recovered_calls.append(
                 {
                     "name": name,
@@ -636,6 +625,8 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
         llm = llm.bind_tools(_tools)
 
     tool_node = ToolNode(_tools, handle_tool_errors=True)
+    # Compute once at agent-compile time — stable for the lifetime of this agent instance.
+    _bound_tool_names: set[str] = {t.name for t in _tools}
 
     def chat(state: AgentState, writer: StreamWriter) -> dict[str, Any]:
         """Run the main chat node."""
@@ -671,10 +662,12 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
         raw_response = llm.invoke(messages)
         if isinstance(getattr(raw_response, "content", None), str):
             raw_response.content = _strip_internal_thoughts(str(raw_response.content))
-        if _get_tool_strategy() == "native" and getattr(raw_response, "tool_calls", None):
+        # "native" and "balanced_reasoning" (Claude) both emit proper tool_calls —
+        # only "recovery" models need JSON extraction from free-form text.
+        if runtime.tool_strategy in ("native", "balanced_reasoning") and getattr(raw_response, "tool_calls", None):
             response = raw_response
         else:
-            response = _recover_tool_call(raw_response)
+            response = _recover_tool_call(raw_response, _bound_tool_names)
         if getattr(response, "tool_calls", None):
             writer(
                 {

@@ -55,7 +55,7 @@ def test_resolve_runtime_config_for_claude():
         runtime = resolve_runtime_config()
 
     assert runtime.provider == "anthropic"
-    assert runtime.label == "Claude High Performance"
+    assert runtime.label == "Claude (API)"
     assert runtime.model == "claude-test"
     assert runtime.api_key == "test-key"
 
@@ -341,14 +341,15 @@ def test_build_chat_model_uses_current_anthropic_signature():
     runtime = resolve_runtime_config()
     runtime = runtime.__class__(
         preset_key="claude_high",
-        label="Claude High Performance",
+        label="Claude (API)",
         provider="anthropic",
         model="claude-test",
         api_key="test-key",
         base_url="",
         temperature=0.3,
         max_tokens=777,
-        tool_strategy="balanced_reasoning",
+        tool_strategy="native",
+        prompt_style="claude",
     )
     captured = {}
 

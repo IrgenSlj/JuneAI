@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from unittest.mock import patch
 
 from agent.memory import Memory
@@ -83,9 +84,10 @@ def test_today_memory_summary_builds_ui_card_data(tmp_path) -> None:
         )
         memory.log_nutrition("lunch", "Chicken rice bowl", calories_est=640, protein_est=42)
         memory.log_water(5)
+        future_date = (date.today() + timedelta(days=5)).isoformat()
         memory.save_calendar_item(
             "Trip to the mountains",
-            "2026-04-03",
+            future_date,
             details="Weekend getaway",
         )
 

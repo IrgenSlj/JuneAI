@@ -40,4 +40,5 @@ def build_chat_model(runtime: RuntimeConfig) -> Any:
         temperature=runtime.temperature,
         max_completion_tokens=runtime.max_tokens,
         streaming=True,
+        request_timeout=120,  # prevent indefinite hang if Ollama goes down
     )

@@ -156,6 +156,6 @@ def test_switch_runtime_preset_applies_when_confirmed():
     assert runtime.preset_key == "claude_high"
     assert runtime.is_api is True
     assert runtime.provider == "anthropic"
-    assert runtime.model == "claude-3-5-sonnet-latest"
+    assert runtime.model == "claude-sonnet-4-6"
     assert "Runtime environment updated" in result
     assert "Confirmed: yes" in result

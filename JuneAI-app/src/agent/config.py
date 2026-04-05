@@ -29,6 +29,9 @@ class RuntimePreset:
     temperature: float
     max_tokens: int
     tool_strategy: str
+    # Controls which system-prompt tool rules are injected (see skills.build_system_prompt).
+    # Values: "gemma" | "mistral_instruct" | "claude" | "openai_compatible"
+    prompt_style: str = "openai_compatible"
 
 
 @dataclass(frozen=True)
@@ -44,6 +47,7 @@ class RuntimeConfig:
     temperature: float
     max_tokens: int
     tool_strategy: str
+    prompt_style: str = "openai_compatible"
 
     @property
     def is_local(self) -> bool:
@@ -86,7 +90,8 @@ RUNTIME_PRESETS: dict[str, RuntimePreset] = {
         default_api_key="ollama",
         temperature=0.2,
         max_tokens=700,
-        tool_strategy="strict_json_short_turns",
+        tool_strategy="recovery",
+        prompt_style="mistral_instruct",
     ),
     "local_mistral_8b": RuntimePreset(
         key="local_mistral_8b",
@@ -98,7 +103,8 @@ RUNTIME_PRESETS: dict[str, RuntimePreset] = {
         default_api_key="ollama",
         temperature=0.2,
         max_tokens=900,
-        tool_strategy="strict_json_short_turns",
+        tool_strategy="recovery",
+        prompt_style="mistral_instruct",
     ),
     "local_mistral_7b": RuntimePreset(
         key="local_mistral_7b",
@@ -111,6 +117,7 @@ RUNTIME_PRESETS: dict[str, RuntimePreset] = {
         temperature=0.3,
         max_tokens=4096,
         tool_strategy="native",
+        prompt_style="mistral_instruct",
     ),
     "local_gemma_4": RuntimePreset(
         key="local_gemma_4",
@@ -123,18 +130,20 @@ RUNTIME_PRESETS: dict[str, RuntimePreset] = {
         temperature=1.0,
         max_tokens=4096,
         tool_strategy="native",
+        prompt_style="gemma",
     ),
     "claude_high": RuntimePreset(
         key="claude_high",
-        label="Claude High Performance",
+        label="Claude (API)",
         provider="anthropic",
         model_env_var="CLAUDE_MODEL_NAME",
-        default_model="claude-3-5-sonnet-latest",
+        default_model="claude-sonnet-4-6",
         default_base_url="",
         default_api_key="",
         temperature=0.35,
-        max_tokens=1200,
-        tool_strategy="balanced_reasoning",
+        max_tokens=4096,
+        tool_strategy="native",
+        prompt_style="claude",
     ),
 }
 
@@ -210,6 +219,7 @@ def _resolve_runtime_config_for_preset(preset: RuntimePreset) -> RuntimeConfig:
         temperature=temperature,
         max_tokens=max_tokens,
         tool_strategy=tool_strategy,
+        prompt_style=preset.prompt_style,
     )
 
 
@@ -308,6 +318,7 @@ def _resolve_target_runtime_for_preset(preset: RuntimePreset) -> RuntimeConfig:
         temperature=temperature,
         max_tokens=max_tokens,
         tool_strategy=tool_strategy,
+        prompt_style=preset.prompt_style,
     )
 
 
