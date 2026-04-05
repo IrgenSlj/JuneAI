@@ -65,89 +65,144 @@ from agent_ui.state import (
     sync_selected_chapter,
 )
 
-st.set_page_config(page_title="June", layout="wide")
+st.set_page_config(page_title="June", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=Inter:wght@400;500&display=swap');
 
     :root {
-        --june-text:        #161410;
-        --june-muted:       #6c655d;
-        --june-line:        rgba(22, 20, 16, 0.08);
-        --june-accent:      #0f5f4a;
-        --june-accent-soft: rgba(15, 95, 74, 0.08);
-        --june-accent-mist: rgba(15, 95, 74, 0.04);
-        --june-user:        rgba(15, 95, 74, 0.07);
-        --june-panel:       #ffffff;
-        --june-radius:      18px;
-        --june-shadow:      0 8px 32px rgba(40, 28, 18, 0.06);
-        --june-shadow-lg:   0 16px 48px rgba(40, 28, 18, 0.10);
+        --j-bg:          #F5F4F1;
+        --j-surface:     #FFFFFF;
+        --j-text:        #1A1815;
+        --j-muted:       #6B6259;
+        --j-line:        rgba(26, 24, 21, 0.08);
+        --j-accent:      #0F5F4A;
+        --j-accent-soft: rgba(15, 95, 74, 0.09);
+        --j-accent-mist: rgba(15, 95, 74, 0.04);
+        --j-user-bg:     rgba(15, 95, 74, 0.07);
+        --j-radius:      16px;
+        --j-shadow:      0 4px 24px rgba(26, 24, 21, 0.06);
+        --j-shadow-lg:   0 12px 40px rgba(26, 24, 21, 0.09);
+        --j-sidebar-w:   260px;
+
+        /* Legacy aliases so existing helper HTML still works */
+        --june-text:        var(--j-text);
+        --june-muted:       var(--j-muted);
+        --june-line:        var(--j-line);
+        --june-accent:      var(--j-accent);
+        --june-accent-soft: var(--j-accent-soft);
+        --june-accent-mist: var(--j-accent-mist);
+        --june-user:        var(--j-user-bg);
+        --june-panel:       var(--j-surface);
+        --june-radius:      var(--j-radius);
+        --june-shadow:      var(--j-shadow);
+        --june-shadow-lg:   var(--j-shadow-lg);
     }
 
+    /* ── Global reset ──────────────────────────────────────── */
     html, body, [class*="css"],
     [data-testid="stAppViewContainer"],
     [data-testid="stMarkdownContainer"] {
-        font-family: "IBM Plex Mono", monospace;
-        color: var(--june-text);
+        font-family: "Inter", "IBM Plex Mono", monospace;
+        color: var(--j-text);
     }
 
     [data-testid="stAppViewContainer"],
     [data-testid="stApp"],
     .main, .block-container {
-        background: #f5f4f2;
+        background: var(--j-bg) !important;
     }
 
     .block-container {
-        max-width: 1440px;
-        padding-top: 0.75rem;
-        padding-bottom: 1rem;
+        max-width: 1400px !important;
+        padding-top: 1rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 1.25rem !important;
+        padding-right: 1.25rem !important;
     }
 
-    /* ── Sidebar ───────────────────────────────────────────── */
+    /* ── Streamlit sidebar: slim and clean ─────────────────── */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #ffffff 0%, #fbfaf8 100%);
-        border-right: 1px solid var(--june-line);
-        box-shadow: 4px 0 18px rgba(40, 28, 18, 0.035);
+        background: var(--j-surface) !important;
+        border-right: 1px solid var(--j-line) !important;
+        box-shadow: none !important;
+        min-width: var(--j-sidebar-w) !important;
+        max-width: var(--j-sidebar-w) !important;
     }
-
     [data-testid="stSidebar"] > div:first-child {
-        padding-top: 1.2rem;
+        padding-top: 1.25rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
     }
+    /* Collapse arrow — hide it, sidebar has its own toggle */
+    [data-testid="stSidebarCollapseButton"] { display: none !important; }
 
     /* ── Form inputs ───────────────────────────────────────── */
     [data-testid="stTextInput"] input,
     [data-testid="stTextArea"] textarea {
-        background: #ffffff;
-        border: 1px solid var(--june-line);
-        border-radius: 14px;
-        color: var(--june-text);
-        font-family: "IBM Plex Mono", monospace;
+        background: var(--j-surface);
+        border: 1px solid var(--j-line);
+        border-radius: 12px;
+        color: var(--j-text);
+        font-family: "Inter", monospace;
+        font-size: 14px !important;
+        line-height: 1.55;
+    }
+    [data-testid="stTextArea"] textarea {
+        min-height: 56px !important;
+        resize: none;
+    }
+    [data-testid="stTextInput"] input:focus,
+    [data-testid="stTextArea"] textarea:focus {
+        border-color: rgba(15,95,74,0.35) !important;
+        box-shadow: 0 0 0 3px rgba(15,95,74,0.08) !important;
+        outline: none;
     }
 
     /* ── Buttons ───────────────────────────────────────────── */
     .stButton > button {
-        border-radius: 12px;
-        border: 1px solid var(--june-line);
-        background: #ffffff;
-        color: var(--june-text);
-        min-height: 2.2rem;
-        font-family: "IBM Plex Mono", monospace;
-        font-size: 10px;
-        transition: border-color 0.18s, color 0.18s, background 0.18s, box-shadow 0.18s;
+        border-radius: 10px;
+        border: 1px solid var(--j-line);
+        background: var(--j-surface);
+        color: var(--j-text);
+        min-height: 2.1rem;
+        font-family: "Inter", monospace;
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.01em;
+        transition: all 0.15s ease;
     }
-
     .stButton > button:hover {
-        border-color: rgba(15, 95, 74, 0.30);
-        color: var(--june-accent);
-        background: var(--june-accent-soft);
-        box-shadow: 0 2px 8px rgba(15, 95, 74, 0.08);
+        border-color: rgba(15, 95, 74, 0.28);
+        color: var(--j-accent);
+        background: var(--j-accent-soft);
+        box-shadow: 0 2px 8px rgba(15, 95, 74, 0.07);
+        transform: translateY(-1px);
+    }
+    .stButton > button:active { transform: translateY(0); }
+
+    /* Send button — primary CTA */
+    .june-send-btn .stButton > button {
+        background: var(--j-accent) !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 12px !important;
+        min-height: 2.5rem !important;
+        font-size: 13px !important;
+        letter-spacing: 0.02em;
+    }
+    .june-send-btn .stButton > button:hover {
+        background: #0d5242 !important;
+        color: #ffffff !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(15, 95, 74, 0.22) !important;
     }
 
     .june-chapter-grid .stButton > button {
-        min-height: 4.4rem;
-        border-radius: 14px;
+        min-height: 4.2rem;
+        border-radius: 12px;
         text-align: left;
         padding: 0.65rem 0.75rem;
         font-size: 11px;
@@ -155,7 +210,7 @@ st.markdown(
 
     /* ── Animations ────────────────────────────────────────── */
     @keyframes fadeUp {
-        from { opacity: 0; transform: translateY(8px); }
+        from { opacity: 0; transform: translateY(6px); }
         to   { opacity: 1; transform: translateY(0);   }
     }
     @keyframes waterPop {
@@ -163,50 +218,100 @@ st.markdown(
         60%  { transform: scale(1.3); }
         100% { transform: scale(1);   opacity: 1;   }
     }
-    @keyframes writingPulse {
-        0%, 100% { opacity: 1;   }
-        50%       { opacity: 0.2; }
+    @keyframes typingBounce {
+        0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+        40%            { transform: translateY(-5px); opacity: 1; }
     }
     @keyframes breathe {
         0%, 100% { opacity: 1;    }
-        50%       { opacity: 0.55; }
+        50%       { opacity: 0.6; }
     }
     @keyframes badgePop {
-        0%   { transform: scale(0.8); opacity: 0; }
-        60%  { transform: scale(1.1); }
-        100% { transform: scale(1);   opacity: 1; }
+        0%   { transform: scale(0.85); opacity: 0; }
+        60%  { transform: scale(1.05); }
+        100% { transform: scale(1);    opacity: 1; }
     }
     @keyframes panelIn {
-        from { opacity: 0; transform: translateX(12px); }
+        from { opacity: 0; transform: translateX(10px); }
         to   { opacity: 1; transform: translateX(0);    }
+    }
+    @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-6px); }
+        to   { opacity: 1; transform: translateY(0);    }
+    }
+
+    /* ── Page header bar ───────────────────────────────────── */
+    .june-header-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.6rem 0;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid var(--j-line);
+        animation: slideDown 0.2s ease both;
+    }
+    .june-header-logo {
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 1.2rem;
+        letter-spacing: -0.04em;
+        color: var(--j-text);
+        margin-right: 0.5rem;
+        animation: breathe 4s ease-in-out infinite;
+    }
+    .june-header-pill {
+        border: 1px solid var(--j-line);
+        border-radius: 999px;
+        padding: 0.2rem 0.6rem;
+        font-size: 10px;
+        color: var(--j-muted);
+        background: var(--j-surface);
+        letter-spacing: 0.03em;
+    }
+    .june-header-pill.accent {
+        border-color: rgba(15,95,74,0.2);
+        background: var(--j-accent-soft);
+        color: var(--j-accent);
+    }
+    .june-header-sep {
+        flex: 1;
+    }
+    .june-header-phrase {
+        font-size: 10px;
+        color: var(--j-muted);
+        font-style: italic;
+        max-width: 280px;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
     }
 
     /* ── Surface cards ─────────────────────────────────────── */
     .june-surface {
-        background: var(--june-panel);
-        border: 1px solid var(--june-line);
-        border-radius: var(--june-radius);
-        box-shadow: var(--june-shadow);
-        padding: 0.9rem;
+        background: var(--j-surface);
+        border: 1px solid var(--j-line);
+        border-radius: var(--j-radius);
+        box-shadow: var(--j-shadow);
+        padding: 1rem;
         margin-bottom: 0.75rem;
-        animation: fadeUp 0.22s ease both;
+        animation: fadeUp 0.2s ease both;
     }
 
-    /* ── Brand ─────────────────────────────────────────────── */
+    /* ── Brand (sidebar) ────────────────────────────────────── */
     .june-brand {
         font-family: "Syne", sans-serif;
         letter-spacing: -0.04em;
-        font-size: 2.2rem;
-        line-height: 0.92;
-        margin: 0 0 0.35rem 0;
-        animation: breathe 3.2s ease-in-out infinite;
+        font-size: 1.6rem;
+        line-height: 1;
+        margin: 0 0 0.25rem 0;
+        animation: breathe 4s ease-in-out infinite;
     }
 
     .june-copy {
-        color: var(--june-muted);
-        font-size: 11px;
+        color: var(--j-muted);
+        font-size: 10px;
         line-height: 1.55;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.4rem;
     }
 
     /* ── Labels ────────────────────────────────────────────── */
@@ -264,57 +369,98 @@ st.markdown(
 
     /* ── Conversation ──────────────────────────────────────── */
     .june-transcript {
-        max-height: 62vh;
+        max-height: 64vh;
         overflow-y: auto;
-        padding-right: 0.1rem;
+        padding-right: 0.25rem;
+        padding-bottom: 0.5rem;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(26,24,21,0.12) transparent;
+    }
+    .june-transcript::-webkit-scrollbar { width: 4px; }
+    .june-transcript::-webkit-scrollbar-thumb {
+        background: rgba(26,24,21,0.12);
+        border-radius: 999px;
     }
 
     .june-message {
-        border: 1px solid var(--june-line);
         border-radius: 14px;
-        padding: 0.7rem 0.85rem;
-        margin-bottom: 0.5rem;
+        padding: 0.8rem 1rem;
+        margin-bottom: 0.6rem;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
-        font-size: 12px;
-        line-height: 1.6;
+        font-size: 14px;
+        line-height: 1.65;
         animation: fadeUp 0.18s ease both;
+        max-width: 88%;
     }
 
-    .june-message-user      { background: var(--june-user); }
-    .june-message-assistant { background: #ffffff; }
+    .june-message-user {
+        background: var(--j-user-bg);
+        border: 1px solid rgba(15,95,74,0.1);
+        margin-left: auto;
+        margin-right: 0;
+        border-bottom-right-radius: 4px;
+    }
+    .june-message-assistant {
+        background: var(--j-surface);
+        border: 1px solid var(--j-line);
+        margin-left: 0;
+        margin-right: auto;
+        border-bottom-left-radius: 4px;
+        box-shadow: 0 1px 6px rgba(26,24,21,0.04);
+    }
 
     .june-message-label {
-        color: var(--june-accent);
+        color: var(--j-accent);
         text-transform: uppercase;
-        letter-spacing: 0.14em;
+        letter-spacing: 0.12em;
         font-size: 9px;
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.3rem;
+        font-weight: 600;
     }
 
-    .june-writing {
-        color: var(--june-accent);
-        text-transform: uppercase;
-        letter-spacing: 0.14em;
-        font-size: 9px;
-        margin-top: 0.4rem;
-        animation: writingPulse 1.3s ease-in-out infinite;
+    /* Three-dot typing indicator */
+    .june-typing {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.7rem 0.9rem;
+        background: var(--j-surface);
+        border: 1px solid var(--j-line);
+        border-radius: 14px;
+        border-bottom-left-radius: 4px;
+        width: fit-content;
+        margin-bottom: 0.6rem;
+        box-shadow: 0 1px 6px rgba(26,24,21,0.04);
+    }
+    .june-typing-dot {
+        width: 7px; height: 7px;
+        border-radius: 50%;
+        background: var(--j-accent);
+        animation: typingBounce 1.3s ease infinite;
+    }
+    .june-typing-dot:nth-child(2) { animation-delay: 0.18s; }
+    .june-typing-dot:nth-child(3) { animation-delay: 0.36s; }
+    .june-typing-label {
+        font-size: 10px;
+        color: var(--j-muted);
+        margin-left: 0.2rem;
     }
 
     /* ── Lists ─────────────────────────────────────────────── */
     .june-list { display: grid; gap: 0.45rem; }
 
     .june-item {
-        border: 1px solid var(--june-line);
-        border-radius: 12px;
-        padding: 0.55rem 0.7rem;
-        background: linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.86) 100%);
-        transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s;
+        border: 1px solid var(--j-line);
+        border-radius: 10px;
+        padding: 0.5rem 0.65rem;
+        background: var(--j-surface);
+        transition: all 0.15s ease;
     }
     .june-item:hover {
-        border-color: rgba(15, 95, 74, 0.22);
+        border-color: rgba(15, 95, 74, 0.2);
         transform: translateY(-1px);
-        box-shadow: 0 8px 18px rgba(40, 28, 18, 0.05);
+        box-shadow: 0 4px 14px rgba(26, 24, 21, 0.05);
     }
 
     .june-item-title {
@@ -426,24 +572,27 @@ st.markdown(
     /* ── Right panel ───────────────────────────────────────── */
     .june-right-panel {
         display: grid;
-        gap: 0.65rem;
-        animation: panelIn 0.28s ease both;
-        max-height: calc(100vh - 2rem);
+        gap: 0.6rem;
+        animation: panelIn 0.25s ease both;
+        max-height: calc(100vh - 3rem);
         overflow-y: auto;
         position: sticky;
-        top: 0.75rem;
+        top: 0.5rem;
+        scrollbar-width: none;
     }
+    .june-right-panel::-webkit-scrollbar { display: none; }
 
     .june-panel-card {
-        background: #ffffff;
-        border: 1px solid var(--june-line);
-        border-radius: 22px;
-        box-shadow: var(--june-shadow-lg);
-        padding: 1rem;
+        background: var(--j-surface);
+        border: 1px solid var(--j-line);
+        border-radius: 16px;
+        box-shadow: var(--j-shadow);
+        padding: 0.9rem;
     }
 
     .june-panel-card-quiet {
-        box-shadow: var(--june-shadow);
+        box-shadow: none;
+        background: rgba(255,255,255,0.8);
     }
 
     .june-panel-divider {
@@ -518,11 +667,10 @@ st.markdown(
     }
 
     .june-attention-card {
-        border: 1px solid rgba(15, 95, 74, 0.16);
-        background: linear-gradient(135deg, rgba(15, 95, 74, 0.08), rgba(15, 95, 74, 0.02));
-        border-radius: 14px;
-        padding: 0.7rem 0.8rem;
-        box-shadow: 0 10px 22px rgba(15, 95, 74, 0.05);
+        border: 1px solid rgba(15, 95, 74, 0.14);
+        background: linear-gradient(135deg, rgba(15, 95, 74, 0.06), rgba(15, 95, 74, 0.01));
+        border-radius: 12px;
+        padding: 0.6rem 0.75rem;
     }
 
     .june-attention-title {
@@ -543,49 +691,53 @@ st.markdown(
     }
 
     .june-rail-card {
-        background: linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.94) 100%);
-        border: 1px solid var(--june-line);
-        border-radius: 16px;
-        box-shadow: 0 8px 24px rgba(40, 28, 18, 0.045);
+        background: var(--j-surface);
+        border: 1px solid var(--j-line);
+        border-radius: 14px;
+        box-shadow: var(--j-shadow);
         padding: 0.85rem;
+        transition: box-shadow 0.2s ease;
     }
+    .june-rail-card:hover { box-shadow: var(--j-shadow-lg); }
 
     .june-rail-card-primary {
-        border-color: rgba(15, 95, 74, 0.14);
-        box-shadow: 0 14px 34px rgba(15, 95, 74, 0.08);
-        background: linear-gradient(180deg, #ffffff 0%, rgba(15, 95, 74, 0.025) 100%);
+        border-color: rgba(15, 95, 74, 0.15);
+        box-shadow: 0 8px 28px rgba(15, 95, 74, 0.09);
+        background: linear-gradient(160deg, #fff 60%, rgba(15,95,74,0.03) 100%);
     }
 
     .june-rail-card-quiet {
         box-shadow: none;
-        background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.78) 100%);
+        background: rgba(255,255,255,0.75);
     }
 
     .june-kpi-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.45rem;
+        gap: 0.4rem;
+        margin-top: 0.5rem;
     }
 
     .june-kpi {
-        border: 1px solid var(--june-line);
-        border-radius: 14px;
-        padding: 0.6rem;
-        background: rgba(255, 255, 255, 0.8);
+        border: 1px solid var(--j-line);
+        border-radius: 12px;
+        padding: 0.55rem 0.65rem;
+        background: var(--j-bg);
     }
 
     .june-kpi-value {
         font-family: "Syne", sans-serif;
-        font-size: 1rem;
+        font-size: 1.05rem;
         line-height: 1;
         margin-bottom: 0.15rem;
+        letter-spacing: -0.02em;
     }
 
     .june-kpi-label {
-        color: var(--june-muted);
+        color: var(--j-muted);
         font-size: 9px;
         text-transform: uppercase;
-        letter-spacing: 0.12em;
+        letter-spacing: 0.1em;
     }
 
     .june-runtime-pill {
@@ -690,8 +842,190 @@ st.markdown(
 
     ul { margin: 0.35rem 0 0 1rem; padding: 0; }
 
-    /* Hide default Streamlit expander arrow styling a bit */
-    details summary { font-size: 11px; color: var(--june-muted); }
+    /* Expanders */
+    details summary {
+        font-size: 11px;
+        color: var(--j-muted);
+        cursor: pointer;
+    }
+    details summary:hover { color: var(--j-accent); }
+
+    /* Selectbox */
+    [data-testid="stSelectbox"] > div > div {
+        border-radius: 10px !important;
+        font-size: 12px !important;
+        border-color: var(--j-line) !important;
+    }
+
+    /* Captions */
+    [data-testid="stCaptionContainer"] {
+        font-size: 10px !important;
+        color: var(--j-muted) !important;
+    }
+
+    /* Remove Streamlit's default top padding on main block */
+    .main .block-container { padding-top: 0.5rem !important; }
+
+    /* Smooth scrolling page-wide */
+    html { scroll-behavior: smooth; }
+
+    /* Section dividers */
+    .june-today-divider {
+        border: none;
+        border-top: 1px solid var(--j-line);
+        margin: 0.65rem 0;
+    }
+
+    /* Progress bar */
+    .june-progress-track {
+        height: 3px;
+        background: var(--j-line);
+        border-radius: 999px;
+        overflow: hidden;
+        margin: 0.2rem 0 0.5rem 0;
+    }
+    .june-progress-inner {
+        height: 100%;
+        background: var(--j-accent);
+        border-radius: 999px;
+        transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* Badges */
+    .june-badge {
+        display: inline-block;
+        padding: 0.12rem 0.4rem;
+        border-radius: 999px;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        animation: badgePop 0.25s ease both;
+    }
+    .june-badge-done {
+        background: var(--j-accent-soft);
+        color: var(--j-accent);
+        border: 1px solid rgba(15,95,74,0.2);
+    }
+    .june-badge-rest {
+        background: rgba(26,24,21,0.04);
+        color: var(--j-muted);
+        border: 1px solid var(--j-line);
+    }
+
+    /* Runtime pill */
+    .june-runtime-pill {
+        border: 1px solid rgba(15,95,74,0.18);
+        background: var(--j-accent-soft);
+        color: var(--j-accent);
+        border-radius: 999px;
+        padding: 0.15rem 0.45rem;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        display: inline-block;
+    }
+
+    /* Chips */
+    .june-chip {
+        border: 1px solid var(--j-line);
+        border-radius: 999px;
+        padding: 0.18rem 0.45rem;
+        font-size: 9px;
+        color: var(--j-muted);
+        background: var(--j-surface);
+    }
+
+    /* Water dots */
+    .june-water-track {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        flex-wrap: wrap;
+        padding: 0.15rem 0;
+    }
+    .june-water-dot {
+        width: 9px; height: 9px;
+        border-radius: 50%;
+        display: inline-block;
+        transition: background 0.2s ease, transform 0.15s ease;
+    }
+    .june-water-dot.filled {
+        background: var(--j-accent);
+        animation: waterPop 0.3s ease both;
+    }
+    .june-water-dot.empty {
+        background: transparent;
+        border: 1px solid rgba(26,24,21,0.15);
+    }
+
+    /* Energy / metric dots */
+    .june-metric-dots { display: inline-flex; gap: 2px; align-items: center; }
+    .june-metric-dot {
+        width: 6px; height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .june-metric-dot.active   { background: var(--j-accent); }
+    .june-metric-dot.inactive { background: rgba(26,24,21,0.1); }
+
+    /* Body row */
+    .june-body-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.15rem 0;
+        font-size: 11px;
+    }
+    .june-body-key { color: var(--j-muted); font-size: 10px; }
+
+    /* Focus hero */
+    .june-focus-hero {
+        border: 1px solid rgba(15,95,74,0.12);
+        background: linear-gradient(135deg, rgba(15,95,74,0.06), rgba(15,95,74,0.01));
+        border-radius: 14px;
+        padding: 0.7rem 0.8rem;
+        margin-bottom: 0.6rem;
+    }
+    .june-focus-copy { color: var(--j-muted); font-size: 10px; line-height: 1.5; margin-top: 0.15rem; }
+
+    /* Stat grid */
+    .june-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.4rem;
+    }
+    .june-stat-card {
+        border: 1px solid var(--j-line);
+        border-radius: 10px;
+        padding: 0.5rem;
+        background: var(--j-bg);
+        transition: all 0.15s ease;
+    }
+    .june-stat-card:hover {
+        border-color: rgba(15,95,74,0.2);
+        box-shadow: 0 2px 8px rgba(15,95,74,0.05);
+    }
+    .june-stat-label { color: var(--j-muted); font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.18rem; }
+    .june-stat-value { font-family: "Syne", sans-serif; font-size: 1rem; line-height: 1; letter-spacing: -0.02em; }
+
+    /* Mini grid */
+    .june-mini-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.4rem;
+        margin: 0.5rem 0 0.6rem 0;
+    }
+    .june-mini-card {
+        border: 1px solid var(--j-line);
+        border-radius: 10px;
+        padding: 0.5rem 0.55rem;
+        background: var(--j-accent-mist);
+    }
+    .june-mini-label { color: var(--j-muted); font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.18rem; }
+    .june-mini-value { font-family: "Syne", sans-serif; font-size: 0.95rem; line-height: 1; }
+
+    /* Starter section */
+    .june-starter-copy { color: var(--j-muted); font-size: 10px; line-height: 1.5; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -1721,17 +2055,12 @@ def handle_stream_chunk(
 
 
 # ---------------------------------------------------------------------------
-# Left sidebar — brand + quote + Today panel
+# Left sidebar — slim: brand, profile, runtime, quick stats
 # ---------------------------------------------------------------------------
 
 with st.sidebar:
     now = current_local_time()
-    st.markdown(
-        '<script>setTimeout(function(){ window.parent.location.reload(); }, 900000);</script>',
-        unsafe_allow_html=True,
-    )
 
-    # Brand
     user_id = st.session_state.get("profile_input", "admin")
     memory_for_sidebar = Memory(user_id)
     stored_runtime_preset = str(
@@ -1746,15 +2075,22 @@ with st.sidebar:
     current_privacy = build_runtime_privacy_status(current_runtime)
     sidebar_phrase = get_rotating_sidebar_phrase(memory_for_sidebar, now)
 
-    st.markdown('<div class="june-brand">June</div>', unsafe_allow_html=True)
+    # Brand
     st.markdown(
-        f'<div class="june-copy">{html.escape(sidebar_phrase)}</div>',
+        f'<div class="june-brand">June</div>'
+        f'<div class="june-copy">{html.escape(sidebar_phrase)}</div>'
+        f'<div style="font-size:9px;color:var(--j-muted);margin-bottom:0.75rem;">'
+        f'{now.strftime("%A %d %B")} · {current_part_of_day(now)}</div>',
         unsafe_allow_html=True,
     )
-    st.caption(f"{now.strftime('%A %d %B')} · {current_part_of_day(now)} · day {now.timetuple().tm_yday}")
-    st.caption(f"{current_runtime.label} · {current_runtime.model}")
-    st.caption(f"{current_privacy['mode_label']} · {current_privacy['privacy_label']}")
 
+    st.markdown('<hr style="border:none;border-top:1px solid var(--j-line);margin:0.5rem 0;">', unsafe_allow_html=True)
+
+    # Profile
+    user_id = st.text_input("Profile", value=user_id, key="profile_input", label_visibility="collapsed",
+                             placeholder="Profile name")
+
+    # Runtime selector
     preset_options = list(runtime_preset_options())
     preset_keys = [preset.key for preset in preset_options]
     selected_index = preset_keys.index(stored_runtime_preset) if stored_runtime_preset in preset_keys else 0
@@ -1765,25 +2101,31 @@ with st.sidebar:
         format_func=lambda key: runtime_for_preset(key).label,
         key="runtime_preset_picker",
         disabled=st.session_state.get("is_generating", False),
+        label_visibility="collapsed",
     )
     chosen_runtime = runtime_for_preset(chosen_preset)
     chosen_privacy = build_runtime_privacy_status(chosen_runtime)
+    st.markdown(
+        f'<div style="font-size:9px;color:var(--j-muted);margin:-0.25rem 0 0.4rem 0;">'
+        f'{current_privacy["mode_label"]} · {current_privacy["privacy_label"]}</div>',
+        unsafe_allow_html=True,
+    )
+
     if chosen_preset != stored_runtime_preset:
         if current_runtime.is_local and chosen_runtime.is_api:
             st.markdown(
-                '<div class="june-item-meta">'
-                + html.escape(chosen_privacy["summary"])
-                + "</div>",
+                f'<div style="font-size:10px;color:var(--j-muted);margin-bottom:0.3rem;">'
+                f'{html.escape(chosen_privacy["summary"])}</div>',
                 unsafe_allow_html=True,
             )
             confirm_col, cancel_col = st.columns(2, gap="small")
             with confirm_col:
-                if st.button("Use API runtime", key="confirm_runtime_switch", use_container_width=True):
+                if st.button("Confirm", key="confirm_runtime_switch", use_container_width=True):
                     st.session_state.selected_runtime_preset = chosen_preset
                     memory_for_sidebar.set_app_state_value("runtime_preset", chosen_preset)
                     st.rerun()
             with cancel_col:
-                if st.button("Keep local runtime", key="cancel_runtime_switch", use_container_width=True):
+                if st.button("Cancel", key="cancel_runtime_switch", use_container_width=True):
                     st.session_state.runtime_preset_picker = stored_runtime_preset
                     st.rerun()
         else:
@@ -1791,210 +2133,90 @@ with st.sidebar:
             memory_for_sidebar.set_app_state_value("runtime_preset", chosen_preset)
             st.rerun()
 
-    # Today divider
-    st.markdown('<hr class="june-today-divider">', unsafe_allow_html=True)
+    st.markdown('<hr style="border:none;border-top:1px solid var(--j-line);margin:0.5rem 0;">', unsafe_allow_html=True)
 
-    # Habits
+    # Quick habits
     habits_sidebar = memory_for_sidebar.get_habits()
-    st.markdown('<div class="june-section-label first">Habits</div>', unsafe_allow_html=True)
-
     if habits_sidebar:
         done_c = sum(1 for h in habits_sidebar if h.get("done_today"))
         total_c = len(habits_sidebar)
         pct = int((done_c / total_c) * 100) if total_c else 0
         st.markdown(
-            f'<div style="display:flex;justify-content:space-between;font-size:9px;'
-            f'color:var(--june-muted);margin-bottom:0.2rem;">'
-            f'<span>{done_c}/{total_c}</span>'
-            f'<span style="color:var(--june-accent);font-family:Syne">{pct}%</span>'
-            f'</div>'
+            f'<div style="display:flex;justify-content:space-between;align-items:center;'
+            f'margin-bottom:0.2rem;">'
+            f'<span style="font-size:9px;color:var(--j-muted);text-transform:uppercase;'
+            f'letter-spacing:0.1em;">Habits</span>'
+            f'<span style="font-size:9px;color:var(--j-accent);font-family:Syne;">'
+            f'{done_c}/{total_c}</span></div>'
             f'<div class="june-progress-track">'
-            f'<div class="june-progress-inner" style="width:{pct}%"></div>'
-            f'</div>',
+            f'<div class="june-progress-inner" style="width:{pct}%"></div></div>',
             unsafe_allow_html=True,
         )
         for habit in habits_sidebar:
-            r_col, n_col, b_col = st.columns([0.32, 1.4, 0.75], gap="small")
-            with r_col:
-                st.markdown(habit_ring_svg(habit["done_today"]), unsafe_allow_html=True)
-            with n_col:
-                streak_html = (
-                    f' <span class="june-habit-streak" style="font-size:9px;color:var(--june-accent);font-family:Syne;">'
-                    f'{habit["streak"]}d</span>'
-                    if habit["streak"] else ""
-                )
+            h_name_col, h_btn_col = st.columns([2.2, 1], gap="small")
+            with h_name_col:
+                streak_txt = f" · {habit['streak']}d" if habit.get("streak") else ""
+                done_dot = "●" if habit.get("done_today") else "○"
+                color = "var(--j-accent)" if habit.get("done_today") else "var(--j-muted)"
                 st.markdown(
-                    f'<div style="display:flex;align-items:center;gap:0.25rem;padding:0.15rem 0;font-size:10px;">'
-                    f'{html.escape(habit["name"])}{streak_html}</div>',
+                    f'<div style="font-size:10px;padding:0.15rem 0;display:flex;'
+                    f'align-items:center;gap:0.3rem;">'
+                    f'<span style="color:{color};font-size:8px;">{done_dot}</span>'
+                    f'{html.escape(habit["name"])}'
+                    f'<span style="color:var(--j-accent);font-size:9px;">{streak_txt}</span>'
+                    f'</div>',
                     unsafe_allow_html=True,
                 )
-            with b_col:
-                if not habit["done_today"]:
+            with h_btn_col:
+                if not habit.get("done_today"):
                     if st.button("done", key=f"sb_habit_{habit['name']}", use_container_width=True):
                         memory_for_sidebar.log_habit_completion(habit["name"])
                         st.rerun()
-                else:
-                    st.markdown('<span class="june-badge june-badge-done">done</span>', unsafe_allow_html=True)
     else:
-        st.markdown('<div style="font-size:10px;color:var(--june-muted);">Tell June to add habits.</div>', unsafe_allow_html=True)
-
-    # Water
-    water_count = memory_for_sidebar.get_water_today()
-    st.markdown('<div class="june-section-label">Water</div>', unsafe_allow_html=True)
-    st.markdown(water_dots_html(water_count, WATER_GOAL), unsafe_allow_html=True)
-    wc_col, wm_col, wp_col = st.columns([1, 0.45, 0.45], gap="small")
-    with wc_col:
         st.markdown(
-            f'<div style="font-size:9px;color:var(--june-muted);padding-top:0.3rem;">'
-            f'{water_count}/{WATER_GOAL} glasses</div>',
+            '<div style="font-size:10px;color:var(--j-muted);">No habits tracked yet.</div>',
             unsafe_allow_html=True,
         )
+
+    # Quick water
+    water_count = memory_for_sidebar.get_water_today()
+    st.markdown(
+        f'<div style="display:flex;justify-content:space-between;align-items:center;'
+        f'margin-top:0.5rem;margin-bottom:0.25rem;">'
+        f'<span style="font-size:9px;color:var(--j-muted);text-transform:uppercase;'
+        f'letter-spacing:0.1em;">Water</span>'
+        f'<span style="font-size:9px;color:var(--j-muted);">{water_count}/{WATER_GOAL}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(water_dots_html(water_count, WATER_GOAL), unsafe_allow_html=True)
+    wm_col, wp_col = st.columns(2, gap="small")
     with wm_col:
-        if st.button("−", key="sb_water_minus", use_container_width=True):
+        if st.button("− water", key="sb_water_minus", use_container_width=True):
             if water_count > 0:
                 memory_for_sidebar.set_water(water_count - 1)
             st.rerun()
     with wp_col:
-        if st.button("+", key="sb_water_plus", use_container_width=True):
+        if st.button("+ water", key="sb_water_plus", use_container_width=True):
             memory_for_sidebar.log_water(1)
             st.rerun()
 
-    # Body metrics
+    # Quick body snapshot
     today_metrics = memory_for_sidebar.get_today_body_metrics()
-    sidebar_body_series = detail_recent_body_series(memory_for_sidebar, days=7)
-    latest_body = sidebar_body_series[-1] if sidebar_body_series else None
-    st.markdown('<div class="june-section-label">Body</div>', unsafe_allow_html=True)
-
     if today_metrics:
+        bits = []
+        if today_metrics.get("sleep_hours"):
+            bits.append(f"sleep {today_metrics['sleep_hours']}h")
+        if today_metrics.get("energy"):
+            bits.append(f"energy {today_metrics['energy']}/5")
         st.markdown(
-            f'<div class="june-body-row"><span class="june-body-key">energy</span>'
-            f'{energy_dots_html(today_metrics.get("energy", 0))}</div>'
-            f'<div class="june-body-row"><span class="june-body-key">sleep</span>'
-            f'<span style="font-size:10px;">{today_metrics.get("sleep_hours", 0)}h</span></div>'
-            + (
-                f'<div class="june-body-row"><span class="june-body-key">stress</span>'
-                f'<span style="font-size:10px;">{today_metrics.get("stress", 0)}/5</span></div>'
-                if today_metrics.get("stress")
-                else ""
-            )
-            + (
-                f'<div class="june-body-row"><span class="june-body-key">soreness</span>'
-                f'<span style="font-size:10px;">{today_metrics.get("soreness", 0)}/5</span></div>'
-                if today_metrics.get("soreness")
-                else ""
-            )
-            + (
-                f'<div class="june-body-row"><span class="june-body-key">weight</span>'
-                f'<span style="font-size:10px;">{today_metrics.get("weight_kg", 0)}kg</span></div>'
-                if today_metrics.get("weight_kg") else ""
-            ),
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            '<div style="font-size:9px;color:var(--june-accent);margin-top:0.15rem;">Today\'s check-in</div>',
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown('<div style="font-size:10px;color:var(--june-muted);">No check-in today.</div>', unsafe_allow_html=True)
-        if latest_body:
-            st.markdown(
-                '<div style="font-size:9px;color:var(--june-accent);margin-top:0.15rem;">'
-                + f"Last check-in · {html.escape(latest_body.get('date', ''))}"
-                + '</div>',
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                '<div style="font-size:9px;color:var(--june-muted);margin-top:0.15rem;">'
-                + html.escape(detail_body_snapshot_line(latest_body))
-                + '</div>',
-                unsafe_allow_html=True,
-            )
-
-    if sidebar_body_series:
-        sleep_now, sleep_delta, _sleep_avg = detail_body_metric_stats(sidebar_body_series, "sleep_hours")
-        energy_now, energy_delta, _energy_avg = detail_body_metric_stats(sidebar_body_series, "energy")
-        stress_now, stress_delta, _stress_avg = detail_body_metric_stats(sidebar_body_series, "stress")
-        trend_bits = []
-        if sleep_now is not None:
-            delta_txt = "" if sleep_delta is None else f" ({sleep_delta:+.1f}h)"
-            trend_bits.append(f"sleep {sleep_now:.1f}h{delta_txt}")
-        if energy_now is not None:
-            delta_txt = "" if energy_delta is None else f" ({energy_delta:+.0f})"
-            trend_bits.append(f"energy {energy_now:.0f}/5{delta_txt}")
-        if stress_now is not None:
-            delta_txt = "" if stress_delta is None else f" ({stress_delta:+.0f})"
-            trend_bits.append(f"stress {stress_now:.0f}/5{delta_txt}")
-        if trend_bits:
-            st.markdown(
-                '<div style="font-size:9px;color:var(--june-muted);margin-top:0.25rem;">7d trend</div>',
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                '<div style="font-size:9px;color:var(--june-muted);margin-top:0.1rem;">'
-                + " · ".join(html.escape(bit) for bit in trend_bits)
-                + '</div>',
-                unsafe_allow_html=True,
-            )
-
-    with st.expander("Log body", expanded=False):
-        with st.form("sb_body_form", clear_on_submit=True):
-            e_in = st.select_slider("Energy", options=[0, 1, 2, 3, 4, 5], value=3)
-            sq_in = st.select_slider("Sleep quality", options=[0, 1, 2, 3, 4, 5], value=3)
-            stress_in = st.select_slider("Stress", options=[0, 1, 2, 3, 4, 5], value=0)
-            soreness_in = st.select_slider("Soreness", options=[0, 1, 2, 3, 4, 5], value=0)
-            s_in = st.number_input("Sleep h", min_value=0.0, max_value=24.0, step=0.5, value=0.0)
-            w_in = st.number_input("Weight kg", min_value=0.0, max_value=300.0, step=0.1, value=0.0)
-            hr_in = st.number_input("Resting HR", min_value=0, max_value=240, step=1, value=0)
-            steps_in = st.number_input("Steps", min_value=0, max_value=100000, step=500, value=0)
-            notes_in = st.text_area("Notes", value="", placeholder="Anything affecting recovery or performance?")
-            if st.form_submit_button("Save", use_container_width=True):
-                memory_for_sidebar.log_body_metrics(
-                    weight_kg=w_in,
-                    sleep_hours=s_in,
-                    sleep_quality=sq_in,
-                    energy=e_in,
-                    stress=stress_in,
-                    soreness=soreness_in,
-                    resting_hr=hr_in,
-                    steps=steps_in,
-                    notes=notes_in,
-                )
-                st.rerun()
-
-    # Workout
-    today_workout = memory_for_sidebar.get_today_workout()
-    st.markdown('<div class="june-section-label">Workout</div>', unsafe_allow_html=True)
-    if today_workout:
-        st.markdown(
-            f'<span class="june-badge june-badge-done">done</span>'
-            f'<div style="font-size:10px;margin-top:0.2rem;">'
-            f'{html.escape(today_workout["plan_name"])}'
-            f'{" · " + str(today_workout["duration_min"]) + "min" if today_workout.get("duration_min") else ""}'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown('<span class="june-badge june-badge-rest">rest day</span>', unsafe_allow_html=True)
-
-    # Nutrition
-    today_nutrition = memory_for_sidebar.get_nutrition_today()
-    if today_nutrition:
-        total_kcal = sum(e.get("calories_est", 0) for e in today_nutrition)
-        total_prot = sum(e.get("protein_est", 0) for e in today_nutrition)
-        st.markdown('<div class="june-section-label">Nutrition</div>', unsafe_allow_html=True)
-        st.markdown(
-            f'<div style="font-size:10px;color:var(--june-muted);">'
-            f'{len(today_nutrition)} meals'
-            f'{" · ~" + str(total_kcal) + " kcal" if total_kcal else ""}'
-            f'{" · ~" + str(total_prot) + "g protein" if total_prot else ""}'
-            f'</div>',
+            f'<div style="font-size:9px;color:var(--j-muted);margin-top:0.4rem;">'
+            f'Body today: {" · ".join(bits) if bits else "logged"}</div>',
             unsafe_allow_html=True,
         )
 
-    # Profile + clear at the bottom
-    st.markdown('<hr class="june-today-divider">', unsafe_allow_html=True)
-    user_id = st.text_input("Profile", value=user_id, key="profile_input")
-    if st.button("Clear chat", use_container_width=True):
+    st.markdown('<hr style="border:none;border-top:1px solid var(--j-line);margin:0.75rem 0 0.5rem 0;">', unsafe_allow_html=True)
+    if st.button("Clear conversation", use_container_width=True):
         reset_session_state(st.session_state, user_id)
         st.session_state.messages = []
         st.rerun()
@@ -2040,8 +2262,24 @@ current_layout = st.session_state.ui_state.get("layout", "split")
 show_right_panel = st.session_state.ui_state.get("show_right_panel", True)
 
 # ---------------------------------------------------------------------------
-# Main layout: Conversation | Right panel
+# Main layout: Header bar + Conversation | Right panel
 # ---------------------------------------------------------------------------
+
+# ── Header bar ────────────────────────────────────────────────────────────
+privacy_icon = "○" if active_runtime.is_local else "◉"
+privacy_color = "var(--j-accent)" if active_runtime.is_local else "#c07a2a"
+st.markdown(
+    f'<div class="june-header-bar">'
+    f'<span class="june-header-logo">June</span>'
+    f'<span class="june-header-pill accent">{html.escape(active_skill.label)}</span>'
+    f'<span class="june-header-pill">{html.escape(active_runtime.label)}</span>'
+    f'<span class="june-header-sep"></span>'
+    f'<span class="june-header-phrase">{html.escape(sidebar_phrase)}</span>'
+    f'<span style="font-size:10px;color:{privacy_color};margin-left:0.5rem;" title="{html.escape(active_privacy["summary"])}">'
+    f'{privacy_icon} {html.escape(active_privacy["privacy_label"])}</span>'
+    f'</div>',
+    unsafe_allow_html=True,
+)
 
 layout_widths = layout_column_widths(current_layout, show_right_panel)
 columns = st.columns(layout_widths, gap="medium")
@@ -2051,24 +2289,10 @@ plan_col = columns[1] if show_right_panel else None
 # ── Conversation ──────────────────────────────────────────────────────────
 
 with chat_col:
-    st.markdown('<div class="june-surface">', unsafe_allow_html=True)
-    st.markdown('<div class="june-label">Conversation</div>', unsafe_allow_html=True)
     render_command_bar(show_right_panel)
-    st.markdown(
-        '<div class="june-meta-row">'
-        f'<div class="june-chip">profile: {html.escape(user_id)}</div>'
-        f'<div class="june-chip">route: {html.escape(active_skill.label)}</div>'
-        f'<div class="june-chip">agenda: {snapshot["calendar_count"]}</div>'
-        f'<div class="june-chip">plans: {snapshot["goal_count"] + snapshot["open_loop_count"]}</div>'
-        f'<div class="june-chip">habits: {snapshot["habits_done_today"]}/{snapshot["habit_count"]}</div>'
-        f'<div class="june-chip">water: {snapshot["water_today"]}/{WATER_GOAL}</div>'
-        f'<div class="june-chip">tools: {st.session_state.tool_stats["succeeded"]}/{st.session_state.tool_stats["requested"]}</div>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-    render_attention_strip(memory)
     render_first_run_onboarding(memory)
     render_starter_prompts(memory)
+
     transcript_placeholder = st.empty()
     transcript_placeholder.markdown(
         transcript_html(
@@ -2082,17 +2306,31 @@ with chat_col:
     )
     render_turn_save_feedback(st.session_state.turn_summary_message, on_open_chapter=open_memory_chapter)
     render_scroll_to_latest()
+
+    # Typing indicator
     if st.session_state.is_generating:
-        st.markdown('<div class="june-writing">June is writing</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="june-typing">'
+            '<span class="june-typing-dot"></span>'
+            '<span class="june-typing-dot"></span>'
+            '<span class="june-typing-dot"></span>'
+            '<span class="june-typing-label">June is writing</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+    # Input area
     with st.form("june_input_form", clear_on_submit=True):
-        prompt = st.text_input(
+        prompt = st.text_area(
             "Message June",
             value="",
-            placeholder="Tell June about your day, plans, feelings, routines, people, or reminders.",
+            placeholder="Tell June about your day, plans, goals, feelings, or anything worth remembering.",
             label_visibility="collapsed",
+            height=72,
         )
+        st.markdown('<div class="june-send-btn">', unsafe_allow_html=True)
         submitted = st.form_submit_button("Send", use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     if submitted and prompt.strip() and not st.session_state.is_generating:
         st.session_state.pending_prompt = prompt.strip()

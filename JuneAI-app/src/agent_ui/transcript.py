@@ -266,11 +266,11 @@ def _render_block(block: TranscriptBlock, *, collapse_threshold: int) -> str:
             body_html = (
                 collapse_text_html(block.text, threshold=collapse_threshold)
                 if block.collapsed or len(block.text) > collapse_threshold
-                else f'<div style="white-space:pre-wrap;font-size:12px;line-height:1.45;color:rgba(22,20,16,0.88);">{escape_html(block.text)}</div>'
+                else f'<div style="white-space:pre-wrap;font-size:13px;line-height:1.55;color:var(--j-text,#1A1815);">{escape_html(block.text)}</div>'
             )
         return (
-            '<div class="june-summary-card" style="padding:0.72rem 0.82rem;border:1px solid rgba(15,95,74,0.14);'
-            'border-radius:16px;background:rgba(15,95,74,0.04);">'
+            '<div class="june-summary-card" style="padding:0.65rem 0.78rem;border:1px solid rgba(15,95,74,0.13);'
+            'border-radius:12px;background:rgba(15,95,74,0.035);">'
             + label_html
             + body_html
             + "</div>"

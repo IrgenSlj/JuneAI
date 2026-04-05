@@ -13,7 +13,7 @@ def escape_html(value: object) -> str:
 
 def text_html(text: object) -> str:
     """Render text while preserving line breaks."""
-    return f'<div style="white-space:pre-wrap;">{escape_html(text)}</div>'
+    return f'<div style="white-space:pre-wrap;font-size:14px;line-height:1.65;">{escape_html(text)}</div>'
 
 
 def chips_html(items: Sequence[object]) -> str:
