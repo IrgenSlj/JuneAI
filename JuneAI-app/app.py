@@ -14,6 +14,7 @@ import streamlit.components.v1 as components
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, ToolMessage
 
 from agent.config import RuntimeConfig, resolve_runtime_config, runtime_preset_options
+from agent.ollama_manager import is_model_available, model_size_label, pull_model_stream
 from agent.graph import create_june_agent, startup_error
 from agent.memory import Memory
 from agent.runtime_privacy import build_runtime_privacy_status
@@ -1124,6 +1125,45 @@ if startup_error:
 WATER_GOAL = 8
 RUNTIME_CONFIG = resolve_runtime_config()
 
+# ── Auto-pull: ensure the default model is present before the main UI loads ─
+_startup_base_url = RUNTIME_CONFIG.base_url
+_startup_model = RUNTIME_CONFIG.model
+if _startup_base_url and not is_model_available(_startup_model, _startup_base_url):
+    _size_label = model_size_label(_startup_model)
+    _size_str = f" ({_size_label})" if _size_label else ""
+    st.markdown(
+        f'<div style="max-width:520px;margin:4rem auto 0;text-align:center;">'
+        f'<div style="font-family:Syne,sans-serif;font-size:1.4rem;font-weight:600;'
+        f'color:var(--j-text);margin-bottom:0.4rem;">Downloading model</div>'
+        f'<div style="font-size:13px;color:var(--j-muted);margin-bottom:1.2rem;">'
+        f'<code>{_startup_model}</code>{_size_str} — pulling from Ollama…</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+    _progress_bar = st.progress(0, text="Starting download…")
+    _status_box = st.empty()
+    _pull_ok = False
+    for _chunk in pull_model_stream(_startup_model, _startup_base_url):
+        _status = _chunk.get("status", "")
+        if _chunk.get("status") == "error":
+            _status_box.error(f"Pull failed: {_chunk.get('error', 'unknown error')}")
+            st.stop()
+        total = _chunk.get("total", 0)
+        completed = _chunk.get("completed", 0)
+        if total and total > 0:
+            _pct = min(int(completed / total * 100), 100)
+            _progress_bar.progress(_pct, text=f"{_status} — {_pct}%")
+        else:
+            _status_box.markdown(
+                f'<div style="font-size:12px;color:var(--j-muted);text-align:center;">{_status}</div>',
+                unsafe_allow_html=True,
+            )
+        if _status == "success":
+            _pull_ok = True
+    if _pull_ok:
+        _progress_bar.progress(100, text="Download complete — starting June…")
+        st.rerun()
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -2214,6 +2254,45 @@ with st.sidebar:
             with cancel_col:
                 if st.button("Cancel", key="cancel_runtime_switch", use_container_width=True):
                     st.session_state.runtime_preset_picker = stored_runtime_preset
+                    st.rerun()
+        elif chosen_runtime.is_local and not is_model_available(chosen_runtime.model, chosen_runtime.base_url):
+            # Model not yet pulled — offer to download it inline
+            _switch_size = model_size_label(chosen_runtime.model)
+            _switch_size_str = f" · {_switch_size}" if _switch_size else ""
+            st.markdown(
+                f'<div style="font-size:10px;color:var(--j-muted);margin-bottom:0.3rem;">'
+                f'<code>{chosen_runtime.model}</code> not downloaded{_switch_size_str}.</div>',
+                unsafe_allow_html=True,
+            )
+            pull_col, cancel_col = st.columns(2, gap="small")
+            with cancel_col:
+                if st.button("Cancel", key="cancel_pull_switch", use_container_width=True):
+                    st.session_state.runtime_preset_picker = stored_runtime_preset
+                    st.rerun()
+            with pull_col:
+                if st.button("Pull now", key="pull_model_switch", use_container_width=True):
+                    st.session_state["_pulling_model"] = chosen_runtime.model
+                    st.session_state["_pulling_for_preset"] = chosen_preset
+                    st.rerun()
+            # Run the pull if confirmed
+            if st.session_state.get("_pulling_model") == chosen_runtime.model:
+                _sb_bar = st.progress(0, text="Downloading…")
+                _pull_done = False
+                for _c in pull_model_stream(chosen_runtime.model, chosen_runtime.base_url):
+                    if _c.get("status") == "error":
+                        st.error(f"Pull failed: {_c.get('error', '')}")
+                        break
+                    _tot = _c.get("total", 0)
+                    _comp = _c.get("completed", 0)
+                    if _tot:
+                        _sb_bar.progress(min(int(_comp / _tot * 100), 100), text=f"Downloading… {int(_comp/_tot*100)}%")
+                    if _c.get("status") == "success":
+                        _pull_done = True
+                if _pull_done:
+                    del st.session_state["_pulling_model"]
+                    del st.session_state["_pulling_for_preset"]
+                    st.session_state.selected_runtime_preset = chosen_preset
+                    memory_for_sidebar.set_app_state_value("runtime_preset", chosen_preset)
                     st.rerun()
         else:
             st.session_state.selected_runtime_preset = chosen_preset
