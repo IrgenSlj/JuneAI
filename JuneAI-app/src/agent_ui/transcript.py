@@ -345,7 +345,10 @@ def render_transcript_html(
     """Render a transcript and keep the latest message in view."""
     blocks = [render_message_html(message, collapse_threshold=collapse_threshold) for message in messages]
     if live_response:
-        blocks.append(render_message_html({"role": "assistant", "content": live_response}, collapse_threshold=collapse_threshold))
+        # Append a blinking cursor to signal the response is still streaming
+        live_html = render_message_html({"role": "assistant", "content": live_response}, collapse_threshold=collapse_threshold)
+        live_html = live_html.replace("</div>\n</div>", '<span class="june-stream-cursor"></span></div>\n</div>', 1)
+        blocks.append(live_html)
     for message in extra_messages or []:
         blocks.append(render_message_html(message, collapse_threshold=collapse_threshold))
     blocks = [block for block in blocks if block]

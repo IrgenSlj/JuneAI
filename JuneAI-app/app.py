@@ -1026,6 +1026,89 @@ st.markdown(
 
     /* Starter section */
     .june-starter-copy { color: var(--j-muted); font-size: 10px; line-height: 1.5; }
+
+    /* ── Tool activity badge ─────────────────────────────────── */
+    @keyframes toolPop {
+        0%   { transform: scale(0.85); opacity: 0; }
+        55%  { transform: scale(1.05); }
+        100% { transform: scale(1);    opacity: 1; }
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    .june-tool-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.28rem 0.6rem;
+        background: var(--j-accent-soft);
+        border: 1px solid rgba(15,95,74,0.14);
+        border-radius: 999px;
+        font-size: 10px;
+        color: var(--j-accent);
+        animation: toolPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        margin-right: 0.3rem;
+        margin-bottom: 0.3rem;
+    }
+    .june-tool-spinner {
+        width: 9px; height: 9px;
+        border: 1.5px solid rgba(15,95,74,0.25);
+        border-top-color: var(--j-accent);
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        flex-shrink: 0;
+    }
+    .june-tool-activity {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+        margin-bottom: 0.5rem;
+        animation: fadeUp 0.18s ease both;
+    }
+
+    /* ── Streaming cursor ────────────────────────────────────── */
+    @keyframes streamBlink {
+        0%, 49%  { opacity: 1; }
+        50%, 100% { opacity: 0; }
+    }
+    .june-stream-cursor {
+        display: inline-block;
+        width: 2px;
+        height: 1em;
+        background: var(--j-accent);
+        margin-left: 2px;
+        vertical-align: text-bottom;
+        animation: streamBlink 0.65s ease-in-out infinite;
+    }
+
+    /* ── Keyboard hint ───────────────────────────────────────── */
+    .june-input-hint {
+        font-size: 9px;
+        color: var(--j-muted);
+        text-align: right;
+        margin-top: 0.2rem;
+        letter-spacing: 0.02em;
+    }
+
+    /* ── Responsive ──────────────────────────────────────────── */
+    @media (max-width: 960px) {
+        :root { --j-sidebar-w: 220px; }
+        .june-header-phrase { display: none; }
+    }
+    @media (max-width: 720px) {
+        [data-testid="stSidebar"] { display: none !important; }
+        .block-container { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
+        .june-message { font-size: 13px !important; max-width: 96% !important; }
+    }
+
+    /* ── Accessibility ───────────────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -1983,9 +2066,13 @@ def handle_stream_chunk(
                 + f"{event.get('runtime_label', st.session_state.get('current_runtime_label', RUNTIME_CONFIG.label))}"
                 + f" | {event.get('runtime_model', st.session_state.get('current_runtime_model', RUNTIME_CONFIG.model))}"
             )
+            st.session_state.active_tool_names = []
         elif event.get("event") == "tool_calls_requested":
-            append_activity("tool request | " + ", ".join(event.get("tools", [])))
+            tools = event.get("tools", [])
+            st.session_state.active_tool_names = tools
+            append_activity("tool request | " + ", ".join(tools))
         elif event.get("event") == "tool_results":
+            st.session_state.active_tool_names = []  # tools done → back to typing state
             summary = event.get("summary", {})
             append_activity(
                 "tool results | "
@@ -2244,6 +2331,8 @@ if "selected_runtime_preset" not in st.session_state:
     st.session_state.selected_runtime_preset = str(memory.get_app_state().get("runtime_preset", RUNTIME_CONFIG.preset_key))
 if "turn_summary_message" not in st.session_state:
     st.session_state.turn_summary_message = None
+if "active_tool_names" not in st.session_state:
+    st.session_state.active_tool_names = []
 active_runtime = runtime_for_preset(str(st.session_state.selected_runtime_preset))
 active_privacy = build_runtime_privacy_status(active_runtime)
 st.session_state.current_runtime_label = active_runtime.label
@@ -2307,17 +2396,58 @@ with chat_col:
     render_turn_save_feedback(st.session_state.turn_summary_message, on_open_chapter=open_memory_chapter)
     render_scroll_to_latest()
 
-    # Typing indicator
+    # Typing indicator + active tool badges
     if st.session_state.is_generating:
-        st.markdown(
-            '<div class="june-typing">'
-            '<span class="june-typing-dot"></span>'
-            '<span class="june-typing-dot"></span>'
-            '<span class="june-typing-dot"></span>'
-            '<span class="june-typing-label">June is writing</span>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
+        active_tools = st.session_state.get("active_tool_names", [])
+        if active_tools:
+            badges = "".join(
+                f'<span class="june-tool-badge">'
+                f'<span class="june-tool-spinner"></span>'
+                f'{html.escape(name.replace("_", " "))}'
+                f'</span>'
+                for name in active_tools[:4]
+            )
+            st.markdown(
+                f'<div class="june-tool-activity">{badges}</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div class="june-typing">'
+                '<span class="june-typing-dot"></span>'
+                '<span class="june-typing-dot"></span>'
+                '<span class="june-typing-dot"></span>'
+                '<span class="june-typing-label">June is writing</span>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+
+    # Cmd+Enter keyboard shortcut
+    components.html(
+        """
+        <script>
+        (function() {
+            function bindCmdEnter() {
+                const doc = window.parent.document;
+                const textarea = doc.querySelector('textarea[data-testid="stTextArea"], textarea');
+                if (!textarea || textarea.dataset.juneCmdEnterBound === '1') return;
+                textarea.dataset.juneCmdEnterBound = '1';
+                textarea.addEventListener('keydown', function(e) {
+                    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                        e.preventDefault();
+                        const submitBtn = doc.querySelector('button[kind="formSubmit"], [data-testid="stFormSubmitButton"] button, button[type="submit"]');
+                        if (submitBtn) submitBtn.click();
+                    }
+                });
+            }
+            setTimeout(bindCmdEnter, 400);
+            setTimeout(bindCmdEnter, 1200);
+        })();
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
 
     # Input area
     with st.form("june_input_form", clear_on_submit=True):
@@ -2331,6 +2461,10 @@ with chat_col:
         st.markdown('<div class="june-send-btn">', unsafe_allow_html=True)
         submitted = st.form_submit_button("Send", use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="june-input-hint">Cmd+Enter · or press Send</div>',
+        unsafe_allow_html=True,
+    )
 
     if submitted and prompt.strip() and not st.session_state.is_generating:
         st.session_state.pending_prompt = prompt.strip()
@@ -2464,4 +2598,5 @@ if st.session_state.is_generating and st.session_state.pending_prompt:
             memory.save_message("assistant", final_text)
 
     st.session_state.is_generating = False
+    st.session_state.active_tool_names = []
     st.rerun()
