@@ -134,10 +134,10 @@ RUNTIME_PRESETS: dict[str, RuntimePreset] = {
     ),
     "local_gemma_4": RuntimePreset(
         key="local_gemma_4",
-        label="Gemma 3 4B (local)",
+        label="Gemma 4 — 4B (local)",
         provider="openai_compatible",
         model_env_var="LOCAL_GEMMA_MODEL_NAME",
-        default_model="gemma3:4b",
+        default_model="gemma4:e4b",
         default_base_url="http://localhost:11434/v1",
         default_api_key="ollama",
         temperature=1.0,
@@ -169,6 +169,7 @@ def detect_tool_strategy(model_name: str) -> str:
     native_patterns = (
         "gemma4",
         "gemma-4",
+        "gemma3n",
         "7b-instruct-v0.3",
         "mistral-nemo",
         "mistral-small",
