@@ -19,7 +19,7 @@ def test_local_gemma_4_preset_exists():
     assert "local_gemma_4" in RUNTIME_PRESETS
     preset = RUNTIME_PRESETS["local_gemma_4"]
     assert preset.tool_strategy == "native"
-    assert preset.default_model == "gemma4"
+    assert preset.default_model == "gemma3:4b"
 
 
 def test_detect_tool_strategy_native_for_v03():

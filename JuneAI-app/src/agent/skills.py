@@ -227,6 +227,13 @@ def build_system_prompt(
                 "- Use exact tool names. Prefer structured data over prose in tool arguments.\n"
                 "- After tool use, synthesise results into a coherent user-facing answer.\n"
             ),
+            "llama": (
+                "- Call one tool at a time. Only call a second tool if it directly depends on the first.\n"
+                "- Use exact tool names as defined. Do not invent tool names.\n"
+                "- Use short, plain string values for all arguments. Avoid nesting or arrays unless required.\n"
+                "- Dates must be ISO format: YYYY-MM-DD. Leave unknown fields as empty strings.\n"
+                "- After tool use, give a concise user-facing answer.\n"
+            ),
             "openai_compatible": (
                 "- Call one tool at a time.\n"
                 "- Use exact tool names and short plain string values.\n"

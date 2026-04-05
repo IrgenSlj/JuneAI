@@ -80,6 +80,19 @@ class RuntimeConfig:
 
 
 RUNTIME_PRESETS: dict[str, RuntimePreset] = {
+    "local_llama3_2": RuntimePreset(
+        key="local_llama3_2",
+        label="Llama 3.2 3B (local)",
+        provider="openai_compatible",
+        model_env_var="LOCAL_LLAMA_MODEL_NAME",
+        default_model="llama3.2:3b",
+        default_base_url="http://localhost:11434/v1",
+        default_api_key="ollama",
+        temperature=0.3,
+        max_tokens=4096,
+        tool_strategy="native",
+        prompt_style="llama",
+    ),
     "local_mistral_3b": RuntimePreset(
         key="local_mistral_3b",
         label="Local Mistral 3B",
@@ -121,10 +134,10 @@ RUNTIME_PRESETS: dict[str, RuntimePreset] = {
     ),
     "local_gemma_4": RuntimePreset(
         key="local_gemma_4",
-        label="Gemma 4 (local)",
+        label="Gemma 3 4B (local)",
         provider="openai_compatible",
         model_env_var="LOCAL_GEMMA_MODEL_NAME",
-        default_model="gemma4",
+        default_model="gemma3:4b",
         default_base_url="http://localhost:11434/v1",
         default_api_key="ollama",
         temperature=1.0,
@@ -147,7 +160,7 @@ RUNTIME_PRESETS: dict[str, RuntimePreset] = {
     ),
 }
 
-DEFAULT_RUNTIME_PRESET = "local_gemma_4"
+DEFAULT_RUNTIME_PRESET = "local_llama3_2"
 
 
 def detect_tool_strategy(model_name: str) -> str:
