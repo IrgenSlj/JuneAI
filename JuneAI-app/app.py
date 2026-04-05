@@ -1835,6 +1835,66 @@ def get_rotating_sidebar_phrase(memory: Memory, now: datetime) -> str:
     return str(state.get("sidebar_phrase_text", generate_sidebar_phrase(now)))
 
 
+def is_first_run(memory: Memory) -> bool:
+    """Return True only once per user — when no messages and no data exist yet."""
+    if memory.get_app_state().get("_welcomed"):
+        return False
+    snapshot = memory.get_progress_snapshot()
+    has_any_data = any(
+        snapshot.get(k, 0)
+        for k in ("goal_count", "calendar_count", "habit_count", "gym_plan_count",
+                  "food_program_count", "relationship_count", "workout_session_count")
+    )
+    if has_any_data:
+        # Returning user whose welcome flag was never set — backfill and skip
+        memory.set_app_state_value("_welcomed", True)
+        return False
+    return True
+
+
+def build_welcome_message(memory: Memory) -> str:
+    """Build the one-time welcome message for a brand-new user."""
+    memory.set_app_state_value("_welcomed", True)
+    empty_chapters = memory.get_chapters_needing_attention()
+    priority_order = [
+        "Habits",
+        "Goals & Plans",
+        "Gym Schedule",
+        "Calendar",
+        "Food Schedule",
+        "Body Metrics",
+        "Family",
+        "Birthdays",
+        "Dating/Love",
+        "Trips",
+    ]
+    first_question_map = {
+        "Habits":        "What daily habits are you trying to build or protect? I'll track your streaks.",
+        "Goals & Plans": "What are you working toward right now — one goal or priority is enough to start.",
+        "Gym Schedule":  "What does your training week look like? Push, pull, legs, or something else?",
+        "Calendar":      "Any upcoming events, deadlines, or trips I should know about?",
+        "Food Schedule": "How do you approach food — any structure, goals, or dietary preferences worth noting?",
+        "Body Metrics":  "Want to do a quick body check-in? Weight, sleep, energy, stress, soreness — whatever you have.",
+        "Family":        "Tell me a bit about your family — names and relationships help me give better context.",
+        "Birthdays":     "Whose birthdays or anniversaries should I remember?",
+        "Dating/Love":   "Are you in a relationship or dating? Context helps me support you better.",
+        "Trips":         "Any travel planned in the coming months?",
+    }
+    first_question = "What is one thing you are working on right now — a goal, a plan, or a priority?"
+    for chapter in priority_order:
+        if chapter in empty_chapters:
+            first_question = first_question_map.get(chapter, first_question)
+            break
+
+    return (
+        "Hello. I'm June.\n\n"
+        "I work as a personal operating layer — tracking your plans, health, habits, relationships, "
+        "and anything else that should not be forgotten.\n\n"
+        "I get more useful the more context you give me, so let's start with one thing.\n\n"
+        + first_question
+    )
+
+
 def build_daily_checkin(memory: Memory) -> str:
     """Build June's proactive daily opening with a chapter-specific intake question."""
     now = current_local_time()
