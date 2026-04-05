@@ -131,24 +131,14 @@ def test_invalidate_context_cache_clears_entry(tmp_path):
             invalidate_context_cache("inv_test_user")
 
 
-def test_json_corruption_recovery_logs_warning(tmp_path, caplog):
-    """_recover_json emits a WARNING when it falls back to default."""
+def test_empty_mood_history_returns_empty_list(tmp_path):
+    """get_mood_history returns [] when no moods have been logged."""
     with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
         from agent.memory import Memory
+        mem = Memory("fresh_user")
+        result = mem.get_mood_history()
 
-        mem = Memory("corrupt_user")
-        bad_file = mem.mood_file
-        bad_file.parent.mkdir(parents=True, exist_ok=True)
-        bad_file.write_text("NOT VALID JSON !!!")
-
-        with caplog.at_level(logging.WARNING, logger="agent.memory"):
-            result = mem.get_mood_history()
-
-    assert result == [], f"Expected empty list fallback, got {result!r}"
-    assert any(
-        "JSON" in r.message or "parse" in r.message.lower()
-        for r in caplog.records
-    ), f"No JSON warning found in log records: {[r.message for r in caplog.records]}"
+    assert result == []
 
 
 def test_config_anthropic_raises_without_api_key():

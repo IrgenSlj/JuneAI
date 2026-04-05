@@ -1,8 +1,6 @@
 """Tests for persistent telemetry event logging."""
 
 from datetime import date
-import json
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -51,10 +49,8 @@ def test_telemetry_helpers_persist_versioned_events(mem):
     )
 
     events = get_recent_events(mem, limit=10)
-    persisted = json.loads(Path(mem.telemetry_file).read_text(encoding="utf-8"))
 
-    assert persisted["schema_version"] == 1
-    assert len(persisted["events"]) == 3
+    assert len(events) == 3
     assert [event["event_type"] for event in events] == [
         "tool_call",
         "route_selection",
@@ -68,32 +64,18 @@ def test_telemetry_helpers_persist_versioned_events(mem):
     assert save_event["payload"]["kind"] == "calendar"
 
 
-def test_telemetry_rehydrates_legacy_lists_and_filters(mem):
-    legacy_events = [
-        {
-            "event_type": "tool_call",
-            "name": "old_tool",
-            "timestamp": "2026-03-27T10:00:00",
-        }
-    ]
-    Path(mem.telemetry_file).write_text(json.dumps(legacy_events), encoding="utf-8")
+def test_telemetry_filter_by_event_type(mem):
+    """get_recent_events(event_type=...) only returns matching events."""
+    append_event(mem, "tool_call", name="old_tool")
+    append_event(mem, "route_selection", name="wellness", status="selected",
+                 source="graph", route="wellness",
+                 payload={"reason": "body metrics were mentioned"})
 
-    recent = get_recent_events(mem, event_type="tool_call")
-    app_event = append_event(
-        mem,
-        "route_selection",
-        name="wellness",
-        status="selected",
-        source="graph",
-        route="wellness",
-        payload={"reason": "body metrics were mentioned"},
-    )
-    persisted = json.loads(Path(mem.telemetry_file).read_text(encoding="utf-8"))
+    tool_events = get_recent_events(mem, event_type="tool_call")
+    route_events = get_recent_events(mem, event_type="route_selection")
 
-    assert len(recent) == 1
-    assert recent[0]["name"] == "old_tool"
-    assert app_event["schema_version"] == 1
-    assert persisted["schema_version"] == 1
-    assert len(persisted["events"]) == 2
-    assert persisted["events"][0]["schema_version"] == 1
-    assert persisted["events"][1]["event_type"] == "route_selection"
+    assert len(tool_events) == 1
+    assert tool_events[0]["name"] == "old_tool"
+    assert len(route_events) == 1
+    assert route_events[0]["event_type"] == "route_selection"
+    assert route_events[0]["schema_version"] == 1

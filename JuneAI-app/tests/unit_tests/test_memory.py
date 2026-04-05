@@ -57,10 +57,10 @@ def test_memory_creates_nested_directories(tmp_path):
     nested_dir = tmp_path / "nested" / "memory" / "state"
     with patch("agent.memory.MEMORY_DIR", str(nested_dir)):
         memory = Memory("test_user")
+        memory.save_message("user", "hello")
 
-    memory.save_message("user", "hello")
     assert nested_dir.exists()
-    assert (nested_dir / "test_user_chat.json").exists()
+    assert (nested_dir / "june.db").exists()
 
 
 def test_chat_history_capped_at_50(mem):
@@ -71,19 +71,14 @@ def test_chat_history_capped_at_50(mem):
     assert history[0]["content"] == "msg 10"
 
 
-def test_chat_history_recovers_from_trailing_garbage(mem):
-    chat_file = Path(mem.chat_file)
-    chat_file.write_text(
-        '[{"role": "user", "content": "hello", "timestamp": "2026-03-26T10:00:00"}]\n'
-        "unexpected trailing bytes",
-        encoding="utf-8",
-    )
-
-    history = mem.load_chat()
-
+def test_chat_history_is_durable_across_instances(memory_dir):
+    """Messages written by one Memory instance are visible to another."""
+    m1 = Memory("test_user")
+    m1.save_message("user", "hello")
+    m2 = Memory("test_user")
+    history = m2.load_chat()
     assert len(history) == 1
     assert history[0]["content"] == "hello"
-    assert chat_file.read_text(encoding="utf-8").strip().startswith("[")
 
 
 def test_log_and_get_mood(mem):
