@@ -2419,6 +2419,64 @@ active_privacy = build_runtime_privacy_status(active_runtime)
 st.session_state.current_runtime_label = active_runtime.label
 st.session_state.current_runtime_model = active_runtime.model
 
+# ── Model availability check for the active runtime ─────────────────────────
+# This catches the case where a user's stored preset (from SQLite app_state)
+# points to a model that hasn't been pulled yet — e.g. switching to Gemma in a
+# previous session without completing the download.
+_models_verified: set = st.session_state.setdefault("_models_verified", set())
+_active_model_key = f"{active_runtime.preset_key}:{active_runtime.model}"
+if (
+    active_runtime.is_local
+    and active_runtime.base_url
+    and _active_model_key not in _models_verified
+):
+    if not is_model_available(active_runtime.model, active_runtime.base_url):
+        _size_label = model_size_label(active_runtime.model)
+        _size_str = f" ({_size_label})" if _size_label else ""
+        st.markdown(
+            f'<div style="max-width:520px;margin:4rem auto 0;text-align:center;">'
+            f'<div style="font-family:Syne,sans-serif;font-size:1.4rem;font-weight:600;'
+            f'color:var(--j-text);margin-bottom:0.4rem;">Model not downloaded</div>'
+            f'<div style="font-size:13px;color:var(--j-muted);margin-bottom:1.5rem;">'
+            f'<code>{active_runtime.model}</code>{_size_str}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        _pull_col, _fallback_col = st.columns(2, gap="small")
+        with _pull_col:
+            _do_pull = st.button("Download now", key="pull_active_model", use_container_width=True)
+        with _fallback_col:
+            _do_fallback = st.button("Use Llama 3.2 instead", key="fallback_to_llama", use_container_width=True)
+        if _do_fallback:
+            st.session_state.selected_runtime_preset = "local_llama3_2"
+            memory.set_app_state_value("runtime_preset", "local_llama3_2")
+            st.rerun()
+        if _do_pull:
+            _pb = st.progress(0, text="Starting download…")
+            _sb = st.empty()
+            _pull_ok = False
+            for _c in pull_model_stream(active_runtime.model, active_runtime.base_url):
+                if _c.get("status") == "error":
+                    _sb.error(f"Pull failed: {_c.get('error', '')}")
+                    break
+                _t, _comp = _c.get("total", 0), _c.get("completed", 0)
+                if _t:
+                    _pb.progress(min(int(_comp / _t * 100), 100), text=f"Downloading… {int(_comp/_t*100)}%")
+                else:
+                    _sb.markdown(
+                        f'<div style="font-size:12px;color:var(--j-muted);text-align:center;">'
+                        f'{_c.get("status","")}</div>',
+                        unsafe_allow_html=True,
+                    )
+                if _c.get("status") == "success":
+                    _pull_ok = True
+            if _pull_ok:
+                _models_verified.add(_active_model_key)
+                st.rerun()
+        st.stop()
+    else:
+        _models_verified.add(_active_model_key)
+
 if not st.session_state.is_generating and memory.should_send_daily_checkin():
     daily_message = build_daily_checkin(memory)
     st.session_state.messages.append(AIMessage(content=daily_message))
@@ -2650,8 +2708,18 @@ if st.session_state.is_generating and st.session_state.pending_prompt:
             )
     except Exception as exc:
         st.session_state.is_generating = False
-        st.error(f"June ran into an issue: {exc}")
-        st.stop()
+        _exc_str = str(exc)
+        _is_model_not_found = (
+            "404" in _exc_str
+            and ("not found" in _exc_str.lower() or "model" in _exc_str.lower())
+        )
+        if _is_model_not_found:
+            # Clear the verified-models cache so the check above triggers on rerun
+            st.session_state.pop("_models_verified", None)
+            st.rerun()
+        else:
+            st.error(f"June ran into an issue: {_exc_str}")
+            st.stop()
 
     result = st.session_state.final_state
     if result:
