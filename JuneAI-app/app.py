@@ -903,8 +903,8 @@ st.markdown(
         color: var(--j-muted) !important;
     }
 
-    /* Remove Streamlit's default top padding on main block */
-    .main .block-container { padding-top: 0.5rem !important; }
+    /* Push content below the Streamlit toolbar (~52px) */
+    .main .block-container { padding-top: 3.75rem !important; }
 
     /* Smooth scrolling page-wide */
     html { scroll-behavior: smooth; }
@@ -2743,11 +2743,10 @@ st.markdown(
     f'<div style="display:flex;align-items:center;gap:0.75rem;'
     f'padding:0.55rem 0 0.4rem 0;border-bottom:1px solid var(--j-line);'
     f'margin-bottom:0.5rem;">'
-    # Logo + name
-    f'<div style="display:flex;align-items:center;gap:0.4rem;flex-shrink:0;">'
-    f'{_LOGO_SVG}'
-    f'<span style="font-family:Syne,sans-serif;font-weight:700;font-size:1.1rem;'
-    f'letter-spacing:-0.04em;color:var(--j-text);">June AI</span>'
+    # Logo (PNG) + name
+    f'<div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">'
+    f'<img src="/app/static/june_ai_logo.png" alt="June AI" '
+    f'style="height:32px;width:auto;object-fit:contain;display:block;">'
     f'</div>'
     # Quote (hidden narrow)
     f'<div style="flex:1;font-size:10px;color:var(--j-muted);font-style:italic;'
@@ -2886,33 +2885,53 @@ with chat_col:
         _pf = st.session_state.get("_pull_progress_file", "")
         _pct, _status = read_pull_progress(_pf)
 
-        # Show pct only once download is clearly moving; avoid "— 0%" noise
-        _pct_label = f" — {_pct}%" if _pct > 0 else ""
-        _progress_label = f"{_status}{_pct_label} · {_elapsed_str} elapsed"
-        st.progress(_pct / 100, text=_progress_label)
-        st.markdown(
-            f'<div style="font-size:11px;color:var(--j-muted);text-align:center;margin-top:0.4rem;">'
-            f'Downloading {html.escape(_dl_model)}'
-            f'{(" (" + html.escape(_size_label) + ")") if _size_label else ""} — '
-            f'do not close this window.'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-        if not ollama_cli_available():
-            st.info("Ollama CLI not found. Run manually:")
-            st.code(f"ollama pull {_dl_model}")
-
-        # Poll every 2 s
-        if is_model_available(_dl_model, _dl_base_url):
+        # ── Error state: Ollama version too old, or other fatal error ──
+        if _status.startswith("ERR:"):
+            _err_detail = _status[4:]
+            _is_version_err = "needs_update" in _err_detail or "version" in _err_detail.lower()
             cleanup_progress_file(_pf)
             for _k in ("_pulling_active_model", "_pull_proc_started",
                        "_pull_start_time", "_pull_progress_file"):
                 st.session_state.pop(_k, None)
-            _models_verified.add(_active_model_key)
-            st.rerun()
+            if _is_version_err:
+                st.error(
+                    f"**Ollama needs to be updated** to download `{_dl_model}`.\n\n"
+                    f"Run this in your terminal, then restart the app:"
+                )
+                st.code("brew upgrade ollama", language="bash")
+            else:
+                st.error(f"Download failed: {_err_detail}")
+            if st.button("Use Llama 3.2 instead", key="err_fallback_llama", use_container_width=True):
+                st.session_state.selected_runtime_preset = "local_llama3_2"
+                memory.set_app_state_value("runtime_preset", "local_llama3_2")
+                st.rerun()
+        elif not ollama_cli_available():
+            st.info("Ollama CLI not found. Run manually:")
+            st.code(f"ollama pull {_dl_model}")
         else:
-            _time.sleep(2)
-            st.rerun()
+            # Normal in-progress display
+            _pct_label = f" — {_pct}%" if _pct > 0 else ""
+            _progress_label = f"{_status}{_pct_label} · {_elapsed_str} elapsed"
+            st.progress(_pct / 100, text=_progress_label)
+            st.markdown(
+                f'<div style="font-size:11px;color:var(--j-muted);text-align:center;margin-top:0.4rem;">'
+                f'Downloading {html.escape(_dl_model)}'
+                f'{(" (" + html.escape(_size_label) + ")") if _size_label else ""} — '
+                f'do not close this window.'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            # Poll every 2 s
+            if is_model_available(_dl_model, _dl_base_url):
+                cleanup_progress_file(_pf)
+                for _k in ("_pulling_active_model", "_pull_proc_started",
+                           "_pull_start_time", "_pull_progress_file"):
+                    st.session_state.pop(_k, None)
+                _models_verified.add(_active_model_key)
+                st.rerun()
+            else:
+                _time.sleep(2)
+                st.rerun()
 
   else:
     # ── Normal chat ──────────────────────────────────────────────────

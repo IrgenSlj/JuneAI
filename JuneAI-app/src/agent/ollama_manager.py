@@ -224,6 +224,14 @@ def start_pull_with_progress(model_name: str) -> tuple[subprocess.Popen | None, 
                         "out of date", "download ollama",
                     )):
                         continue
+                    # Detect fatal version-mismatch error from Ollama CLI
+                    if any(kw in _cl for kw in (
+                        "requires a newer version",
+                        "requires newer version",
+                        "version of ollama",
+                    )):
+                        _write_progress(path, 0, "ERR:needs_update")
+                        break
                     m = re.search(r"(\d+)%", clean)
                     if m:
                         pct = int(m.group(1))
@@ -232,7 +240,7 @@ def start_pull_with_progress(model_name: str) -> tuple[subprocess.Popen | None, 
                         pct = 100
                         status = "Done"
                     elif "error" in _cl:
-                        status = clean[:60]
+                        status = f"ERR:{clean[:55]}"
                     elif clean:
                         # e.g. "pulling manifest", "verifying sha256 digest"
                         status = clean[:60]
