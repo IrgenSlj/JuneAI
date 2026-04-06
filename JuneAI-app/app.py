@@ -1142,24 +1142,21 @@ if _startup_base_url and not is_model_available(_startup_model, _startup_base_ur
             f'</div>',
             unsafe_allow_html=True,
         )
-        _progress_bar = st.progress(0, text="Starting download…")
-        _status_box = st.empty()
+        _progress_bar = st.progress(0, text="Connecting to Ollama…")
+        _status_err = st.empty()
     _pull_ok = False
     for _chunk in pull_model_stream(_startup_model, _startup_base_url):
         _status = _chunk.get("status", "")
-        if _chunk.get("status") == "error":
-            _status_box.error(f"Pull failed: {_chunk.get('error', 'unknown error')}")
+        if _status == "error":
+            _status_err.error(f"Pull failed: {_chunk.get('error', 'unknown error')}")
             st.stop()
-        total = _chunk.get("total", 0)
-        completed = _chunk.get("completed", 0)
-        if total and total > 0:
-            _pct = min(int(completed / total * 100), 100)
+        _total = _chunk.get("total", 0)
+        _completed = _chunk.get("completed", 0)
+        if _total:
+            _pct = min(int(_completed / _total * 100), 100)
             _progress_bar.progress(_pct, text=f"Downloading… {_pct}%")
         else:
-            _status_box.markdown(
-                f'<div style="font-size:12px;color:var(--j-muted);text-align:center;">{_status}</div>',
-                unsafe_allow_html=True,
-            )
+            _progress_bar.progress(0, text=f"{_status}…" if _status else "Connecting to Ollama…")
         if _status == "success":
             _pull_ok = True
     if _pull_ok:
@@ -2340,17 +2337,20 @@ with st.sidebar:
                     st.rerun()
             # Run the pull if confirmed
             if st.session_state.get("_pulling_model") == chosen_runtime.model:
-                _sb_bar = st.progress(0, text="Downloading…")
+                _sb_bar = st.progress(0, text="Connecting to Ollama…")
                 _pull_done = False
                 for _c in pull_model_stream(chosen_runtime.model, chosen_runtime.base_url):
-                    if _c.get("status") == "error":
+                    _c_status = _c.get("status", "")
+                    if _c_status == "error":
                         st.error(f"Pull failed: {_c.get('error', '')}")
                         break
                     _tot = _c.get("total", 0)
                     _comp = _c.get("completed", 0)
                     if _tot:
                         _sb_bar.progress(min(int(_comp / _tot * 100), 100), text=f"Downloading… {int(_comp/_tot*100)}%")
-                    if _c.get("status") == "success":
+                    else:
+                        _sb_bar.progress(0, text=f"{_c_status}…" if _c_status else "Connecting to Ollama…")
+                    if _c_status == "success":
                         _pull_done = True
                 if _pull_done:
                     del st.session_state["_pulling_model"]
@@ -2507,36 +2507,39 @@ if (
                 f'</div>',
                 unsafe_allow_html=True,
             )
-            _do_pull = st.button("Download now", key="pull_active_model", use_container_width=True)
-            st.markdown('<div style="height:0.4rem;"></div>', unsafe_allow_html=True)
-            _do_fallback = st.button("Use Llama 3.2 instead", key="fallback_to_llama", use_container_width=True)
-        if _do_fallback:
-            st.session_state.selected_runtime_preset = "local_llama3_2"
-            memory.set_app_state_value("runtime_preset", "local_llama3_2")
-            st.rerun()
-        if _do_pull:
+            if not st.session_state.get("_pulling_active_model"):
+                _do_pull = st.button("Download now", key="pull_active_model", use_container_width=True)
+                st.markdown('<div style="height:0.4rem;"></div>', unsafe_allow_html=True)
+                _do_fallback = st.button("Use Llama 3.2 instead", key="fallback_to_llama", use_container_width=True)
+                if _do_fallback:
+                    st.session_state.selected_runtime_preset = "local_llama3_2"
+                    memory.set_app_state_value("runtime_preset", "local_llama3_2")
+                    st.rerun()
+                if _do_pull:
+                    st.session_state["_pulling_active_model"] = active_runtime.model
+                    st.rerun()
+        if st.session_state.get("_pulling_active_model"):
             _, _prog_col, _ = st.columns([1, 2, 1])
             with _prog_col:
-                _pb = st.progress(0, text="Starting download…")
+                _pb = st.progress(0, text="Connecting to Ollama…")
                 _sb = st.empty()
             _pull_ok = False
             for _c in pull_model_stream(active_runtime.model, active_runtime.base_url):
-                if _c.get("status") == "error":
-                    with _prog_col:
-                        _sb.error(f"Pull failed: {_c.get('error', '')}")
+                _status = _c.get("status", "")
+                if _status == "error":
+                    _sb.error(f"Pull failed: {_c.get('error', '')}")
+                    st.session_state.pop("_pulling_active_model", None)
                     break
                 _t, _comp = _c.get("total", 0), _c.get("completed", 0)
                 if _t:
-                    _pb.progress(min(int(_comp / _t * 100), 100), text=f"Downloading… {int(_comp/_t*100)}%")
+                    _pct = min(int(_comp / _t * 100), 100)
+                    _pb.progress(_pct, text=f"Downloading… {_pct}%")
                 else:
-                    _sb.markdown(
-                        f'<div style="font-size:12px;color:var(--j-muted);text-align:center;">'
-                        f'{_c.get("status","")}</div>',
-                        unsafe_allow_html=True,
-                    )
-                if _c.get("status") == "success":
+                    _pb.progress(0, text=f"{_status}…" if _status else "Connecting to Ollama…")
+                if _status == "success":
                     _pull_ok = True
             if _pull_ok:
+                st.session_state.pop("_pulling_active_model", None)
                 _models_verified.add(_active_model_key)
                 st.rerun()
         st.stop()
