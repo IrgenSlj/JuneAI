@@ -13,8 +13,12 @@ free to rerun and poll is_model_available() every few seconds.
 from __future__ import annotations
 
 import json
+import os
+import re
 import shutil
 import subprocess
+import tempfile
+import threading
 import urllib.request
 from typing import Generator
 
@@ -159,6 +163,113 @@ def start_pull(model_name: str) -> subprocess.Popen | None:
 def ollama_cli_available() -> bool:
     """Return True when the ollama CLI binary exists on PATH."""
     return _find_ollama_bin() is not None
+
+
+def start_pull_with_progress(model_name: str) -> tuple[subprocess.Popen | None, str]:
+    """Launch `ollama pull <model>` and track its progress via a temp file.
+
+    Returns (process, progress_file_path).  A daemon thread reads the
+    subprocess stdout (which contains lines like "45%") and writes the
+    latest "pct|status" to progress_file so the Streamlit main thread can
+    read it on each rerun without blocking.
+
+    Returns (None, "") when the Ollama CLI is not on PATH.
+    """
+    ollama_bin = _find_ollama_bin()
+    if not ollama_bin:
+        return None, ""
+
+    # Unique temp file per model so concurrent pulls don't clash
+    safe_name = re.sub(r"[^a-zA-Z0-9_-]", "_", model_name)
+    progress_file = os.path.join(tempfile.gettempdir(), f"juneai_pull_{safe_name}.txt")
+    # Initialise so the reader has something to return immediately
+    _write_progress(progress_file, 0, "Starting…")
+
+    proc = subprocess.Popen(
+        [ollama_bin, "pull", model_name],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=0,        # unbuffered so progress appears quickly
+        encoding="utf-8",
+        errors="replace",
+    )
+
+    def _reader(proc: subprocess.Popen, path: str) -> None:
+        """Read subprocess output char-by-char; split on \\r and \\n."""
+        pct = 0
+        status = "Downloading"
+        buf = ""
+        try:
+            assert proc.stdout is not None
+            while True:
+                char = proc.stdout.read(1)
+                if not char:
+                    break
+                if char in ("\r", "\n"):
+                    line = buf.strip()
+                    buf = ""
+                    if not line:
+                        continue
+                    m = re.search(r"(\d+)%", line)
+                    if m:
+                        pct = int(m.group(1))
+                        status = "Downloading"
+                    elif "success" in line.lower():
+                        pct = 100
+                        status = "Done"
+                    elif "error" in line.lower():
+                        status = line[:60]
+                    elif line:
+                        # e.g. "pulling manifest", "verifying sha256 digest"
+                        status = line[:60]
+                    _write_progress(path, pct, status)
+                else:
+                    buf += char
+        except Exception:
+            pass
+        # Final write on process exit
+        if pct == 100 or "done" in status.lower():
+            _write_progress(path, 100, "Done")
+
+    t = threading.Thread(target=_reader, args=(proc, progress_file), daemon=True)
+    t.start()
+    return proc, progress_file
+
+
+def _write_progress(path: str, pct: int, status: str) -> None:
+    try:
+        with open(path, "w") as f:
+            f.write(f"{pct}|{status}")
+    except Exception:
+        pass
+
+
+def read_pull_progress(progress_file: str) -> tuple[int, str]:
+    """Read the latest pull progress written by start_pull_with_progress.
+
+    Returns (pct: 0-100, status_line: str).
+    Returns (0, "Downloading") when the file doesn't exist yet.
+    """
+    if not progress_file or not os.path.exists(progress_file):
+        return 0, "Downloading"
+    try:
+        raw = open(progress_file).read().strip()
+        if "|" in raw:
+            pct_str, status = raw.split("|", 1)
+            return min(int(pct_str), 100), status
+    except Exception:
+        pass
+    return 0, "Downloading"
+
+
+def cleanup_progress_file(progress_file: str) -> None:
+    """Remove a progress temp file once the download is complete."""
+    try:
+        if progress_file and os.path.exists(progress_file):
+            os.remove(progress_file)
+    except Exception:
+        pass
 
 
 # ---------------------------------------------------------------------------

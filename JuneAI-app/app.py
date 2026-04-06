@@ -15,11 +15,14 @@ from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, Too
 
 from agent.config import RuntimeConfig, resolve_runtime_config, runtime_preset_options
 from agent.ollama_manager import (
+    cleanup_progress_file,
     is_model_available,
     is_ollama_running,
     model_size_label,
     ollama_cli_available,
+    read_pull_progress,
     start_pull,
+    start_pull_with_progress,
 )
 from agent.graph import create_june_agent, startup_error
 from agent.memory import Memory
@@ -1177,6 +1180,19 @@ if _startup_base_url and not is_model_available(_startup_model, _startup_base_ur
     _size_label = model_size_label(_startup_model)
     _size_str = f" · {_size_label}" if _size_label else ""
     _has_cli = ollama_cli_available()
+
+    # Minimal header so the brand is visible during startup download
+    st.markdown(
+        '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0 0.75rem 0;'
+        'border-bottom:1px solid rgba(26,24,21,0.08);margin-bottom:1.5rem;">'
+        '<svg width="24" height="24" viewBox="0 0 28 28" fill="none">'
+        '<polygon points="14,2 26,8.5 26,19.5 14,26 2,19.5 2,8.5" '
+        'stroke="#0F5F4A" stroke-width="1.75" fill="rgba(15,95,74,0.07)"/>'
+        '<circle cx="14" cy="14" r="4" fill="#0F5F4A" opacity="0.85"/></svg>'
+        '<span style="font-family:Syne,sans-serif;font-weight:700;font-size:1.1rem;'
+        'letter-spacing:-0.04em;">June AI</span></div>',
+        unsafe_allow_html=True,
+    )
 
     # Guard: if Ollama service itself isn't running, show a clear error.
     if not is_ollama_running(_startup_base_url):
@@ -2689,105 +2705,23 @@ active_privacy = build_runtime_privacy_status(active_runtime)
 st.session_state.current_runtime_label = active_runtime.label
 st.session_state.current_runtime_model = active_runtime.model
 
-# ── Model availability check for the active runtime ─────────────────────────
-# This catches the case where a user's stored preset (from SQLite app_state)
-# points to a model that hasn't been pulled yet — e.g. switching to Gemma in a
-# previous session without completing the download.
-_models_verified: set = st.session_state.setdefault("_models_verified", set())
-_active_model_key = f"{active_runtime.preset_key}:{active_runtime.model}"
-if (
-    active_runtime.is_local
-    and active_runtime.base_url
-    and _active_model_key not in _models_verified
-):
-    if not is_model_available(active_runtime.model, active_runtime.base_url):
-        _size_label = model_size_label(active_runtime.model)
-        _size_str = f" · {_size_label}" if _size_label else ""
-        # Centred card — constrain width so buttons don't span the full viewport
-        _, _card_col, _ = st.columns([1, 2, 1])
-        with _card_col:
-            st.markdown(
-                f'<div style="text-align:center;padding:3rem 0 1.5rem;">'
-                f'<div style="font-family:Syne,sans-serif;font-size:1.35rem;font-weight:600;'
-                f'color:var(--j-text);margin-bottom:0.35rem;">Model not downloaded</div>'
-                f'<div style="font-size:13px;color:var(--j-muted);margin-bottom:1.5rem;">'
-                f'<code>{active_runtime.model}</code>{_size_str}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-            if not st.session_state.get("_pulling_active_model"):
-                _do_pull = st.button("Download now", key="pull_active_model", use_container_width=True)
-                st.markdown('<div style="height:0.4rem;"></div>', unsafe_allow_html=True)
-                _do_fallback = st.button("Use Llama 3.2 instead", key="fallback_to_llama", use_container_width=True)
-                if _do_fallback:
-                    st.session_state.selected_runtime_preset = "local_llama3_2"
-                    memory.set_app_state_value("runtime_preset", "local_llama3_2")
-                    st.rerun()
-                if _do_pull:
-                    st.session_state["_pulling_active_model"] = active_runtime.model
-                    st.rerun()
-        if st.session_state.get("_pulling_active_model"):
-            import time as _time
-
-            _pull_model = st.session_state["_pulling_active_model"]
-            _pull_base_url = active_runtime.base_url
-            _has_cli = ollama_cli_available()
-
-            # Kick off `ollama pull` as a fire-and-forget OS process (once).
-            if not st.session_state.get("_pull_proc_started"):
-                start_pull(_pull_model)
-                st.session_state["_pull_proc_started"] = True
-                st.session_state["_pull_start_time"] = _time.time()
-
-            _elapsed_s = int(_time.time() - st.session_state.get("_pull_start_time", _time.time()))
-            _elapsed_str = (
-                f"{_elapsed_s}s" if _elapsed_s < 60
-                else f"{_elapsed_s // 60}m {_elapsed_s % 60}s"
-            )
-
-            _, _prog_col, _ = st.columns([1, 2, 1])
-            with _prog_col:
-                st.progress(0, text=f"Downloading… · {_elapsed_str} elapsed")
-                st.markdown(
-                    '<div style="font-size:11px;color:var(--j-muted);text-align:center;margin-top:0.4rem;">'
-                    f'Downloading {html.escape(_pull_model)}'
-                    f'{(" (" + html.escape(_size_label) + ")") if _size_label else ""} — '
-                    'do not close this window.'
-                    '</div>',
-                    unsafe_allow_html=True,
-                )
-                if not _has_cli:
-                    st.info("Ollama CLI not found on PATH. Run this in your terminal to download manually:")
-                    st.code(f"ollama pull {_pull_model}")
-
-            # Poll is_model_available every 2 s via rerun — no blocking loops.
-            if is_model_available(_pull_model, _pull_base_url):
-                for _k in ("_pulling_active_model", "_pull_proc_started", "_pull_start_time"):
-                    st.session_state.pop(_k, None)
-                _models_verified.add(_active_model_key)
-                st.rerun()
-            else:
-                _time.sleep(2)
-                st.rerun()
-        st.stop()
-    else:
-        _models_verified.add(_active_model_key)
-
-if not st.session_state.is_generating and memory.should_send_daily_checkin():
-    if is_first_run(memory):
-        opening_message = build_welcome_message(memory)
-        append_activity("welcome | first run")
-    else:
-        opening_message = build_daily_checkin(memory)
-        append_activity("daily check-in | sent")
-    st.session_state.messages.append(AIMessage(content=opening_message))
-    memory.save_message("assistant", opening_message)
-    memory.mark_daily_checkin_sent()
-
+# Compute display variables before rendering anything
 snapshot = memory.get_progress_snapshot()
 active_skill = SKILLS.get(st.session_state.active_skill_key, SKILLS[DEFAULT_SKILL])
 show_right_panel = st.session_state.ui_state.get("show_right_panel", True)
 show_left_panel = st.session_state.get("show_left_panel", True)
+
+# Model availability flag — drives chat vs download screen
+_models_verified: set = st.session_state.setdefault("_models_verified", set())
+_active_model_key = f"{active_runtime.preset_key}:{active_runtime.model}"
+_model_ready = (
+    not active_runtime.is_local
+    or not active_runtime.base_url
+    or _active_model_key in _models_verified
+    or is_model_available(active_runtime.model, active_runtime.base_url)
+)
+if _model_ready:
+    _models_verified.add(_active_model_key)
 
 # ---------------------------------------------------------------------------
 # Top bar: Logo | Quote | Date+Time (calendar) | Panel toggles + Settings
@@ -2884,9 +2818,97 @@ if left_col is not None:
         render_health_panel(memory)
         st.markdown('</div>', unsafe_allow_html=True)
 
-# ── Center: Chat ──────────────────────────────────────────────────────────
+# ── Center: Chat or model-download screen ────────────────────────────────
+
+# Daily check-in only fires when the model is ready
+if _model_ready and not st.session_state.is_generating and memory.should_send_daily_checkin():
+    if is_first_run(memory):
+        opening_message = build_welcome_message(memory)
+        append_activity("welcome | first run")
+    else:
+        opening_message = build_daily_checkin(memory)
+        append_activity("daily check-in | sent")
+    st.session_state.messages.append(AIMessage(content=opening_message))
+    memory.save_message("assistant", opening_message)
+    memory.mark_daily_checkin_sent()
 
 with chat_col:
+  if not _model_ready:
+    # ── Model download screen ──────────────────────────────────────────
+    import time as _time
+
+    _dl_model = active_runtime.model
+    _dl_base_url = active_runtime.base_url
+    _size_label = model_size_label(_dl_model)
+    _size_str = f" · {_size_label}" if _size_label else ""
+
+    st.markdown(
+        f'<div style="text-align:center;padding:2.5rem 0 1rem;">'
+        f'<div style="font-family:Syne,sans-serif;font-size:1.25rem;font-weight:600;'
+        f'color:var(--j-text);margin-bottom:0.35rem;">Model not downloaded</div>'
+        f'<div style="font-size:13px;color:var(--j-muted);margin-bottom:1.5rem;">'
+        f'<code>{_dl_model}</code>{_size_str}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    if not st.session_state.get("_pulling_active_model"):
+        _bc1, _bc2 = st.columns(2, gap="small")
+        with _bc1:
+            if st.button("Download now", key="pull_active_model", use_container_width=True, type="primary"):
+                st.session_state["_pulling_active_model"] = _dl_model
+                st.rerun()
+        with _bc2:
+            if st.button("Use Llama 3.2 instead", key="fallback_to_llama", use_container_width=True):
+                st.session_state.selected_runtime_preset = "local_llama3_2"
+                memory.set_app_state_value("runtime_preset", "local_llama3_2")
+                st.rerun()
+    else:
+        # Kick off download with progress tracking (once)
+        if not st.session_state.get("_pull_proc_started"):
+            _, _pf = start_pull_with_progress(_dl_model)
+            st.session_state["_pull_proc_started"] = True
+            st.session_state["_pull_progress_file"] = _pf
+            st.session_state["_pull_start_time"] = _time.time()
+
+        _elapsed_s = int(_time.time() - st.session_state.get("_pull_start_time", _time.time()))
+        _elapsed_str = (
+            f"{_elapsed_s}s" if _elapsed_s < 60
+            else f"{_elapsed_s // 60}m {_elapsed_s % 60}s"
+        )
+        _pf = st.session_state.get("_pull_progress_file", "")
+        _pct, _status = read_pull_progress(_pf)
+
+        st.progress(
+            _pct / 100,
+            text=f"{_status} — {_pct}% · {_elapsed_str} elapsed",
+        )
+        st.markdown(
+            f'<div style="font-size:11px;color:var(--j-muted);text-align:center;margin-top:0.4rem;">'
+            f'Downloading {html.escape(_dl_model)}'
+            f'{(" (" + html.escape(_size_label) + ")") if _size_label else ""} — '
+            f'do not close this window.'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        if not ollama_cli_available():
+            st.info("Ollama CLI not found. Run manually:")
+            st.code(f"ollama pull {_dl_model}")
+
+        # Poll every 2 s
+        if is_model_available(_dl_model, _dl_base_url):
+            cleanup_progress_file(_pf)
+            for _k in ("_pulling_active_model", "_pull_proc_started",
+                       "_pull_start_time", "_pull_progress_file"):
+                st.session_state.pop(_k, None)
+            _models_verified.add(_active_model_key)
+            st.rerun()
+        else:
+            _time.sleep(2)
+            st.rerun()
+
+  else:
+    # ── Normal chat ──────────────────────────────────────────────────
     render_first_run_onboarding(memory)
     render_starter_prompts(memory)
 
@@ -3013,7 +3035,7 @@ else:
 # Generation loop
 # ---------------------------------------------------------------------------
 
-if st.session_state.is_generating and st.session_state.pending_prompt:
+if _model_ready and st.session_state.is_generating and st.session_state.pending_prompt:
     prompt = st.session_state.pending_prompt
     user_msg = HumanMessage(content=prompt)
     st.session_state.messages.append(user_msg)
