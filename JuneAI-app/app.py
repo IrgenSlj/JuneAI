@@ -2823,9 +2823,7 @@ else:
 
 if left_col is not None:
     with left_col:
-        st.markdown('<div class="june-panel-card">', unsafe_allow_html=True)
         render_health_panel(memory)
-        st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Center: Chat or model-download screen ────────────────────────────────
 
@@ -2888,10 +2886,10 @@ with chat_col:
         _pf = st.session_state.get("_pull_progress_file", "")
         _pct, _status = read_pull_progress(_pf)
 
-        st.progress(
-            _pct / 100,
-            text=f"{_status} — {_pct}% · {_elapsed_str} elapsed",
-        )
+        # Show pct only once download is clearly moving; avoid "— 0%" noise
+        _pct_label = f" — {_pct}%" if _pct > 0 else ""
+        _progress_label = f"{_status}{_pct_label} · {_elapsed_str} elapsed"
+        st.progress(_pct / 100, text=_progress_label)
         st.markdown(
             f'<div style="font-size:11px;color:var(--j-muted);text-align:center;margin-top:0.4rem;">'
             f'Downloading {html.escape(_dl_model)}'
@@ -3016,8 +3014,6 @@ with chat_col:
 
 if right_col is not None:
     with right_col:
-        st.markdown('<div class="june-panel-card">', unsafe_allow_html=True)
-
         workspace_placeholder = st.empty()
         activity_placeholder = st.empty()
 

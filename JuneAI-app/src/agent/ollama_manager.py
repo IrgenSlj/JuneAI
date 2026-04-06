@@ -211,18 +211,27 @@ def start_pull_with_progress(model_name: str) -> tuple[subprocess.Popen | None, 
                     buf = ""
                     if not line:
                         continue
-                    # Skip URLs and ANSI escape sequences
+                    # Strip ANSI codes then filter noise lines
                     clean = re.sub(r"\x1b\[[0-9;]*m", "", line).strip()
+                    # Skip blank lines, URLs, and Ollama version-update warnings
+                    if not clean:
+                        continue
                     if re.match(r"https?://", clean):
+                        continue
+                    _cl = clean.lower()
+                    if any(kw in _cl for kw in (
+                        "please download", "latest version", "note:", "update available",
+                        "out of date", "download ollama",
+                    )):
                         continue
                     m = re.search(r"(\d+)%", clean)
                     if m:
                         pct = int(m.group(1))
                         status = "Downloading"
-                    elif "success" in clean.lower():
+                    elif "success" in _cl:
                         pct = 100
                         status = "Done"
-                    elif "error" in clean.lower():
+                    elif "error" in _cl:
                         status = clean[:60]
                     elif clean:
                         # e.g. "pulling manifest", "verifying sha256 digest"
