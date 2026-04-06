@@ -131,21 +131,87 @@ st.markdown(
         padding-right: 1.25rem !important;
     }
 
-    /* ── Streamlit sidebar: slim and clean ─────────────────── */
-    [data-testid="stSidebar"] {
-        background: var(--j-surface) !important;
-        border-right: 1px solid var(--j-line) !important;
-        box-shadow: none !important;
-        min-width: var(--j-sidebar-w) !important;
-        max-width: var(--j-sidebar-w) !important;
+    /* ── Hide native Streamlit sidebar (panels are now columns) ── */
+    [data-testid="stSidebar"],
+    [data-testid="stSidebarCollapseButton"],
+    [data-testid="stSidebarNavButton"],
+    [data-testid="collapsedControl"] { display: none !important; }
+
+    /* ── Top bar ───────────────────────────────────────────── */
+    .june-topbar-wrap {
+        border-bottom: 1px solid var(--j-line);
+        margin-bottom: 0.85rem;
+        padding-bottom: 0.55rem;
+        animation: slideDown 0.18s ease both;
     }
-    [data-testid="stSidebar"] > div:first-child {
-        padding-top: 1.25rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
+    .june-topbar-logo {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.25rem 0;
     }
-    /* Collapse arrow — hide it, sidebar has its own toggle */
-    [data-testid="stSidebarCollapseButton"] { display: none !important; }
+    .june-logo-icon {
+        flex-shrink: 0;
+    }
+    .june-logo-text {
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 1.15rem;
+        letter-spacing: -0.04em;
+        color: var(--j-text);
+        line-height: 1;
+        animation: breathe 4s ease-in-out infinite;
+    }
+    .june-topbar-quote {
+        font-size: 10px;
+        color: var(--j-muted);
+        font-style: italic;
+        line-height: 1.55;
+        padding: 0.3rem 0;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+    .june-topbar-datetime {
+        text-align: center;
+        padding: 0.3rem 0;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--j-text);
+        letter-spacing: 0.01em;
+    }
+    .june-topbar-time {
+        display: block;
+        font-size: 9px;
+        font-weight: 400;
+        color: var(--j-muted);
+        margin-top: 1px;
+    }
+
+    /* ── Panel card (shared by both left and right panels) ─── */
+    .june-panel-card {
+        background: var(--j-surface);
+        border: 1px solid var(--j-line);
+        border-radius: var(--j-radius);
+        padding: 1rem 0.85rem;
+        min-height: 60vh;
+        animation: panelIn 0.2s ease both;
+    }
+    .june-panel-label {
+        font-family: "Syne", sans-serif;
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--j-accent);
+        margin-bottom: 0.6rem;
+    }
+    .june-panel-section {
+        margin-top: 0.75rem;
+        padding-top: 0.65rem;
+        border-top: 1px solid var(--j-line);
+    }
 
     /* ── Form inputs ───────────────────────────────────────── */
     [data-testid="stTextInput"] input,
@@ -248,25 +314,8 @@ st.markdown(
         to   { opacity: 1; transform: translateY(0);    }
     }
 
-    /* ── Page header bar ───────────────────────────────────── */
-    .june-header-bar {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 0.6rem 0;
-        margin-bottom: 1rem;
-        border-bottom: 1px solid var(--j-line);
-        animation: slideDown 0.2s ease both;
-    }
-    .june-header-logo {
-        font-family: "Syne", sans-serif;
-        font-weight: 700;
-        font-size: 1.2rem;
-        letter-spacing: -0.04em;
-        color: var(--j-text);
-        margin-right: 0.5rem;
-        animation: breathe 4s ease-in-out infinite;
-    }
+    /* ── Page header bar (legacy, kept for compatibility) ─── */
+    .june-header-bar { display: none; }
     .june-header-pill {
         border: 1px solid var(--j-line);
         border-radius: 999px;
@@ -280,18 +329,6 @@ st.markdown(
         border-color: rgba(15,95,74,0.2);
         background: var(--j-accent-soft);
         color: var(--j-accent);
-    }
-    .june-header-sep {
-        flex: 1;
-    }
-    .june-header-phrase {
-        font-size: 10px;
-        color: var(--j-muted);
-        font-style: italic;
-        max-width: 280px;
-        text-overflow: ellipsis;
-        overflow: hidden;
-        white-space: nowrap;
     }
 
     /* ── Surface cards ─────────────────────────────────────── */
@@ -1092,24 +1129,16 @@ st.markdown(
 
     /* ── Responsive ──────────────────────────────────────────── */
     @media (max-width: 960px) {
-        :root { --j-sidebar-w: 220px; }
-        .june-header-phrase { display: none; }
+        .june-topbar-quote { display: none; }
     }
     @media (max-width: 768px) {
-        /* Hide the right rail — navigation is still accessible via the toggle */
-        [data-testid="stSidebar"] { display: none !important; }
         .block-container { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
         .june-message { font-size: 13px !important; max-width: 98% !important; }
         .june-message-user { max-width: 86% !important; }
         .june-message-assistant { max-width: 98% !important; }
-        /* Keep the input area accessible at the bottom */
         .stForm { position: sticky; bottom: 0; background: var(--j-bg); z-index: 10; padding-top: 0.5rem; }
-        /* Reduce transcript height on mobile to leave room for input */
         .june-transcript { max-height: 55vh; }
-        /* Tighter header on mobile */
-        .june-header-bar { padding: 0.5rem 0.75rem; }
-        .june-header-pill { display: none; }
-        .june-header-logo { font-size: 1rem; }
+        .june-panel-card { display: none; }
     }
     @media (max-width: 480px) {
         .june-message { font-size: 13px !important; }
@@ -2307,213 +2336,326 @@ def handle_stream_chunk(
 
 
 # ---------------------------------------------------------------------------
-# Left sidebar — slim: brand, profile, runtime, quick stats
+# Health panel (left column)
 # ---------------------------------------------------------------------------
 
-with st.sidebar:
-    now = current_local_time()
+def render_health_panel(memory: Memory) -> None:
+    """Render the health/wellness left panel content."""
+    st.markdown('<div class="june-panel-label">Health</div>', unsafe_allow_html=True)
 
-    user_id = st.session_state.get("profile_input", "admin")
-    memory_for_sidebar = Memory(user_id)
-    stored_runtime_preset = str(
-        st.session_state.get(
-            "selected_runtime_preset",
-            memory_for_sidebar.get_app_state().get("runtime_preset", RUNTIME_CONFIG.preset_key),
-        )
-    )
-    if "selected_runtime_preset" not in st.session_state:
-        st.session_state.selected_runtime_preset = stored_runtime_preset
-    current_runtime = runtime_for_preset(stored_runtime_preset)
-    current_privacy = build_runtime_privacy_status(current_runtime)
-    sidebar_phrase = get_rotating_sidebar_phrase(memory_for_sidebar, now)
-
-    # Brand
-    st.markdown(
-        f'<div class="june-brand">June</div>'
-        f'<div class="june-copy">{html.escape(sidebar_phrase)}</div>'
-        f'<div style="font-size:9px;color:var(--j-muted);margin-bottom:0.75rem;">'
-        f'{now.strftime("%A %d %B")} · {current_part_of_day(now)}</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.markdown('<hr style="border:none;border-top:1px solid var(--j-line);margin:0.5rem 0;">', unsafe_allow_html=True)
-
-    # Profile
-    user_id = st.text_input("Profile", value=user_id, key="profile_input", label_visibility="collapsed",
-                             placeholder="Profile name")
-
-    # Runtime selector
-    preset_options = list(runtime_preset_options())
-    preset_keys = [preset.key for preset in preset_options]
-    selected_index = preset_keys.index(stored_runtime_preset) if stored_runtime_preset in preset_keys else 0
-    chosen_preset = st.selectbox(
-        "Runtime",
-        options=preset_keys,
-        index=selected_index,
-        format_func=lambda key: runtime_for_preset(key).label,
-        key="runtime_preset_picker",
-        disabled=st.session_state.get("is_generating", False),
-        label_visibility="collapsed",
-    )
-    chosen_runtime = runtime_for_preset(chosen_preset)
-    chosen_privacy = build_runtime_privacy_status(chosen_runtime)
-    st.markdown(
-        f'<div style="font-size:9px;color:var(--j-muted);margin:-0.25rem 0 0.4rem 0;">'
-        f'{current_privacy["mode_label"]} · {current_privacy["privacy_label"]}</div>',
-        unsafe_allow_html=True,
-    )
-
-    if chosen_preset != stored_runtime_preset:
-        if current_runtime.is_local and chosen_runtime.is_api:
-            st.markdown(
-                f'<div style="font-size:10px;color:var(--j-muted);margin-bottom:0.3rem;">'
-                f'{html.escape(chosen_privacy["summary"])}</div>',
-                unsafe_allow_html=True,
-            )
-            confirm_col, cancel_col = st.columns(2, gap="small")
-            with confirm_col:
-                if st.button("Confirm", key="confirm_runtime_switch", use_container_width=True):
-                    st.session_state.selected_runtime_preset = chosen_preset
-                    memory_for_sidebar.set_app_state_value("runtime_preset", chosen_preset)
-                    st.rerun()
-            with cancel_col:
-                if st.button("Cancel", key="cancel_runtime_switch", use_container_width=True):
-                    st.session_state.runtime_preset_picker = stored_runtime_preset
-                    st.rerun()
-        elif chosen_runtime.is_local and not is_model_available(chosen_runtime.model, chosen_runtime.base_url):
-            # Model not yet pulled — offer to download it inline
-            _switch_size = model_size_label(chosen_runtime.model)
-            _switch_size_str = f" · {_switch_size}" if _switch_size else ""
-            st.markdown(
-                f'<div style="font-size:10px;color:var(--j-muted);margin-bottom:0.3rem;">'
-                f'<code>{chosen_runtime.model}</code> not downloaded{_switch_size_str}.</div>',
-                unsafe_allow_html=True,
-            )
-            pull_col, cancel_col = st.columns(2, gap="small")
-            with cancel_col:
-                if st.button("Cancel", key="cancel_pull_switch", use_container_width=True):
-                    st.session_state.runtime_preset_picker = stored_runtime_preset
-                    st.rerun()
-            with pull_col:
-                if st.button("Pull now", key="pull_model_switch", use_container_width=True):
-                    st.session_state["_pulling_model"] = chosen_runtime.model
-                    st.session_state["_pulling_for_preset"] = chosen_preset
-                    st.rerun()
-            # Run the pull if confirmed
-            if st.session_state.get("_pulling_model") == chosen_runtime.model:
-                _sb_bar = st.progress(0, text="Connecting to Ollama…")
-                _pull_done = False
-                for _c in pull_model_stream(chosen_runtime.model, chosen_runtime.base_url):
-                    _c_status = _c.get("status", "")
-                    if _c_status == "error":
-                        st.error(f"Pull failed: {_c.get('error', '')}")
-                        break
-                    _tot = _c.get("total", 0)
-                    _comp = _c.get("completed", 0)
-                    if _tot:
-                        _sb_bar.progress(min(int(_comp / _tot * 100), 100), text=f"Downloading… {int(_comp/_tot*100)}%")
-                    else:
-                        _sb_bar.progress(0, text=f"{_c_status}…" if _c_status else "Connecting to Ollama…")
-                    if _c_status == "success":
-                        _pull_done = True
-                if _pull_done:
-                    del st.session_state["_pulling_model"]
-                    del st.session_state["_pulling_for_preset"]
-                    st.session_state.selected_runtime_preset = chosen_preset
-                    memory_for_sidebar.set_app_state_value("runtime_preset", chosen_preset)
-                    st.rerun()
-        else:
-            st.session_state.selected_runtime_preset = chosen_preset
-            memory_for_sidebar.set_app_state_value("runtime_preset", chosen_preset)
-            st.rerun()
-
-    st.markdown('<hr style="border:none;border-top:1px solid var(--j-line);margin:0.5rem 0;">', unsafe_allow_html=True)
-
-    # Quick habits
-    habits_sidebar = memory_for_sidebar.get_habits()
-    if habits_sidebar:
-        done_c = sum(1 for h in habits_sidebar if h.get("done_today"))
-        total_c = len(habits_sidebar)
-        pct = int((done_c / total_c) * 100) if total_c else 0
-        st.markdown(
-            f'<div style="display:flex;justify-content:space-between;align-items:center;'
-            f'margin-bottom:0.2rem;">'
-            f'<span style="font-size:9px;color:var(--j-muted);text-transform:uppercase;'
-            f'letter-spacing:0.1em;">Habits</span>'
-            f'<span style="font-size:9px;color:var(--j-accent);font-family:Syne;">'
-            f'{done_c}/{total_c}</span></div>'
-            f'<div class="june-progress-track">'
-            f'<div class="june-progress-inner" style="width:{pct}%"></div></div>',
-            unsafe_allow_html=True,
-        )
-        for habit in habits_sidebar:
-            h_name_col, h_btn_col = st.columns([2.2, 1], gap="small")
-            with h_name_col:
-                streak_txt = f" · {habit['streak']}d" if habit.get("streak") else ""
-                done_dot = "●" if habit.get("done_today") else "○"
-                color = "var(--j-accent)" if habit.get("done_today") else "var(--j-muted)"
+    # Habits
+    _habits = memory.get_habits()
+    if _habits:
+        st.markdown('<div class="june-panel-label" style="margin-top:0.4rem;">Habits</div>', unsafe_allow_html=True)
+        for _h in _habits[:8]:
+            _hname = _h.get("name", "")
+            _done = memory.is_habit_completed_today(_hname)
+            _hc1, _hc2 = st.columns([2.5, 1], gap="small")
+            with _hc1:
+                _ring = habit_ring_svg(_done, size=16)
                 st.markdown(
-                    f'<div style="font-size:10px;padding:0.15rem 0;display:flex;'
-                    f'align-items:center;gap:0.3rem;">'
-                    f'<span style="color:{color};font-size:8px;">{done_dot}</span>'
-                    f'{html.escape(habit["name"])}'
-                    f'<span style="color:var(--j-accent);font-size:9px;">{streak_txt}</span>'
-                    f'</div>',
+                    f'<div style="display:flex;align-items:center;gap:0.4rem;font-size:12px;padding:0.1rem 0;">'
+                    f'{_ring}<span style="color:{"var(--j-muted)" if _done else "var(--j-text)"};'
+                    f'text-decoration:{"line-through" if _done else "none"};">'
+                    f'{html.escape(_hname)}</span></div>',
                     unsafe_allow_html=True,
                 )
-            with h_btn_col:
-                if not habit.get("done_today"):
-                    if st.button("done", key=f"sb_habit_{habit['name']}", use_container_width=True):
-                        memory_for_sidebar.log_habit_completion(habit["name"])
+            with _hc2:
+                if not _done:
+                    if st.button("Done", key=f"hp_habit_{_hname}", use_container_width=True):
+                        memory.log_habit_completion(_hname)
                         st.rerun()
     else:
         st.markdown(
-            '<div style="font-size:10px;color:var(--j-muted);">No habits tracked yet.</div>',
+            '<div style="font-size:11px;color:var(--j-muted);margin-bottom:0.5rem;">'
+            'No habits yet. Ask June to set up your daily habits.</div>',
             unsafe_allow_html=True,
         )
 
-    # Quick water
-    water_count = memory_for_sidebar.get_water_today()
+    # Water
+    st.markdown('<div class="june-panel-section"></div>', unsafe_allow_html=True)
+    _water = memory.get_water_today()
     st.markdown(
-        f'<div style="display:flex;justify-content:space-between;align-items:center;'
-        f'margin-top:0.5rem;margin-bottom:0.25rem;">'
-        f'<span style="font-size:9px;color:var(--j-muted);text-transform:uppercase;'
-        f'letter-spacing:0.1em;">Water</span>'
-        f'<span style="font-size:9px;color:var(--j-muted);">{water_count}/{WATER_GOAL}</span>'
-        f'</div>',
+        f'<div class="june-panel-label">Water &nbsp;<span style="font-weight:400;color:var(--j-muted);">{_water}/8</span></div>'
+        f'<div style="margin-bottom:0.35rem;">{water_dots_html(_water)}</div>',
         unsafe_allow_html=True,
     )
-    st.markdown(water_dots_html(water_count, WATER_GOAL), unsafe_allow_html=True)
-    wm_col, wp_col = st.columns(2, gap="small")
-    with wm_col:
-        if st.button("− water", key="sb_water_minus", use_container_width=True):
-            if water_count > 0:
-                memory_for_sidebar.set_water(water_count - 1)
+    _wm_col, _wp_col = st.columns(2, gap="small")
+    with _wm_col:
+        if st.button("- water", key="hp_water_minus", use_container_width=True):
+            if _water > 0:
+                memory.set_water(_water - 1)
             st.rerun()
-    with wp_col:
-        if st.button("+ water", key="sb_water_plus", use_container_width=True):
-            memory_for_sidebar.log_water(1)
+    with _wp_col:
+        if st.button("+ water", key="hp_water_plus", use_container_width=True):
+            memory.log_water(1)
             st.rerun()
 
-    # Quick body snapshot
-    today_metrics = memory_for_sidebar.get_today_body_metrics()
-    if today_metrics:
-        bits = []
-        if today_metrics.get("sleep_hours"):
-            bits.append(f"sleep {today_metrics['sleep_hours']}h")
-        if today_metrics.get("energy"):
-            bits.append(f"energy {today_metrics['energy']}/5")
+    # Body snapshot
+    _today_m = memory.get_today_body_metrics()
+    if _today_m:
+        _bits = []
+        if _today_m.get("sleep_hours"):
+            _bits.append(f"sleep {_today_m['sleep_hours']}h")
+        if _today_m.get("energy"):
+            _bits.append(f"energy {_today_m['energy']}/5")
+        if _today_m.get("steps"):
+            _bits.append(f"{int(_today_m['steps']):,} steps")
+        if _bits:
+            st.markdown(
+                '<div style="font-size:9px;color:var(--j-muted);margin-top:0.45rem;">'
+                + " · ".join(_bits) + "</div>",
+                unsafe_allow_html=True,
+            )
+
+    # Quick body log
+    st.markdown('<div class="june-panel-section"></div>', unsafe_allow_html=True)
+    with st.expander("Log body check-in", expanded=False):
+        with st.form("hp_body_form", clear_on_submit=False):
+            _sl = st.number_input("Sleep hours", min_value=0.0, max_value=24.0, step=0.5,
+                                  value=float(_today_m.get("sleep_hours", 0.0)) if _today_m else 0.0)
+            _en = st.select_slider("Energy", options=[0, 1, 2, 3, 4, 5],
+                                   value=int(_today_m.get("energy", 3)) if _today_m else 3)
+            _st = st.select_slider("Stress", options=[0, 1, 2, 3, 4, 5],
+                                   value=int(_today_m.get("stress", 0)) if _today_m else 0)
+            _so = st.select_slider("Soreness", options=[0, 1, 2, 3, 4, 5],
+                                   value=int(_today_m.get("soreness", 0)) if _today_m else 0)
+            _sp = st.number_input("Steps", min_value=0, max_value=100000, step=500,
+                                  value=int(_today_m.get("steps", 0)) if _today_m else 0)
+            if st.form_submit_button("Save", use_container_width=True):
+                memory.log_body_metrics(
+                    sleep_hours=_sl, energy=_en, stress=_st, soreness=_so, steps=_sp
+                )
+                append_activity("body | check-in saved from health panel")
+                st.rerun()
+
+
+# ---------------------------------------------------------------------------
+# Settings dialog
+# ---------------------------------------------------------------------------
+
+@st.dialog("Settings", width="large")
+def open_settings_dialog(
+    memory: Memory,
+    active_runtime: Any,
+    stored_preset: str,
+    current_user_id: str,
+) -> None:
+    """Settings modal: profile, LLM setup, options."""
+    _tab_profile, _tab_llm, _tab_options = st.tabs(["Profile", "LLM Setup", "Options"])
+
+    with _tab_profile:
+        st.markdown("**Your profile name** — used to separate memory databases.")
+        _new_uid = st.text_input("Profile name", value=current_user_id, key="settings_profile_input")
+        if st.button("Save profile", use_container_width=True, type="primary"):
+            st.session_state["profile_input"] = _new_uid
+            st.rerun()
+
+    with _tab_llm:
+        _preset_opts = list(runtime_preset_options())
+        _preset_keys = [p.key for p in _preset_opts]
+        _sel_idx = _preset_keys.index(stored_preset) if stored_preset in _preset_keys else 0
+        _chosen = st.selectbox(
+            "Runtime",
+            options=_preset_keys,
+            index=_sel_idx,
+            format_func=lambda k: runtime_for_preset(k).label,
+            key="settings_runtime_picker",
+        )
+        _chosen_rt = runtime_for_preset(_chosen)
+        _chosen_priv = build_runtime_privacy_status(_chosen_rt)
         st.markdown(
-            f'<div style="font-size:9px;color:var(--j-muted);margin-top:0.4rem;">'
-            f'Body today: {" · ".join(bits) if bits else "logged"}</div>',
+            f'<div style="font-size:11px;color:var(--j-muted);margin:0.4rem 0 0.75rem 0;">'
+            f'{_chosen_priv["summary"]}</div>',
+            unsafe_allow_html=True,
+        )
+        # Warn if switching to undownloaded local model
+        if _chosen_rt.is_local and not is_model_available(_chosen_rt.model, _chosen_rt.base_url):
+            _sz = model_size_label(_chosen_rt.model)
+            st.warning(f"`{_chosen_rt.model}` is not downloaded{(' · ' + _sz) if _sz else ''}.")
+            if st.button("Download this model", use_container_width=True):
+                start_pull(_chosen_rt.model)
+                st.info(f"Downloading {_chosen_rt.model} in the background. Switch to this runtime once complete.")
+        if st.button("Apply LLM settings", use_container_width=True, type="primary"):
+            st.session_state.selected_runtime_preset = _chosen
+            memory.set_app_state_value("runtime_preset", _chosen)
+            st.rerun()
+
+    with _tab_options:
+        privacy_icon = "○" if active_runtime.is_local else "◉"
+        _priv = build_runtime_privacy_status(active_runtime)
+        st.markdown(
+            f'<div style="font-size:12px;margin-bottom:0.75rem;">'
+            f'{privacy_icon} <strong>Privacy:</strong> {_priv["privacy_label"]} — {_priv["summary"]}</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown("---")
+        if st.button("Clear conversation", use_container_width=True):
+            reset_session_state(st.session_state, current_user_id)
+            st.session_state.messages = []
+            st.rerun()
+
+
+# ---------------------------------------------------------------------------
+# Calendar dialog
+# ---------------------------------------------------------------------------
+
+@st.dialog("Calendar", width="large")
+def open_calendar_dialog(memory: Memory, now: datetime) -> None:
+    """Calendar dialog with monthly view and agenda list."""
+    import calendar as _cal
+    from datetime import date, timedelta
+
+    _views = ["Month", "Agenda"]
+    _view = st.radio("View", _views, horizontal=True, index=0, label_visibility="collapsed")
+
+    # Navigation state
+    if "cal_year" not in st.session_state:
+        st.session_state.cal_year = now.year
+    if "cal_month" not in st.session_state:
+        st.session_state.cal_month = now.month
+
+    _cy, _cm = st.session_state.cal_year, st.session_state.cal_month
+
+    if _view == "Month":
+        _nav1, _nav2, _nav3 = st.columns([1, 3, 1])
+        with _nav1:
+            if st.button("◀", use_container_width=True):
+                if _cm == 1:
+                    st.session_state.cal_year -= 1
+                    st.session_state.cal_month = 12
+                else:
+                    st.session_state.cal_month -= 1
+                st.rerun()
+        with _nav2:
+            st.markdown(
+                f'<div style="text-align:center;font-family:Syne,sans-serif;font-size:1rem;font-weight:600;">'
+                f'{date(_cy, _cm, 1).strftime("%B %Y")}</div>',
+                unsafe_allow_html=True,
+            )
+        with _nav3:
+            if st.button("▶", use_container_width=True):
+                if _cm == 12:
+                    st.session_state.cal_year += 1
+                    st.session_state.cal_month = 1
+                else:
+                    st.session_state.cal_month += 1
+                st.rerun()
+
+        # Pull calendar items for this month
+        _all_items = memory.get_calendar_items(status="", limit=100)
+        _month_prefix = date(_cy, _cm, 1).strftime("%Y-%m")
+        _by_date: dict[str, list[str]] = {}
+        for _ci in _all_items:
+            _cd = str(_ci.get("date", ""))
+            if _cd.startswith(_month_prefix):
+                _by_date.setdefault(_cd, []).append(str(_ci.get("title", "")))
+
+        # Weekday headers
+        _dnames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        _hcols = st.columns(7)
+        for _i, _dn in enumerate(_dnames):
+            with _hcols[_i]:
+                st.markdown(
+                    f'<div style="text-align:center;font-size:10px;color:var(--j-muted);'
+                    f'font-weight:600;padding:0.25rem 0;">{_dn}</div>',
+                    unsafe_allow_html=True,
+                )
+
+        # Build calendar grid
+        _days_in_month = _cal.monthrange(_cy, _cm)[1]
+        _first_wd = date(_cy, _cm, 1).weekday()  # 0=Mon
+        _cells: list[date | None] = [None] * _first_wd + [
+            date(_cy, _cm, d) for d in range(1, _days_in_month + 1)
+        ]
+        while len(_cells) % 7 != 0:
+            _cells.append(None)
+
+        _today = date.today()
+        for _row_s in range(0, len(_cells), 7):
+            _row = _cells[_row_s:_row_s + 7]
+            _rcols = st.columns(7)
+            for _col, _cdate in zip(_rcols, _row):
+                with _col:
+                    if _cdate is None:
+                        st.markdown('<div style="height:2.8rem;"></div>', unsafe_allow_html=True)
+                    else:
+                        _ds = _cdate.isoformat()
+                        _is_today = _cdate == _today
+                        _has_event = _ds in _by_date
+                        _bg = "var(--j-accent)" if _is_today else ("var(--j-accent-soft)" if _has_event else "transparent")
+                        _color = "#fff" if _is_today else "var(--j-text)"
+                        _fw = "700" if _is_today else "400"
+                        _dot = (
+                            '<span style="display:block;width:4px;height:4px;border-radius:50%;'
+                            'background:var(--j-accent);margin:2px auto 0;"></span>'
+                            if _has_event and not _is_today else ""
+                        )
+                        _titles = " · ".join(_by_date.get(_ds, []))[:24] if _has_event else ""
+                        _title_attr = f' title="{html.escape(_titles)}"' if _titles else ""
+                        st.markdown(
+                            f'<div{_title_attr} style="text-align:center;padding:0.3rem 0.1rem;'
+                            f'background:{_bg};border-radius:8px;min-height:2.8rem;cursor:{"pointer" if _has_event else "default"};">'
+                            f'<span style="font-size:12px;color:{_color};font-weight:{_fw};">{_cdate.day}</span>'
+                            f'{_dot}</div>',
+                            unsafe_allow_html=True,
+                        )
+
+    # Agenda list (always shown below calendar, or as own view)
+    st.markdown(
+        '<hr style="border:none;border-top:1px solid var(--j-line);margin:0.75rem 0 0.5rem 0;">',
+        unsafe_allow_html=True,
+    )
+    st.markdown('<div class="june-panel-label">Upcoming</div>', unsafe_allow_html=True)
+    _upcoming = memory.get_upcoming_notifications(limit=12)
+    if _upcoming:
+        for _u in _upcoming:
+            _prefix = "today" if _u["days_until"] == 0 else f"in {_u['days_until']}d"
+            _det = f" — {_u['details']}" if _u.get("details") else ""
+            st.markdown(
+                f'<div style="padding:0.35rem 0;border-bottom:1px solid var(--j-line);font-size:12px;">'
+                f'<span style="font-weight:600;">{html.escape(_u["title"])}</span>'
+                f'<span style="color:var(--j-muted);margin-left:0.5rem;">{html.escape(_u["when"])} · {_prefix}</span>'
+                f'<span style="color:var(--j-muted);font-size:10px;">{html.escape(_det)}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+    else:
+        st.markdown(
+            '<div style="font-size:11px;color:var(--j-muted);">'
+            'No upcoming events. Ask June to schedule something.</div>',
             unsafe_allow_html=True,
         )
 
-    st.markdown('<hr style="border:none;border-top:1px solid var(--j-line);margin:0.75rem 0 0.5rem 0;">', unsafe_allow_html=True)
-    if st.button("Clear conversation", use_container_width=True):
-        reset_session_state(st.session_state, user_id)
-        st.session_state.messages = []
-        st.rerun()
+
+# ---------------------------------------------------------------------------
+# User context — resolved before main layout
+# ---------------------------------------------------------------------------
+
+now = current_local_time()
+if "profile_input" not in st.session_state:
+    st.session_state["profile_input"] = "admin"
+user_id = st.session_state["profile_input"]
+
+_init_memory = Memory(user_id)
+sidebar_phrase = get_rotating_sidebar_phrase(_init_memory, now)
+stored_runtime_preset = str(
+    st.session_state.get(
+        "selected_runtime_preset",
+        _init_memory.get_app_state().get("runtime_preset", RUNTIME_CONFIG.preset_key),
+    )
+)
+if "selected_runtime_preset" not in st.session_state:
+    st.session_state.selected_runtime_preset = stored_runtime_preset
+
+# ---------------------------------------------------------------------------
+# Left sidebar — hidden; settings go through the dialog
+# ---------------------------------------------------------------------------
+
+# Sidebar is hidden via CSS — kept as a stub only so Streamlit doesn't error
+# on any lingering widget keys from old sessions.
+with st.sidebar:
+    pass
 
 
 # ---------------------------------------------------------------------------
@@ -2525,6 +2667,8 @@ initialize_session_state(st.session_state, user_id)
 if st.session_state.ui_state.get("selected_chapter") and st.session_state.selected_chapter != st.session_state.ui_state.get("selected_chapter"):
     st.session_state.selected_chapter = st.session_state.ui_state.get("selected_chapter", "")
 st.session_state.show_right_panel = st.session_state.ui_state.get("show_right_panel", True)
+if "show_left_panel" not in st.session_state:
+    st.session_state.show_left_panel = True
 
 if st.session_state.last_user_id != user_id:
     reset_session_state(st.session_state, user_id)
@@ -2642,45 +2786,107 @@ if not st.session_state.is_generating and memory.should_send_daily_checkin():
 
 snapshot = memory.get_progress_snapshot()
 active_skill = SKILLS.get(st.session_state.active_skill_key, SKILLS[DEFAULT_SKILL])
-current_layout = st.session_state.ui_state.get("layout", "split")
 show_right_panel = st.session_state.ui_state.get("show_right_panel", True)
+show_left_panel = st.session_state.get("show_left_panel", True)
 
 # ---------------------------------------------------------------------------
-# Main layout: Header bar + Conversation | Right panel
+# Top bar: Logo | Quote | Date+Time (calendar) | Panel toggles + Settings
 # ---------------------------------------------------------------------------
 
-# ── Header bar ────────────────────────────────────────────────────────────
-privacy_icon = "○" if active_runtime.is_local else "◉"
-privacy_color = "var(--j-accent)" if active_runtime.is_local else "#c07a2a"
+_LOGO_SVG = (
+    '<svg width="28" height="28" viewBox="0 0 28 28" fill="none" '
+    'xmlns="http://www.w3.org/2000/svg" class="june-logo-icon">'
+    '<polygon points="14,2 26,8.5 26,19.5 14,26 2,19.5 2,8.5" '
+    'stroke="#0F5F4A" stroke-width="1.75" fill="rgba(15,95,74,0.07)"/>'
+    '<circle cx="14" cy="14" r="4" fill="#0F5F4A" opacity="0.85"/>'
+    '</svg>'
+)
+
+_tb_logo, _tb_quote, _tb_center, _tb_right = st.columns([0.85, 1.7, 1.35, 1.1], gap="small")
+
+with _tb_logo:
+    st.markdown(
+        f'<div class="june-topbar-logo">'
+        f'{_LOGO_SVG}'
+        f'<span class="june-logo-text">June AI</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+with _tb_quote:
+    st.markdown(
+        f'<div class="june-topbar-quote">{html.escape(sidebar_phrase)}</div>',
+        unsafe_allow_html=True,
+    )
+
+with _tb_center:
+    _date_label = now.strftime("%a, %d %b")
+    _time_label = now.strftime("%H:%M")
+    _part_label = current_part_of_day(now)
+    st.markdown(
+        f'<div class="june-topbar-datetime">{_date_label}'
+        f'<span class="june-topbar-time">{_time_label} · {_part_label}</span></div>',
+        unsafe_allow_html=True,
+    )
+    if st.button("Calendar", key="hdr_open_calendar", use_container_width=True):
+        open_calendar_dialog(memory, now)
+
+with _tb_right:
+    _rb1, _rb2, _rb3 = st.columns(3, gap="small")
+    with _rb1:
+        _lp_icon = "◁ H" if show_left_panel else "H ▷"
+        if st.button(_lp_icon, key="hdr_left_panel", use_container_width=True, help="Toggle health panel"):
+            st.session_state.show_left_panel = not show_left_panel
+            st.rerun()
+    with _rb2:
+        _rp_icon = "M ▷" if show_right_panel else "◁ M"
+        if st.button(_rp_icon, key="hdr_right_panel", use_container_width=True, help="Toggle memory panel"):
+            sync_right_panel_visibility(st.session_state, not show_right_panel)
+            st.rerun()
+    with _rb3:
+        if st.button("⚙", key="hdr_settings", use_container_width=True, help="Settings, LLM, profile"):
+            open_settings_dialog(memory, active_runtime, stored_runtime_preset, user_id)
+
 st.markdown(
-    f'<div class="june-header-bar">'
-    f'<span class="june-header-logo">June</span>'
-    f'<span class="june-header-pill accent">{html.escape(active_skill.label)}</span>'
-    f'<span class="june-header-pill">{html.escape(active_runtime.label)}</span>'
-    f'<span class="june-header-sep"></span>'
-    f'<span class="june-header-phrase">{html.escape(sidebar_phrase)}</span>'
-    f'<span style="font-size:10px;color:{privacy_color};margin-left:0.5rem;" title="{html.escape(active_privacy["summary"])}">'
-    f'{privacy_icon} {html.escape(active_privacy["privacy_label"])}</span>'
-    f'</div>',
+    '<div class="june-topbar-wrap" style="margin-top:-0.5rem;"></div>',
     unsafe_allow_html=True,
 )
 
-layout_widths = layout_column_widths(current_layout, show_right_panel)
-columns = st.columns(layout_widths, gap="medium")
-chat_col = columns[0]
-plan_col = columns[1] if show_right_panel else None
+# ---------------------------------------------------------------------------
+# Three-column layout: Health | Chat | Memory
+# ---------------------------------------------------------------------------
 
-# ── Conversation ──────────────────────────────────────────────────────────
+if show_left_panel and show_right_panel:
+    _col_widths = [1.2, 3.2, 1.2]
+elif show_left_panel:
+    _col_widths = [1.2, 4.4]
+elif show_right_panel:
+    _col_widths = [4.4, 1.2]
+else:
+    _col_widths = [1.0]
+
+_all_cols = st.columns(_col_widths, gap="medium")
+
+if show_left_panel and show_right_panel:
+    left_col, chat_col, right_col = _all_cols[0], _all_cols[1], _all_cols[2]
+elif show_left_panel:
+    left_col, chat_col, right_col = _all_cols[0], _all_cols[1], None
+elif show_right_panel:
+    left_col, chat_col, right_col = None, _all_cols[0], _all_cols[1]
+else:
+    left_col, chat_col, right_col = None, _all_cols[0], None
+
+# ── Left: Health panel ────────────────────────────────────────────────────
+
+if left_col is not None:
+    with left_col:
+        st.markdown('<div class="june-panel-card">', unsafe_allow_html=True)
+        render_health_panel(memory)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# ── Center: Chat ──────────────────────────────────────────────────────────
 
 with chat_col:
-    # Show/hide rail toggle — navigation is now in the right rail tabs
-    _toggle_col, _ = st.columns([1, 4])
-    with _toggle_col:
-        _rail_label = "Hide panel" if show_right_panel else "Show panel"
-        if st.button(_rail_label, key="toggle_right_rail_top", use_container_width=True):
-            sync_right_panel_visibility(st.session_state, not show_right_panel)
-            append_activity(f"right rail | {'hidden' if show_right_panel else 'shown'}")
-            st.rerun()
     render_first_run_onboarding(memory)
     render_starter_prompts(memory)
 
@@ -2751,7 +2957,7 @@ with chat_col:
         width=0,
     )
 
-    # Input area
+    # Input area — sticky at bottom via CSS
     with st.form("june_input_form", clear_on_submit=True):
         prompt = st.text_area(
             "Message June",
@@ -2775,32 +2981,30 @@ with chat_col:
         append_activity(f"auto route | {st.session_state.active_skill_key}")
         st.rerun()
 
-# ── Right panel ───────────────────────────────────────────────────────────
+# ── Right: Memory panel ───────────────────────────────────────────────────
 
-if show_right_panel and plan_col is not None:
-    with plan_col:
-        st.markdown('<div class="june-right-panel">', unsafe_allow_html=True)
+if right_col is not None:
+    with right_col:
+        st.markdown('<div class="june-panel-card">', unsafe_allow_html=True)
 
         workspace_placeholder = st.empty()
         activity_placeholder = st.empty()
 
-        # ── Rail view: native tabs ──────────────────────────────────────────
-        _rail_tabs = st.tabs(["Today", "Memory", "Workspace", "Debug"])
-        _tab_today, _tab_memory, _tab_workspace, _tab_debug = _rail_tabs
+        _rail_tabs = st.tabs(["Today", "Agenda", "Plans", "Gym & Food", "Debug"])
+        _tab_today, _tab_agenda, _tab_plans, _tab_gym_food, _tab_debug = _rail_tabs
 
-        # When an agent tool (set_ui_chapter etc.) drives rail_view to "memory",
-        # we jump into that tab's content via session state — the tab selection
-        # itself stays user-driven; content inside switches correctly.
         with _tab_today:
             render_today_panel(memory, snapshot)
-        with _tab_memory:
+        with _tab_agenda:
             render_memory_panel(memory)
-        with _tab_workspace:
-            render_workspace_panel()
+        with _tab_plans:
+            render_plan_focus(memory)
+        with _tab_gym_food:
+            render_habits_focus(memory)
         with _tab_debug:
             render_debug_panel(memory)
 
-        st.markdown("</div>", unsafe_allow_html=True)  # close june-right-panel
+        st.markdown('</div>', unsafe_allow_html=True)
 else:
     workspace_placeholder = st.empty()
     activity_placeholder = st.empty()
