@@ -632,9 +632,10 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
         """Run the main chat node."""
         skill = state.get("skill", DEFAULT_SKILL)
         now = datetime.now().astimezone()
-        prompt = build_system_prompt(skill, now=now, runtime=runtime)
+        _chat_memory = Memory(state["user_id"])
+        prompt = build_system_prompt(skill, now=now, runtime=runtime, memory=_chat_memory)
         record_route_selection(
-            Memory(state["user_id"]),
+            _chat_memory,
             skill,
             source="graph",
             payload={

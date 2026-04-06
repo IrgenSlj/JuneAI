@@ -84,7 +84,7 @@ def log_mood(
     """Log the user's emotional state when they describe how they feel."""
     memory = _memory_for_state(state)
     entry = memory.log_mood(mood, note)
-    return f"Mood '{mood}' logged at {entry['timestamp'][:16].replace('T', ' ')}."
+    return f"Noted your mood as '{mood}'."
 
 
 @tool
@@ -112,7 +112,7 @@ def save_journal_entry(
     """Save an important reflection or conversation note."""
     memory = _memory_for_state(state)
     item = memory.save_journal(entry)
-    return f"Journal entry saved at {item['timestamp'][:16].replace('T', ' ')}."
+    return "I've saved that to your journal."
 
 
 @tool
@@ -148,7 +148,7 @@ def save_relationship_profile(
         user_needs=user_needs,
         cautions=cautions,
     )
-    return f"Saved relationship context for {item['person']} ({item['relationship']})."
+    return f"I've saved context for {item['person']} ({item['relationship']})."
 
 
 @tool
@@ -195,7 +195,7 @@ def track_goal(
         next_step=next_step,
         status=status,
     )
-    return f"Saved goal '{goal['title']}' with status '{goal['status']}'."
+    return f"I've added '{goal['title']}' to your goals."
 
 
 @tool
@@ -230,7 +230,7 @@ def update_goal_status(
     goal = memory.update_goal_status(title=title, status=status)
     if not goal:
         return f"No goal found with title '{title}'."
-    return f"Goal '{goal['title']}' updated to status '{goal['status']}'."
+    return f"Updated '{goal['title']}' to {goal['status']}."
 
 
 @tool
@@ -249,7 +249,7 @@ def save_open_loop(
         due_date=due_date,
         status=status,
     )
-    return f"Saved open loop '{item['topic']}' with status '{item['status']}'."
+    return f"I've noted '{item['topic']}' as an open loop."
 
 
 @tool
@@ -284,7 +284,7 @@ def update_open_loop_status(
     loop = memory.update_open_loop_status(topic=topic, status=status)
     if not loop:
         return f"No open loop found with topic '{topic}'."
-    return f"Open loop '{loop['topic']}' updated to status '{loop['status']}'."
+    return f"Marked '{loop['topic']}' as {loop['status']}."
 
 
 @tool
@@ -301,7 +301,7 @@ def save_user_preference(
     """
     memory = _memory_for_state(state)
     item = memory.save_preference(category=category, value=value, context=context)
-    return f"Saved preference '{item['category']}: {item['value']}'."
+    return f"Got it — I'll remember that about {item['category']}."
 
 
 @tool
@@ -349,7 +349,7 @@ def save_calendar_item(
         status=status,
         source=source,
     )
-    return f"Saved calendar item '{item['title']}' on {item['date']}."
+    return f"I've added '{item['title']}' to your calendar on {item['date']}."
 
 
 @tool
@@ -395,7 +395,7 @@ def update_calendar_item_status(
             extra.append(f"time '{time}'")
         suffix = f" with {' and '.join(extra)}" if extra else ""
         return f"No calendar item found with title '{title}'{suffix}."
-    return f"Calendar item '{item['title']}' updated to status '{item['status']}'."
+    return f"Updated '{item['title']}' to {item['status']}."
 
 
 @tool
@@ -420,7 +420,7 @@ def save_favorite_recommendation(
         creator=creator,
         status=status,
     )
-    return f"Saved {item['category']} recommendation '{item['title']}'."
+    return f"I've saved '{item['title']}' to your {item['category']} list."
 
 
 @tool
@@ -464,7 +464,7 @@ def save_gym_plan(
         notes=notes,
         status=status,
     )
-    return f"Saved gym plan '{item['name']}'."
+    return f"I've saved your gym plan '{item['name']}'."
 
 
 @tool
@@ -506,7 +506,7 @@ def save_food_program(
         notes=notes,
         status=status,
     )
-    return f"Saved food program '{item['name']}'."
+    return f"I've saved your food program '{item['name']}'."
 
 
 @tool
@@ -786,7 +786,7 @@ def log_workout_session(
         notes=notes,
         energy_rating=energy_rating,
     )
-    return f"Workout '{item['plan_name']}' logged for {item['date']} ({item['duration_min']} min)."
+    return f"Logged your {item['plan_name']} session on {item['date']} ({item['duration_min']} min)."
 
 
 @tool
@@ -832,7 +832,7 @@ def log_body_metrics(
         parts.append(f"resting HR {item['resting_hr']}")
     if item["steps"]:
         parts.append(f"steps {item['steps']}")
-    return f"Body metrics logged: {', '.join(parts) or 'recorded'}."
+    return f"Got it — logged {', '.join(parts) or 'your metrics'} for today."
 
 
 @tool
@@ -845,7 +845,7 @@ def create_habit(
     """Create or update a tracked habit. Category: health, sport, focus, nutrition."""
     memory = _memory_for_state(state)
     item = memory.create_or_update_habit(name=name, category=category, target_days=target_days)
-    return f"Habit '{item['name']}' ({item['category']}, {item['target_days']}) saved."
+    return f"I'm now tracking '{item['name']}' for you."
 
 
 @tool
@@ -857,7 +857,7 @@ def log_habit_completion(
     memory = _memory_for_state(state)
     item = memory.log_habit_completion(habit_name=habit_name)
     streak = item.get("streak", 0)
-    return f"Habit '{item['name']}' marked done. Streak: {streak} day(s)."
+    return f"'{item['name']}' done. {streak}-day streak." if streak > 1 else f"'{item['name']}' checked off."
 
 
 @tool
@@ -895,7 +895,7 @@ def log_nutrition(
         calories_est=calories_est,
         protein_est=protein_est,
     )
-    return f"Logged {item['meal']}: {item['description']}."
+    return f"I've logged your {item['meal']}: {item['description']}."
 
 
 @tool
@@ -906,7 +906,7 @@ def log_water(
     """Log glasses of water consumed today. Increments today's running count."""
     memory = _memory_for_state(state)
     total = memory.log_water(glasses)
-    return f"Water logged. Today's total: {total} glass(es)."
+    return f"Water logged — {total} glass(es) today."
 
 
 @tool
@@ -1114,6 +1114,158 @@ def ask_about_chapter(
     return f"Intake prompt for '{key}':\n\n{prompt}"
 
 
+@tool
+def get_personal_context(
+    topic: str,
+    state: Annotated[AgentState, InjectedState] = None,
+) -> str:
+    """Return a natural-language summary of what June knows about a given topic.
+
+    Use this when giving contextual advice — not just acknowledging, but actually knowing.
+    Topics: training, sleep, nutrition, goals, relationships, calendar, habits, body, general.
+    """
+    memory = _memory_for_state(state)
+    topic_lower = topic.strip().lower()
+    parts: list[str] = []
+
+    if any(t in topic_lower for t in ("training", "gym", "workout", "fitness", "exercise")):
+        plans = memory.get_gym_plans()
+        sessions = memory.get_workout_sessions(limit=3)
+        if plans:
+            p = plans[0]
+            parts.append(f"Gym plan: {p.get('title','')} — {p.get('structure','')}, {p.get('frequency','')}.")
+        if sessions:
+            last = sessions[0]
+            parts.append(
+                f"Last session: {last.get('plan_name','')} on {last.get('date','')} "
+                f"({last.get('duration_min',0)} min, energy {last.get('energy_rating',0)}/5)."
+            )
+        if not parts:
+            parts.append("No training plan or sessions logged yet.")
+
+    if any(t in topic_lower for t in ("sleep", "recovery", "rest", "energy")):
+        metrics = memory.get_body_metrics(days=7)
+        if metrics:
+            recent = metrics[0]
+            sleep = recent.get("sleep_hours")
+            energy = recent.get("energy")
+            stress = recent.get("stress")
+            m_parts = []
+            if sleep:
+                m_parts.append(f"sleep {sleep}h")
+            if energy:
+                m_parts.append(f"energy {energy}/5")
+            if stress:
+                m_parts.append(f"stress {stress}/5")
+            if m_parts:
+                parts.append(f"Recent body metrics ({recent.get('date','')}): {', '.join(m_parts)}.")
+        else:
+            parts.append("No body metrics logged yet.")
+
+    if any(t in topic_lower for t in ("nutrition", "food", "eating", "diet", "meal")):
+        programs = memory.get_food_programs()
+        meals_today = memory.get_nutrition_today()
+        if programs:
+            f_prog = programs[0]
+            parts.append(f"Nutrition approach: {f_prog.get('title','')} — {f_prog.get('approach','')}.")
+        if meals_today:
+            cals = sum(int(m.get("calories_est") or 0) for m in meals_today)
+            prot = sum(int(m.get("protein_est") or 0) for m in meals_today)
+            parts.append(f"Today: {len(meals_today)} meal(s) logged, ~{cals} kcal, ~{prot}g protein.")
+        elif not programs:
+            parts.append("No nutrition program or meals logged yet.")
+
+    if any(t in topic_lower for t in ("goal", "plan", "target", "objective")):
+        goals = memory.get_goals(status="active", limit=5)
+        loops = memory.get_open_loops(status="open", limit=3)
+        if goals:
+            g_lines = []
+            for g in goals:
+                line = g.get("title", "")
+                if g.get("next_step"):
+                    line += f" — next: {g['next_step']}"
+                if g.get("target_date"):
+                    line += f" (by {g['target_date']})"
+                g_lines.append(line)
+            parts.append("Active goals: " + "; ".join(g_lines) + ".")
+        if loops:
+            parts.append("Open loops: " + "; ".join(l.get("topic", "") for l in loops) + ".")
+        if not goals and not loops:
+            parts.append("No goals or open loops saved yet.")
+
+    if any(t in topic_lower for t in ("relationship", "family", "partner", "people", "social")):
+        profiles = memory.get_relationship_profiles()
+        if profiles:
+            r_lines = []
+            for p in profiles[:4]:
+                r_lines.append(f"{p.get('person','')} ({p.get('relationship','')}): {p.get('summary','')}")
+            parts.append("Relationships: " + " | ".join(r_lines) + ".")
+        else:
+            parts.append("No relationship context saved yet.")
+
+    if any(t in topic_lower for t in ("calendar", "upcoming", "schedule", "event", "appointment")):
+        from datetime import date, timedelta
+        today = date.today()
+        items = memory.get_calendar_items(limit=10)
+        upcoming = [
+            i for i in items
+            if i.get("date", "") >= today.isoformat()
+            and (i.get("status") or "").lower() not in {"done", "completed", "cancelled"}
+        ][:5]
+        if upcoming:
+            parts.append(
+                "Upcoming: " + "; ".join(
+                    f"{i.get('title','')} on {i.get('date','')}" for i in upcoming
+                ) + "."
+            )
+        else:
+            parts.append("No upcoming calendar items.")
+
+    if any(t in topic_lower for t in ("habit", "routine", "daily")):
+        habits = memory.get_habits()
+        if habits:
+            done = [h for h in habits if h.get("done_today")]
+            pending = [h for h in habits if not h.get("done_today")]
+            habit_parts = []
+            if done:
+                habit_parts.append(f"Done today: {', '.join(h['name'] for h in done)}")
+            if pending:
+                habit_parts.append(f"Pending: {', '.join(h['name'] for h in pending)}")
+            parts.append("Habits: " + "; ".join(habit_parts) + ".")
+        else:
+            parts.append("No habits tracked yet.")
+
+    if any(t in topic_lower for t in ("weight", "body", "metrics", "steps", "heart rate")):
+        metrics = memory.get_body_metrics(days=7)
+        if metrics:
+            recent = metrics[0]
+            m_parts = []
+            if recent.get("weight_kg"):
+                m_parts.append(f"weight {recent['weight_kg']}kg")
+            if recent.get("sleep_hours"):
+                m_parts.append(f"sleep {recent['sleep_hours']}h")
+            if recent.get("energy"):
+                m_parts.append(f"energy {recent['energy']}/5")
+            if recent.get("steps"):
+                m_parts.append(f"steps {recent['steps']}")
+            if m_parts:
+                parts.append(f"Body ({recent.get('date','')}): {', '.join(m_parts)}.")
+        else:
+            parts.append("No body metrics logged yet.")
+
+    if not parts or "general" in topic_lower:
+        # Provide a broad overview
+        c = memory.get_chapter_completeness()
+        filled = [k for k, v in c.items() if v > 0]
+        empty = [k for k, v in c.items() if v == 0]
+        if filled:
+            parts.append(f"Chapters with data: {', '.join(filled)}.")
+        if empty:
+            parts.append(f"Chapters with no data yet: {', '.join(empty)}.")
+
+    return "\n".join(parts) if parts else f"Nothing saved about '{topic}' yet."
+
+
 JUNE_TOOLS_CORE = [
     log_mood,
     save_journal_entry,
@@ -1179,6 +1331,7 @@ JUNE_TOOLS_GEMMA = [
     clear_ui_workspace,
     check_chapter_completeness,
     ask_about_chapter,
+    get_personal_context,
 ]
 
 JUNE_TOOLS = [
@@ -1230,4 +1383,5 @@ JUNE_TOOLS = [
     clear_ui_workspace,
     check_chapter_completeness,
     ask_about_chapter,
+    get_personal_context,
 ]

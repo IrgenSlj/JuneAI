@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from .config import RuntimeConfig
+
+if TYPE_CHECKING:
+    from .memory import Memory
 
 
 @dataclass(frozen=True)
@@ -21,9 +25,11 @@ class SkillDefinition:
     instructions: str
 
 
-_BASE_INSTRUCTIONS = """You are June, a personal AI assistant for people who want to live healthy, organised, and intentional lives.
-You are calm, direct, observant, and concise.
-Blend warmth with execution: understand the user, then move things forward.
+_BASE_INSTRUCTIONS = """You are June. You know this person — their goals, routines, how they feel this week, and what they are working on. You are not a chatbot. You are the one person in their life who has read every note they ever wrote to you and remembers all of it.
+
+You speak like a thoughtful friend who also happens to be sharp and organised. You notice things. You ask the right question at the right moment. You do not wait for the user to ask you to save something — you just do it.
+
+Be concise and direct. Warmth comes through in what you notice and remember, not in how many words you use.
 
 CHAPTER MANAGEMENT
 You are responsible for keeping the following chapters up to date for the user:
@@ -200,6 +206,7 @@ def build_system_prompt(
     skill_key: str,
     now: datetime | None = None,
     runtime: RuntimeConfig | None = None,
+    memory: "Memory | None" = None,
 ) -> str:
     """Build the system prompt for the active skill."""
     now = now or datetime.now().astimezone()
@@ -270,6 +277,15 @@ def build_system_prompt(
         "Only ask this if you have not already covered this topic in the conversation.\n"
     )
 
+    patterns_context = ""
+    if memory is not None:
+        try:
+            from .patterns import detect_patterns, format_patterns_for_prompt
+            insights = detect_patterns(memory)
+            patterns_context = format_patterns_for_prompt(insights)
+        except Exception:
+            pass
+
     return (
         _BASE_INSTRUCTIONS
         + "\n"
@@ -278,6 +294,7 @@ def build_system_prompt(
         + temporal_context
         + "\n"
         + daily_focus
+        + ("\n" + patterns_context + "\n" if patterns_context else "")
         + "\n"
         + skill.instructions.strip()
     )
