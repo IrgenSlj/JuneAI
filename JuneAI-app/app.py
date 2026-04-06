@@ -1137,8 +1137,69 @@ RUNTIME_CONFIG = resolve_runtime_config()
 _startup_base_url = RUNTIME_CONFIG.base_url
 _startup_model = RUNTIME_CONFIG.model
 if _startup_base_url and not is_model_available(_startup_model, _startup_base_url):
+    import time as _time
+    import threading as _threading
+    import queue as _queue
+
     _size_label = model_size_label(_startup_model)
     _size_str = f" · {_size_label}" if _size_label else ""
+
+    # Start background download thread if not already running
+    _su_q: _queue.Queue = st.session_state.setdefault("_su_pull_queue", _queue.Queue())
+    _su_thread: _threading.Thread | None = st.session_state.get("_su_pull_thread")
+    if _su_thread is None or not _su_thread.is_alive():
+        def _su_pull_bg(model: str, base_url: str, q: _queue.Queue) -> None:
+            try:
+                for chunk in pull_model_stream(model, base_url):
+                    q.put(chunk)
+                    if chunk.get("status") in ("success", "error"):
+                        break
+            except Exception as exc:
+                q.put({"status": "error", "error": str(exc)})
+
+        _su_t = _threading.Thread(
+            target=_su_pull_bg,
+            args=(_startup_model, _startup_base_url, _su_q),
+            daemon=True,
+        )
+        _su_t.start()
+        st.session_state["_su_pull_thread"] = _su_t
+        st.session_state["_su_pull_start"] = _time.time()
+        st.session_state.setdefault("_su_pull_pct", 0)
+        st.session_state.setdefault("_su_pull_label", "Connecting to Ollama")
+
+    # Drain available chunks
+    _su_done = False
+    _su_error: str | None = None
+    while True:
+        try:
+            _ch = _su_q.get_nowait()
+            _s = _ch.get("status", "")
+            if _s == "error":
+                _su_error = _ch.get("error", "unknown error")
+                break
+            _tot = _ch.get("total", 0)
+            _comp = _ch.get("completed", 0)
+            if _tot:
+                st.session_state["_su_pull_pct"] = min(int(_comp / _tot * 100), 100)
+                st.session_state["_su_pull_label"] = "Downloading"
+            elif _s:
+                st.session_state["_su_pull_label"] = _s
+            if _s == "success":
+                _su_done = True
+                break
+        except _queue.Empty:
+            break
+
+    # Render
+    _su_elapsed = int(_time.time() - st.session_state.get("_su_pull_start", _time.time()))
+    _su_elapsed_str = (
+        f"{_su_elapsed}s" if _su_elapsed < 60
+        else f"{_su_elapsed // 60}m {_su_elapsed % 60}s"
+    )
+    _su_pct = st.session_state.get("_su_pull_pct", 0)
+    _su_label = st.session_state.get("_su_pull_label", "Connecting to Ollama")
+
     _, _su_col, _ = st.columns([1, 2, 1])
     with _su_col:
         st.markdown(
@@ -1150,38 +1211,36 @@ if _startup_base_url and not is_model_available(_startup_model, _startup_base_ur
             f'</div>',
             unsafe_allow_html=True,
         )
-        _progress_bar = st.progress(0, text="Connecting to Ollama…")
-        st.markdown(
-            '<div style="font-size:11px;color:var(--j-muted);text-align:center;margin-top:0.4rem;">'
-            f'Downloading {html.escape(_startup_model)} ({html.escape(_size_label)}) — '
-            'do not close this window. The first minute may show no progress while '
-            'Ollama fetches the model manifest.'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        _status_err = st.empty()
-    import time as _time
-    _pull_ok = False
-    _pull_start = _time.time()
-    for _chunk in pull_model_stream(_startup_model, _startup_base_url):
-        _status = _chunk.get("status", "")
-        _elapsed_s = int(_time.time() - _pull_start)
-        _elapsed_str = f"{_elapsed_s}s" if _elapsed_s < 60 else f"{_elapsed_s // 60}m {_elapsed_s % 60}s"
-        if _status == "error":
-            _status_err.error(f"Pull failed: {_chunk.get('error', 'unknown error')}")
-            st.stop()
-        _total = _chunk.get("total", 0)
-        _completed = _chunk.get("completed", 0)
-        if _total:
-            _pct = min(int(_completed / _total * 100), 100)
-            _progress_bar.progress(_pct, text=f"Downloading… {_pct}% · {_elapsed_str} elapsed")
+        if _su_error:
+            st.error(f"Pull failed: {_su_error}")
         else:
-            _label = _status if _status else "Connecting to Ollama"
-            _progress_bar.progress(0, text=f"{_label}… · {_elapsed_str} elapsed")
-        if _status == "success":
-            _pull_ok = True
-    if _pull_ok:
-        _progress_bar.progress(100, text="Download complete — starting June…")
+            st.progress(
+                _su_pct,
+                text=f"{_su_label}… · {_su_elapsed_str} elapsed"
+                if not _su_done
+                else "Download complete — starting June…",
+            )
+            st.markdown(
+                '<div style="font-size:11px;color:var(--j-muted);text-align:center;margin-top:0.4rem;">'
+                f'Downloading {html.escape(_startup_model)} ({html.escape(_size_label)}) — '
+                'do not close this window. The first minute may show no percentage '
+                'while Ollama connects to the model registry.'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+
+    if _su_error:
+        for _k in ("_su_pull_thread", "_su_pull_queue", "_su_pull_start",
+                   "_su_pull_pct", "_su_pull_label"):
+            st.session_state.pop(_k, None)
+        st.stop()
+    elif _su_done:
+        for _k in ("_su_pull_thread", "_su_pull_queue", "_su_pull_start",
+                   "_su_pull_pct", "_su_pull_label"):
+            st.session_state.pop(_k, None)
+        st.rerun()
+    else:
+        _time.sleep(0.8)
         st.rerun()
 
 
@@ -2561,41 +2620,100 @@ if (
                     st.rerun()
         if st.session_state.get("_pulling_active_model"):
             import time as _time
+            import threading as _threading
+            import queue as _queue
+
+            # ── Background-thread pull ──────────────────────────────────────
+            # Pull runs on a daemon thread so socket reads don't block Streamlit.
+            # The main script reruns every ~0.8s to refresh elapsed time and pct.
+            _pull_q: _queue.Queue = st.session_state.setdefault(
+                "_pull_queue", _queue.Queue()
+            )
+            _pull_thread: _threading.Thread | None = st.session_state.get("_pull_thread")
+
+            if _pull_thread is None or not _pull_thread.is_alive():
+                # First entry — start the download thread
+                def _do_pull_thread(model: str, base_url: str, q: _queue.Queue) -> None:
+                    try:
+                        for chunk in pull_model_stream(model, base_url):
+                            q.put(chunk)
+                            if chunk.get("status") in ("success", "error"):
+                                break
+                    except Exception as exc:
+                        q.put({"status": "error", "error": str(exc)})
+
+                _t = _threading.Thread(
+                    target=_do_pull_thread,
+                    args=(active_runtime.model, active_runtime.base_url, _pull_q),
+                    daemon=True,
+                )
+                _t.start()
+                st.session_state["_pull_thread"] = _t
+                st.session_state["_pull_start_time"] = _time.time()
+                st.session_state.setdefault("_pull_pct", 0)
+                st.session_state.setdefault("_pull_status_label", "Connecting to Ollama")
+
+            # Drain all chunks available right now (non-blocking)
+            _pull_done = False
+            _pull_error: str | None = None
+            while True:
+                try:
+                    _chunk = _pull_q.get_nowait()
+                    _s = _chunk.get("status", "")
+                    if _s == "error":
+                        _pull_error = _chunk.get("error", "unknown error")
+                        break
+                    _t_bytes = _chunk.get("total", 0)
+                    _c_bytes = _chunk.get("completed", 0)
+                    if _t_bytes:
+                        st.session_state["_pull_pct"] = min(int(_c_bytes / _t_bytes * 100), 100)
+                        st.session_state["_pull_status_label"] = "Downloading"
+                    elif _s:
+                        st.session_state["_pull_status_label"] = _s
+                    if _s == "success":
+                        _pull_done = True
+                        break
+                except _queue.Empty:
+                    break
+
+            # Render current progress
+            _elapsed_s = int(_time.time() - st.session_state.get("_pull_start_time", _time.time()))
+            _elapsed_str = (
+                f"{_elapsed_s}s" if _elapsed_s < 60
+                else f"{_elapsed_s // 60}m {_elapsed_s % 60}s"
+            )
+            _cur_pct = st.session_state.get("_pull_pct", 0)
+            _cur_label = st.session_state.get("_pull_status_label", "Connecting to Ollama")
+            _progress_text = f"{_cur_label}… · {_elapsed_str} elapsed"
+
             _, _prog_col, _ = st.columns([1, 2, 1])
             with _prog_col:
-                _pb = st.progress(0, text="Connecting to Ollama…")
-                _hint = st.empty()
-                _hint.markdown(
+                st.progress(_cur_pct, text=_progress_text)
+                st.markdown(
                     '<div style="font-size:11px;color:var(--j-muted);text-align:center;margin-top:0.4rem;">'
                     f'Downloading {html.escape(active_runtime.model)} ({_size_label}) — '
-                    'do not close this window. The first minute may show no progress while '
-                    'Ollama fetches the model manifest from the registry.'
+                    'do not close this window. The first minute may show no percentage '
+                    'while Ollama connects to the model registry.'
                     '</div>',
                     unsafe_allow_html=True,
                 )
-            _pull_ok = False
-            _pull_start = _time.time()
-            for _c in pull_model_stream(active_runtime.model, active_runtime.base_url):
-                _status = _c.get("status", "")
-                _elapsed_s = int(_time.time() - _pull_start)
-                _elapsed_str = f"{_elapsed_s}s" if _elapsed_s < 60 else f"{_elapsed_s // 60}m {_elapsed_s % 60}s"
-                if _status == "error":
-                    with _prog_col:
-                        st.error(f"Pull failed: {_c.get('error', '')}")
-                    st.session_state.pop("_pulling_active_model", None)
-                    break
-                _t, _comp = _c.get("total", 0), _c.get("completed", 0)
-                if _t:
-                    _pct = min(int(_comp / _t * 100), 100)
-                    _pb.progress(_pct, text=f"Downloading… {_pct}% · {_elapsed_str} elapsed")
-                else:
-                    _label = _status if _status else "Connecting to Ollama"
-                    _pb.progress(0, text=f"{_label}… · {_elapsed_str} elapsed")
-                if _status == "success":
-                    _pull_ok = True
-            if _pull_ok:
-                st.session_state.pop("_pulling_active_model", None)
+                if _pull_error:
+                    st.error(f"Pull failed: {_pull_error}")
+
+            # Finalise or schedule next refresh
+            if _pull_error:
+                for _k in ("_pulling_active_model", "_pull_thread", "_pull_queue",
+                           "_pull_start_time", "_pull_pct", "_pull_status_label"):
+                    st.session_state.pop(_k, None)
+            elif _pull_done:
+                for _k in ("_pulling_active_model", "_pull_thread", "_pull_queue",
+                           "_pull_start_time", "_pull_pct", "_pull_status_label"):
+                    st.session_state.pop(_k, None)
                 _models_verified.add(_active_model_key)
+                st.rerun()
+            else:
+                # Still running — rerun shortly to tick elapsed time and pick up new chunks
+                _time.sleep(0.8)
                 st.rerun()
         st.stop()
     else:
