@@ -2538,11 +2538,15 @@ if (
         _models_verified.add(_active_model_key)
 
 if not st.session_state.is_generating and memory.should_send_daily_checkin():
-    daily_message = build_daily_checkin(memory)
-    st.session_state.messages.append(AIMessage(content=daily_message))
-    memory.save_message("assistant", daily_message)
+    if is_first_run(memory):
+        opening_message = build_welcome_message(memory)
+        append_activity("welcome | first run")
+    else:
+        opening_message = build_daily_checkin(memory)
+        append_activity("daily check-in | sent")
+    st.session_state.messages.append(AIMessage(content=opening_message))
+    memory.save_message("assistant", opening_message)
     memory.mark_daily_checkin_sent()
-    append_activity("daily check-in | sent")
 
 snapshot = memory.get_progress_snapshot()
 active_skill = SKILLS.get(st.session_state.active_skill_key, SKILLS[DEFAULT_SKILL])
