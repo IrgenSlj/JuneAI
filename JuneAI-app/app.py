@@ -2388,25 +2388,6 @@ def render_health_panel(memory: Memory) -> None:
             unsafe_allow_html=True,
         )
 
-    # Water
-    st.markdown('<div class="june-panel-section"></div>', unsafe_allow_html=True)
-    _water = memory.get_water_today()
-    st.markdown(
-        f'<div class="june-panel-label">Water &nbsp;<span style="font-weight:400;color:var(--j-muted);">{_water}/8</span></div>'
-        f'<div style="margin-bottom:0.35rem;">{water_dots_html(_water)}</div>',
-        unsafe_allow_html=True,
-    )
-    _wm_col, _wp_col = st.columns(2, gap="small")
-    with _wm_col:
-        if st.button("- water", key="hp_water_minus", use_container_width=True):
-            if _water > 0:
-                memory.set_water(_water - 1)
-            st.rerun()
-    with _wp_col:
-        if st.button("+ water", key="hp_water_plus", use_container_width=True):
-            memory.log_water(1)
-            st.rerun()
-
     # Body snapshot
     _today_m = memory.get_today_body_metrics()
     if _today_m:
@@ -2424,9 +2405,10 @@ def render_health_panel(memory: Memory) -> None:
                 unsafe_allow_html=True,
             )
 
-    # Quick body log
+    # Quick body + water log
     st.markdown('<div class="june-panel-section"></div>', unsafe_allow_html=True)
-    with st.expander("Log body check-in", expanded=False):
+    _water = memory.get_water_today()
+    with st.expander(f"Log body check-in · water {_water}/8", expanded=False):
         with st.form("hp_body_form", clear_on_submit=False):
             _sl = st.number_input("Sleep hours", min_value=0.0, max_value=24.0, step=0.5,
                                   value=float(_today_m.get("sleep_hours", 0.0)) if _today_m else 0.0)
@@ -2438,10 +2420,14 @@ def render_health_panel(memory: Memory) -> None:
                                    value=int(_today_m.get("soreness", 0)) if _today_m else 0)
             _sp = st.number_input("Steps", min_value=0, max_value=100000, step=500,
                                   value=int(_today_m.get("steps", 0)) if _today_m else 0)
+            _wa = st.number_input("Water (glasses)", min_value=0, max_value=20, step=1,
+                                  value=_water)
             if st.form_submit_button("Save", use_container_width=True):
                 memory.log_body_metrics(
                     sleep_hours=_sl, energy=_en, stress=_st, soreness=_so, steps=_sp
                 )
+                if _wa != _water:
+                    memory.set_water(_wa)
                 append_activity("body | check-in saved from health panel")
                 st.rerun()
 
@@ -2730,61 +2716,48 @@ if _model_ready:
 _date_label = now.strftime("%a, %d %b")
 _time_label = now.strftime("%H:%M")
 _part_label = current_part_of_day(now)
-_LOGO_SVG = (
-    '<svg width="22" height="22" viewBox="0 0 28 28" fill="none">'
-    '<polygon points="14,2 26,8.5 26,19.5 14,26 2,19.5 2,8.5" '
-    'stroke="#0F5F4A" stroke-width="1.75" fill="rgba(15,95,74,0.07)"/>'
-    '<circle cx="14" cy="14" r="4" fill="#0F5F4A" opacity="0.85"/>'
-    '</svg>'
-)
+# ── Header: logo + info + buttons in one unified row ─────────────────────
+_privacy_color = "var(--j-accent)" if active_runtime.is_local else "#c07a2a"
+_privacy_label = "○ local" if active_runtime.is_local else "◉ cloud"
+_lp_icon = "◁ H" if show_left_panel else "H ▷"
+_rp_icon = "M ▷" if show_right_panel else "◁ M"
 
-# ── Visual top bar (pure HTML — always renders with definite height) ───────
-st.markdown(
-    f'<div style="display:flex;align-items:center;gap:0.75rem;'
-    f'padding:0.55rem 0 0.4rem 0;border-bottom:1px solid var(--j-line);'
-    f'margin-bottom:0.5rem;">'
-    # Logo (PNG) + name
-    f'<div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">'
-    f'<img src="/app/static/june_ai_logo.png" alt="June AI" '
-    f'style="height:32px;width:auto;object-fit:contain;display:block;">'
-    f'</div>'
-    # Quote (hidden narrow)
-    f'<div style="flex:1;font-size:10px;color:var(--j-muted);font-style:italic;'
-    f'overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0;">'
-    f'{html.escape(sidebar_phrase)}'
-    f'</div>'
-    # Date + time (center)
-    f'<div style="flex-shrink:0;text-align:center;font-size:12px;font-weight:600;'
-    f'color:var(--j-text);line-height:1.3;">'
-    f'{html.escape(_date_label)}'
-    f'<span style="display:block;font-size:9px;font-weight:400;color:var(--j-muted);">'
-    f'{_time_label} · {_part_label}</span>'
-    f'</div>'
-    # Privacy pill
-    f'<div style="flex-shrink:0;font-size:9px;color:{"var(--j-accent)" if active_runtime.is_local else "#c07a2a"};'
-    f'border:1px solid var(--j-line);border-radius:999px;padding:0.15rem 0.45rem;">'
-    f'{"○ local" if active_runtime.is_local else "◉ cloud"}'
-    f'</div>'
-    f'</div>',
-    unsafe_allow_html=True,
+_hdr_info, _hdr_cal, _hdr_lp, _hdr_rp, _hdr_set = st.columns(
+    [5.8, 1.0, 0.5, 0.5, 0.5], gap="small"
 )
-
-# ── Interactive button row (calendar + panel toggles + settings) ───────────
-_hdr_space, _hdr_cal, _hdr_lp, _hdr_rp, _hdr_set = st.columns(
-    [3.5, 1.0, 0.65, 0.65, 0.65], gap="small"
-)
-with _hdr_space:
-    pass  # keeps buttons right-aligned
+with _hdr_info:
+    st.markdown(
+        f'<div style="display:flex;align-items:center;gap:0.6rem;'
+        f'padding:0.35rem 0;min-height:38px;">'
+        # Logo PNG
+        f'<img src="/app/static/june_ai_logo.png" alt="June AI" '
+        f'style="height:30px;width:auto;object-fit:contain;flex-shrink:0;">'
+        # Motivational quote
+        f'<span style="font-size:10px;color:var(--j-muted);font-style:italic;'
+        f'flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0;">'
+        f'{html.escape(sidebar_phrase)}</span>'
+        # Date + time
+        f'<span style="font-size:11px;font-weight:600;color:var(--j-text);'
+        f'white-space:nowrap;flex-shrink:0;">'
+        f'{html.escape(_date_label)}'
+        f'<span style="font-weight:400;color:var(--j-muted);font-size:9px;"> · '
+        f'{_time_label} · {_part_label}</span></span>'
+        # Privacy pill
+        f'<span style="font-size:9px;color:{_privacy_color};'
+        f'border:1px solid var(--j-line);border-radius:999px;'
+        f'padding:0.1rem 0.4rem;white-space:nowrap;flex-shrink:0;">'
+        f'{_privacy_label}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 with _hdr_cal:
     if st.button("📅 Calendar", key="hdr_open_calendar", use_container_width=True):
         open_calendar_dialog(memory, now)
 with _hdr_lp:
-    _lp_icon = "◁ H" if show_left_panel else "H ▷"
     if st.button(_lp_icon, key="hdr_left_panel", use_container_width=True, help="Toggle health panel"):
         st.session_state.show_left_panel = not show_left_panel
         st.rerun()
 with _hdr_rp:
-    _rp_icon = "M ▷" if show_right_panel else "◁ M"
     if st.button(_rp_icon, key="hdr_right_panel", use_container_width=True, help="Toggle memory panel"):
         sync_right_panel_visibility(st.session_state, not show_right_panel)
         st.rerun()
@@ -2792,7 +2765,10 @@ with _hdr_set:
     if st.button("⚙", key="hdr_settings", use_container_width=True, help="Settings, LLM, profile"):
         open_settings_dialog(memory, active_runtime, stored_runtime_preset, user_id)
 
-st.markdown('<div style="margin-bottom:0.75rem;"></div>', unsafe_allow_html=True)
+st.markdown(
+    '<hr style="margin:0 0 0.65rem 0;border:none;border-top:1px solid var(--j-line);">',
+    unsafe_allow_html=True,
+)
 
 # ---------------------------------------------------------------------------
 # Three-column layout: Health | Chat | Memory
@@ -2895,16 +2871,34 @@ with chat_col:
                 st.session_state.pop(_k, None)
             if _is_version_err:
                 st.error(
-                    f"**Ollama needs to be updated** to download `{_dl_model}`.\n\n"
-                    f"Run this in your terminal, then restart the app:"
+                    f"**Ollama is out of date** — `{_dl_model}` requires a newer version.\n\n"
+                    f"Click **Upgrade Ollama** below, or run manually in your terminal:"
                 )
                 st.code("brew upgrade ollama", language="bash")
+                _uc1, _uc2 = st.columns(2, gap="small")
+                with _uc1:
+                    if st.button("Upgrade Ollama", key="err_upgrade_ollama",
+                                 use_container_width=True, type="primary"):
+                        import subprocess as _sub
+                        _brew = _sub.run(["brew", "upgrade", "ollama"],
+                                         capture_output=True, text=True)
+                        if _brew.returncode == 0:
+                            st.success("Ollama upgraded. Click Download now to retry.")
+                        else:
+                            st.error(f"brew upgrade failed:\n{_brew.stderr[:200]}")
+                with _uc2:
+                    if st.button("Use Llama 3.2 instead", key="err_fallback_llama",
+                                 use_container_width=True):
+                        st.session_state.selected_runtime_preset = "local_llama3_2"
+                        memory.set_app_state_value("runtime_preset", "local_llama3_2")
+                        st.rerun()
             else:
                 st.error(f"Download failed: {_err_detail}")
-            if st.button("Use Llama 3.2 instead", key="err_fallback_llama", use_container_width=True):
-                st.session_state.selected_runtime_preset = "local_llama3_2"
-                memory.set_app_state_value("runtime_preset", "local_llama3_2")
-                st.rerun()
+                if st.button("Use Llama 3.2 instead", key="err_fallback_llama2",
+                             use_container_width=True):
+                    st.session_state.selected_runtime_preset = "local_llama3_2"
+                    memory.set_app_state_value("runtime_preset", "local_llama3_2")
+                    st.rerun()
         elif not ollama_cli_available():
             st.info("Ollama CLI not found. Run manually:")
             st.code(f"ollama pull {_dl_model}")
