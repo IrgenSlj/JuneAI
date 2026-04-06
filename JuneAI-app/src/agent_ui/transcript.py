@@ -316,7 +316,6 @@ def render_message_html(message: Any, *, collapse_threshold: int = 900) -> str:
             return ""
         return (
             '<div class="june-message june-message-user">'
-            f'<div class="june-message-label">{escape_html(label)}</div>'
             f'{text_html(text)}'
             '</div>'
         )
@@ -327,7 +326,6 @@ def render_message_html(message: Any, *, collapse_threshold: int = 900) -> str:
 
     return (
         '<div class="june-message june-message-assistant">'
-        f'<div class="june-message-label">{escape_html(label)}</div>'
         '<div style="display:grid;gap:0.7rem;">'
         + "".join(_render_block(block, collapse_threshold=collapse_threshold) for block in blocks)
         + '</div>'

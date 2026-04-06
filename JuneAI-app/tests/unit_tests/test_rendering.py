@@ -33,8 +33,8 @@ def test_transcript_renders_structured_assistant_blocks_and_collapses_long_text(
     assert "<details>" in html
     assert "Ship UI shell" in html
     assert "june-chip" in html
-    assert "You" in html
-    assert "June" in html
+    assert "june-message-user" in html
+    assert "june-message-assistant" in html
 
 
 def test_transcript_strips_gemma_thought_blocks() -> None:

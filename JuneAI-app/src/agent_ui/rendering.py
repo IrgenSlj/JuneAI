@@ -24,6 +24,7 @@ from .shell import (
 from .transcript import extract_text, render_save_summary_html as _render_save_summary_html, render_transcript_html
 
 __all__ = [
+    "chapter_ring_svg",
     "default_ui_state",
     "energy_dots_html",
     "extract_text",
@@ -69,6 +70,32 @@ def habit_ring_svg(done: bool, size: int = 26) -> str:
         f'stroke-dasharray="{circumference}" stroke-dashoffset="{offset}" '
         f'transform="rotate(-90 {c} {c})" '
         f'style="transition:stroke-dashoffset 0.55s cubic-bezier(0.34,1.56,0.64,1);"/>'
+        f'</svg>'
+    )
+
+
+def chapter_ring_svg(filled: int, total: int, size: int = 48) -> str:
+    """Render a progress ring showing chapter completeness."""
+    r = size // 2 - 4
+    c = size // 2
+    circumference = round(2 * 3.14159 * r, 2)
+    pct = filled / total if total else 0
+    offset = round(circumference * (1 - pct), 2)
+    label = f"{filled}/{total}"
+    return (
+        f'<svg width="{size}" height="{size}" viewBox="0 0 {size} {size}" '
+        f'style="display:block;flex-shrink:0;">'
+        f'<circle cx="{c}" cy="{c}" r="{r}" fill="none" '
+        f'stroke="rgba(22,20,16,0.08)" stroke-width="3"/>'
+        f'<circle cx="{c}" cy="{c}" r="{r}" fill="none" '
+        f'stroke="#0f5f4a" stroke-width="3" '
+        f'stroke-dasharray="{circumference}" stroke-dashoffset="{offset}" '
+        f'stroke-linecap="round" '
+        f'transform="rotate(-90 {c} {c})" '
+        f'style="transition:stroke-dashoffset 0.6s ease;"/>'
+        f'<text x="{c}" y="{c}" text-anchor="middle" dominant-baseline="central" '
+        f'fill="var(--j-text,#1A1815)" font-size="10" font-family="Syne,sans-serif" '
+        f'font-weight="600">{label}</text>'
         f'</svg>'
     )
 

@@ -44,6 +44,7 @@ from agent_ui.panels import (
 )
 from agent_ui.onboarding import FirstRunSummary, first_run_setup_summary
 from agent_ui.rendering import (
+    chapter_ring_svg,
     energy_dots_html,
     extract_text,
     habit_ring_svg,
@@ -384,23 +385,24 @@ st.markdown(
     }
 
     .june-message {
-        border-radius: 14px;
-        padding: 0.8rem 1rem;
-        margin-bottom: 0.6rem;
+        border-radius: 16px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.5rem;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
         font-size: 14px;
         line-height: 1.65;
         animation: fadeUp 0.18s ease both;
-        max-width: 88%;
+        max-width: 86%;
     }
 
     .june-message-user {
         background: var(--j-user-bg);
-        border: 1px solid rgba(15,95,74,0.1);
+        border: 1px solid rgba(15,95,74,0.12);
         margin-left: auto;
         margin-right: 0;
         border-bottom-right-radius: 4px;
+        color: var(--j-text);
     }
     .june-message-assistant {
         background: var(--j-surface);
@@ -408,16 +410,7 @@ st.markdown(
         margin-left: 0;
         margin-right: auto;
         border-bottom-left-radius: 4px;
-        box-shadow: 0 1px 6px rgba(26,24,21,0.04);
-    }
-
-    .june-message-label {
-        color: var(--j-accent);
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-        font-size: 9px;
-        margin-bottom: 0.3rem;
-        font-weight: 600;
+        box-shadow: 0 1px 4px rgba(26,24,21,0.03);
     }
 
     /* Three-dot typing indicator */
@@ -1096,10 +1089,25 @@ st.markdown(
         :root { --j-sidebar-w: 220px; }
         .june-header-phrase { display: none; }
     }
-    @media (max-width: 720px) {
+    @media (max-width: 768px) {
+        /* Hide the right rail — navigation is still accessible via the toggle */
         [data-testid="stSidebar"] { display: none !important; }
         .block-container { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
-        .june-message { font-size: 13px !important; max-width: 96% !important; }
+        .june-message { font-size: 13px !important; max-width: 98% !important; }
+        .june-message-user { max-width: 86% !important; }
+        .june-message-assistant { max-width: 98% !important; }
+        /* Keep the input area accessible at the bottom */
+        .stForm { position: sticky; bottom: 0; background: var(--j-bg); z-index: 10; padding-top: 0.5rem; }
+        /* Reduce transcript height on mobile to leave room for input */
+        .june-transcript { max-height: 55vh; }
+        /* Tighter header on mobile */
+        .june-header-bar { padding: 0.5rem 0.75rem; }
+        .june-header-pill { display: none; }
+        .june-header-logo { font-size: 1rem; }
+    }
+    @media (max-width: 480px) {
+        .june-message { font-size: 13px !important; }
+        .june-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
     }
 
     /* ── Accessibility ───────────────────────────────────────── */
@@ -1976,12 +1984,32 @@ def render_today_panel(memory: Memory, snapshot: dict[str, int]) -> None:
         '</div>'
         for metric in model.kpis
     )
+
+    # Chapter completeness ring
+    completeness = memory.get_chapter_completeness()
+    _total_chapters = len(completeness)
+    _filled_chapters = sum(1 for v in completeness.values() if v > 0)
+    _ring_svg = chapter_ring_svg(_filled_chapters, _total_chapters)
+    _ring_label = (
+        f"All {_total_chapters} chapters active"
+        if _filled_chapters == _total_chapters
+        else f"{_total_chapters - _filled_chapters} chapter(s) still empty"
+    )
+
     st.markdown(
         '<div class="june-rail-card june-rail-card-primary">'
+        '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;">'
+        '<div style="flex:1;min-width:0;">'
         '<div class="june-label">Today</div>'
         f'<div class="june-title">{html.escape(model.title)}</div>'
         f'<div class="june-panel-caption">{html.escape(model.caption)}</div>'
         f'<div class="june-item-meta">{html.escape(model.subheadline)}</div>'
+        '</div>'
+        f'<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;flex-shrink:0;">'
+        f'{_ring_svg}'
+        f'<div style="font-size:9px;color:var(--j-muted);text-align:center;white-space:nowrap;">{html.escape(_ring_label)}</div>'
+        f'</div>'
+        '</div>'
         f'<div class="june-kpi-grid">{kpi_html}</div>'
         '</div>',
         unsafe_allow_html=True,
@@ -2590,7 +2618,14 @@ plan_col = columns[1] if show_right_panel else None
 # ── Conversation ──────────────────────────────────────────────────────────
 
 with chat_col:
-    render_command_bar(show_right_panel)
+    # Show/hide rail toggle — navigation is now in the right rail tabs
+    _toggle_col, _ = st.columns([1, 4])
+    with _toggle_col:
+        _rail_label = "Hide panel" if show_right_panel else "Show panel"
+        if st.button(_rail_label, key="toggle_right_rail_top", use_container_width=True):
+            sync_right_panel_visibility(st.session_state, not show_right_panel)
+            append_activity(f"right rail | {'hidden' if show_right_panel else 'shown'}")
+            st.rerun()
     render_first_run_onboarding(memory)
     render_starter_prompts(memory)
 
@@ -2690,34 +2725,24 @@ with chat_col:
 if show_right_panel and plan_col is not None:
     with plan_col:
         st.markdown('<div class="june-right-panel">', unsafe_allow_html=True)
-        st.markdown(
-            '<div class="june-rail-card june-rail-card-quiet">'
-            '<div class="june-label">Window</div>'
-            '<div class="june-title">Single-page workspace</div>'
-            '<div class="june-panel-caption">Switch the page posture without losing context. The rail surface below adapts to the task you are doing.</div>'
-            f'<div class="june-item-meta">{html.escape(active_privacy["summary"])}</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            '<div style="margin-top:-0.25rem;margin-bottom:0.35rem;">'
-            f'<span class="june-runtime-pill">{"local-first" if active_runtime.is_local else "api-assisted"}</span>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        render_layout_controls()
 
         workspace_placeholder = st.empty()
         activity_placeholder = st.empty()
-        if st.session_state.rail_view == "today":
+
+        # ── Rail view: native tabs ──────────────────────────────────────────
+        _rail_tabs = st.tabs(["Today", "Memory", "Workspace", "Debug"])
+        _tab_today, _tab_memory, _tab_workspace, _tab_debug = _rail_tabs
+
+        # When an agent tool (set_ui_chapter etc.) drives rail_view to "memory",
+        # we jump into that tab's content via session state — the tab selection
+        # itself stays user-driven; content inside switches correctly.
+        with _tab_today:
             render_today_panel(memory, snapshot)
-        elif st.session_state.rail_view == "onboarding":
-            render_first_run_onboarding(memory)
-        elif st.session_state.rail_view == "memory":
+        with _tab_memory:
             render_memory_panel(memory)
-        elif st.session_state.rail_view == "workspace":
+        with _tab_workspace:
             render_workspace_panel()
-        else:
+        with _tab_debug:
             render_debug_panel(memory)
 
         st.markdown("</div>", unsafe_allow_html=True)  # close june-right-panel
