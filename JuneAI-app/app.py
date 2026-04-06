@@ -1151,10 +1151,22 @@ if _startup_base_url and not is_model_available(_startup_model, _startup_base_ur
             unsafe_allow_html=True,
         )
         _progress_bar = st.progress(0, text="Connecting to Ollama…")
+        st.markdown(
+            '<div style="font-size:11px;color:var(--j-muted);text-align:center;margin-top:0.4rem;">'
+            f'Downloading {html.escape(_startup_model)} ({html.escape(_size_label)}) — '
+            'do not close this window. The first minute may show no progress while '
+            'Ollama fetches the model manifest.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
         _status_err = st.empty()
+    import time as _time
     _pull_ok = False
+    _pull_start = _time.time()
     for _chunk in pull_model_stream(_startup_model, _startup_base_url):
         _status = _chunk.get("status", "")
+        _elapsed_s = int(_time.time() - _pull_start)
+        _elapsed_str = f"{_elapsed_s}s" if _elapsed_s < 60 else f"{_elapsed_s // 60}m {_elapsed_s % 60}s"
         if _status == "error":
             _status_err.error(f"Pull failed: {_chunk.get('error', 'unknown error')}")
             st.stop()
@@ -1162,9 +1174,10 @@ if _startup_base_url and not is_model_available(_startup_model, _startup_base_ur
         _completed = _chunk.get("completed", 0)
         if _total:
             _pct = min(int(_completed / _total * 100), 100)
-            _progress_bar.progress(_pct, text=f"Downloading… {_pct}%")
+            _progress_bar.progress(_pct, text=f"Downloading… {_pct}% · {_elapsed_str} elapsed")
         else:
-            _progress_bar.progress(0, text=f"{_status}…" if _status else "Connecting to Ollama…")
+            _label = _status if _status else "Connecting to Ollama"
+            _progress_bar.progress(0, text=f"{_label}… · {_elapsed_str} elapsed")
         if _status == "success":
             _pull_ok = True
     if _pull_ok:
@@ -2547,23 +2560,37 @@ if (
                     st.session_state["_pulling_active_model"] = active_runtime.model
                     st.rerun()
         if st.session_state.get("_pulling_active_model"):
+            import time as _time
             _, _prog_col, _ = st.columns([1, 2, 1])
             with _prog_col:
                 _pb = st.progress(0, text="Connecting to Ollama…")
-                _sb = st.empty()
+                _hint = st.empty()
+                _hint.markdown(
+                    '<div style="font-size:11px;color:var(--j-muted);text-align:center;margin-top:0.4rem;">'
+                    f'Downloading {html.escape(active_runtime.model)} ({_size_label}) — '
+                    'do not close this window. The first minute may show no progress while '
+                    'Ollama fetches the model manifest from the registry.'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
             _pull_ok = False
+            _pull_start = _time.time()
             for _c in pull_model_stream(active_runtime.model, active_runtime.base_url):
                 _status = _c.get("status", "")
+                _elapsed_s = int(_time.time() - _pull_start)
+                _elapsed_str = f"{_elapsed_s}s" if _elapsed_s < 60 else f"{_elapsed_s // 60}m {_elapsed_s % 60}s"
                 if _status == "error":
-                    _sb.error(f"Pull failed: {_c.get('error', '')}")
+                    with _prog_col:
+                        st.error(f"Pull failed: {_c.get('error', '')}")
                     st.session_state.pop("_pulling_active_model", None)
                     break
                 _t, _comp = _c.get("total", 0), _c.get("completed", 0)
                 if _t:
                     _pct = min(int(_comp / _t * 100), 100)
-                    _pb.progress(_pct, text=f"Downloading… {_pct}%")
+                    _pb.progress(_pct, text=f"Downloading… {_pct}% · {_elapsed_str} elapsed")
                 else:
-                    _pb.progress(0, text=f"{_status}…" if _status else "Connecting to Ollama…")
+                    _label = _status if _status else "Connecting to Ollama"
+                    _pb.progress(0, text=f"{_label}… · {_elapsed_str} elapsed")
                 if _status == "success":
                     _pull_ok = True
             if _pull_ok:
