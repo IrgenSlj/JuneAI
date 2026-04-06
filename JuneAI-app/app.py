@@ -1130,18 +1130,20 @@ _startup_base_url = RUNTIME_CONFIG.base_url
 _startup_model = RUNTIME_CONFIG.model
 if _startup_base_url and not is_model_available(_startup_model, _startup_base_url):
     _size_label = model_size_label(_startup_model)
-    _size_str = f" ({_size_label})" if _size_label else ""
-    st.markdown(
-        f'<div style="max-width:520px;margin:4rem auto 0;text-align:center;">'
-        f'<div style="font-family:Syne,sans-serif;font-size:1.4rem;font-weight:600;'
-        f'color:var(--j-text);margin-bottom:0.4rem;">Downloading model</div>'
-        f'<div style="font-size:13px;color:var(--j-muted);margin-bottom:1.2rem;">'
-        f'<code>{_startup_model}</code>{_size_str} — pulling from Ollama…</div>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
-    _progress_bar = st.progress(0, text="Starting download…")
-    _status_box = st.empty()
+    _size_str = f" · {_size_label}" if _size_label else ""
+    _, _su_col, _ = st.columns([1, 2, 1])
+    with _su_col:
+        st.markdown(
+            f'<div style="text-align:center;padding:3rem 0 1.5rem;">'
+            f'<div style="font-family:Syne,sans-serif;font-size:1.35rem;font-weight:600;'
+            f'color:var(--j-text);margin-bottom:0.35rem;">Downloading model</div>'
+            f'<div style="font-size:13px;color:var(--j-muted);margin-bottom:1.5rem;">'
+            f'<code>{_startup_model}</code>{_size_str}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        _progress_bar = st.progress(0, text="Starting download…")
+        _status_box = st.empty()
     _pull_ok = False
     for _chunk in pull_model_stream(_startup_model, _startup_base_url):
         _status = _chunk.get("status", "")
@@ -1152,7 +1154,7 @@ if _startup_base_url and not is_model_available(_startup_model, _startup_base_ur
         completed = _chunk.get("completed", 0)
         if total and total > 0:
             _pct = min(int(completed / total * 100), 100)
-            _progress_bar.progress(_pct, text=f"{_status} — {_pct}%")
+            _progress_bar.progress(_pct, text=f"Downloading… {_pct}%")
         else:
             _status_box.markdown(
                 f'<div style="font-size:12px;color:var(--j-muted);text-align:center;">{_status}</div>',
@@ -2492,32 +2494,36 @@ if (
 ):
     if not is_model_available(active_runtime.model, active_runtime.base_url):
         _size_label = model_size_label(active_runtime.model)
-        _size_str = f" ({_size_label})" if _size_label else ""
-        st.markdown(
-            f'<div style="max-width:520px;margin:4rem auto 0;text-align:center;">'
-            f'<div style="font-family:Syne,sans-serif;font-size:1.4rem;font-weight:600;'
-            f'color:var(--j-text);margin-bottom:0.4rem;">Model not downloaded</div>'
-            f'<div style="font-size:13px;color:var(--j-muted);margin-bottom:1.5rem;">'
-            f'<code>{active_runtime.model}</code>{_size_str}</div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-        _pull_col, _fallback_col = st.columns(2, gap="small")
-        with _pull_col:
+        _size_str = f" · {_size_label}" if _size_label else ""
+        # Centred card — constrain width so buttons don't span the full viewport
+        _, _card_col, _ = st.columns([1, 2, 1])
+        with _card_col:
+            st.markdown(
+                f'<div style="text-align:center;padding:3rem 0 1.5rem;">'
+                f'<div style="font-family:Syne,sans-serif;font-size:1.35rem;font-weight:600;'
+                f'color:var(--j-text);margin-bottom:0.35rem;">Model not downloaded</div>'
+                f'<div style="font-size:13px;color:var(--j-muted);margin-bottom:1.5rem;">'
+                f'<code>{active_runtime.model}</code>{_size_str}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
             _do_pull = st.button("Download now", key="pull_active_model", use_container_width=True)
-        with _fallback_col:
+            st.markdown('<div style="height:0.4rem;"></div>', unsafe_allow_html=True)
             _do_fallback = st.button("Use Llama 3.2 instead", key="fallback_to_llama", use_container_width=True)
         if _do_fallback:
             st.session_state.selected_runtime_preset = "local_llama3_2"
             memory.set_app_state_value("runtime_preset", "local_llama3_2")
             st.rerun()
         if _do_pull:
-            _pb = st.progress(0, text="Starting download…")
-            _sb = st.empty()
+            _, _prog_col, _ = st.columns([1, 2, 1])
+            with _prog_col:
+                _pb = st.progress(0, text="Starting download…")
+                _sb = st.empty()
             _pull_ok = False
             for _c in pull_model_stream(active_runtime.model, active_runtime.base_url):
                 if _c.get("status") == "error":
-                    _sb.error(f"Pull failed: {_c.get('error', '')}")
+                    with _prog_col:
+                        _sb.error(f"Pull failed: {_c.get('error', '')}")
                     break
                 _t, _comp = _c.get("total", 0), _c.get("completed", 0)
                 if _t:
