@@ -211,18 +211,22 @@ def start_pull_with_progress(model_name: str) -> tuple[subprocess.Popen | None, 
                     buf = ""
                     if not line:
                         continue
-                    m = re.search(r"(\d+)%", line)
+                    # Skip URLs and ANSI escape sequences
+                    clean = re.sub(r"\x1b\[[0-9;]*m", "", line).strip()
+                    if re.match(r"https?://", clean):
+                        continue
+                    m = re.search(r"(\d+)%", clean)
                     if m:
                         pct = int(m.group(1))
                         status = "Downloading"
-                    elif "success" in line.lower():
+                    elif "success" in clean.lower():
                         pct = 100
                         status = "Done"
-                    elif "error" in line.lower():
-                        status = line[:60]
-                    elif line:
+                    elif "error" in clean.lower():
+                        status = clean[:60]
+                    elif clean:
                         # e.g. "pulling manifest", "verifying sha256 digest"
-                        status = line[:60]
+                        status = clean[:60]
                     _write_progress(path, pct, status)
                 else:
                     buf += char

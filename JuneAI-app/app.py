@@ -2727,64 +2727,73 @@ if _model_ready:
 # Top bar: Logo | Quote | Date+Time (calendar) | Panel toggles + Settings
 # ---------------------------------------------------------------------------
 
+_date_label = now.strftime("%a, %d %b")
+_time_label = now.strftime("%H:%M")
+_part_label = current_part_of_day(now)
 _LOGO_SVG = (
-    '<svg width="28" height="28" viewBox="0 0 28 28" fill="none" '
-    'xmlns="http://www.w3.org/2000/svg" class="june-logo-icon">'
+    '<svg width="22" height="22" viewBox="0 0 28 28" fill="none">'
     '<polygon points="14,2 26,8.5 26,19.5 14,26 2,19.5 2,8.5" '
     'stroke="#0F5F4A" stroke-width="1.75" fill="rgba(15,95,74,0.07)"/>'
     '<circle cx="14" cy="14" r="4" fill="#0F5F4A" opacity="0.85"/>'
     '</svg>'
 )
 
-_tb_logo, _tb_quote, _tb_center, _tb_right = st.columns([0.85, 1.7, 1.35, 1.1], gap="small")
-
-with _tb_logo:
-    st.markdown(
-        f'<div class="june-topbar-logo">'
-        f'{_LOGO_SVG}'
-        f'<span class="june-logo-text">June AI</span>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
-
-with _tb_quote:
-    st.markdown(
-        f'<div class="june-topbar-quote">{html.escape(sidebar_phrase)}</div>',
-        unsafe_allow_html=True,
-    )
-
-with _tb_center:
-    _date_label = now.strftime("%a, %d %b")
-    _time_label = now.strftime("%H:%M")
-    _part_label = current_part_of_day(now)
-    st.markdown(
-        f'<div class="june-topbar-datetime">{_date_label}'
-        f'<span class="june-topbar-time">{_time_label} · {_part_label}</span></div>',
-        unsafe_allow_html=True,
-    )
-    if st.button("Calendar", key="hdr_open_calendar", use_container_width=True):
-        open_calendar_dialog(memory, now)
-
-with _tb_right:
-    _rb1, _rb2, _rb3 = st.columns(3, gap="small")
-    with _rb1:
-        _lp_icon = "◁ H" if show_left_panel else "H ▷"
-        if st.button(_lp_icon, key="hdr_left_panel", use_container_width=True, help="Toggle health panel"):
-            st.session_state.show_left_panel = not show_left_panel
-            st.rerun()
-    with _rb2:
-        _rp_icon = "M ▷" if show_right_panel else "◁ M"
-        if st.button(_rp_icon, key="hdr_right_panel", use_container_width=True, help="Toggle memory panel"):
-            sync_right_panel_visibility(st.session_state, not show_right_panel)
-            st.rerun()
-    with _rb3:
-        if st.button("⚙", key="hdr_settings", use_container_width=True, help="Settings, LLM, profile"):
-            open_settings_dialog(memory, active_runtime, stored_runtime_preset, user_id)
-
+# ── Visual top bar (pure HTML — always renders with definite height) ───────
 st.markdown(
-    '<div class="june-topbar-wrap" style="margin-top:-0.5rem;"></div>',
+    f'<div style="display:flex;align-items:center;gap:0.75rem;'
+    f'padding:0.55rem 0 0.4rem 0;border-bottom:1px solid var(--j-line);'
+    f'margin-bottom:0.5rem;">'
+    # Logo + name
+    f'<div style="display:flex;align-items:center;gap:0.4rem;flex-shrink:0;">'
+    f'{_LOGO_SVG}'
+    f'<span style="font-family:Syne,sans-serif;font-weight:700;font-size:1.1rem;'
+    f'letter-spacing:-0.04em;color:var(--j-text);">June AI</span>'
+    f'</div>'
+    # Quote (hidden narrow)
+    f'<div style="flex:1;font-size:10px;color:var(--j-muted);font-style:italic;'
+    f'overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0;">'
+    f'{html.escape(sidebar_phrase)}'
+    f'</div>'
+    # Date + time (center)
+    f'<div style="flex-shrink:0;text-align:center;font-size:12px;font-weight:600;'
+    f'color:var(--j-text);line-height:1.3;">'
+    f'{html.escape(_date_label)}'
+    f'<span style="display:block;font-size:9px;font-weight:400;color:var(--j-muted);">'
+    f'{_time_label} · {_part_label}</span>'
+    f'</div>'
+    # Privacy pill
+    f'<div style="flex-shrink:0;font-size:9px;color:{"var(--j-accent)" if active_runtime.is_local else "#c07a2a"};'
+    f'border:1px solid var(--j-line);border-radius:999px;padding:0.15rem 0.45rem;">'
+    f'{"○ local" if active_runtime.is_local else "◉ cloud"}'
+    f'</div>'
+    f'</div>',
     unsafe_allow_html=True,
 )
+
+# ── Interactive button row (calendar + panel toggles + settings) ───────────
+_hdr_space, _hdr_cal, _hdr_lp, _hdr_rp, _hdr_set = st.columns(
+    [3.5, 1.0, 0.65, 0.65, 0.65], gap="small"
+)
+with _hdr_space:
+    pass  # keeps buttons right-aligned
+with _hdr_cal:
+    if st.button("📅 Calendar", key="hdr_open_calendar", use_container_width=True):
+        open_calendar_dialog(memory, now)
+with _hdr_lp:
+    _lp_icon = "◁ H" if show_left_panel else "H ▷"
+    if st.button(_lp_icon, key="hdr_left_panel", use_container_width=True, help="Toggle health panel"):
+        st.session_state.show_left_panel = not show_left_panel
+        st.rerun()
+with _hdr_rp:
+    _rp_icon = "M ▷" if show_right_panel else "◁ M"
+    if st.button(_rp_icon, key="hdr_right_panel", use_container_width=True, help="Toggle memory panel"):
+        sync_right_panel_visibility(st.session_state, not show_right_panel)
+        st.rerun()
+with _hdr_set:
+    if st.button("⚙", key="hdr_settings", use_container_width=True, help="Settings, LLM, profile"):
+        open_settings_dialog(memory, active_runtime, stored_runtime_preset, user_id)
+
+st.markdown('<div style="margin-bottom:0.75rem;"></div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # Three-column layout: Health | Chat | Memory
