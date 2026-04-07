@@ -134,11 +134,15 @@ st.markdown(
         padding-right: 1.25rem !important;
     }
 
-    /* ── Hide native Streamlit sidebar (panels are now columns) ── */
+    /* ── Hide native Streamlit chrome (sidebar + toolbar) ── */
     [data-testid="stSidebar"],
     [data-testid="stSidebarCollapseButton"],
     [data-testid="stSidebarNavButton"],
     [data-testid="collapsedControl"] { display: none !important; }
+
+    /* Hide the fixed Streamlit header/toolbar so our header shows fully */
+    header[data-testid="stHeader"],
+    [data-testid="stHeader"] { display: none !important; }
 
     /* ── Top bar ───────────────────────────────────────────── */
     .june-topbar-wrap {
@@ -903,8 +907,8 @@ st.markdown(
         color: var(--j-muted) !important;
     }
 
-    /* Push content below the Streamlit toolbar (~52px) */
-    .main .block-container { padding-top: 3.75rem !important; }
+    /* Compact top padding now that Streamlit toolbar is hidden */
+    .main .block-container { padding-top: 0.75rem !important; }
 
     /* Smooth scrolling page-wide */
     html { scroll-behavior: smooth; }
@@ -2742,11 +2746,12 @@ with _hdr_info:
         f'{html.escape(_date_label)}'
         f'<span style="font-weight:400;color:var(--j-muted);font-size:9px;"> · '
         f'{_time_label} · {_part_label}</span></span>'
-        # Privacy pill
+        # Model + privacy pill
         f'<span style="font-size:9px;color:{_privacy_color};'
         f'border:1px solid var(--j-line);border-radius:999px;'
-        f'padding:0.1rem 0.4rem;white-space:nowrap;flex-shrink:0;">'
-        f'{_privacy_label}</span>'
+        f'padding:0.1rem 0.5rem;white-space:nowrap;flex-shrink:0;">'
+        f'{html.escape(active_runtime.model.split(":")[0])} · {_privacy_label}'
+        f'</span>'
         f'</div>',
         unsafe_allow_html=True,
     )
