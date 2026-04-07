@@ -1134,6 +1134,49 @@ st.markdown(
         letter-spacing: 0.02em;
     }
 
+    /* ── Header action buttons ──────────────────────────────── */
+    .june-hdr-btn .stButton > button {
+        background: transparent !important;
+        border: 1px solid var(--j-line) !important;
+        border-radius: 8px !important;
+        color: var(--j-muted) !important;
+        font-size: 11px !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.03em !important;
+        min-height: 2rem !important;
+        padding: 0 0.5rem !important;
+        width: 100%;
+        transition: all 0.12s ease;
+    }
+    .june-hdr-btn .stButton > button:hover {
+        border-color: rgba(15,95,74,0.3) !important;
+        color: var(--j-accent) !important;
+        background: var(--j-accent-soft) !important;
+    }
+    .june-hdr-btn-active .stButton > button {
+        background: var(--j-accent-soft) !important;
+        border-color: rgba(15,95,74,0.25) !important;
+        color: var(--j-accent) !important;
+    }
+
+    /* ── Streamlit tab active indicator ─────────────────────── */
+    [data-testid="stTabs"] [role="tab"][aria-selected="true"] {
+        color: var(--j-accent) !important;
+    }
+    [data-testid="stTabs"] [role="tablist"] {
+        border-bottom: 1px solid var(--j-line) !important;
+    }
+    [data-testid="stTabs"] button[role="tab"] {
+        font-size: 11px !important;
+        font-family: "Inter", monospace !important;
+        letter-spacing: 0.01em !important;
+        color: var(--j-muted) !important;
+    }
+    [data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+        color: var(--j-accent) !important;
+        border-bottom-color: var(--j-accent) !important;
+    }
+
     /* ── Responsive ──────────────────────────────────────────── */
     @media (max-width: 960px) {
         .june-topbar-quote { display: none; }
@@ -1189,12 +1232,11 @@ if _startup_base_url and not is_model_available(_startup_model, _startup_base_ur
     st.markdown(
         '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0 0.75rem 0;'
         'border-bottom:1px solid rgba(26,24,21,0.08);margin-bottom:1.5rem;">'
-        '<svg width="24" height="24" viewBox="0 0 28 28" fill="none">'
-        '<polygon points="14,2 26,8.5 26,19.5 14,26 2,19.5 2,8.5" '
-        'stroke="#0F5F4A" stroke-width="1.75" fill="rgba(15,95,74,0.07)"/>'
-        '<circle cx="14" cy="14" r="4" fill="#0F5F4A" opacity="0.85"/></svg>'
         '<span style="font-family:Syne,sans-serif;font-weight:700;font-size:1.1rem;'
-        'letter-spacing:-0.04em;">June AI</span></div>',
+        'letter-spacing:-0.04em;color:var(--j-text);">June</span>'
+        '<span style="width:5px;height:5px;border-radius:50%;background:#0F5F4A;'
+        'display:inline-block;margin-left:4px;vertical-align:middle;margin-bottom:2px;"></span>'
+        '</div>',
         unsafe_allow_html=True,
     )
 
@@ -2723,19 +2765,24 @@ _part_label = current_part_of_day(now)
 # ── Header: logo + info + buttons in one unified row ─────────────────────
 _privacy_color = "var(--j-accent)" if active_runtime.is_local else "#c07a2a"
 _privacy_label = "○ local" if active_runtime.is_local else "◉ cloud"
-_lp_icon = "◁ H" if show_left_panel else "H ▷"
-_rp_icon = "M ▷" if show_right_panel else "◁ M"
+_lp_label = "Health"
+_rp_label = "Memory"
+_lp_active = show_left_panel
+_rp_active = show_right_panel
 
 _hdr_info, _hdr_cal, _hdr_lp, _hdr_rp, _hdr_set = st.columns(
-    [5.8, 1.0, 0.5, 0.5, 0.5], gap="small"
+    [5.0, 0.8, 0.8, 0.8, 0.8], gap="small"
 )
 with _hdr_info:
     st.markdown(
-        f'<div style="display:flex;align-items:center;gap:0.6rem;'
-        f'padding:0.35rem 0;min-height:38px;">'
-        # Logo PNG
-        f'<img src="/app/static/june_ai_logo.png" alt="June AI" '
-        f'style="height:30px;width:auto;object-fit:contain;flex-shrink:0;">'
+        f'<div style="display:flex;align-items:center;gap:0.65rem;'
+        f'padding:0.3rem 0;min-height:38px;">'
+        # Wordmark — no image, no white box
+        f'<span style="font-family:Syne,sans-serif;font-weight:700;font-size:1.1rem;'
+        f'letter-spacing:-0.04em;color:var(--j-text);flex-shrink:0;line-height:1;">'
+        f'June</span>'
+        f'<span style="width:5px;height:5px;border-radius:50%;background:var(--j-accent);'
+        f'flex-shrink:0;margin-top:2px;"></span>'
         # Motivational quote
         f'<span style="font-size:10px;color:var(--j-muted);font-style:italic;'
         f'flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0;">'
@@ -2749,26 +2796,36 @@ with _hdr_info:
         # Model + privacy pill
         f'<span style="font-size:9px;color:{_privacy_color};'
         f'border:1px solid var(--j-line);border-radius:999px;'
-        f'padding:0.1rem 0.5rem;white-space:nowrap;flex-shrink:0;">'
+        f'padding:0.15rem 0.55rem;white-space:nowrap;flex-shrink:0;">'
         f'{html.escape(active_runtime.model.split(":")[0])} · {_privacy_label}'
         f'</span>'
         f'</div>',
         unsafe_allow_html=True,
     )
 with _hdr_cal:
-    if st.button("📅 Calendar", key="hdr_open_calendar", use_container_width=True):
+    st.markdown('<div class="june-hdr-btn">', unsafe_allow_html=True)
+    if st.button("Cal", key="hdr_open_calendar", use_container_width=True, help="Open calendar"):
         open_calendar_dialog(memory, now)
+    st.markdown('</div>', unsafe_allow_html=True)
 with _hdr_lp:
-    if st.button(_lp_icon, key="hdr_left_panel", use_container_width=True, help="Toggle health panel"):
+    _lp_cls = "june-hdr-btn june-hdr-btn-active" if _lp_active else "june-hdr-btn"
+    st.markdown(f'<div class="{_lp_cls}">', unsafe_allow_html=True)
+    if st.button(_lp_label, key="hdr_left_panel", use_container_width=True, help="Toggle health panel"):
         st.session_state.show_left_panel = not show_left_panel
         st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 with _hdr_rp:
-    if st.button(_rp_icon, key="hdr_right_panel", use_container_width=True, help="Toggle memory panel"):
+    _rp_cls = "june-hdr-btn june-hdr-btn-active" if _rp_active else "june-hdr-btn"
+    st.markdown(f'<div class="{_rp_cls}">', unsafe_allow_html=True)
+    if st.button(_rp_label, key="hdr_right_panel", use_container_width=True, help="Toggle memory panel"):
         sync_right_panel_visibility(st.session_state, not show_right_panel)
         st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 with _hdr_set:
-    if st.button("⚙", key="hdr_settings", use_container_width=True, help="Settings, LLM, profile"):
+    st.markdown('<div class="june-hdr-btn">', unsafe_allow_html=True)
+    if st.button("Settings", key="hdr_settings", use_container_width=True, help="Settings, LLM, profile"):
         open_settings_dialog(memory, active_runtime, stored_runtime_preset, user_id)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown(
     '<hr style="margin:0 0 0.65rem 0;border:none;border-top:1px solid var(--j-line);">',
