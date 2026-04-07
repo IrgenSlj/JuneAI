@@ -8,24 +8,11 @@ Everything stays on your machine.
 
 ---
 
-## The Idea
-
-Most AI tools answer questions. June builds a picture of you over time.
-
-She tracks your goals, your gym programme, your calendar, your moods, your sleep, the
-people you care about, and your open threads. She cross-references all of it and uses it
-to give you context-aware responses that feel less like a search engine and more like
-talking to someone who knows you well.
-
-The more you tell June, the more useful she becomes. That is the entire product.
-
----
-
 ## What June Does
 
 - Captures appointments, reminders, birthdays, trips, and commitments from natural conversation
 - Tracks goals and open follow-ups, flags when something has gone stale
-- Logs workouts, body metrics, nutrition, water, and habits
+- Logs workouts, body metrics, nutrition, and habits
 - Remembers people, relationships, and personal context
 - Notices patterns: low energy streaks, broken habit chains, upcoming deadlines
 - Opens each session with context-aware observations, not a blank slate
@@ -43,7 +30,7 @@ The more you tell June, the more useful she becomes. That is the entire product.
 | LLM (primary) | Mistral 7B Instruct v0.3 via Ollama | Local, fully private |
 | LLM (optional) | Claude Sonnet/Opus via Anthropic API | Cloud, max capability |
 | LLM (any) | Any OpenAI-compatible endpoint | LM Studio, OpenRouter, etc. |
-| Memory | Local JSON files (per user, per chapter) | Simple, inspectable, migration path planned |
+| Memory | Local JSON files (per user, per chapter) | Simple, inspectable |
 | Language | Python 3.9+ | |
 
 Memory lives in `.june_memory/` as local JSON files. No cloud sync. No accounts.
@@ -87,18 +74,17 @@ JuneAI supports three named profiles and any custom OpenAI-compatible endpoint.
 
 | Profile | Model | Where inference runs | Best for |
 |---------|-------|----------------------|----------|
-| `local_gemma_4` | gemma4 | Your machine | Default local runtime, native tools, long-context personal assistant use |
-| `local_mistral_7b` | mistral:7b-instruct-v0.3 | Your machine | Alternative local runtime, strong tool reliability |
+| `local_mistral_7b` | mistral:7b-instruct-v0.3 | Your machine | Default local runtime, strong tool reliability |
 | `local_mistral_3b` | mistral:3b | Your machine | Low-resource machines |
+| `local_gemma_4` | gemma4 | Your machine | Long-context assistant use (requires Ollama >= 0.6) |
 | `claude_high` | claude-sonnet-4-6 | Anthropic API | Maximum reasoning quality |
 
 Set in `.env`:
 
 ```env
-MODEL_PRESET=local_gemma_4
+MODEL_PRESET=local_mistral_7b
 LLM_BASE_URL=http://localhost:11434/v1
 LLM_API_KEY=ollama
-LOCAL_GEMMA_MODEL_NAME=gemma4
 ```
 
 For Claude:
@@ -128,7 +114,6 @@ June organises everything you share into chapters. Each chapter is a domain of y
 | Gym Plan | Active training programme |
 | Nutrition | Meals, calories, protein |
 | Food Program | Nutrition approach and daily structure |
-| Water | Daily glass count |
 | Mood | Daily mood and note |
 | Journal | Free-form entries |
 | Relationships | People, context, communication notes, birthdays |
@@ -147,10 +132,11 @@ JuneAI-app/
 |-- src/
 |   |-- agent/
 |   |   |-- graph.py           # LangGraph agent (chat + tools nodes)
-|   |   |-- tools.py           # 48 tools the LLM can call
+|   |   |-- tools.py           # Tools the LLM can call
 |   |   |-- memory.py          # Local JSON memory layer
 |   |   |-- skills.py          # Role-based system prompts
 |   |   |-- config.py          # Runtime profile resolution
+|   |   |-- patterns.py        # Proactive pattern detection
 |   |   |-- context_intelligence.py  # Recovery readiness + commitment summaries
 |   |   |-- telemetry.py       # Tool call event logging
 |   |   `-- runtime_privacy.py # Privacy status and preset switching
@@ -168,7 +154,7 @@ JuneAI-app/
 |-- scripts/
 |   |-- bootstrap_env.py
 |   |-- verify_env.py
-|   |-- check_ollama.py        # Ollama health check
+|   `-- check_ollama.py
 |-- docs/
 |   |-- PLAN.md                # Development roadmap
 |   `-- architecture.html      # System diagrams
@@ -200,8 +186,8 @@ On each message turn:
 2. June selects an internal skill (assistant, planner, wellness, curator) based on context.
 3. Memory context is injected into the system prompt: today's summary, recovery readiness,
    active commitments, and any active pattern observations.
-4. The LangGraph agent invokes Mistral (or the configured model).
-5. Mistral decides to call tools, reply directly, or both.
+4. The LangGraph agent invokes the configured model.
+5. The model decides to call tools, reply directly, or both.
 6. Tools read and write the local memory store in `.june_memory/`.
 7. The right-rail dashboard updates to reflect the new memory state.
 8. June's reply streams back to the user.
@@ -219,8 +205,74 @@ model calls leave your device when using a local Ollama model.
 When using Claude (`claude_high`), messages are sent to Anthropic's API. The privacy
 badge in the UI shows a green dot for local and an amber dot for API-assisted inference.
 
-Memory files are stored at `.june_memory/june.db` and are fully readable with any
-SQLite viewer. You own your data.
+Memory files are stored in `.june_memory/` as JSON and are fully readable with any
+text editor. You own your data.
+
+---
+
+## Design Principles
+
+The interface should feel like a quiet command center, not a productivity app full of noise.
+
+- Minimal and spacious with strong readability
+- Chat remains central; surrounding memory surfaces stay visible without competing
+- Every panel earns its place through utility
+- No promotional copy, overdesigned gradients, or decorative elements inside the app shell
+
+The assistant should feel calm, direct, competent, private, and structured.
+
+---
+
+## Assistant Behavior
+
+June behaves like a high-agency personal assistant with memory.
+
+- Listens for explicit and implicit structure in conversation
+- Saves useful information proactively when confidence is high
+- Prefers concise, actionable responses
+- Uses tools when they improve continuity, recall, or execution
+- Does not spam memory with weak inferences
+- Does not default to relationship advice or therapist behavior unless the conversation
+  is actually about those things
+
+---
+
+## Architecture Notes
+
+The current architecture is intentionally simple:
+
+1. Streamlit gathers user input.
+2. The app sends state to the LangGraph agent.
+3. The model decides whether to answer directly or use tools.
+4. Tools update memory and optionally update the workspace UI state.
+5. Streamed events are shown in the UI.
+
+This simplicity is a feature. Avoid overengineering.
+
+When adding features:
+
+- They must map to a real persistent surface or meaningful assistant behavior
+- They should strengthen the "personal operating layer" concept
+- They should not turn the app into a generic dashboard
+
+Tool verification requirements:
+
+- Every tool-using turn emits structured diagnostics for requested, succeeded, and failed calls
+- UI logs make tool behavior inspectable without reading raw LangGraph traces
+- Tests must cover tool success accounting without requiring a live model endpoint
+
+---
+
+## North Star
+
+JuneAI should feel like a private, local, intelligent life console:
+
+- one place to talk
+- one place to remember
+- one place to plan
+- one place to stay organized and healthy
+
+If a future change does not strengthen that direction, it should probably not be added.
 
 ---
 
