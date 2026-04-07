@@ -76,7 +76,12 @@ from agent_ui.state import (
     sync_selected_chapter,
 )
 
-st.set_page_config(page_title="June", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(
+    page_title="June",
+    page_icon="/app/static/favicon.png",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 
 st.markdown(
     """
@@ -1134,29 +1139,46 @@ st.markdown(
         letter-spacing: 0.02em;
     }
 
-    /* ── Header action buttons ──────────────────────────────── */
+    /* ── Sticky chat input — pinned to bottom on all screen sizes ── */
+    .june-input-wrap {
+        position: sticky;
+        bottom: 0;
+        background: var(--j-bg);
+        padding-top: 0.5rem;
+        padding-bottom: 0.25rem;
+        z-index: 20;
+        border-top: 1px solid var(--j-line);
+        margin-top: 0.5rem;
+    }
+
+    /* ── Header action buttons — styled as plain text, matching date typography ── */
     .june-hdr-btn .stButton > button {
         background: transparent !important;
-        border: 1px solid var(--j-line) !important;
-        border-radius: 8px !important;
+        border: none !important;
+        border-radius: 6px !important;
         color: var(--j-muted) !important;
+        font-family: "Inter", monospace !important;
         font-size: 11px !important;
         font-weight: 500 !important;
-        letter-spacing: 0.03em !important;
-        min-height: 2rem !important;
-        padding: 0 0.5rem !important;
+        letter-spacing: 0.02em !important;
+        min-height: 38px !important;
+        padding: 0 0.4rem !important;
         width: 100%;
-        transition: all 0.12s ease;
+        transition: color 0.12s ease, background 0.12s ease;
+        box-shadow: none !important;
     }
     .june-hdr-btn .stButton > button:hover {
-        border-color: rgba(15,95,74,0.3) !important;
         color: var(--j-accent) !important;
         background: var(--j-accent-soft) !important;
+        border: none !important;
+        box-shadow: none !important;
+        transform: none !important;
     }
     .june-hdr-btn-active .stButton > button {
-        background: var(--j-accent-soft) !important;
-        border-color: rgba(15,95,74,0.25) !important;
         color: var(--j-accent) !important;
+        background: var(--j-accent-soft) !important;
+        border: none !important;
+        box-shadow: none !important;
     }
 
     /* ── Streamlit tab active indicator ─────────────────────── */
@@ -2266,39 +2288,34 @@ def open_memory_chapter(chapter_key: str) -> None:
 
 
 def render_scroll_to_latest() -> None:
-    """Force the transcript to open on the latest visible message."""
+    """Force the transcript to scroll to the latest message."""
     components.html(
         """
         <script>
         const tryScroll = () => {
-            const parentDoc = window.parent.document;
-            const transcript = parentDoc.getElementById("june-transcript");
-            const end = parentDoc.getElementById("june-transcript-end");
-            if (transcript) {
-                transcript.scrollTop = transcript.scrollHeight;
-            }
-            if (end) {
-                end.scrollIntoView({block: "end", behavior: "auto"});
-            }
-            window.parent.scrollTo({top: parentDoc.body.scrollHeight, behavior: "auto"});
+            try {
+                const p = window.parent.document;
+                const t = p.getElementById("june-transcript");
+                const end = p.getElementById("june-transcript-end");
+                if (t) t.scrollTop = t.scrollHeight;
+                if (end) end.scrollIntoView({block: "nearest", behavior: "auto"});
+                // Also scroll the Streamlit main app container
+                const main = p.querySelector("[data-testid='stAppViewContainer']");
+                if (main) main.scrollTop = main.scrollHeight;
+            } catch(e) {}
         };
         const bindObserver = () => {
-            const parentDoc = window.parent.document;
-            const transcript = parentDoc.getElementById("june-transcript");
-            if (!transcript || transcript.dataset.juneObserverBound === "1") {
-                return;
-            }
-            transcript.dataset.juneObserverBound = "1";
-            const observer = new MutationObserver(() => {
-                requestAnimationFrame(tryScroll);
-            });
-            observer.observe(transcript, {childList: true, subtree: true});
+            try {
+                const p = window.parent.document;
+                const t = p.getElementById("june-transcript");
+                if (!t || t.dataset.juneObserver === "1") return;
+                t.dataset.juneObserver = "1";
+                new MutationObserver(() => requestAnimationFrame(tryScroll))
+                    .observe(t, {childList: true, subtree: true, characterData: true});
+            } catch(e) {}
         };
-        setTimeout(tryScroll, 0);
+        [0, 50, 150, 300, 600, 1000].forEach(ms => setTimeout(tryScroll, ms));
         setTimeout(bindObserver, 0);
-        setTimeout(tryScroll, 120);
-        setTimeout(tryScroll, 260);
-        setTimeout(tryScroll, 520);
         </script>
         """,
         height=0,
@@ -2777,12 +2794,9 @@ with _hdr_info:
     st.markdown(
         f'<div style="display:flex;align-items:center;gap:0.65rem;'
         f'padding:0.3rem 0;min-height:38px;">'
-        # Wordmark — no image, no white box
-        f'<span style="font-family:Syne,sans-serif;font-weight:700;font-size:1.1rem;'
-        f'letter-spacing:-0.04em;color:var(--j-text);flex-shrink:0;line-height:1;">'
-        f'June</span>'
-        f'<span style="width:5px;height:5px;border-radius:50%;background:var(--j-accent);'
-        f'flex-shrink:0;margin-top:2px;"></span>'
+        # Transparent PNG logo
+        f'<img src="/app/static/june_ai_logo.png" alt="June" '
+        f'style="height:26px;width:auto;object-fit:contain;flex-shrink:0;">'
         # Motivational quote
         f'<span style="font-size:10px;color:var(--j-muted);font-style:italic;'
         f'flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0;">'
@@ -2804,26 +2818,26 @@ with _hdr_info:
     )
 with _hdr_cal:
     st.markdown('<div class="june-hdr-btn">', unsafe_allow_html=True)
-    if st.button("Cal", key="hdr_open_calendar", use_container_width=True, help="Open calendar"):
+    if st.button("Cal", key="hdr_open_calendar", use_container_width=True, help="Calendar"):
         open_calendar_dialog(memory, now)
     st.markdown('</div>', unsafe_allow_html=True)
 with _hdr_lp:
     _lp_cls = "june-hdr-btn june-hdr-btn-active" if _lp_active else "june-hdr-btn"
     st.markdown(f'<div class="{_lp_cls}">', unsafe_allow_html=True)
-    if st.button(_lp_label, key="hdr_left_panel", use_container_width=True, help="Toggle health panel"):
+    if st.button("Health", key="hdr_left_panel", use_container_width=True, help="Toggle health panel"):
         st.session_state.show_left_panel = not show_left_panel
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 with _hdr_rp:
     _rp_cls = "june-hdr-btn june-hdr-btn-active" if _rp_active else "june-hdr-btn"
     st.markdown(f'<div class="{_rp_cls}">', unsafe_allow_html=True)
-    if st.button(_rp_label, key="hdr_right_panel", use_container_width=True, help="Toggle memory panel"):
+    if st.button("Memory", key="hdr_right_panel", use_container_width=True, help="Toggle memory panel"):
         sync_right_panel_visibility(st.session_state, not show_right_panel)
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 with _hdr_set:
     st.markdown('<div class="june-hdr-btn">', unsafe_allow_html=True)
-    if st.button("Settings", key="hdr_settings", use_container_width=True, help="Settings, LLM, profile"):
+    if st.button("···", key="hdr_settings", use_container_width=True, help="Settings"):
         open_settings_dialog(memory, active_runtime, stored_runtime_preset, user_id)
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -3061,7 +3075,8 @@ with chat_col:
         width=0,
     )
 
-    # Input area — sticky at bottom via CSS
+    # Input area — sticky at bottom
+    st.markdown('<div class="june-input-wrap">', unsafe_allow_html=True)
     with st.form("june_input_form", clear_on_submit=True):
         prompt = st.text_area(
             "Message June",
@@ -3077,6 +3092,7 @@ with chat_col:
         '<div class="june-input-hint">Cmd+Enter · or press Send</div>',
         unsafe_allow_html=True,
     )
+    st.markdown('</div>', unsafe_allow_html=True)
 
     if submitted and prompt.strip() and not st.session_state.is_generating:
         st.session_state.pending_prompt = prompt.strip()
