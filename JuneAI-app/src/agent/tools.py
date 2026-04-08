@@ -1266,6 +1266,106 @@ def get_personal_context(
     return "\n".join(parts) if parts else f"Nothing saved about '{topic}' yet."
 
 
+@tool
+def generate_weekly_summary(
+    state: Annotated[AgentState, InjectedState] = None,
+) -> str:
+    """Generate a personal weekly review covering workouts, habits, goals, body metrics, mood, and calendar.
+
+    Saves the result as a journal entry and returns a markdown-formatted summary.
+    Trigger when the user asks for a week summary, weekly review, or 'how was my week'.
+    """
+    from datetime import date, timedelta
+
+    memory = _memory_for_state(state)
+    today = date.today()
+    week_ago = today - timedelta(days=7)
+    sections: list[str] = [f"## Weekly Review — {week_ago.isoformat()} to {today.isoformat()}\n"]
+
+    # Workouts
+    sessions = memory.get_workout_sessions(limit=20)
+    recent_sessions = [s for s in sessions if s.get("date", "") >= week_ago.isoformat()]
+    if recent_sessions:
+        avg_energy = sum(s.get("energy_rating", 0) for s in recent_sessions) / len(recent_sessions)
+        types = list({s.get("plan_name", "session") for s in recent_sessions})
+        sections.append(
+            f"### Workouts\n{len(recent_sessions)} session(s): {', '.join(types)}. "
+            f"Avg energy: {avg_energy:.1f}/5."
+        )
+    else:
+        sections.append("### Workouts\nNo sessions logged this week.")
+
+    # Habits
+    habits = memory.get_habits()
+    if habits:
+        habit_lines = []
+        for h in habits:
+            completions = h.get("completions", [])
+            week_completions = [c for c in completions if c >= week_ago.isoformat()]
+            rate = int(len(week_completions) / 7 * 100)
+            habit_lines.append(f"- {h['name']}: {rate}% ({len(week_completions)}/7 days)")
+        sections.append("### Habits\n" + "\n".join(habit_lines))
+    else:
+        sections.append("### Habits\nNo habits tracked yet.")
+
+    # Goals
+    goals = memory.get_goals(status="active")
+    updated_goals = [g for g in goals if g.get("updated_at", "") >= week_ago.isoformat()]
+    if updated_goals:
+        g_lines = [f"- {g['title']} ({g.get('status', 'active')})" for g in updated_goals]
+        sections.append("### Goals progressed this week\n" + "\n".join(g_lines))
+    elif goals:
+        sections.append(f"### Goals\n{len(goals)} active goal(s), none updated this week.")
+    else:
+        sections.append("### Goals\nNo active goals.")
+
+    # Body metrics
+    metrics = memory.get_body_metrics(days=7)
+    if metrics:
+        def _avg(field: str) -> float | None:
+            vals = [m[field] for m in metrics if m.get(field)]
+            return sum(vals) / len(vals) if vals else None
+
+        body_parts = []
+        if _avg("sleep_hours") is not None:
+            body_parts.append(f"avg sleep {_avg('sleep_hours'):.1f}h")
+        if _avg("energy") is not None:
+            body_parts.append(f"avg energy {_avg('energy'):.1f}/5")
+        if _avg("stress") is not None:
+            body_parts.append(f"avg stress {_avg('stress'):.1f}/5")
+        if body_parts:
+            sections.append("### Body\n" + ", ".join(body_parts))
+    else:
+        sections.append("### Body\nNo body metrics logged this week.")
+
+    # Calendar highlights
+    cal_items = memory.get_calendar_items(limit=50)
+    week_events = [
+        c for c in cal_items
+        if week_ago.isoformat() <= c.get("date", "") <= today.isoformat()
+    ]
+    if week_events:
+        ev_lines = [f"- {e.get('title', '')} ({e.get('date', '')})" for e in week_events[:5]]
+        sections.append("### Calendar\n" + "\n".join(ev_lines))
+
+    # Mood
+    moods = memory.get_mood_history(limit=7)
+    if moods:
+        mood_vals = [m.get("mood", "") for m in moods if m.get("mood")]
+        if mood_vals:
+            sections.append("### Mood\n" + ", ".join(mood_vals[:5]))
+
+    summary_text = "\n\n".join(sections)
+
+    # Save as journal entry
+    try:
+        memory.save_journal(f"[Weekly Review]\n{summary_text}")
+    except Exception:
+        pass
+
+    return summary_text
+
+
 JUNE_TOOLS_CORE = [
     log_mood,
     save_journal_entry,
@@ -1332,6 +1432,7 @@ JUNE_TOOLS_GEMMA = [
     check_chapter_completeness,
     ask_about_chapter,
     get_personal_context,
+    generate_weekly_summary,
 ]
 
 JUNE_TOOLS = [
@@ -1384,4 +1485,5 @@ JUNE_TOOLS = [
     check_chapter_completeness,
     ask_about_chapter,
     get_personal_context,
+    generate_weekly_summary,
 ]

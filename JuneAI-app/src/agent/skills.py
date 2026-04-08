@@ -286,6 +286,19 @@ def build_system_prompt(
         except Exception:
             pass
 
+    suggestion_context = ""
+    if memory is not None:
+        try:
+            from .patterns import get_daily_suggestion
+            suggestion = get_daily_suggestion(memory)
+            if suggestion:
+                suggestion_context = (
+                    f"\nJUNE'S SUGGESTION FOR TODAY: {suggestion}\n"
+                    "(Offer this naturally once if the conversation allows — do not force it.)\n"
+                )
+        except Exception:
+            pass
+
     return (
         _BASE_INSTRUCTIONS
         + "\n"
@@ -295,6 +308,7 @@ def build_system_prompt(
         + "\n"
         + daily_focus
         + ("\n" + patterns_context + "\n" if patterns_context else "")
+        + (suggestion_context if suggestion_context else "")
         + "\n"
         + skill.instructions.strip()
     )
