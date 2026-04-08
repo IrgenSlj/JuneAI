@@ -232,56 +232,22 @@ st.markdown(
         background: var(--j-bg) !important;
     }
 
-    /* Prevent page-level scrolling — layout is self-contained */
-    [data-testid="stAppViewContainer"] {
-        overflow: hidden !important;
-        height: 100vh !important;
-    }
-    [data-testid="stApp"] {
-        overflow: hidden !important;
-        height: 100vh !important;
-    }
-
     .block-container {
         max-width: 1400px !important;
         padding-top: 0.5rem !important;
-        padding-bottom: 0 !important;
+        padding-bottom: 1rem !important;
         padding-left: 1.25rem !important;
         padding-right: 1.25rem !important;
-        overflow: hidden !important;
-        height: 100vh !important;
     }
 
-    /* Chat column (first in horizontal block): fixed height, internal scroll */
-    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
-        height: calc(100vh - 90px);
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-    }
     /* Input form pinned to bottom of chat column */
     [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child [data-testid="stForm"] {
-        flex-shrink: 0;
         position: sticky;
         bottom: 0;
         background: var(--j-bg);
         padding-top: 0.5rem;
         border-top: 1px solid var(--j-line);
         z-index: 10;
-    }
-    /* Transcript area grows and scrolls */
-    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child .june-transcript {
-        flex: 1;
-        max-height: none !important;
-        overflow-y: auto;
-    }
-
-    /* Right panel column: fixed height, internal scroll */
-    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child {
-        height: calc(100vh - 90px);
-        overflow-y: auto;
-        scrollbar-width: thin;
-        scrollbar-color: rgba(26,24,21,0.1) transparent;
     }
 
     /* ── Hide native Streamlit chrome (sidebar + toolbar) ── */
@@ -571,7 +537,7 @@ st.markdown(
 
     /* ── Conversation ──────────────────────────────────────── */
     .june-transcript {
-        max-height: 64vh;
+        max-height: calc(100vh - 270px);
         overflow-y: auto;
         padding-right: 0.25rem;
         padding-bottom: 0.5rem;
