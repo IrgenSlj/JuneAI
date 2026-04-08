@@ -117,7 +117,105 @@ st.markdown(
         --june-shadow-lg:   var(--j-shadow-lg);
     }
 
-    /* ── Global reset ──────────────────────────────────────── */
+    /* ── Dark mode overrides ──────────────────────────────── */
+    body.june-dark {
+        --j-bg:          #111110;
+        --j-surface:     #1A1918;
+        --j-text:        #F0EDE8;
+        --j-muted:       #8A8178;
+        --j-line:        rgba(240, 237, 232, 0.08);
+        --j-accent:      #2ECC9A;
+        --j-accent-soft: rgba(46, 204, 154, 0.12);
+        --j-accent-mist: rgba(46, 204, 154, 0.05);
+        --j-user-bg:     rgba(46, 204, 154, 0.09);
+    }
+    body.june-dark [data-testid="stAppViewContainer"],
+    body.june-dark [data-testid="stApp"],
+    body.june-dark .main, body.june-dark .block-container {
+        background: var(--j-bg) !important;
+    }
+
+    /* ── Nav header bar ──────────────────────────────────── */
+    .june-nav-bar { display: flex; align-items: center; height: 44px; }
+    .june-nav-logo { display:flex; align-items:center; flex-shrink:0; padding-right:1.25rem; }
+    .june-nav-logo img { height:22px; width:auto; object-fit:contain; }
+
+    /* Nav item buttons */
+    .june-nav-item .stButton > button {
+        background: transparent !important;
+        border: none !important;
+        border-bottom: 2px solid transparent !important;
+        border-radius: 0 !important;
+        color: var(--j-muted) !important;
+        font-family: "Inter", monospace !important;
+        font-size: 13px !important;
+        font-weight: 400 !important;
+        letter-spacing: 0 !important;
+        padding: 0 0.8rem !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        margin-bottom: -1px !important;
+        box-shadow: none !important;
+        transition: color 0.12s, border-color 0.12s;
+    }
+    .june-nav-item .stButton > button:hover {
+        color: var(--j-text) !important;
+        background: transparent !important;
+        border-bottom: 2px solid var(--j-line) !important;
+        box-shadow: none !important; transform: none !important;
+    }
+    .june-nav-item-active .stButton > button {
+        color: var(--j-accent) !important;
+        font-weight: 500 !important;
+        border-bottom: 2px solid var(--j-accent) !important;
+    }
+    .june-nav-item-active .stButton > button:hover {
+        color: var(--j-accent) !important;
+        border-bottom: 2px solid var(--j-accent) !important;
+    }
+    /* Right icon buttons */
+    .june-nav-action .stButton > button {
+        background: transparent !important;
+        border: none !important;
+        color: var(--j-muted) !important;
+        font-size: 14px !important;
+        padding: 0 0.5rem !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        box-shadow: none !important;
+        border-radius: 6px !important;
+        transition: color 0.12s, background 0.12s;
+    }
+    .june-nav-action .stButton > button:hover {
+        color: var(--j-text) !important;
+        background: var(--j-accent-soft) !important;
+        border: none !important; box-shadow: none !important; transform: none !important;
+    }
+
+    /* ── Fixed-height chat column ────────────────────────── */
+    .june-chat-fixed {
+        height: calc(100vh - 110px);
+        display: flex; flex-direction: column;
+        overflow: hidden; position: sticky; top: 0;
+    }
+    .june-chat-transcript-area {
+        flex: 1; overflow-y: auto; min-height: 0;
+        padding-right: 0.25rem;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(26,24,21,0.12) transparent;
+    }
+    .june-chat-transcript-area::-webkit-scrollbar { width: 4px; }
+    .june-chat-transcript-area::-webkit-scrollbar-thumb {
+        background: rgba(26,24,21,0.12); border-radius: 999px;
+    }
+    /* ── Panel area ──────────────────────────────────────── */
+    .june-panel-area {
+        border-left: 1px solid var(--j-line);
+        padding-left: 1.5rem;
+        min-height: calc(100vh - 110px);
+    }
+
+    /* ── Global reset ──────────────────────────────────── */
     html, body, [class*="css"],
     [data-testid="stAppViewContainer"],
     [data-testid="stMarkdownContainer"] {
@@ -2734,6 +2832,12 @@ if st.session_state.ui_state.get("selected_chapter") and st.session_state.select
 st.session_state.show_right_panel = st.session_state.ui_state.get("show_right_panel", True)
 if "show_left_panel" not in st.session_state:
     st.session_state.show_left_panel = True
+if "active_panel" not in st.session_state:
+    st.session_state.active_panel = "today"
+if "show_chat" not in st.session_state:
+    st.session_state.show_chat = True
+if "dark_mode" not in st.session_state:
+    st.session_state.dark_mode = False
 
 if st.session_state.last_user_id != user_id:
     reset_session_state(st.session_state, user_id)
@@ -2773,110 +2877,100 @@ if _model_ready:
     _models_verified.add(_active_model_key)
 
 # ---------------------------------------------------------------------------
-# Top bar: Logo | Quote | Date+Time (calendar) | Panel toggles + Settings
+# Nav header: Logo | Today Agenda Plans Gym&Food Health Calendar | dark ⚙
 # ---------------------------------------------------------------------------
 
 _date_label = now.strftime("%a, %d %b")
 _time_label = now.strftime("%H:%M")
 _part_label = current_part_of_day(now)
-# ── Header: logo + info + buttons in one unified row ─────────────────────
 _privacy_color = "var(--j-accent)" if active_runtime.is_local else "#c07a2a"
 _privacy_label = "○ local" if active_runtime.is_local else "◉ cloud"
-_lp_label = "Health"
-_rp_label = "Memory"
-_lp_active = show_left_panel
-_rp_active = show_right_panel
 
-_hdr_info, _hdr_cal, _hdr_lp, _hdr_rp, _hdr_set = st.columns(
-    [5.0, 0.8, 0.8, 0.8, 0.8], gap="small"
-)
-with _hdr_info:
+_NAV_PANELS = [
+    ("today",    "Today"),
+    ("agenda",   "Agenda"),
+    ("plans",    "Plans"),
+    ("gym_food", "Gym & Food"),
+    ("health",   "Health"),
+    ("calendar", "Calendar"),
+]
+_active_panel = st.session_state.active_panel
+_show_chat    = st.session_state.show_chat
+_dark_mode    = st.session_state.dark_mode
+
+# Apply dark mode class to body via JS
+if _dark_mode:
+    components.html(
+        "<script>window.parent.document.body.classList.add('june-dark');</script>",
+        height=0, width=0,
+    )
+else:
+    components.html(
+        "<script>window.parent.document.body.classList.remove('june-dark');</script>",
+        height=0, width=0,
+    )
+
+# Nav bar: [logo col] [nav items cols] [spacer] [model pill] [dark] [settings]
+_n = len(_NAV_PANELS)
+_nav_cols = st.columns([1.4] + [0.8] * _n + [0.1, 1.2, 0.4, 0.4], gap="small")
+
+with _nav_cols[0]:
     st.markdown(
-        f'<div style="display:flex;align-items:center;gap:0.65rem;'
-        f'padding:0.3rem 0;min-height:38px;">'
-        # Transparent PNG logo
-        f'<img src="/app/static/june_ai_logo.png" alt="June" '
-        f'style="height:26px;width:auto;object-fit:contain;flex-shrink:0;">'
-        # Motivational quote
-        f'<span style="font-size:10px;color:var(--j-muted);font-style:italic;'
-        f'flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0;">'
-        f'{html.escape(sidebar_phrase)}</span>'
-        # Date + time
-        f'<span style="font-size:11px;font-weight:600;color:var(--j-text);'
-        f'white-space:nowrap;flex-shrink:0;">'
-        f'{html.escape(_date_label)}'
-        f'<span style="font-weight:400;color:var(--j-muted);font-size:9px;"> · '
-        f'{_time_label} · {_part_label}</span></span>'
-        # Model + privacy pill
-        f'<span style="font-size:9px;color:{_privacy_color};'
-        f'border:1px solid var(--j-line);border-radius:999px;'
-        f'padding:0.15rem 0.55rem;white-space:nowrap;flex-shrink:0;">'
-        f'{html.escape(active_runtime.model.split(":")[0])} · {_privacy_label}'
-        f'</span>'
-        f'</div>',
+        '<div class="june-nav-logo">'
+        '<img src="/app/static/june_ai_logo.png" alt="June">'
+        '</div>',
         unsafe_allow_html=True,
     )
-with _hdr_cal:
-    st.markdown('<div class="june-hdr-btn">', unsafe_allow_html=True)
-    if st.button("Cal", key="hdr_open_calendar", use_container_width=True, help="Calendar"):
-        open_calendar_dialog(memory, now)
-    st.markdown('</div>', unsafe_allow_html=True)
-with _hdr_lp:
-    _lp_cls = "june-hdr-btn june-hdr-btn-active" if _lp_active else "june-hdr-btn"
-    st.markdown(f'<div class="{_lp_cls}">', unsafe_allow_html=True)
-    if st.button("Health", key="hdr_left_panel", use_container_width=True, help="Toggle health panel"):
-        st.session_state.show_left_panel = not show_left_panel
+
+for _i, (_pk, _pl) in enumerate(_NAV_PANELS):
+    with _nav_cols[1 + _i]:
+        _cls = "june-nav-item-active" if _active_panel == _pk else "june-nav-item"
+        st.markdown(f'<div class="{_cls}">', unsafe_allow_html=True)
+        if st.button(_pl, key=f"nav_{_pk}", use_container_width=True):
+            st.session_state.active_panel = _pk
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# Spacer column (index _n+1)
+with _nav_cols[_n + 2]:
+    # Model + privacy pill
+    st.markdown(
+        f'<div style="display:flex;align-items:center;height:44px;">'
+        f'<span style="font-size:9px;color:{_privacy_color};'
+        f'border:1px solid var(--j-line);border-radius:999px;'
+        f'padding:0.15rem 0.55rem;white-space:nowrap;">'
+        f'{html.escape(active_runtime.model.split(":")[0])} · {_privacy_label}'
+        f'</span></div>',
+        unsafe_allow_html=True,
+    )
+
+with _nav_cols[_n + 3]:
+    _dm_label = "☀" if _dark_mode else "☾"
+    st.markdown('<div class="june-nav-action">', unsafe_allow_html=True)
+    if st.button(_dm_label, key="nav_dark_mode", use_container_width=True, help="Toggle dark mode"):
+        st.session_state.dark_mode = not _dark_mode
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
-with _hdr_rp:
-    _rp_cls = "june-hdr-btn june-hdr-btn-active" if _rp_active else "june-hdr-btn"
-    st.markdown(f'<div class="{_rp_cls}">', unsafe_allow_html=True)
-    if st.button("Memory", key="hdr_right_panel", use_container_width=True, help="Toggle memory panel"):
-        sync_right_panel_visibility(st.session_state, not show_right_panel)
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-with _hdr_set:
-    st.markdown('<div class="june-hdr-btn">', unsafe_allow_html=True)
-    if st.button("···", key="hdr_settings", use_container_width=True, help="Settings"):
+
+with _nav_cols[_n + 4]:
+    st.markdown('<div class="june-nav-action">', unsafe_allow_html=True)
+    if st.button("⚙", key="nav_settings", use_container_width=True, help="Settings"):
         open_settings_dialog(memory, active_runtime, stored_runtime_preset, user_id)
     st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown(
-    '<hr style="margin:0 0 0.65rem 0;border:none;border-top:1px solid var(--j-line);">',
+    '<hr style="margin:0 0 0.75rem 0;border:none;border-top:1px solid var(--j-line);">',
     unsafe_allow_html=True,
 )
 
 # ---------------------------------------------------------------------------
-# Three-column layout: Health | Chat | Memory
+# Two-column layout: Chat (1/3, hideable) | Active panel (2/3)
 # ---------------------------------------------------------------------------
 
-if show_left_panel and show_right_panel:
-    _col_widths = [1.2, 3.2, 1.2]
-elif show_left_panel:
-    _col_widths = [1.2, 4.4]
-elif show_right_panel:
-    _col_widths = [4.4, 1.2]
+if _show_chat:
+    _chat_col_raw, right_col = st.columns([1, 2], gap="medium")
 else:
-    _col_widths = [1.0]
-
-_all_cols = st.columns(_col_widths, gap="medium")
-
-if show_left_panel and show_right_panel:
-    left_col, chat_col, right_col = _all_cols[0], _all_cols[1], _all_cols[2]
-elif show_left_panel:
-    left_col, chat_col, right_col = _all_cols[0], _all_cols[1], None
-elif show_right_panel:
-    left_col, chat_col, right_col = None, _all_cols[0], _all_cols[1]
-else:
-    left_col, chat_col, right_col = None, _all_cols[0], None
-
-# ── Left: Health panel ────────────────────────────────────────────────────
-
-if left_col is not None:
-    with left_col:
-        render_health_panel(memory)
-
-# ── Center: Chat or model-download screen ────────────────────────────────
+    _chat_col_raw, right_col = st.empty(), st.container()
 
 # Daily check-in only fires when the model is ready
 if _model_ready and not st.session_state.is_generating and memory.should_send_daily_checkin():
@@ -2890,7 +2984,43 @@ if _model_ready and not st.session_state.is_generating and memory.should_send_da
     memory.save_message("assistant", opening_message)
     memory.mark_daily_checkin_sent()
 
+# ── Right: Active panel ───────────────────────────────────────────────────
+
+with right_col:
+    st.markdown('<div class="june-panel-area">', unsafe_allow_html=True)
+    workspace_placeholder = st.empty()
+    activity_placeholder = st.empty()
+
+    if _active_panel == "today":
+        render_today_panel(memory, snapshot)
+    elif _active_panel == "agenda":
+        render_memory_panel(memory)
+    elif _active_panel == "plans":
+        render_plan_focus(memory)
+    elif _active_panel == "gym_food":
+        render_habits_focus(memory)
+    elif _active_panel == "health":
+        render_health_panel(memory)
+    elif _active_panel == "calendar":
+        open_calendar_dialog(memory, now)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ── Left: Chat column ─────────────────────────────────────────────────────
+# Always use with chat_col — when hidden it goes into st.empty() (discarded)
+
+chat_col = _chat_col_raw
+
 with chat_col:
+  if _show_chat:
+    _toggle_label = "← Hide"
+    if st.button(_toggle_label, key="toggle_chat", help="Hide chat"):
+        st.session_state.show_chat = False
+        st.rerun()
+  else:
+    if st.button("Chat →", key="toggle_chat_open", help="Show chat"):
+        st.session_state.show_chat = True
+        st.rerun()
+  st.markdown('<div class="june-chat-fixed"><div class="june-chat-transcript-area">', unsafe_allow_html=True)
   if not _model_ready:
     # ── Model download screen ──────────────────────────────────────────
     import time as _time
@@ -3101,31 +3231,9 @@ with chat_col:
         append_activity(f"auto route | {st.session_state.active_skill_key}")
         st.rerun()
 
-# ── Right: Memory panel ───────────────────────────────────────────────────
+  st.markdown('</div></div>', unsafe_allow_html=True)  # close june-chat-transcript-area + june-chat-fixed
 
-if right_col is not None:
-    with right_col:
-        workspace_placeholder = st.empty()
-        activity_placeholder = st.empty()
-
-        _rail_tabs = st.tabs(["Today", "Agenda", "Plans", "Gym & Food", "Debug"])
-        _tab_today, _tab_agenda, _tab_plans, _tab_gym_food, _tab_debug = _rail_tabs
-
-        with _tab_today:
-            render_today_panel(memory, snapshot)
-        with _tab_agenda:
-            render_memory_panel(memory)
-        with _tab_plans:
-            render_plan_focus(memory)
-        with _tab_gym_food:
-            render_habits_focus(memory)
-        with _tab_debug:
-            render_debug_panel(memory)
-
-        st.markdown('</div>', unsafe_allow_html=True)
-else:
-    workspace_placeholder = st.empty()
-    activity_placeholder = st.empty()
+# workspace_placeholder / activity_placeholder already set in right_col block above
 
 # ---------------------------------------------------------------------------
 # Generation loop
