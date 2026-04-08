@@ -135,84 +135,87 @@ st.markdown(
         background: var(--j-bg) !important;
     }
 
-    /* ── Nav header bar ──────────────────────────────────── */
-    .june-nav-bar { display: flex; align-items: center; height: 44px; }
-    .june-nav-logo { display:flex; align-items:center; flex-shrink:0; padding-right:1.25rem; }
-    .june-nav-logo img { height:22px; width:auto; object-fit:contain; }
-
-    /* Nav item buttons */
-    .june-nav-item .stButton > button {
-        background: transparent !important;
-        border: none !important;
-        border-bottom: 2px solid transparent !important;
-        border-radius: 0 !important;
-        color: var(--j-muted) !important;
-        font-family: "Inter", monospace !important;
-        font-size: 13px !important;
-        font-weight: 400 !important;
-        letter-spacing: 0 !important;
-        padding: 0 0.8rem !important;
+    /* ── Nav radio (horizontal) styled as nav links ──────── */
+    [data-testid="stRadio"] {
+        width: 100%;
+    }
+    [data-testid="stRadio"] > div[role="radiogroup"] {
+        display: flex !important;
+        flex-direction: row !important;
+        gap: 0 !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
         height: 44px !important;
-        min-height: 44px !important;
-        margin-bottom: -1px !important;
-        box-shadow: none !important;
+    }
+    [data-testid="stRadio"] label {
+        display: flex !important;
+        align-items: center !important;
+        padding: 0 0.9rem !important;
+        height: 44px !important;
+        cursor: pointer !important;
+        color: var(--j-muted) !important;
+        font-size: 13px !important;
+        font-family: "Inter", monospace !important;
+        font-weight: 400 !important;
+        border-bottom: 2px solid transparent !important;
+        white-space: nowrap !important;
+        background: transparent !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        gap: 0 !important;
         transition: color 0.12s, border-color 0.12s;
     }
-    .june-nav-item .stButton > button:hover {
+    [data-testid="stRadio"] label:hover {
         color: var(--j-text) !important;
-        background: transparent !important;
-        border-bottom: 2px solid var(--j-line) !important;
-        box-shadow: none !important; transform: none !important;
+        border-bottom-color: var(--j-line) !important;
     }
-    .june-nav-item-active .stButton > button {
+    [data-testid="stRadio"] label:has(input:checked) {
         color: var(--j-accent) !important;
         font-weight: 500 !important;
         border-bottom: 2px solid var(--j-accent) !important;
     }
-    .june-nav-item-active .stButton > button:hover {
-        color: var(--j-accent) !important;
-        border-bottom: 2px solid var(--j-accent) !important;
+    /* Hide radio circles and extra markup */
+    [data-testid="stRadio"] input[type="radio"] {
+        position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none;
     }
-    /* Right icon buttons */
+    [data-testid="stRadio"] label > span:first-child { display: none !important; }
+    [data-testid="stRadio"] > label { display: none !important; }
+
+    /* Right nav action buttons (dark mode, settings) */
     .june-nav-action .stButton > button {
         background: transparent !important;
-        border: none !important;
+        border: 1px solid var(--j-line) !important;
         color: var(--j-muted) !important;
-        font-size: 14px !important;
-        padding: 0 0.5rem !important;
-        height: 44px !important;
-        min-height: 44px !important;
+        font-size: 13px !important;
+        padding: 0 0.6rem !important;
+        height: 32px !important;
+        min-height: 32px !important;
         box-shadow: none !important;
-        border-radius: 6px !important;
+        border-radius: 8px !important;
         transition: color 0.12s, background 0.12s;
     }
     .june-nav-action .stButton > button:hover {
-        color: var(--j-text) !important;
+        color: var(--j-accent) !important;
         background: var(--j-accent-soft) !important;
-        border: none !important; box-shadow: none !important; transform: none !important;
+        border-color: rgba(15,95,74,0.25) !important;
+        box-shadow: none !important; transform: none !important;
     }
 
-    /* ── Fixed-height chat column ────────────────────────── */
-    .june-chat-fixed {
-        height: calc(100vh - 110px);
-        display: flex; flex-direction: column;
-        overflow: hidden; position: sticky; top: 0;
+    /* ── Hide chat toggle button ─────────────────────────── */
+    .june-chat-toggle .stButton > button {
+        background: transparent !important;
+        border: none !important;
+        color: var(--j-muted) !important;
+        font-size: 11px !important;
+        padding: 0 0 0.25rem 0 !important;
+        min-height: 1.5rem !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
     }
-    .june-chat-transcript-area {
-        flex: 1; overflow-y: auto; min-height: 0;
-        padding-right: 0.25rem;
-        scrollbar-width: thin;
-        scrollbar-color: rgba(26,24,21,0.12) transparent;
-    }
-    .june-chat-transcript-area::-webkit-scrollbar { width: 4px; }
-    .june-chat-transcript-area::-webkit-scrollbar-thumb {
-        background: rgba(26,24,21,0.12); border-radius: 999px;
-    }
-    /* ── Panel area ──────────────────────────────────────── */
-    .june-panel-area {
-        border-left: 1px solid var(--j-line);
-        padding-left: 1.5rem;
-        min-height: calc(100vh - 110px);
+    .june-chat-toggle .stButton > button:hover {
+        color: var(--j-accent) !important;
+        background: transparent !important;
+        box-shadow: none !important; transform: none !important;
     }
 
     /* ── Global reset ──────────────────────────────────── */
@@ -229,12 +232,56 @@ st.markdown(
         background: var(--j-bg) !important;
     }
 
+    /* Prevent page-level scrolling — layout is self-contained */
+    [data-testid="stAppViewContainer"] {
+        overflow: hidden !important;
+        height: 100vh !important;
+    }
+    [data-testid="stApp"] {
+        overflow: hidden !important;
+        height: 100vh !important;
+    }
+
     .block-container {
         max-width: 1400px !important;
-        padding-top: 1rem !important;
-        padding-bottom: 2rem !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0 !important;
         padding-left: 1.25rem !important;
         padding-right: 1.25rem !important;
+        overflow: hidden !important;
+        height: 100vh !important;
+    }
+
+    /* Chat column (first in horizontal block): fixed height, internal scroll */
+    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
+        height: calc(100vh - 90px);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    /* Input form pinned to bottom of chat column */
+    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child [data-testid="stForm"] {
+        flex-shrink: 0;
+        position: sticky;
+        bottom: 0;
+        background: var(--j-bg);
+        padding-top: 0.5rem;
+        border-top: 1px solid var(--j-line);
+        z-index: 10;
+    }
+    /* Transcript area grows and scrolls */
+    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child .june-transcript {
+        flex: 1;
+        max-height: none !important;
+        overflow-y: auto;
+    }
+
+    /* Right panel column: fixed height, internal scroll */
+    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child {
+        height: calc(100vh - 90px);
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(26,24,21,0.1) transparent;
     }
 
     /* ── Hide native Streamlit chrome (sidebar + toolbar) ── */
@@ -2910,56 +2957,65 @@ else:
         height=0, width=0,
     )
 
-# Nav bar: [logo col] [nav items cols] [spacer] [model pill] [dark] [settings]
-_n = len(_NAV_PANELS)
-_nav_cols = st.columns([1.4] + [0.8] * _n + [0.1, 1.2, 0.4, 0.4], gap="small")
+# Nav bar: logo | radio nav | model pill + dark + settings
+_nav_left, _nav_center, _nav_right = st.columns([1.2, 6, 1.8], gap="small")
 
-with _nav_cols[0]:
-    st.markdown(
-        '<div class="june-nav-logo">'
-        '<img src="/app/static/june_ai_logo.png" alt="June">'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-
-for _i, (_pk, _pl) in enumerate(_NAV_PANELS):
-    with _nav_cols[1 + _i]:
-        _cls = "june-nav-item-active" if _active_panel == _pk else "june-nav-item"
-        st.markdown(f'<div class="{_cls}">', unsafe_allow_html=True)
-        if st.button(_pl, key=f"nav_{_pk}", use_container_width=True):
-            st.session_state.active_panel = _pk
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-# Spacer column (index _n+1)
-with _nav_cols[_n + 2]:
-    # Model + privacy pill
+with _nav_left:
     st.markdown(
         f'<div style="display:flex;align-items:center;height:44px;">'
-        f'<span style="font-size:9px;color:{_privacy_color};'
-        f'border:1px solid var(--j-line);border-radius:999px;'
-        f'padding:0.15rem 0.55rem;white-space:nowrap;">'
-        f'{html.escape(active_runtime.model.split(":")[0])} · {_privacy_label}'
-        f'</span></div>',
+        f'<img src="/app/static/june_ai_logo.png" alt="June" '
+        f'style="height:22px;width:auto;object-fit:contain;">'
+        f'</div>',
         unsafe_allow_html=True,
     )
 
-with _nav_cols[_n + 3]:
-    _dm_label = "☀" if _dark_mode else "☾"
-    st.markdown('<div class="june-nav-action">', unsafe_allow_html=True)
-    if st.button(_dm_label, key="nav_dark_mode", use_container_width=True, help="Toggle dark mode"):
-        st.session_state.dark_mode = not _dark_mode
+with _nav_center:
+    _nav_labels = [pl for _, pl in _NAV_PANELS]
+    _nav_keys   = [pk for pk, _ in _NAV_PANELS]
+    _nav_idx    = _nav_keys.index(_active_panel) if _active_panel in _nav_keys else 0
+    _selected_label = st.radio(
+        "nav", _nav_labels, index=_nav_idx,
+        horizontal=True, label_visibility="collapsed",
+        key="nav_radio",
+    )
+    _selected_key = _nav_keys[_nav_labels.index(_selected_label)]
+    if _selected_key != st.session_state.active_panel:
+        st.session_state.active_panel = _selected_key
         st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
-with _nav_cols[_n + 4]:
-    st.markdown('<div class="june-nav-action">', unsafe_allow_html=True)
-    if st.button("⚙", key="nav_settings", use_container_width=True, help="Settings"):
-        open_settings_dialog(memory, active_runtime, stored_runtime_preset, user_id)
+with _nav_right:
+    st.markdown(
+        f'<div style="display:flex;align-items:center;justify-content:flex-end;'
+        f'gap:0.5rem;height:44px;">',
+        unsafe_allow_html=True,
+    )
+    _r1, _r2, _r3 = st.columns([2, 1, 1], gap="small")
+    with _r1:
+        st.markdown(
+            f'<div style="display:flex;align-items:center;height:44px;">'
+            f'<span style="font-size:9px;color:{_privacy_color};'
+            f'border:1px solid var(--j-line);border-radius:999px;'
+            f'padding:0.15rem 0.55rem;white-space:nowrap;">'
+            f'{html.escape(active_runtime.model.split(":")[0])} · {_privacy_label}'
+            f'</span></div>',
+            unsafe_allow_html=True,
+        )
+    with _r2:
+        _dm_label = "☀" if _dark_mode else "☾"
+        st.markdown('<div class="june-nav-action">', unsafe_allow_html=True)
+        if st.button(_dm_label, key="nav_dark_mode", use_container_width=True, help="Dark mode"):
+            st.session_state.dark_mode = not _dark_mode
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+    with _r3:
+        st.markdown('<div class="june-nav-action">', unsafe_allow_html=True)
+        if st.button("⚙", key="nav_settings", use_container_width=True, help="Settings"):
+            open_settings_dialog(memory, active_runtime, stored_runtime_preset, user_id)
+        st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown(
-    '<hr style="margin:0 0 0.75rem 0;border:none;border-top:1px solid var(--j-line);">',
+    '<hr style="margin:0 0 0.5rem 0;border:none;border-top:1px solid var(--j-line);">',
     unsafe_allow_html=True,
 )
 
@@ -3011,16 +3067,16 @@ with right_col:
 chat_col = _chat_col_raw
 
 with chat_col:
+  st.markdown('<div class="june-chat-toggle">', unsafe_allow_html=True)
   if _show_chat:
-    _toggle_label = "← Hide"
-    if st.button(_toggle_label, key="toggle_chat", help="Hide chat"):
+    if st.button("← Hide chat", key="toggle_chat", help="Collapse chat panel"):
         st.session_state.show_chat = False
         st.rerun()
   else:
-    if st.button("Chat →", key="toggle_chat_open", help="Show chat"):
+    if st.button("Chat →", key="toggle_chat_open", help="Expand chat panel"):
         st.session_state.show_chat = True
         st.rerun()
-  st.markdown('<div class="june-chat-fixed"><div class="june-chat-transcript-area">', unsafe_allow_html=True)
+  st.markdown('</div>', unsafe_allow_html=True)
   if not _model_ready:
     # ── Model download screen ──────────────────────────────────────────
     import time as _time
@@ -3231,7 +3287,6 @@ with chat_col:
         append_activity(f"auto route | {st.session_state.active_skill_key}")
         st.rerun()
 
-  st.markdown('</div></div>', unsafe_allow_html=True)  # close june-chat-transcript-area + june-chat-fixed
 
 # workspace_placeholder / activity_placeholder already set in right_col block above
 
