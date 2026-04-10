@@ -233,45 +233,66 @@ st.markdown(
         font-size: 13px !important;
     }
 
-    /* Right nav action buttons (dark mode, settings) */
-    .june-nav-action .stButton > button {
+    /* ── Nav action buttons (dark mode / settings) — class added via JS ── */
+    /* JS walks the DOM and adds june-nav-action-btn to the button container */
+    .june-nav-action-btn > button {
         background: transparent !important;
         border: 1px solid var(--j-line) !important;
         color: var(--j-muted) !important;
-        font-size: 13px !important;
-        padding: 0 0.6rem !important;
-        height: 32px !important;
-        min-height: 32px !important;
+        font-size: 15px !important;
+        padding: 0 !important;
+        height: 30px !important;
+        min-height: 30px !important;
+        width: 36px !important;
+        min-width: 36px !important;
         box-shadow: none !important;
         border-radius: 8px !important;
-        transition: color 0.12s, background 0.12s;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        transition: color 0.12s, background 0.12s, border-color 0.12s;
     }
-    .june-nav-action .stButton > button:hover {
+    .june-nav-action-btn > button:hover {
         color: var(--j-accent) !important;
         background: var(--j-accent-soft) !important;
         border-color: rgba(15,95,74,0.25) !important;
-        box-shadow: none !important; transform: none !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }
+    body.june-dark .june-nav-action-btn > button {
+        border-color: var(--j-line) !important;
+        color: var(--j-muted) !important;
+    }
+    body.june-dark .june-nav-action-btn > button:hover {
+        color: var(--j-accent) !important;
+        background: var(--j-accent-soft) !important;
     }
 
-    /* ── Chat toggle button ──────────────────────────────── */
-    .june-chat-toggle {
-        margin-bottom: 0.1rem !important;
-    }
-    .june-chat-toggle .stButton > button {
+    /* ── Chat toggle button — class added via JS ─────────── */
+    .june-chat-toggle-btn > button {
         background: transparent !important;
         border: none !important;
         color: var(--j-muted) !important;
         font-size: 10px !important;
-        padding: 0 0 0.1rem 0 !important;
-        min-height: 1.2rem !important;
+        letter-spacing: 0.02em !important;
+        padding: 0 !important;
+        min-height: 1.4rem !important;
+        height: 1.4rem !important;
         box-shadow: none !important;
         border-radius: 0 !important;
+        text-decoration: none !important;
     }
-    .june-chat-toggle .stButton > button:hover {
+    .june-chat-toggle-btn > button:hover {
         color: var(--j-accent) !important;
         background: transparent !important;
-        box-shadow: none !important; transform: none !important;
+        box-shadow: none !important;
+        transform: none !important;
+        border: none !important;
     }
+
+    /* Legacy selectors kept as fallback */
+    .june-nav-action .stButton > button { background: transparent !important; border: 1px solid var(--j-line) !important; }
+    .june-chat-toggle .stButton > button { background: transparent !important; border: none !important; min-height: 1.4rem !important; }
 
     /* ── Global reset ──────────────────────────────────── */
     html, body, [class*="css"],
@@ -321,10 +342,32 @@ st.markdown(
         top: 0 !important;
         z-index: 200 !important;
         background: var(--j-bg) !important;
-        padding-top: 0.4rem !important;
-        padding-bottom: 0 !important;
+        padding-top: 0.35rem !important;
+        padding-bottom: 0.35rem !important;
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--j-line);
+        margin-bottom: 0.5rem;
+    }
+    /* Vertically center all stColumns within the sticky nav */
+    .june-nav-sticky > [data-testid="stColumn"],
+    .june-nav-sticky > div > [data-testid="stColumn"] {
+        display: flex !important;
+        align-items: center !important;
+    }
+    .june-nav-sticky > [data-testid="stColumn"] > div,
+    .june-nav-sticky > div > [data-testid="stColumn"] > div {
+        width: 100%;
+    }
+    /* Inner row (r1, r2, r3) also centered */
+    .june-nav-sticky [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    /* Model pill column: right-aligned */
+    .june-nav-sticky [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
+        justify-content: flex-end !important;
     }
 
     /* ── Top bar ───────────────────────────────────────────── */
@@ -2986,6 +3029,7 @@ _dark_mode    = st.session_state.dark_mode
 
 # Apply dark mode class and layout fixes via JS
 _dm_js = "add" if _dark_mode else "remove"
+_dm_icon = "☀" if _dark_mode else "☾"
 components.html(
     f"""
     <script>
@@ -2994,17 +3038,38 @@ components.html(
         doc.body.classList.{_dm_js}('june-dark');
 
         function applyLayout() {{
-            // Make nav bar sticky
+            // 1. Make nav bar sticky
             var radio = doc.querySelector('[data-testid="stRadio"]');
             if (radio) {{
                 var navBlock = radio.closest('[data-testid="stHorizontalBlock"]');
                 if (navBlock) navBlock.classList.add('june-nav-sticky');
             }}
+
+            // 2. Style nav icon buttons (dark mode toggle + settings)
+            var navIcons = ['{_dm_icon}', '⚙'];
+            doc.querySelectorAll('button').forEach(function(btn) {{
+                var t = btn.textContent.trim();
+                if (navIcons.indexOf(t) !== -1) {{
+                    var container = btn.parentElement;
+                    if (container) container.classList.add('june-nav-action-btn');
+                }}
+            }});
+
+            // 3. Style chat toggle button
+            var chatTexts = ['← Hide chat', 'Chat →'];
+            doc.querySelectorAll('button').forEach(function(btn) {{
+                var t = btn.textContent.trim();
+                if (chatTexts.some(function(ct) {{ return t.indexOf(ct) !== -1; }})) {{
+                    var container = btn.parentElement;
+                    if (container) container.classList.add('june-chat-toggle-btn');
+                }}
+            }});
         }}
 
         applyLayout();
-        setTimeout(applyLayout, 300);
-        setTimeout(applyLayout, 900);
+        setTimeout(applyLayout, 200);
+        setTimeout(applyLayout, 600);
+        setTimeout(applyLayout, 1500);
     }})();
     </script>
     """,
@@ -3039,40 +3104,25 @@ with _nav_center:
         st.rerun()
 
 with _nav_right:
-    st.markdown(
-        f'<div style="display:flex;align-items:center;justify-content:flex-end;'
-        f'gap:0.5rem;height:44px;">',
-        unsafe_allow_html=True,
-    )
     _r1, _r2, _r3 = st.columns([2, 1, 1], gap="small")
     with _r1:
         st.markdown(
-            f'<div style="display:flex;align-items:center;height:44px;">'
+            f'<div style="display:flex;align-items:center;height:44px;justify-content:flex-end;">'
             f'<span style="font-size:9px;color:{_privacy_color};'
             f'border:1px solid var(--j-line);border-radius:999px;'
-            f'padding:0.15rem 0.55rem;white-space:nowrap;">'
+            f'padding:0.18rem 0.6rem;white-space:nowrap;line-height:1;">'
             f'{html.escape(active_runtime.model.split(":")[0])} · {_privacy_label}'
             f'</span></div>',
             unsafe_allow_html=True,
         )
     with _r2:
         _dm_label = "☀" if _dark_mode else "☾"
-        st.markdown('<div class="june-nav-action">', unsafe_allow_html=True)
         if st.button(_dm_label, key="nav_dark_mode", use_container_width=True, help="Dark mode"):
             st.session_state.dark_mode = not _dark_mode
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
     with _r3:
-        st.markdown('<div class="june-nav-action">', unsafe_allow_html=True)
         if st.button("⚙", key="nav_settings", use_container_width=True, help="Settings"):
             open_settings_dialog(memory, active_runtime, stored_runtime_preset, user_id)
-        st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown(
-    '<hr style="margin:0 0 0.5rem 0;border:none;border-top:1px solid var(--j-line);">',
-    unsafe_allow_html=True,
-)
 
 # ---------------------------------------------------------------------------
 # Two-column layout: Chat (1/3, hideable) | Active panel (2/3)
@@ -3122,7 +3172,6 @@ with right_col:
 chat_col = _chat_col_raw
 
 with chat_col:
-  st.markdown('<div class="june-chat-toggle">', unsafe_allow_html=True)
   if _show_chat:
     if st.button("← Hide chat", key="toggle_chat", help="Collapse chat panel"):
         st.session_state.show_chat = False
@@ -3131,7 +3180,6 @@ with chat_col:
     if st.button("Chat →", key="toggle_chat_open", help="Expand chat panel"):
         st.session_state.show_chat = True
         st.rerun()
-  st.markdown('</div>', unsafe_allow_html=True)
   if not _model_ready:
     # ── Model download screen ──────────────────────────────────────────
     import time as _time
