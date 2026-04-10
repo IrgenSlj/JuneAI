@@ -119,20 +119,56 @@ st.markdown(
 
     /* ── Dark mode overrides ──────────────────────────────── */
     body.june-dark {
-        --j-bg:          #111110;
-        --j-surface:     #1A1918;
-        --j-text:        #F0EDE8;
-        --j-muted:       #8A8178;
-        --j-line:        rgba(240, 237, 232, 0.08);
-        --j-accent:      #2ECC9A;
-        --j-accent-soft: rgba(46, 204, 154, 0.12);
-        --j-accent-mist: rgba(46, 204, 154, 0.05);
-        --j-user-bg:     rgba(46, 204, 154, 0.09);
+        --j-bg:          #1C1C1E;
+        --j-surface:     #2C2C2E;
+        --j-text:        #FFFFFF;
+        --j-muted:       #98989E;
+        --j-line:        rgba(255, 255, 255, 0.10);
+        --j-accent:      #30D158;
+        --j-accent-soft: rgba(48, 209, 88, 0.14);
+        --j-accent-mist: rgba(48, 209, 88, 0.06);
+        --j-user-bg:     rgba(48, 209, 88, 0.10);
+        --j-shadow:      0 4px 24px rgba(0, 0, 0, 0.25);
+        --j-shadow-lg:   0 12px 40px rgba(0, 0, 0, 0.35);
     }
     body.june-dark [data-testid="stAppViewContainer"],
     body.june-dark [data-testid="stApp"],
-    body.june-dark .main, body.june-dark .block-container {
+    body.june-dark .main, body.june-dark .block-container,
+    body.june-dark [data-testid="stVerticalBlock"],
+    body.june-dark [data-testid="stHorizontalBlock"],
+    body.june-dark [data-testid="stVerticalBlockBorderWrapper"] {
         background: var(--j-bg) !important;
+        color: var(--j-text) !important;
+    }
+    body.june-dark .june-nav-sticky {
+        background: var(--j-bg) !important;
+        border-bottom-color: var(--j-line) !important;
+    }
+    body.june-dark [data-testid="stTextInput"] input,
+    body.june-dark [data-testid="stTextArea"] textarea {
+        background: var(--j-surface) !important;
+        color: var(--j-text) !important;
+        border-color: var(--j-line) !important;
+    }
+    body.june-dark .stButton > button {
+        background: var(--j-surface) !important;
+        color: var(--j-text) !important;
+        border-color: var(--j-line) !important;
+    }
+    body.june-dark .june-message-assistant {
+        background: var(--j-surface) !important;
+        color: var(--j-text) !important;
+    }
+    body.june-dark .june-panel-card,
+    body.june-dark .june-rail-card,
+    body.june-dark .june-item,
+    body.june-dark .june-surface,
+    body.june-dark .june-stat-card,
+    body.june-dark .june-mini-card,
+    body.june-dark .june-kpi {
+        background: var(--j-surface) !important;
+        border-color: var(--j-line) !important;
+        color: var(--j-text) !important;
     }
 
     /* ── Nav radio (horizontal) styled as nav links ──────── */
@@ -174,12 +210,28 @@ st.markdown(
         font-weight: 500 !important;
         border-bottom: 2px solid var(--j-accent) !important;
     }
-    /* Hide radio circles and extra markup */
+    /* Hide radio circles — target every version of Streamlit's label structure */
     [data-testid="stRadio"] input[type="radio"] {
-        position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none;
+        position: absolute !important; opacity: 0 !important;
+        width: 0 !important; height: 0 !important; pointer-events: none !important;
     }
+    /* Hide the circle wrapper div (Streamlit 1.35+) */
+    [data-testid="stRadio"] label > div:first-child {
+        position: absolute !important; opacity: 0 !important;
+        width: 0 !important; height: 0 !important; overflow: hidden !important;
+        pointer-events: none !important; margin: 0 !important; padding: 0 !important;
+    }
+    /* Older Streamlit — first span holds the circle */
     [data-testid="stRadio"] label > span:first-child { display: none !important; }
+    /* Hide the outer group label (shows "nav" text if not collapsed) */
     [data-testid="stRadio"] > label { display: none !important; }
+    /* Ensure label text (second child) shows correctly */
+    [data-testid="stRadio"] label > p,
+    [data-testid="stRadio"] label > div:not(:first-child) {
+        display: block !important;
+        opacity: 1 !important;
+        font-size: 13px !important;
+    }
 
     /* Right nav action buttons (dark mode, settings) */
     .june-nav-action .stButton > button {
@@ -201,14 +253,17 @@ st.markdown(
         box-shadow: none !important; transform: none !important;
     }
 
-    /* ── Hide chat toggle button ─────────────────────────── */
+    /* ── Chat toggle button ──────────────────────────────── */
+    .june-chat-toggle {
+        margin-bottom: 0.1rem !important;
+    }
     .june-chat-toggle .stButton > button {
         background: transparent !important;
         border: none !important;
         color: var(--j-muted) !important;
-        font-size: 11px !important;
-        padding: 0 0 0.25rem 0 !important;
-        min-height: 1.5rem !important;
+        font-size: 10px !important;
+        padding: 0 0 0.1rem 0 !important;
+        min-height: 1.2rem !important;
         box-shadow: none !important;
         border-radius: 0 !important;
     }
@@ -234,7 +289,7 @@ st.markdown(
 
     .block-container {
         max-width: 1400px !important;
-        padding-top: 0.5rem !important;
+        padding-top: 0 !important;
         padding-bottom: 1rem !important;
         padding-left: 1.25rem !important;
         padding-right: 1.25rem !important;
@@ -259,6 +314,18 @@ st.markdown(
     /* Hide the fixed Streamlit header/toolbar so our header shows fully */
     header[data-testid="stHeader"],
     [data-testid="stHeader"] { display: none !important; }
+
+    /* ── Sticky nav bar (class added via JS) ───────────────── */
+    .june-nav-sticky {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 200 !important;
+        background: var(--j-bg) !important;
+        padding-top: 0.4rem !important;
+        padding-bottom: 0 !important;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
 
     /* ── Top bar ───────────────────────────────────────────── */
     .june-topbar-wrap {
@@ -537,7 +604,7 @@ st.markdown(
 
     /* ── Conversation ──────────────────────────────────────── */
     .june-transcript {
-        max-height: calc(100vh - 270px);
+        max-height: calc(100vh - 290px);
         overflow-y: auto;
         padding-right: 0.25rem;
         padding-bottom: 0.5rem;
@@ -548,6 +615,12 @@ st.markdown(
     .june-transcript::-webkit-scrollbar-thumb {
         background: rgba(26,24,21,0.12);
         border-radius: 999px;
+    }
+    body.june-dark .june-transcript {
+        scrollbar-color: rgba(255,255,255,0.12) transparent;
+    }
+    body.june-dark .june-transcript::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.12);
     }
 
     .june-message {
@@ -1023,8 +1096,8 @@ st.markdown(
         color: var(--j-muted) !important;
     }
 
-    /* Compact top padding now that Streamlit toolbar is hidden */
-    .main .block-container { padding-top: 0.75rem !important; }
+    /* No top padding — nav provides its own spacing and is sticky */
+    .main .block-container { padding-top: 0 !important; }
 
     /* Smooth scrolling page-wide */
     html { scroll-behavior: smooth; }
@@ -2911,17 +2984,33 @@ _active_panel = st.session_state.active_panel
 _show_chat    = st.session_state.show_chat
 _dark_mode    = st.session_state.dark_mode
 
-# Apply dark mode class to body via JS
-if _dark_mode:
-    components.html(
-        "<script>window.parent.document.body.classList.add('june-dark');</script>",
-        height=0, width=0,
-    )
-else:
-    components.html(
-        "<script>window.parent.document.body.classList.remove('june-dark');</script>",
-        height=0, width=0,
-    )
+# Apply dark mode class and layout fixes via JS
+_dm_js = "add" if _dark_mode else "remove"
+components.html(
+    f"""
+    <script>
+    (function() {{
+        var doc = window.parent.document;
+        doc.body.classList.{_dm_js}('june-dark');
+
+        function applyLayout() {{
+            // Make nav bar sticky
+            var radio = doc.querySelector('[data-testid="stRadio"]');
+            if (radio) {{
+                var navBlock = radio.closest('[data-testid="stHorizontalBlock"]');
+                if (navBlock) navBlock.classList.add('june-nav-sticky');
+            }}
+        }}
+
+        applyLayout();
+        setTimeout(applyLayout, 300);
+        setTimeout(applyLayout, 900);
+    }})();
+    </script>
+    """,
+    height=0,
+    width=0,
+)
 
 # Nav bar: logo | radio nav | model pill + dark + settings
 _nav_left, _nav_center, _nav_right = st.columns([1.2, 6, 1.8], gap="small")
@@ -2930,7 +3019,7 @@ with _nav_left:
     st.markdown(
         f'<div style="display:flex;align-items:center;height:44px;">'
         f'<img src="/app/static/june_ai_logo.png" alt="June" '
-        f'style="height:22px;width:auto;object-fit:contain;">'
+        f'style="height:34px;width:auto;object-fit:contain;">'
         f'</div>',
         unsafe_allow_html=True,
     )
