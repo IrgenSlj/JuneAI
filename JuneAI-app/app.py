@@ -1365,37 +1365,73 @@ st.markdown(
         overflow: hidden;
         text-overflow: ellipsis;
         opacity: 0;
-        animation: hintCycle var(--june-ticker-duration, 3.5s) linear infinite;
+        animation: hintCycle var(--june-ticker-duration, 15s) linear infinite;
     }
     @keyframes hintCycle {
         0%   { opacity: 0; transform: translateY(4px); }
-        8%   { opacity: 1; transform: translateY(0);   }
-        75%  { opacity: 1; transform: translateY(0);   }
-        90%  { opacity: 0; transform: translateY(-4px);}
+        3%   { opacity: 1; transform: translateY(0);   }
+        78%  { opacity: 1; transform: translateY(0);   }
+        93%  { opacity: 0; transform: translateY(-4px);}
         100% { opacity: 0; transform: translateY(-4px);}
     }
 
-    /* ── Keyboard hint ───────────────────────────────────────── */
-    .june-input-hint {
-        font-size: 9px;
-        color: var(--j-muted);
-        text-align: right;
-        margin-top: 0.2rem;
-        letter-spacing: 0.02em;
+    /* ── Chat column: sticky panel, scrollable transcript, pinned input ─ */
+    .june-chat-sticky {
+        position: sticky !important;
+        top: 56px !important;
+        height: calc(100vh - 56px) !important;
+        overflow: hidden !important;
+        align-self: flex-start !important;
     }
 
-    /* ── Chat input — sticky at bottom of viewport as user scrolls ─── */
+    /* ── Chat input — JS pins this at bottom via position:fixed ────── */
     .june-input-wrap {
-        position: sticky;
-        bottom: 0;
-        z-index: 20;
         background: var(--j-bg);
-        padding-top: 0.4rem;
-        padding-bottom: 0.2rem;
+        padding: 0.4rem 0 0.3rem 0;
         border-top: 1px solid var(--j-line);
     }
-    body.june-dark .june-input-wrap {
-        background: var(--j-bg);
+    body.june-dark .june-input-wrap { background: var(--j-bg); }
+
+    /* ── Chat restore tab (narrow column when chat is hidden) ────── */
+    .june-chat-restore-btn > button {
+        background: var(--j-surface) !important;
+        border: 1px solid var(--j-line) !important;
+        border-radius: 0 8px 8px 0 !important;
+        color: var(--j-muted) !important;
+        font-size: 13px !important;
+        padding: 0 !important;
+        min-height: 48px !important;
+        width: 28px !important;
+        min-width: 28px !important;
+        box-shadow: none !important;
+        writing-mode: vertical-rl;
+    }
+    .june-chat-restore-btn > button:hover {
+        color: var(--j-accent) !important;
+        background: var(--j-accent-soft) !important;
+        border-color: var(--j-accent) !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }
+
+    /* ── Media attach button ───────────────────────────────────── */
+    .june-media-btn > button {
+        background: transparent !important;
+        border: 1px solid var(--j-line) !important;
+        color: var(--j-muted) !important;
+        border-radius: 8px !important;
+        font-size: 16px !important;
+        padding: 0 !important;
+        height: 32px !important; width: 32px !important;
+        min-height: 32px !important; min-width: 32px !important;
+        box-shadow: none !important;
+        line-height: 1 !important;
+    }
+    .june-media-btn > button:hover {
+        color: var(--j-accent) !important;
+        border-color: var(--j-accent) !important;
+        background: var(--j-accent-soft) !important;
+        box-shadow: none !important; transform: none !important;
     }
 
     /* ── Header action buttons — styled as plain text, matching date typography ── */
@@ -1744,13 +1780,14 @@ def render_first_run_onboarding(memory: Memory) -> None:
             hints.append(hint_map[surface])
     if not hints:
         hints = ["Just start talking — June will learn from every message."]
-    # Render as a compact inline ticker using CSS animation
+    # Render as a compact inline ticker — each hint visible for 15 s
+    _tick = 15
     hint_items = "".join(
-        f'<span class="june-hint-item" style="animation-delay:{i * 3.5}s">'
+        f'<span class="june-hint-item" style="animation-delay:{i * _tick}s">'
         f'{html.escape(h)}</span>'
         for i, h in enumerate(hints)
     )
-    total_duration = len(hints) * 3.5
+    total_duration = len(hints) * _tick
     st.markdown(
         f'<div class="june-hint-ticker" style="--june-ticker-duration:{total_duration}s">'
         f'{hint_items}</div>',
@@ -3104,15 +3141,58 @@ components.html(
                 }}
             }});
 
-            // 3. Style chat toggle button
-            var chatTexts = ['← Hide chat', 'Chat →'];
+            // 3. Style chat toggle / restore buttons
             doc.querySelectorAll('button').forEach(function(btn) {{
                 var t = btn.textContent.trim();
-                if (chatTexts.some(function(ct) {{ return t.indexOf(ct) !== -1; }})) {{
+                if (t === '\u2039' || t === '\u203a') {{
+                    // ‹ = collapse, › = restore
+                    var container = btn.parentElement;
+                    if (container) {{
+                        if (t === '\u2039') container.classList.add('june-chat-toggle-btn');
+                        else container.classList.add('june-chat-restore-btn');
+                    }}
+                }} else if (t.indexOf('\u2190 Hide chat') !== -1 || t.indexOf('Hide chat') !== -1) {{
                     var container = btn.parentElement;
                     if (container) container.classList.add('june-chat-toggle-btn');
                 }}
             }});
+
+            // 4. Media attach button
+            doc.querySelectorAll('button').forEach(function(btn) {{
+                if (btn.textContent.trim() === '+') {{
+                    var container = btn.parentElement;
+                    if (container) container.classList.add('june-media-btn');
+                }}
+            }});
+
+            // 5. Fix chat column as sticky panel, pin input at bottom
+            var inputWrap = doc.querySelector('.june-input-wrap');
+            if (inputWrap) {{
+                var col = inputWrap.closest('[data-testid="stColumn"]');
+                if (col) {{
+                    col.classList.add('june-chat-sticky');
+                    var rect = col.getBoundingClientRect();
+                    if (rect.width > 50) {{
+                        // Pin input at viewport bottom
+                        var colLeft = (col.style.position === 'fixed')
+                            ? parseFloat(col.style.left) : rect.left;
+                        inputWrap.style.position = 'fixed';
+                        inputWrap.style.bottom = '0';
+                        inputWrap.style.left = colLeft + 'px';
+                        inputWrap.style.width = rect.width + 'px';
+                        inputWrap.style.zIndex = '50';
+                        // Size transcript to fill remaining space
+                        var inputH = inputWrap.offsetHeight || 100;
+                        var transcript = col.querySelector('.june-transcript');
+                        if (transcript) {{
+                            var tTop = transcript.getBoundingClientRect().top;
+                            var avail = window.innerHeight - tTop - inputH - 4;
+                            transcript.style.maxHeight = Math.max(80, avail) + 'px';
+                            transcript.style.overflowY = 'auto';
+                        }}
+                    }}
+                }}
+            }}
 
         }}
 
@@ -3181,7 +3261,7 @@ with _nav_right:
 if _show_chat:
     _chat_col_raw, right_col = st.columns([1, 2], gap="medium")
 else:
-    _chat_col_raw, right_col = st.empty(), st.container()
+    _chat_col_raw, right_col = st.columns([0.06, 2.94], gap="small")
 
 # Daily check-in only fires when the model is ready
 if _model_ready and not st.session_state.is_generating and memory.should_send_daily_checkin():
@@ -3223,11 +3303,11 @@ chat_col = _chat_col_raw
 
 with chat_col:
   if _show_chat:
-    if st.button("← Hide chat", key="toggle_chat", help="Collapse chat panel"):
+    if st.button("\u2039 Hide chat", key="toggle_chat", help="Collapse chat panel"):
         st.session_state.show_chat = False
         st.rerun()
   else:
-    if st.button("Chat →", key="toggle_chat_open", help="Expand chat panel"):
+    if st.button("\u203a", key="toggle_chat_open", help="Show chat"):
         st.session_state.show_chat = True
         st.rerun()
   if not _model_ready:
@@ -3386,26 +3466,28 @@ with chat_col:
                 unsafe_allow_html=True,
             )
 
-    # Cmd+Enter keyboard shortcut
+    # Keyboard: Enter = send, Cmd/Ctrl+Enter = newline
     components.html(
         """
         <script>
         (function() {
-            function bindCmdEnter() {
+            function bindKeys() {
                 const doc = window.parent.document;
                 const textarea = doc.querySelector('textarea[data-testid="stTextArea"], textarea');
-                if (!textarea || textarea.dataset.juneCmdEnterBound === '1') return;
-                textarea.dataset.juneCmdEnterBound = '1';
+                if (!textarea || textarea.dataset.juneKeysBound === '1') return;
+                textarea.dataset.juneKeysBound = '1';
                 textarea.addEventListener('keydown', function(e) {
-                    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                    if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+                        // Plain Enter → submit
                         e.preventDefault();
-                        const submitBtn = doc.querySelector('button[kind="formSubmit"], [data-testid="stFormSubmitButton"] button, button[type="submit"]');
-                        if (submitBtn) submitBtn.click();
+                        const btn = doc.querySelector('[data-testid="stFormSubmitButton"] button, button[kind="formSubmit"], button[type="submit"]');
+                        if (btn) btn.click();
                     }
+                    // Cmd/Ctrl+Enter → let default newline happen
                 });
             }
-            setTimeout(bindCmdEnter, 400);
-            setTimeout(bindCmdEnter, 1200);
+            setTimeout(bindKeys, 400);
+            setTimeout(bindKeys, 1200);
         })();
         </script>
         """,
@@ -3413,7 +3495,30 @@ with chat_col:
         width=0,
     )
 
-    # Input area — sticky at bottom
+    # Media attach (gemma4 / multimodal models only — outside form)
+    _is_multimodal = any(k in active_runtime.model.lower() for k in ("gemma", "llava", "vision", "minicpm"))
+    _attached_file = None
+    if _is_multimodal:
+        st.session_state.setdefault("show_media_upload", False)
+        _ma_col, _mu_col = st.columns([0.12, 0.88], gap="small")
+        with _ma_col:
+            st.markdown('<div class="june-media-btn">', unsafe_allow_html=True)
+            if st.button("+", key="media_attach_toggle", help="Attach image / audio / video"):
+                st.session_state.show_media_upload = not st.session_state.show_media_upload
+                st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+        with _mu_col:
+            if st.session_state.show_media_upload:
+                _attached_file = st.file_uploader(
+                    "Attach",
+                    type=["jpg", "jpeg", "png", "gif", "webp", "mp4", "mp3", "wav", "m4a"],
+                    key="media_file_input",
+                    label_visibility="collapsed",
+                )
+                if _attached_file:
+                    st.caption(f"Attached: {_attached_file.name}")
+
+    # Input area — JS pins this div at viewport bottom
     st.markdown('<div class="june-input-wrap">', unsafe_allow_html=True)
     with st.form("june_input_form", clear_on_submit=True):
         prompt = st.text_area(
@@ -3429,7 +3534,11 @@ with chat_col:
     st.markdown('</div>', unsafe_allow_html=True)
 
     if submitted and prompt.strip() and not st.session_state.is_generating:
-        st.session_state.pending_prompt = prompt.strip()
+        _final_prompt = prompt.strip()
+        if _attached_file:
+            _final_prompt += f"\n\n[Attached: {_attached_file.name}]"
+            st.session_state.show_media_upload = False
+        st.session_state.pending_prompt = _final_prompt
         st.session_state.active_skill_key = infer_skill_from_text(prompt)
         st.session_state.is_generating = True
         append_activity(f"auto route | {st.session_state.active_skill_key}")
