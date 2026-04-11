@@ -316,16 +316,6 @@ st.markdown(
         padding-right: 1.25rem !important;
     }
 
-    /* Input form pinned to bottom of chat column */
-    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child [data-testid="stForm"] {
-        position: sticky;
-        bottom: 0;
-        background: var(--j-bg);
-        padding-top: 0.5rem;
-        border-top: 1px solid var(--j-line);
-        z-index: 10;
-    }
-
     /* ── Hide native Streamlit chrome (sidebar + toolbar) ── */
     [data-testid="stSidebar"],
     [data-testid="stSidebarCollapseButton"],
@@ -1394,45 +1384,18 @@ st.markdown(
         letter-spacing: 0.02em;
     }
 
-    /* ── Chat column: fixed height, flex, scrollable history, pinned input ── */
-    /*
-     * june-chat-col is added via JS to the stColumn element.
-     * We make it a flex column so the transcript grows and the input
-     * stays glued to the bottom regardless of content height.
-     */
-    [data-june-chat-col="1"] {
-        display: flex !important;
-        flex-direction: column !important;
-        height: calc(100vh - 70px) !important;
-        overflow: hidden !important;
-    }
-    [data-june-chat-col="1"] > [data-testid="stVerticalBlockBorderWrapper"],
-    [data-june-chat-col="1"] > [data-testid="stVerticalBlockBorderWrapper"] > [data-testid="stVerticalBlock"] {
-        display: flex !important;
-        flex-direction: column !important;
-        height: 100% !important;
-        overflow: hidden !important;
-    }
-    /* The transcript div fills all available space and scrolls */
-    [data-june-chat-col="1"] .june-transcript {
-        flex: 1 !important;
-        max-height: none !important;
-        overflow-y: auto !important;
-        min-height: 0 !important;
-    }
-    /* Input stays at the bottom, never scrolls away */
-    [data-june-chat-col="1"] .june-input-wrap {
-        flex-shrink: 0 !important;
-        position: static !important;
-        margin-top: auto !important;
-    }
-
-    /* ── Chat input styling (shared) ─────────────────────────── */
+    /* ── Chat input — sticky at bottom of viewport as user scrolls ─── */
     .june-input-wrap {
+        position: sticky;
+        bottom: 0;
+        z-index: 20;
         background: var(--j-bg);
         padding-top: 0.4rem;
         padding-bottom: 0.2rem;
         border-top: 1px solid var(--j-line);
+    }
+    body.june-dark .june-input-wrap {
+        background: var(--j-bg);
     }
 
     /* ── Header action buttons — styled as plain text, matching date typography ── */
@@ -3148,14 +3111,6 @@ components.html(
                 }}
             }});
 
-            // 4. Tag the chat column so the flex layout CSS applies
-            var inputWrap = doc.querySelector('.june-input-wrap');
-            if (inputWrap) {{
-                var chatCol = inputWrap.closest('[data-testid="stColumn"]');
-                if (chatCol && chatCol.getAttribute('data-june-chat-col') !== '1') {{
-                    chatCol.setAttribute('data-june-chat-col', '1');
-                }}
-            }}
         }}
 
         applyLayout();
@@ -3174,9 +3129,9 @@ _nav_left, _nav_center, _nav_right = st.columns([1.2, 6, 1.8], gap="small")
 
 with _nav_left:
     st.markdown(
-        f'<div style="display:flex;align-items:center;height:44px;">'
+        f'<div style="display:flex;align-items:center;height:44px;gap:0.45rem;">'
         f'<img src="/app/static/june_ai_logo.png" alt="June" '
-        f'style="height:34px;width:auto;object-fit:contain;">'
+        f'style="height:44px;width:auto;object-fit:contain;">'
         f'</div>',
         unsafe_allow_html=True,
     )
