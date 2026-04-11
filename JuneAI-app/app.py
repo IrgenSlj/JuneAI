@@ -637,7 +637,7 @@ st.markdown(
 
     /* ── Conversation ──────────────────────────────────────── */
     .june-transcript {
-        max-height: calc(100vh - 290px);
+        max-height: calc(100vh - 350px);
         overflow-y: auto;
         padding-right: 0.25rem;
         padding-bottom: 0.5rem;
@@ -1786,11 +1786,11 @@ def render_setup_progress_card(setup_model: SetupProgressModel) -> None:
         '<div class="june-rail-card">'
         '<div class="june-label">Setup</div>'
         f'<div class="june-title">{html.escape(setup_model.title)}</div>'
-        f'<div class="june-panel-caption">{html.escape(setup_model.caption)}</div>'
-        '</div>',
+        f'<div class="june-panel-caption">{html.escape(setup_model.caption)}</div>',
         unsafe_allow_html=True,
     )
     render_panel_lines([(item.title, item.copy) for item in setup_model.missing_rows])
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def queue_prompt(prompt: str, reason: str) -> None:
@@ -2438,6 +2438,9 @@ def render_today_panel(memory: Memory, snapshot: dict[str, int]) -> None:
     )
     render_setup_progress_card(model.setup)
     for section in model.sections:
+        # "setup" is already rendered above; "today" header duplicates the primary card
+        if section.key in ("setup", "today"):
+            continue
         if not section.items and not section.note:
             continue
         st.markdown(
@@ -3416,17 +3419,13 @@ with chat_col:
         prompt = st.text_area(
             "Message June",
             value="",
-            placeholder="Tell June about your day, plans, goals, feelings, or anything worth remembering.",
+            placeholder="Talk to June — anything worth remembering.",
             label_visibility="collapsed",
-            height=72,
+            height=56,
         )
         st.markdown('<div class="june-send-btn">', unsafe_allow_html=True)
         submitted = st.form_submit_button("Send", use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="june-input-hint">Cmd+Enter · or press Send</div>',
-        unsafe_allow_html=True,
-    )
     st.markdown('</div>', unsafe_allow_html=True)
 
     if submitted and prompt.strip() and not st.session_state.is_generating:
