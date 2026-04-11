@@ -1357,6 +1357,34 @@ st.markdown(
         animation: streamBlink 0.65s ease-in-out infinite;
     }
 
+    /* ── Onboarding hint ticker ─────────────────────────────── */
+    .june-hint-ticker {
+        position: relative;
+        height: 1.5rem;
+        overflow: hidden;
+        margin-bottom: 0.35rem;
+    }
+    .june-hint-item {
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        font-size: 10px;
+        color: var(--j-muted);
+        letter-spacing: 0.01em;
+        line-height: 1.5rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        opacity: 0;
+        animation: hintCycle var(--june-ticker-duration, 3.5s) linear infinite;
+    }
+    @keyframes hintCycle {
+        0%   { opacity: 0; transform: translateY(4px); }
+        8%   { opacity: 1; transform: translateY(0);   }
+        75%  { opacity: 1; transform: translateY(0);   }
+        90%  { opacity: 0; transform: translateY(-4px);}
+        100% { opacity: 0; transform: translateY(-4px);}
+    }
+
     /* ── Keyboard hint ───────────────────────────────────────── */
     .june-input-hint {
         font-size: 9px;
@@ -1366,16 +1394,45 @@ st.markdown(
         letter-spacing: 0.02em;
     }
 
-    /* ── Sticky chat input — pinned to bottom on all screen sizes ── */
+    /* ── Chat column: fixed height, flex, scrollable history, pinned input ── */
+    /*
+     * june-chat-col is added via JS to the stColumn element.
+     * We make it a flex column so the transcript grows and the input
+     * stays glued to the bottom regardless of content height.
+     */
+    [data-june-chat-col="1"] {
+        display: flex !important;
+        flex-direction: column !important;
+        height: calc(100vh - 70px) !important;
+        overflow: hidden !important;
+    }
+    [data-june-chat-col="1"] > [data-testid="stVerticalBlockBorderWrapper"],
+    [data-june-chat-col="1"] > [data-testid="stVerticalBlockBorderWrapper"] > [data-testid="stVerticalBlock"] {
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100% !important;
+        overflow: hidden !important;
+    }
+    /* The transcript div fills all available space and scrolls */
+    [data-june-chat-col="1"] .june-transcript {
+        flex: 1 !important;
+        max-height: none !important;
+        overflow-y: auto !important;
+        min-height: 0 !important;
+    }
+    /* Input stays at the bottom, never scrolls away */
+    [data-june-chat-col="1"] .june-input-wrap {
+        flex-shrink: 0 !important;
+        position: static !important;
+        margin-top: auto !important;
+    }
+
+    /* ── Chat input styling (shared) ─────────────────────────── */
     .june-input-wrap {
-        position: sticky;
-        bottom: 0;
         background: var(--j-bg);
-        padding-top: 0.5rem;
-        padding-bottom: 0.25rem;
-        z-index: 20;
+        padding-top: 0.4rem;
+        padding-bottom: 0.2rem;
         border-top: 1px solid var(--j-line);
-        margin-top: 0.5rem;
     }
 
     /* ── Header action buttons — styled as plain text, matching date typography ── */
@@ -1700,15 +1757,41 @@ def onboarding_prompt(summary: FirstRunSummary) -> tuple[str, str, str]:
 
 
 def render_first_run_onboarding(memory: Memory) -> None:
-    """Render a staged onboarding card with one recommended next action."""
+    """Compact rotating hint strip — replaces the old multi-card onboarding block."""
     summary = first_run_setup_summary(memory)
     if summary.has_data and len(summary.missing_surfaces) <= 1:
         return
-    label, prompt, reason = onboarding_prompt(summary)
-    render_onboarding_surface(
-        summary,
-        recommended_label=label,
-        on_recommended=lambda: queue_prompt(prompt, reason),
+    # Build one-line hints based on what's missing; shown as a cycling ticker
+    hints = []
+    missing = summary.missing_surfaces or []
+    hint_map = {
+        "Habits":        "Tell June your daily habits and she'll track your streaks.",
+        "Goals & Plans": "Share a goal or priority and June will follow it with you.",
+        "Gym Schedule":  "Describe your training split and June will remember it.",
+        "Calendar":      "Mention an upcoming event and June will save it.",
+        "Food Schedule": "Tell June how you eat and she'll help you stay consistent.",
+        "Body Metrics":  "Log your sleep, energy, or weight — June tracks the trends.",
+        "Family":        "Name the people in your life and June will keep context.",
+        "Birthdays":     "Share birthdays and June will remind you in advance.",
+        "Trips":         "Mention upcoming travel and June will add it to your calendar.",
+        "Dating/Love":   "Share relationship context and June will be more relevant.",
+    }
+    for surface in missing[:3]:
+        if surface in hint_map:
+            hints.append(hint_map[surface])
+    if not hints:
+        hints = ["Just start talking — June will learn from every message."]
+    # Render as a compact inline ticker using CSS animation
+    hint_items = "".join(
+        f'<span class="june-hint-item" style="animation-delay:{i * 3.5}s">'
+        f'{html.escape(h)}</span>'
+        for i, h in enumerate(hints)
+    )
+    total_duration = len(hints) * 3.5
+    st.markdown(
+        f'<div class="june-hint-ticker" style="--june-ticker-duration:{total_duration}s">'
+        f'{hint_items}</div>',
+        unsafe_allow_html=True,
     )
 
 
@@ -3064,6 +3147,15 @@ components.html(
                     if (container) container.classList.add('june-chat-toggle-btn');
                 }}
             }});
+
+            // 4. Tag the chat column so the flex layout CSS applies
+            var inputWrap = doc.querySelector('.june-input-wrap');
+            if (inputWrap) {{
+                var chatCol = inputWrap.closest('[data-testid="stColumn"]');
+                if (chatCol && chatCol.getAttribute('data-june-chat-col') !== '1') {{
+                    chatCol.setAttribute('data-june-chat-col', '1');
+                }}
+            }}
         }}
 
         applyLayout();
@@ -3295,7 +3387,6 @@ with chat_col:
   else:
     # ── Normal chat ──────────────────────────────────────────────────
     render_first_run_onboarding(memory)
-    render_starter_prompts(memory)
 
     transcript_placeholder = st.empty()
     transcript_placeholder.markdown(
