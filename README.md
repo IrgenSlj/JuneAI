@@ -30,10 +30,10 @@ Everything stays on your machine.
 | LLM (primary) | Mistral 7B Instruct v0.3 via Ollama | Local, fully private |
 | LLM (optional) | Claude Sonnet/Opus via Anthropic API | Cloud, max capability |
 | LLM (any) | Any OpenAI-compatible endpoint | LM Studio, OpenRouter, etc. |
-| Memory | Local JSON files (per user, per chapter) | Simple, inspectable |
+| Memory | SQLite (`june.db`, per MEMORY_DIR) | Single file, fast, inspectable |
 | Language | Python 3.9+ | |
 
-Memory lives in `.june_memory/` as local JSON files. No cloud sync. No accounts.
+Memory lives in a single SQLite file (`june.db`) in the configured `MEMORY_DIR`. No cloud sync. No accounts.
 
 ---
 
@@ -64,6 +64,23 @@ To verify your environment before running:
 make check-ollama    # confirms Ollama is running and model is available
 make verify-env      # confirms Python environment is correct
 make smoke           # confirms the Streamlit app serves HTTP 200
+```
+
+### Docker
+
+```bash
+cp .env.example .env   # fill in MODEL_PRESET and any API keys
+make docker-build
+make docker-up
+```
+
+Open `http://localhost:8501`. Memory persists in a named Docker volume (`june_memory`).
+
+### Export your memory
+
+```bash
+make export-memory USER_ID=admin
+# writes june_export_admin_<timestamp>.json
 ```
 
 ---
@@ -133,7 +150,7 @@ JuneAI-app/
 |   |-- agent/
 |   |   |-- graph.py           # LangGraph agent (chat + tools nodes)
 |   |   |-- tools.py           # Tools the LLM can call
-|   |   |-- memory.py          # Local JSON memory layer
+|   |   |-- memory.py          # SQLite memory layer (june.db)
 |   |   |-- skills.py          # Role-based system prompts
 |   |   |-- config.py          # Runtime profile resolution
 |   |   |-- patterns.py        # Proactive pattern detection
@@ -154,7 +171,10 @@ JuneAI-app/
 |-- scripts/
 |   |-- bootstrap_env.py
 |   |-- verify_env.py
-|   `-- check_ollama.py
+|   |-- check_ollama.py
+|   `-- export_memory.py
+|-- Dockerfile
+|-- docker-compose.yml
 |-- docs/
 |   |-- PLAN.md                # Development roadmap
 |   `-- architecture.html      # System diagrams
@@ -174,6 +194,10 @@ make test               # run unit tests
 make integration_tests  # run integration tests
 make lint               # run ruff and mypy
 make smoke              # HTTP smoke test
+make export-memory      # export memory to JSON (USER_ID=admin)
+make docker-build       # build the Docker image
+make docker-up          # start with docker compose (detached)
+make docker-down        # stop the docker compose stack
 ```
 
 ---
@@ -205,8 +229,9 @@ model calls leave your device when using a local Ollama model.
 When using Claude (`claude_high`), messages are sent to Anthropic's API. The privacy
 badge in the UI shows a green dot for local and an amber dot for API-assisted inference.
 
-Memory files are stored in `.june_memory/` as JSON and are fully readable with any
-text editor. You own your data.
+Memory is stored in a single SQLite file (`june.db`) in `MEMORY_DIR` (default: `~/.june_memory`).
+It is fully readable with any SQLite tool. You own your data. Use `make export-memory` to
+dump everything to a portable JSON file.
 
 ---
 
