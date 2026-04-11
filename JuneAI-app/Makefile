@@ -1,4 +1,4 @@
-.PHONY: all bootstrap bootstrap-force format lint test tests test_watch integration_tests docker_tests help extended_tests verify-env run smoke
+.PHONY: all bootstrap bootstrap-force format lint test tests test_watch integration_tests docker_tests help extended_tests verify-env run smoke export-memory docker-build docker-up docker-down
 
 # Default target executed when no arguments are given to make.
 all: help
@@ -37,7 +37,19 @@ run:
 smoke:
 	$(VENV_PYTHON) scripts/smoke_app.py --port $(SMOKE_PORT) --timeout $(SMOKE_TIMEOUT)
 
-test:
+export-memory:
+	$(VENV_PYTHON) scripts/export_memory.py --user $(USER_ID)
+
+docker-build:
+	docker build -t juneai .
+
+docker-up:
+	docker compose up -d
+
+docker-down:
+	docker compose down
+
+test tests:
 	$(VENV_PYTHON) -m pytest $(TEST_FILE)
 
 integration_tests:
@@ -100,3 +112,7 @@ help:
 	@echo 'test TEST_FILE=<test_file>   - run all tests in file'
 	@echo 'test_watch                   - run unit tests in watch mode'
 	@echo 'verify-env                   - run the environment verification script'
+	@echo 'export-memory                - export memory to JSON (USER_ID=admin)'
+	@echo 'docker-build                 - build the Docker image'
+	@echo 'docker-up                    - start the stack with docker compose (detached)'
+	@echo 'docker-down                  - stop the docker compose stack'
