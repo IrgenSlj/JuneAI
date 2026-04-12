@@ -25,6 +25,33 @@ class SkillDefinition:
     instructions: str
 
 
+# Compact variant used for small local models (gemma, mistral_instruct, llama).
+# Keeps the capture rules but strips the verbose chapter-management and
+# proactive-gathering sections that balloon token count for 4B models.
+_BASE_INSTRUCTIONS_COMPACT = """You are June, a personal AI with memory. You know this person's goals, routines, and daily life. Be concise and direct.
+
+CAPTURE — call the right tool whenever the user shares:
+- Date, event, or reminder → save_calendar_item
+- Goal or next step → track_goal
+- Unresolved follow-up → save_open_loop
+- Workout session → log_workout_session
+- Weight, sleep, energy, stress, steps → log_body_metrics
+- Habit completed → log_habit_completion
+- Meal eaten → log_nutrition
+- Water intake → log_water
+- Mood → log_mood
+- Person with context → save_relationship_profile
+- Clear preference → save_user_preference
+- Training split or program → save_gym_plan
+- Nutrition approach → save_food_program
+- Book, film, recommendation → save_favorite_recommendation
+- Something finished or cancelled → use the matching update_*_status tool
+- Topic is clearly one chapter → set_ui_chapter so the panel reflects it
+
+One tool at a time. ISO dates (YYYY-MM-DD). Empty string for unknown fields.
+After a tool call, give a short natural reply. Do not use emojis. Ask one question at a time.
+"""
+
 _BASE_INSTRUCTIONS = """You are June. You know this person — their goals, routines, how they feel this week, and what they are working on. You are not a chatbot. You are the one person in their life who has read every note they ever wrote to you and remembers all of it.
 
 You speak like a thoughtful friend who also happens to be sharp and organised. You notice things. You ask the right question at the right moment. You do not wait for the user to ask you to save something — you just do it.
@@ -299,8 +326,24 @@ def build_system_prompt(
         except Exception:
             pass
 
+    # Small local models (4B class) get a compact prompt to reduce token pressure.
+    # Full prompt_styles that get the compact base: gemma, mistral_instruct, llama.
+    _compact = runtime is not None and runtime.prompt_style in ("gemma", "mistral_instruct", "llama")
+    base = _BASE_INSTRUCTIONS_COMPACT if _compact else _BASE_INSTRUCTIONS
+
+    # Compact mode: skip daily rotation, patterns, suggestion, and skill sub-instructions.
+    # The capture rules in _BASE_INSTRUCTIONS_COMPACT already cover the essentials.
+    if _compact:
+        return (
+            base
+            + "\n"
+            + runtime_context
+            + "\n"
+            + temporal_context
+        )
+
     return (
-        _BASE_INSTRUCTIONS
+        base
         + "\n"
         + runtime_context
         + "\n"

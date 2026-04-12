@@ -18,6 +18,7 @@ from agent.ollama_manager import (
     cleanup_progress_file,
     is_model_available,
     is_ollama_running,
+    list_local_models,
     model_size_label,
     ollama_cli_available,
     read_pull_progress,
@@ -3810,11 +3811,20 @@ if _model_ready and st.session_state.is_generating and st.session_state.pending_
             render_scroll_to_latest()
             memory.save_message("assistant", final_text)
         else:
-            # Model returned no text — surface it so the user knows to retry
-            _empty_notice = (
-                f"_{active_runtime.model.split(':')[0]} returned an empty response. "
-                f"Send your message again or try a shorter prompt._"
-            )
+            # Model returned no text — build a diagnostic notice
+            _available = list_local_models(active_runtime.base_url) if active_runtime.is_local else []
+            _model_short = active_runtime.model.split(":")[0]
+            _diag_lines = [
+                f"_{_model_short} returned an empty response. Send your message again or try a shorter prompt._",
+            ]
+            if _available and active_runtime.model not in _available:
+                _close = [m for m in _available if _model_short in m.lower()]
+                if _close:
+                    _diag_lines.append(
+                        f"_Model name check: configured `{active_runtime.model}` "
+                        f"— Ollama has: {', '.join(f'`{m}`' for m in _close[:4])}_"
+                    )
+            _empty_notice = "\n".join(_diag_lines)
             transcript_placeholder.markdown(
                 transcript_html(
                     st.session_state.messages,
@@ -3824,10 +3834,19 @@ if _model_ready and st.session_state.is_generating and st.session_state.pending_
             )
     elif not st.session_state.get("_gen_exception_shown"):
         # final_state was never set — agent produced nothing at all
-        _empty_notice = (
-            f"_{active_runtime.model.split(':')[0]} did not respond. "
-            f"Check that Ollama is running and try again._"
-        )
+        _available = list_local_models(active_runtime.base_url) if active_runtime.is_local else []
+        _model_short = active_runtime.model.split(":")[0]
+        _diag_lines = [
+            f"_{_model_short} did not respond. Check that Ollama is running and try again._",
+        ]
+        if _available and active_runtime.model not in _available:
+            _close = [m for m in _available if _model_short in m.lower()]
+            if _close:
+                _diag_lines.append(
+                    f"_Configured: `{active_runtime.model}` — "
+                    f"Ollama has: {', '.join(f'`{m}`' for m in _close[:4])}_"
+                )
+        _empty_notice = "\n".join(_diag_lines)
         transcript_placeholder.markdown(
             transcript_html(
                 st.session_state.messages,
