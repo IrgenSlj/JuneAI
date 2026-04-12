@@ -1431,32 +1431,34 @@ st.markdown(
         padding: 0.35rem 0 0.4rem 0;
     }
     body.june-dark .june-input-wrap { background: var(--j-bg); }
-    /* Unified input card — wraps + button, textarea, send button */
-    .june-input-card {
-        display: flex;
-        align-items: flex-end;
-        gap: 0.35rem;
-        border: 1px solid var(--j-line);
-        border-radius: 12px;
-        background: var(--j-surface);
-        padding: 0.25rem 0.4rem 0.25rem 0.5rem;
+    /* Unified input card — applied via JS to the stForm element */
+    .june-form-card {
+        border: 1px solid var(--j-line) !important;
+        border-radius: 12px !important;
+        background: var(--j-surface) !important;
+        padding: 0.15rem 0.5rem 0.15rem 0.5rem !important;
+        overflow: visible !important;
     }
-    body.june-dark .june-input-card { background: var(--j-surface); }
-    /* Textarea inside the card — no border, transparent */
-    .june-input-card .stTextArea textarea {
+    /* Textarea inside the card — borderless and transparent, applied via JS */
+    .june-form-textarea {
         border: none !important;
         border-radius: 0 !important;
         background: transparent !important;
         box-shadow: none !important;
-        padding: 0.35rem 0 !important;
-        resize: none;
+        padding: 0.4rem 0 !important;
+        resize: none !important;
+        outline: none !important;
     }
-    .june-input-card .stTextArea > div,
-    .june-input-card .stTextArea > label { border: none !important; background: transparent !important; }
-    /* Remove stHorizontalBlock gap inside the card */
-    .june-input-card > .stHorizontalBlock,
-    .june-input-card .stForm > .stHorizontalBlock {
+    /* The stTextArea wrapper inside the card — remove its border too */
+    .june-form-card [data-testid="stTextArea"] > div {
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+    /* Align textarea + send button to the same baseline */
+    .june-form-card > div > [data-testid="stHorizontalBlock"] {
         align-items: flex-end !important;
+        gap: 0.35rem !important;
     }
 
     /* ── Chat restore tab (narrow column when chat is hidden) ────── */
@@ -3346,6 +3348,13 @@ components.html(
                             transcript.style.overflowY = 'auto';
                         }}
                     }}
+                    // 6. Apply input card styling directly to the stForm element
+                    var form = col.querySelector('[data-testid="stForm"]');
+                    if (form && !form.classList.contains('june-form-card')) {{
+                        form.classList.add('june-form-card');
+                        var ta = form.querySelector('textarea');
+                        if (ta) {{ ta.classList.add('june-form-textarea'); }}
+                    }}
                 }}
             }}
 
@@ -3667,14 +3676,14 @@ with chat_col:
             )
             if _attached_file:
                 st.caption(f"Attached: {_attached_file.name}")
-    # Unified input card: [+] [textarea] [↑]
-    st.markdown('<div class="june-input-card">', unsafe_allow_html=True)
+    # Multimodal attach button (rendered above the form card)
     if _is_multimodal:
         st.markdown('<div class="june-media-btn">', unsafe_allow_html=True)
         if st.button("+", key="media_attach_toggle", help="Attach image / audio / video"):
             st.session_state.show_media_upload = not st.session_state.show_media_upload
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
+    # Input form — JS applies june-form-card + june-form-textarea classes at render time
     with st.form("june_input_form", clear_on_submit=True):
         _ta_c, _sb_c = st.columns([0.87, 0.13], gap="small")
         with _ta_c:
@@ -3687,7 +3696,6 @@ with chat_col:
             st.markdown('<div class="june-send-btn">', unsafe_allow_html=True)
             submitted = st.form_submit_button("↑")
             st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)  # june-input-card
     st.markdown('</div>', unsafe_allow_html=True)  # june-input-wrap
 
     if submitted and prompt.strip() and not st.session_state.is_generating:

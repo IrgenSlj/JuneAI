@@ -1389,50 +1389,33 @@ JUNE_TOOLS_CORE = [
     clear_ui_workspace,
 ]
 
+# Trimmed tool set for small local models (gemma4 4B, etc.).
+# Keeps write-heavy capture tools and one summary read.
+# Drops list_*, weekly_summary, and multi-step reasoning tools
+# that inflate the tool-schema tokens and hurt small-model reliability.
 JUNE_TOOLS_GEMMA = [
     log_mood,
-    get_mood_history,
     save_journal_entry,
-    get_journal,
     save_relationship_profile,
-    get_relationship_context,
     track_goal,
-    list_goals,
     update_goal_status,
     save_open_loop,
-    list_open_loops,
     update_open_loop_status,
-    save_user_preference,
-    get_user_preferences,
     save_calendar_item,
-    list_calendar_items,
     update_calendar_item_status,
-    save_favorite_recommendation,
-    list_favorites,
+    save_user_preference,
     save_gym_plan,
-    list_gym_plans,
     save_food_program,
-    list_food_programs,
+    save_favorite_recommendation,
     log_workout_session,
     log_body_metrics,
     create_habit,
     log_habit_completion,
-    get_habits_with_streaks,
     log_nutrition,
     log_water,
     get_today_summary,
-    get_recovery_readiness_summary,
-    get_active_commitments_summary,
-    summarize_progress,
-    set_ui_focus,
-    set_ui_checklist,
-    set_ui_layout,
     set_ui_chapter,
-    clear_ui_workspace,
-    check_chapter_completeness,
-    ask_about_chapter,
-    get_personal_context,
-    generate_weekly_summary,
+    set_ui_focus,
 ]
 
 JUNE_TOOLS = [
