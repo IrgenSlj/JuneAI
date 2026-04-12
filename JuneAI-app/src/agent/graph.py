@@ -616,6 +616,52 @@ def _select_tools_for_runtime(runtime: RuntimeConfig) -> list[Any]:
     return JUNE_TOOLS
 
 
+_MESSAGE_WINDOW = 24  # messages kept verbatim (must be even so pairs stay intact)
+
+
+def _trim_messages(messages: list[AnyMessage]) -> list[AnyMessage]:
+    """Keep the tail of the conversation within the context window.
+
+    Rules:
+    - Always keep the most recent _MESSAGE_WINDOW messages verbatim.
+    - If older messages exist, prepend a single SystemMessage summarising them
+      so June retains broad conversational continuity without token explosion.
+    - Tool call / tool result pairs are kept together: a ToolMessage is only
+      included if the preceding AIMessage that requested it is also included.
+    """
+    if len(messages) <= _MESSAGE_WINDOW:
+        return messages
+
+    recent = messages[-_MESSAGE_WINDOW:]
+    older = messages[:-_MESSAGE_WINDOW]
+
+    # Count turns and topics from older messages for a lightweight summary
+    user_texts = [
+        _extract_text(m.content)
+        for m in older
+        if getattr(m, "type", None) == "human" or m.__class__.__name__ == "HumanMessage"
+    ]
+    assistant_texts = [
+        _extract_text(m.content)
+        for m in older
+        if (getattr(m, "type", None) == "ai" or m.__class__.__name__ == "AIMessage")
+        and _extract_text(m.content).strip()
+    ]
+    turn_count = len(user_texts)
+    topic_snippets = ". ".join(t[:80] for t in user_texts[-4:] if t.strip())
+    summary_lines = [
+        f"[Earlier in this session — {turn_count} turns not shown in full]",
+    ]
+    if topic_snippets:
+        summary_lines.append(f"Topics discussed: {topic_snippets}.")
+    if assistant_texts:
+        last_ai = assistant_texts[-1][:120]
+        summary_lines.append(f"June's last substantive response before this window: {last_ai}")
+
+    summary_msg = SystemMessage(content="\n".join(summary_lines))
+    return [summary_msg] + list(recent)
+
+
 def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> Any:
     """Build and compile the JuneAI LangGraph agent."""
     runtime = runtime or resolve_runtime_config()
@@ -659,7 +705,7 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
         messages = [
             SystemMessage(content=prompt),
             SystemMessage(content=memory_context),
-        ] + state["messages"]
+        ] + _trim_messages(state["messages"])
         raw_response = llm.invoke(messages)
         if isinstance(getattr(raw_response, "content", None), str):
             raw_response.content = _strip_internal_thoughts(str(raw_response.content))

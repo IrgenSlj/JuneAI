@@ -1294,6 +1294,36 @@ st.markdown(
     /* Starter section */
     .june-starter-copy { color: var(--j-muted); font-size: 10px; line-height: 1.5; }
 
+    /* ── Journal entries ────────────────────────────────────── */
+    .june-journal-entry {
+        display: flex;
+        gap: 0.6rem;
+        padding: 0.35rem 0;
+        border-bottom: 1px solid var(--j-line);
+        font-size: 12px;
+        line-height: 1.5;
+    }
+    .june-journal-entry:last-child { border-bottom: none; }
+    .june-journal-date {
+        flex-shrink: 0;
+        font-size: 9px;
+        color: var(--j-muted);
+        letter-spacing: 0.04em;
+        padding-top: 2px;
+        min-width: 60px;
+    }
+    .june-journal-text { color: var(--j-text); }
+
+    /* ── Quick-log buttons (small, borderless row) ──────────── */
+    [data-testid="stHorizontalBlock"]:has(.june-qlog-strip) .stButton > button {
+        min-height: 1.8rem !important;
+        font-size: 10px !important;
+        border-radius: 999px !important;
+        padding: 0 0.55rem !important;
+        background: var(--j-bg) !important;
+        border: 1px solid var(--j-line) !important;
+    }
+
     /* ── Tool activity badge ─────────────────────────────────── */
     @keyframes toolPop {
         0%   { transform: scale(0.85); opacity: 0; }
@@ -2481,6 +2511,28 @@ def render_today_panel(memory: Memory, snapshot: dict[str, int]) -> None:
     )
     render_setup_progress_card(model.setup)
 
+    # Quick-log action row
+    # (send=True → dispatch immediately; send=False → prefill textarea)
+    _qlog_actions = [
+        ("Sleep",   "I slept last night — ",                          False),
+        ("Workout", "I just finished a workout — ",                   False),
+        ("Mood",    "My mood today: ",                                False),
+        ("Weight",  "My weight today: ",                              False),
+        ("Water +1","Log 1 glass of water for me.",                   True),
+    ]
+    _qlog_cols = st.columns(len(_qlog_actions), gap="small")
+    for _qi, (_ql, _qp, _send) in enumerate(_qlog_actions):
+        with _qlog_cols[_qi]:
+            if st.button(_ql, key=f"qlog_{_qi}", use_container_width=True):
+                if _send:
+                    st.session_state.pending_prompt = _qp
+                    st.session_state.active_skill_key = "wellness"
+                    st.session_state.is_generating = True
+                else:
+                    st.session_state["_chat_prefill"] = _qp
+                st.session_state.show_chat = True
+                st.rerun()
+
     # Pattern insights — surface what June has noticed
     _patterns = detect_patterns(memory)
     if _patterns:
@@ -2561,6 +2613,50 @@ def render_memory_panel(memory: Memory) -> None:
             on_activity=append_activity,
         )
         st.markdown('</div>', unsafe_allow_html=True)
+
+    # Journal surface — always visible at the bottom of Agenda
+    _journal_entries = memory.get_journal(limit=8)
+    _mood_history = memory.get_mood_history(limit=5)
+    st.markdown(
+        '<div class="june-rail-card june-rail-card-quiet">'
+        '<div class="june-label">Journal & Mood</div>',
+        unsafe_allow_html=True,
+    )
+    if _journal_entries or _mood_history:
+        # Most recent entries first
+        for _entry in reversed(_journal_entries[-5:]):
+            _ts = _entry.get("timestamp", "")[:10]
+            _text = _entry.get("entry", "")[:180]
+            st.markdown(
+                f'<div class="june-journal-entry">'
+                f'<span class="june-journal-date">{html.escape(_ts)}</span>'
+                f'<span class="june-journal-text">{html.escape(_text)}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        for _mood in reversed(_mood_history[-3:]):
+            _ts = _mood.get("timestamp", "")[:10]
+            _m = _mood.get("mood", "")
+            _note = _mood.get("note", "")
+            _copy = f"{html.escape(_m)}" + (f" — {html.escape(_note)}" if _note else "")
+            st.markdown(
+                f'<div class="june-journal-entry">'
+                f'<span class="june-journal-date">{html.escape(_ts)}</span>'
+                f'<span class="june-journal-text">{_copy}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+    else:
+        st.markdown(
+            '<div class="june-panel-caption">No journal entries yet. '
+            'Tell June how your day went and she\'ll log it.</div>',
+            unsafe_allow_html=True,
+        )
+    if st.button("Write entry", key="journal_quick_write"):
+        st.session_state["_chat_prefill"] = "Journal entry: "
+        st.session_state.show_chat = True
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def render_workspace_panel() -> None:
@@ -3547,11 +3643,12 @@ with chat_col:
                     st.caption(f"Attached: {_attached_file.name}")
 
     # Input area — JS pins this div at viewport bottom
+    _prefill = st.session_state.pop("_chat_prefill", "")
     st.markdown('<div class="june-input-wrap">', unsafe_allow_html=True)
     with st.form("june_input_form", clear_on_submit=True):
         prompt = st.text_area(
             "Message June",
-            value="",
+            value=_prefill,
             placeholder="Talk to June — anything worth remembering.",
             label_visibility="collapsed",
             height=56,
