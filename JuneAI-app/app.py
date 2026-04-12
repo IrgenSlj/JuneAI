@@ -1457,7 +1457,7 @@ st.markdown(
         box-shadow: none !important;
     }
     /* Align textarea + send button to the same baseline */
-    .june-form-card > div > [data-testid="stHorizontalBlock"] {
+    .june-form-card {
         align-items: flex-end !important;
         gap: 0.35rem !important;
     }
@@ -2837,10 +2837,11 @@ def handle_stream_chunk(
             token_text = extract_text(message.content)
             if token_text:
                 st.session_state.live_response += token_text
-                transcript_placeholder.markdown(
-                    transcript_html(st.session_state.messages, st.session_state.live_response),
-                    unsafe_allow_html=True,
-                )
+                if transcript_placeholder is not None:
+                    transcript_placeholder.markdown(
+                        transcript_html(st.session_state.messages, st.session_state.live_response),
+                        unsafe_allow_html=True,
+                    )
                 render_scroll_to_latest()
             for chunk in getattr(message, "tool_call_chunks", []) or []:
                 name = chunk.get("name")
@@ -3349,12 +3350,14 @@ components.html(
                             transcript.style.overflowY = 'auto';
                         }}
                     }}
-                    // 6. Apply input card styling directly to the stForm element
-                    var form = col.querySelector('[data-testid="stForm"]');
-                    if (form && !form.classList.contains('june-form-card')) {{
-                        form.classList.add('june-form-card');
-                        var ta = form.querySelector('textarea');
-                        if (ta) {{ ta.classList.add('june-form-textarea'); }}
+                    // 6. Apply input card styling to the horizontal block containing the textarea
+                    var ta = col.querySelector('textarea');
+                    if (ta) {{
+                        ta.classList.add('june-form-textarea');
+                        var hb = ta.closest('[data-testid="stHorizontalBlock"]');
+                        if (hb && !hb.classList.contains('june-form-card')) {{
+                            hb.classList.add('june-form-card');
+                        }}
                     }}
                 }}
             }}
@@ -3465,6 +3468,7 @@ with right_col:
 # Always use with chat_col — when hidden it goes into st.empty() (discarded)
 
 chat_col = _chat_col_raw
+transcript_placeholder = None  # may stay None when chat is hidden
 
 with chat_col:
   if _show_chat:
@@ -3475,7 +3479,7 @@ with chat_col:
     if st.button("\u203a", key="toggle_chat_open", help="Show chat"):
         st.session_state.show_chat = True
         st.rerun()
-  if not _model_ready:
+  if _show_chat and not _model_ready:
     # ── Model download screen ──────────────────────────────────────────
     import time as _time
 
@@ -3587,7 +3591,7 @@ with chat_col:
                 _time.sleep(2)
                 st.rerun()
 
-  else:
+  elif _show_chat:
     # ── Normal chat ──────────────────────────────────────────────────
     render_first_run_onboarding(memory)
 
@@ -3645,7 +3649,8 @@ with chat_col:
                     if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
                         // Plain Enter → submit
                         e.preventDefault();
-                        const btn = doc.querySelector('[data-testid="stFormSubmitButton"] button, button[kind="formSubmit"], button[type="submit"]');
+                        const btns = doc.querySelectorAll('button');
+                        const btn = Array.from(btns).find(b => b.textContent.trim() === '↑');
                         if (btn) btn.click();
                     }
                     // Cmd/Ctrl+Enter → let default newline happen
@@ -3667,7 +3672,6 @@ with chat_col:
     st.markdown('<div class="june-input-wrap">', unsafe_allow_html=True)
     if _is_multimodal:
         st.session_state.setdefault("show_media_upload", False)
-        # File uploader expands above the card when toggled
         if st.session_state.show_media_upload:
             _attached_file = st.file_uploader(
                 "Attach",
@@ -3677,33 +3681,40 @@ with chat_col:
             )
             if _attached_file:
                 st.caption(f"Attached: {_attached_file.name}")
-    # Multimodal attach button (rendered above the form card)
+    # Input row — [+] [textarea] [↑] all inline, no form wrapper
     if _is_multimodal:
-        st.markdown('<div class="june-media-btn">', unsafe_allow_html=True)
-        if st.button("+", key="media_attach_toggle", help="Attach image / audio / video"):
-            st.session_state.show_media_upload = not st.session_state.show_media_upload
-            st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-    # Input form — JS applies june-form-card + june-form-textarea classes at render time
-    with st.form("june_input_form", clear_on_submit=True):
-        _ta_c, _sb_c = st.columns([0.87, 0.13], gap="small")
-        with _ta_c:
-            prompt = st.text_area(
-                "Message June", value=_prefill,
-                placeholder="Talk to June — anything worth remembering.",
-                label_visibility="collapsed", height=52,
-            )
-        with _sb_c:
-            st.markdown('<div class="june-send-btn">', unsafe_allow_html=True)
-            submitted = st.form_submit_button("↑")
-            st.markdown('</div>', unsafe_allow_html=True)
+        _mc, _tc, _sc = st.columns([0.08, 0.79, 0.13], gap="small")
+    else:
+        _tc, _sc = st.columns([0.87, 0.13], gap="small")
+        _mc = None
+    if _mc:
+        with _mc:
+            st.markdown('<div class="june-media-btn">', unsafe_allow_html=True)
+            if st.button("+", key="media_attach_toggle", help="Attach image / audio / video"):
+                st.session_state.show_media_upload = not st.session_state.show_media_upload
+                st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+    with _tc:
+        if _prefill:
+            st.session_state["chat_input_widget"] = _prefill
+        prompt = st.text_area(
+            "Message June",
+            placeholder="Talk to June — anything worth remembering.",
+            label_visibility="collapsed", height=52,
+            key="chat_input_widget",
+        )
+    with _sc:
+        st.markdown('<div class="june-send-btn">', unsafe_allow_html=True)
+        _send_clicked = st.button("↑", key="send_btn")
+        st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)  # june-input-wrap
 
-    if submitted and prompt.strip() and not st.session_state.is_generating:
+    if _send_clicked and prompt.strip() and not st.session_state.is_generating:
         _final_prompt = prompt.strip()
         if _attached_file:
             _final_prompt += f"\n\n[Attached: {_attached_file.name}]"
             st.session_state.show_media_upload = False
+        st.session_state["chat_input_widget"] = ""  # clear textarea
         st.session_state.pending_prompt = _final_prompt
         st.session_state.active_skill_key = infer_skill_from_text(prompt)
         st.session_state.is_generating = True
@@ -3727,10 +3738,11 @@ if _model_ready and st.session_state.is_generating and st.session_state.pending_
     st.session_state.final_state = None
     st.session_state.turn_summary_message = None
     append_activity(f"user | {prompt}")
-    transcript_placeholder.markdown(
-        transcript_html(st.session_state.messages, st.session_state.live_response),
-        unsafe_allow_html=True,
-    )
+    if transcript_placeholder is not None:
+        transcript_placeholder.markdown(
+            transcript_html(st.session_state.messages, st.session_state.live_response),
+            unsafe_allow_html=True,
+        )
     render_turn_save_feedback(None, on_open_chapter=open_memory_chapter)
     render_scroll_to_latest()
 
@@ -3798,15 +3810,16 @@ if _model_ready and st.session_state.is_generating and st.session_state.pending_
             st.session_state.turn_summary_message = build_turn_save_summary(
                 list(st.session_state.tool_stats.get("last_calls", []))
             )
-            transcript_placeholder.markdown(
-                transcript_html(
-                    st.session_state.messages,
-                    extra_messages=[{"role": "assistant", "content": st.session_state.turn_summary_message}]
-                    if st.session_state.turn_summary_message
-                    else None,
-                ),
-                unsafe_allow_html=True,
-            )
+            if transcript_placeholder is not None:
+                transcript_placeholder.markdown(
+                    transcript_html(
+                        st.session_state.messages,
+                        extra_messages=[{"role": "assistant", "content": st.session_state.turn_summary_message}]
+                        if st.session_state.turn_summary_message
+                        else None,
+                    ),
+                    unsafe_allow_html=True,
+                )
             render_turn_save_feedback(st.session_state.turn_summary_message, on_open_chapter=open_memory_chapter)
             render_scroll_to_latest()
             memory.save_message("assistant", final_text)
@@ -3825,13 +3838,14 @@ if _model_ready and st.session_state.is_generating and st.session_state.pending_
                         f"— Ollama has: {', '.join(f'`{m}`' for m in _close[:4])}_"
                     )
             _empty_notice = "\n".join(_diag_lines)
-            transcript_placeholder.markdown(
-                transcript_html(
-                    st.session_state.messages,
-                    extra_messages=[{"role": "assistant", "content": _empty_notice}],
-                ),
-                unsafe_allow_html=True,
-            )
+            if transcript_placeholder is not None:
+                transcript_placeholder.markdown(
+                    transcript_html(
+                        st.session_state.messages,
+                        extra_messages=[{"role": "assistant", "content": _empty_notice}],
+                    ),
+                    unsafe_allow_html=True,
+                )
     elif not st.session_state.get("_gen_exception_shown"):
         # final_state was never set — agent produced nothing at all
         _available = list_local_models(active_runtime.base_url) if active_runtime.is_local else []
@@ -3847,13 +3861,14 @@ if _model_ready and st.session_state.is_generating and st.session_state.pending_
                     f"Ollama has: {', '.join(f'`{m}`' for m in _close[:4])}_"
                 )
         _empty_notice = "\n".join(_diag_lines)
-        transcript_placeholder.markdown(
-            transcript_html(
-                st.session_state.messages,
-                extra_messages=[{"role": "assistant", "content": _empty_notice}],
-            ),
-            unsafe_allow_html=True,
-        )
+        if transcript_placeholder is not None:
+            transcript_placeholder.markdown(
+                transcript_html(
+                    st.session_state.messages,
+                    extra_messages=[{"role": "assistant", "content": _empty_notice}],
+                ),
+                unsafe_allow_html=True,
+            )
 
     st.session_state.is_generating = False
     st.session_state.active_tool_names = []
