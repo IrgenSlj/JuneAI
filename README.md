@@ -92,8 +92,9 @@ JuneAI supports three named profiles and any custom OpenAI-compatible endpoint.
 | Profile | Model | Where inference runs | Best for |
 |---------|-------|----------------------|----------|
 | `local_mistral_7b` | mistral:7b-instruct-v0.3 | Your machine | Default local runtime, strong tool reliability |
-| `local_mistral_3b` | mistral:3b | Your machine | Low-resource machines |
-| `local_gemma_4` | gemma4 | Your machine | Long-context assistant use (requires Ollama >= 0.6) |
+| `local_mistral_3b` | mistral | Your machine | Low-resource machines |
+| `local_mistral_8b` | mistral-nemo | Your machine | Better reasoning than 3B, still local |
+| `local_gemma_4` | gemma4:e4b | Your machine | Multimodal assistant use (requires Ollama >= 0.6) |
 | `claude_high` | claude-sonnet-4-6 | Anthropic API | Maximum reasoning quality |
 
 Set in `.env`:

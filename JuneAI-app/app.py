@@ -481,21 +481,26 @@ st.markdown(
     }
     .stButton > button:active { transform: translateY(0); }
 
-    /* Send button — primary CTA */
+    /* Send button — compact icon inside the input card */
     .june-send-btn .stButton > button {
         background: var(--j-accent) !important;
         color: #ffffff !important;
         border: none !important;
-        border-radius: 12px !important;
-        min-height: 2.5rem !important;
-        font-size: 13px !important;
-        letter-spacing: 0.02em;
+        border-radius: 8px !important;
+        height: 2.25rem !important;
+        min-height: 2.25rem !important;
+        width: 2.25rem !important;
+        min-width: 2.25rem !important;
+        font-size: 1.1rem !important;
+        padding: 0 !important;
+        line-height: 1 !important;
+        flex-shrink: 0;
     }
     .june-send-btn .stButton > button:hover {
         background: #0d5242 !important;
         color: #ffffff !important;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 16px rgba(15, 95, 74, 0.22) !important;
+        transform: none !important;
+        box-shadow: 0 2px 8px rgba(15, 95, 74, 0.3) !important;
     }
 
     .june-chapter-grid .stButton > button {
@@ -1423,10 +1428,36 @@ st.markdown(
     /* ── Chat input — JS pins this at bottom via position:fixed ────── */
     .june-input-wrap {
         background: var(--j-bg);
-        padding: 0.4rem 0 0.3rem 0;
-        border-top: 1px solid var(--j-line);
+        padding: 0.35rem 0 0.4rem 0;
     }
     body.june-dark .june-input-wrap { background: var(--j-bg); }
+    /* Unified input card — wraps + button, textarea, send button */
+    .june-input-card {
+        display: flex;
+        align-items: flex-end;
+        gap: 0.35rem;
+        border: 1px solid var(--j-line);
+        border-radius: 12px;
+        background: var(--j-surface);
+        padding: 0.25rem 0.4rem 0.25rem 0.5rem;
+    }
+    body.june-dark .june-input-card { background: var(--j-surface); }
+    /* Textarea inside the card — no border, transparent */
+    .june-input-card .stTextArea textarea {
+        border: none !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        padding: 0.35rem 0 !important;
+        resize: none;
+    }
+    .june-input-card .stTextArea > div,
+    .june-input-card .stTextArea > label { border: none !important; background: transparent !important; }
+    /* Remove stHorizontalBlock gap inside the card */
+    .june-input-card > .stHorizontalBlock,
+    .june-input-card .stForm > .stHorizontalBlock {
+        align-items: flex-end !important;
+    }
 
     /* ── Chat restore tab (narrow column when chat is hidden) ────── */
     .june-chat-restore-btn > button {
@@ -1453,19 +1484,19 @@ st.markdown(
     /* ── Media attach button ───────────────────────────────────── */
     .june-media-btn > button {
         background: transparent !important;
-        border: 1px solid var(--j-line) !important;
+        border: none !important;
         color: var(--j-muted) !important;
-        border-radius: 8px !important;
-        font-size: 16px !important;
+        border-radius: 6px !important;
+        font-size: 18px !important;
+        font-weight: 300 !important;
         padding: 0 !important;
-        height: 32px !important; width: 32px !important;
-        min-height: 32px !important; min-width: 32px !important;
+        height: 2.25rem !important; width: 2.25rem !important;
+        min-height: 2.25rem !important; min-width: 2.25rem !important;
         box-shadow: none !important;
         line-height: 1 !important;
     }
     .june-media-btn > button:hover {
         color: var(--j-accent) !important;
-        border-color: var(--j-accent) !important;
         background: var(--j-accent-soft) !important;
         box-shadow: none !important; transform: none !important;
     }
@@ -2536,7 +2567,7 @@ def render_today_panel(memory: Memory, snapshot: dict[str, int]) -> None:
     # Pattern insights — surface what June has noticed
     _patterns = detect_patterns(memory)
     if _patterns:
-        _pattern_lines = [(p.observation, p.category) for p in _patterns[:4]]
+        _pattern_lines = [(p.observation, "") for p in _patterns[:4]]
         st.markdown(
             '<div class="june-rail-card june-rail-card-quiet">'
             '<div class="june-label">June noticed</div>',
@@ -3626,7 +3657,7 @@ with chat_col:
     st.markdown('<div class="june-input-wrap">', unsafe_allow_html=True)
     if _is_multimodal:
         st.session_state.setdefault("show_media_upload", False)
-        # File uploader appears above the input row when toggled
+        # File uploader expands above the card when toggled
         if st.session_state.show_media_upload:
             _attached_file = st.file_uploader(
                 "Attach",
@@ -3636,35 +3667,28 @@ with chat_col:
             )
             if _attached_file:
                 st.caption(f"Attached: {_attached_file.name}")
-        # Input row: [+] [form with textarea + send]
-        _mc, _fc = st.columns([0.07, 0.93], gap="small")
-        with _mc:
-            st.markdown('<div class="june-media-btn">', unsafe_allow_html=True)
-            if st.button("+", key="media_attach_toggle", help="Attach image / audio / video"):
-                st.session_state.show_media_upload = not st.session_state.show_media_upload
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
-        with _fc:
-            with st.form("june_input_form", clear_on_submit=True):
-                prompt = st.text_area(
-                    "Message June", value=_prefill,
-                    placeholder="Talk to June — anything worth remembering.",
-                    label_visibility="collapsed", height=56,
-                )
-                st.markdown('<div class="june-send-btn">', unsafe_allow_html=True)
-                submitted = st.form_submit_button("Send", use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-    else:
-        with st.form("june_input_form", clear_on_submit=True):
+    # Unified input card: [+] [textarea] [↑]
+    st.markdown('<div class="june-input-card">', unsafe_allow_html=True)
+    if _is_multimodal:
+        st.markdown('<div class="june-media-btn">', unsafe_allow_html=True)
+        if st.button("+", key="media_attach_toggle", help="Attach image / audio / video"):
+            st.session_state.show_media_upload = not st.session_state.show_media_upload
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+    with st.form("june_input_form", clear_on_submit=True):
+        _ta_c, _sb_c = st.columns([0.87, 0.13], gap="small")
+        with _ta_c:
             prompt = st.text_area(
                 "Message June", value=_prefill,
                 placeholder="Talk to June — anything worth remembering.",
-                label_visibility="collapsed", height=56,
+                label_visibility="collapsed", height=52,
             )
+        with _sb_c:
             st.markdown('<div class="june-send-btn">', unsafe_allow_html=True)
-            submitted = st.form_submit_button("Send", use_container_width=True)
+            submitted = st.form_submit_button("↑")
             st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)  # june-input-card
+    st.markdown('</div>', unsafe_allow_html=True)  # june-input-wrap
 
     if submitted and prompt.strip() and not st.session_state.is_generating:
         _final_prompt = prompt.strip()
