@@ -3336,10 +3336,10 @@ _nav_left, _nav_center, _nav_right = st.columns([1.2, 6, 1.8], gap="small")
 
 with _nav_left:
     st.markdown(
-        f'<div style="display:flex;align-items:center;height:44px;gap:0.45rem;">'
-        f'<img src="/app/static/june_ai_logo.png" alt="June" '
-        f'style="height:44px;width:auto;object-fit:contain;">'
-        f'</div>',
+        '<div style="display:flex;align-items:center;height:44px;">'
+        '<span style="font-family:\'Syne\',sans-serif;font-weight:700;'
+        'font-size:1.1rem;letter-spacing:-0.04em;color:var(--j-text);">June AI</span>'
+        '</div>',
         unsafe_allow_html=True,
     )
 
@@ -3619,43 +3619,51 @@ with chat_col:
         width=0,
     )
 
-    # Media attach (gemma4 / multimodal models only — outside form)
+    # Input area — JS pins this div at viewport bottom
     _is_multimodal = any(k in active_runtime.model.lower() for k in ("gemma", "llava", "vision", "minicpm"))
     _attached_file = None
+    _prefill = st.session_state.pop("_chat_prefill", "")
+    st.markdown('<div class="june-input-wrap">', unsafe_allow_html=True)
     if _is_multimodal:
         st.session_state.setdefault("show_media_upload", False)
-        _ma_col, _mu_col = st.columns([0.12, 0.88], gap="small")
-        with _ma_col:
+        # File uploader appears above the input row when toggled
+        if st.session_state.show_media_upload:
+            _attached_file = st.file_uploader(
+                "Attach",
+                type=["jpg", "jpeg", "png", "gif", "webp", "mp4", "mp3", "wav", "m4a"],
+                key="media_file_input",
+                label_visibility="collapsed",
+            )
+            if _attached_file:
+                st.caption(f"Attached: {_attached_file.name}")
+        # Input row: [+] [form with textarea + send]
+        _mc, _fc = st.columns([0.07, 0.93], gap="small")
+        with _mc:
             st.markdown('<div class="june-media-btn">', unsafe_allow_html=True)
             if st.button("+", key="media_attach_toggle", help="Attach image / audio / video"):
                 st.session_state.show_media_upload = not st.session_state.show_media_upload
                 st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
-        with _mu_col:
-            if st.session_state.show_media_upload:
-                _attached_file = st.file_uploader(
-                    "Attach",
-                    type=["jpg", "jpeg", "png", "gif", "webp", "mp4", "mp3", "wav", "m4a"],
-                    key="media_file_input",
-                    label_visibility="collapsed",
+        with _fc:
+            with st.form("june_input_form", clear_on_submit=True):
+                prompt = st.text_area(
+                    "Message June", value=_prefill,
+                    placeholder="Talk to June — anything worth remembering.",
+                    label_visibility="collapsed", height=56,
                 )
-                if _attached_file:
-                    st.caption(f"Attached: {_attached_file.name}")
-
-    # Input area — JS pins this div at viewport bottom
-    _prefill = st.session_state.pop("_chat_prefill", "")
-    st.markdown('<div class="june-input-wrap">', unsafe_allow_html=True)
-    with st.form("june_input_form", clear_on_submit=True):
-        prompt = st.text_area(
-            "Message June",
-            value=_prefill,
-            placeholder="Talk to June — anything worth remembering.",
-            label_visibility="collapsed",
-            height=56,
-        )
-        st.markdown('<div class="june-send-btn">', unsafe_allow_html=True)
-        submitted = st.form_submit_button("Send", use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown('<div class="june-send-btn">', unsafe_allow_html=True)
+                submitted = st.form_submit_button("Send", use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        with st.form("june_input_form", clear_on_submit=True):
+            prompt = st.text_area(
+                "Message June", value=_prefill,
+                placeholder="Talk to June — anything worth remembering.",
+                label_visibility="collapsed", height=56,
+            )
+            st.markdown('<div class="june-send-btn">', unsafe_allow_html=True)
+            submitted = st.form_submit_button("Send", use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     if submitted and prompt.strip() and not st.session_state.is_generating:
@@ -3728,6 +3736,7 @@ if _model_ready and st.session_state.is_generating and st.session_state.pending_
             )
     except Exception as exc:
         st.session_state.is_generating = False
+        st.session_state["_gen_exception_shown"] = True
         _exc_str = str(exc)
         _is_model_not_found = (
             "404" in _exc_str
@@ -3740,6 +3749,8 @@ if _model_ready and st.session_state.is_generating and st.session_state.pending_
         else:
             st.error(f"June ran into an issue: {_exc_str}")
             st.stop()
+    else:
+        st.session_state.pop("_gen_exception_shown", None)
 
     result = st.session_state.final_state
     if result:
@@ -3766,6 +3777,32 @@ if _model_ready and st.session_state.is_generating and st.session_state.pending_
             render_turn_save_feedback(st.session_state.turn_summary_message, on_open_chapter=open_memory_chapter)
             render_scroll_to_latest()
             memory.save_message("assistant", final_text)
+        else:
+            # Model returned no text — surface it so the user knows to retry
+            _empty_notice = (
+                f"_{active_runtime.model.split(':')[0]} returned an empty response. "
+                f"Send your message again or try a shorter prompt._"
+            )
+            transcript_placeholder.markdown(
+                transcript_html(
+                    st.session_state.messages,
+                    extra_messages=[{"role": "assistant", "content": _empty_notice}],
+                ),
+                unsafe_allow_html=True,
+            )
+    elif not st.session_state.get("_gen_exception_shown"):
+        # final_state was never set — agent produced nothing at all
+        _empty_notice = (
+            f"_{active_runtime.model.split(':')[0]} did not respond. "
+            f"Check that Ollama is running and try again._"
+        )
+        transcript_placeholder.markdown(
+            transcript_html(
+                st.session_state.messages,
+                extra_messages=[{"role": "assistant", "content": _empty_notice}],
+            ),
+            unsafe_allow_html=True,
+        )
 
     st.session_state.is_generating = False
     st.session_state.active_tool_names = []
