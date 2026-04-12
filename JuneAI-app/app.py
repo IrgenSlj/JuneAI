@@ -26,6 +26,7 @@ from agent.ollama_manager import (
 )
 from agent.graph import create_june_agent, startup_error
 from agent.memory import Memory
+from agent.patterns import detect_patterns
 from agent.runtime_privacy import build_runtime_privacy_status
 from agent.skills import DEFAULT_SKILL, SKILLS, infer_skill_from_text
 from agent_ui.chapters import (
@@ -1376,12 +1377,17 @@ st.markdown(
     }
 
     /* ── Chat column: sticky panel, scrollable transcript, pinned input ─ */
+    /*
+     * NO overflow:hidden here — that would clip the position:fixed input-wrap
+     * in some browsers (Safari, older Chrome) when the parent creates a scroll
+     * container.  The transcript's own max-height + overflow-y:auto is enough.
+     */
     .june-chat-sticky {
         position: sticky !important;
         top: 56px !important;
         height: calc(100vh - 56px) !important;
-        overflow: hidden !important;
         align-self: flex-start !important;
+        overflow-x: hidden !important;
     }
 
     /* ── Chat input — JS pins this at bottom via position:fixed ────── */
@@ -2474,9 +2480,30 @@ def render_today_panel(memory: Memory, snapshot: dict[str, int]) -> None:
         unsafe_allow_html=True,
     )
     render_setup_progress_card(model.setup)
+
+    # Pattern insights — surface what June has noticed
+    _patterns = detect_patterns(memory)
+    if _patterns:
+        _pattern_lines = [(p.observation, p.category) for p in _patterns[:4]]
+        st.markdown(
+            '<div class="june-rail-card june-rail-card-quiet">'
+            '<div class="june-label">June noticed</div>',
+            unsafe_allow_html=True,
+        )
+        render_panel_lines(_pattern_lines)
+        st.markdown('</div>', unsafe_allow_html=True)
+
     for section in model.sections:
-        # "setup" is already rendered above; "today" header duplicates the primary card
+        # Skip sections already rendered or that duplicate the primary card
         if section.key in ("setup", "today"):
+            continue
+        # Skip Recovery when no body data has been logged yet
+        if section.key == "readiness":
+            _rs = model.readiness_summary.get("readiness_score", 0)
+            if not _rs:
+                continue
+        # Skip Priority when nothing actionable is queued
+        if section.key == "priority" and not section.items:
             continue
         if not section.items and not section.note:
             continue
@@ -3165,28 +3192,29 @@ components.html(
                 }}
             }});
 
-            // 5. Fix chat column as sticky panel, pin input at bottom
+            // 5. Sticky chat column: pin input at viewport bottom, size transcript
             var inputWrap = doc.querySelector('.june-input-wrap');
             if (inputWrap) {{
                 var col = inputWrap.closest('[data-testid="stColumn"]');
                 if (col) {{
                     col.classList.add('june-chat-sticky');
+                    // Ensure intermediate Streamlit wrappers don't clip fixed child
+                    col.querySelectorAll(
+                        '[data-testid="stVerticalBlockBorderWrapper"],' +
+                        '[data-testid="stVerticalBlock"]'
+                    ).forEach(function(el) {{ el.style.overflow = 'visible'; }});
                     var rect = col.getBoundingClientRect();
                     if (rect.width > 50) {{
-                        // Pin input at viewport bottom
-                        var colLeft = (col.style.position === 'fixed')
-                            ? parseFloat(col.style.left) : rect.left;
                         inputWrap.style.position = 'fixed';
                         inputWrap.style.bottom = '0';
-                        inputWrap.style.left = colLeft + 'px';
+                        inputWrap.style.left = rect.left + 'px';
                         inputWrap.style.width = rect.width + 'px';
                         inputWrap.style.zIndex = '50';
-                        // Size transcript to fill remaining space
                         var inputH = inputWrap.offsetHeight || 100;
                         var transcript = col.querySelector('.june-transcript');
                         if (transcript) {{
                             var tTop = transcript.getBoundingClientRect().top;
-                            var avail = window.innerHeight - tTop - inputH - 4;
+                            var avail = window.innerHeight - tTop - inputH - 6;
                             transcript.style.maxHeight = Math.max(80, avail) + 'px';
                             transcript.style.overflowY = 'auto';
                         }}
