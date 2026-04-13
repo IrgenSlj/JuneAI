@@ -647,11 +647,14 @@ st.markdown(
         min-height: 200px;
         max-height: calc(100vh - 260px);
         overflow-y: auto;
+        display: flex;
+        flex-direction: column;
         padding-right: 0.25rem;
         padding-bottom: 0.5rem;
         scrollbar-width: thin;
         scrollbar-color: rgba(26,24,21,0.12) transparent;
     }
+    .june-transcript-spacer { flex: 1; min-height: 0; }
     .june-transcript::-webkit-scrollbar { width: 4px; }
     .june-transcript::-webkit-scrollbar-thumb {
         background: rgba(26,24,21,0.12);
@@ -3347,24 +3350,25 @@ components.html(
                             ta.classList.add('june-form-textarea');
                             var inputBlock = ta.closest('[data-testid="stHorizontalBlock"]');
                             if (inputBlock) {{
-                                // Pin the actual input row to the viewport bottom
+                                // Pin the actual input row to the viewport bottom with margin
                                 inputBlock.style.position = 'fixed';
-                                inputBlock.style.bottom = '0';
+                                inputBlock.style.bottom = '0.75rem';
                                 inputBlock.style.left = colRect.left + 'px';
                                 inputBlock.style.width = colRect.width + 'px';
                                 inputBlock.style.zIndex = '100';
                                 inputBlock.style.background = 'var(--j-bg, #f5f5f5)';
-                                inputBlock.style.padding = '0.5rem 0.75rem 0.75rem';
+                                inputBlock.style.padding = '0.5rem 0.75rem 0.5rem';
                                 inputBlock.style.boxSizing = 'border-box';
                                 if (!inputBlock.classList.contains('june-form-card')) {{
                                     inputBlock.classList.add('june-form-card');
                                 }}
                                 // Size transcript to fill the space above the fixed input
+                                // 12px = the 0.75rem bottom margin on the input block
                                 var inputH = inputBlock.offsetHeight || 90;
                                 var transcript = col.querySelector('.june-transcript');
                                 if (transcript) {{
                                     var tTop = transcript.getBoundingClientRect().top;
-                                    var avail = window.innerHeight - tTop - inputH - 8;
+                                    var avail = window.innerHeight - 12 - tTop - inputH - 8;
                                     transcript.style.height = Math.max(120, avail) + 'px';
                                     transcript.style.maxHeight = Math.max(120, avail) + 'px';
                                     transcript.style.overflowY = 'auto';

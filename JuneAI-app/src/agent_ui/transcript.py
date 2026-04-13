@@ -352,6 +352,7 @@ def render_transcript_html(
     blocks = [block for block in blocks if block]
     return (
         '<div class="june-transcript" id="june-transcript">'
+        + '<div class="june-transcript-spacer"></div>'
         + "".join(blocks)
         + '<div id="june-transcript-end"></div>'
         + "</div>"
