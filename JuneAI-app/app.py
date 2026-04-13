@@ -3345,34 +3345,31 @@ components.html(
                     }});
                     var colRect = col.getBoundingClientRect();
                     if (colRect.width > 50) {{
-                        var ta = col.querySelector('textarea');
-                        if (ta) {{
-                            ta.classList.add('june-form-textarea');
-                            var inputBlock = ta.closest('[data-testid="stHorizontalBlock"]');
-                            if (inputBlock) {{
-                                // Pin the actual input row to the viewport bottom with margin
-                                inputBlock.style.position = 'fixed';
-                                inputBlock.style.bottom = '0.75rem';
-                                inputBlock.style.left = colRect.left + 'px';
-                                inputBlock.style.width = colRect.width + 'px';
-                                inputBlock.style.zIndex = '100';
-                                inputBlock.style.background = 'var(--j-bg, #f5f5f5)';
-                                inputBlock.style.padding = '0.5rem 0.75rem 0.5rem';
-                                inputBlock.style.boxSizing = 'border-box';
-                                if (!inputBlock.classList.contains('june-form-card')) {{
-                                    inputBlock.classList.add('june-form-card');
-                                }}
-                                // Size transcript to fill the space above the fixed input
-                                // 12px = the 0.75rem bottom margin on the input block
-                                var inputH = inputBlock.offsetHeight || 90;
-                                var transcript = col.querySelector('.june-transcript');
-                                if (transcript) {{
-                                    var tTop = transcript.getBoundingClientRect().top;
-                                    var avail = window.innerHeight - 12 - tTop - inputH - 8;
-                                    transcript.style.height = Math.max(120, avail) + 'px';
-                                    transcript.style.maxHeight = Math.max(120, avail) + 'px';
-                                    transcript.style.overflowY = 'auto';
-                                }}
+                        var form = col.querySelector('[data-testid="stForm"]');
+                        if (form) {{
+                            // Pin the form to the viewport bottom with margin
+                            form.style.position = 'fixed';
+                            form.style.bottom = '0.75rem';
+                            form.style.left = colRect.left + 'px';
+                            form.style.width = colRect.width + 'px';
+                            form.style.zIndex = '100';
+                            form.style.background = 'var(--j-bg, #f5f5f5)';
+                            form.style.padding = '0.15rem 0.5rem 0.15rem';
+                            form.style.boxSizing = 'border-box';
+                            if (!form.classList.contains('june-form-card')) {{
+                                form.classList.add('june-form-card');
+                            }}
+                            var ta = form.querySelector('textarea');
+                            if (ta) {{ ta.classList.add('june-form-textarea'); }}
+                            // Size transcript to fill the space above the fixed form
+                            var inputH = form.offsetHeight || 80;
+                            var transcript = col.querySelector('.june-transcript');
+                            if (transcript) {{
+                                var tTop = transcript.getBoundingClientRect().top;
+                                var avail = window.innerHeight - 12 - tTop - inputH - 8;
+                                transcript.style.height = Math.max(120, avail) + 'px';
+                                transcript.style.maxHeight = Math.max(120, avail) + 'px';
+                                transcript.style.overflowY = 'auto';
                             }}
                         }}
                     }}
@@ -3667,8 +3664,8 @@ with chat_col:
                     if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
                         // Plain Enter → submit
                         e.preventDefault();
-                        const btns = doc.querySelectorAll('button');
-                        const btn = Array.from(btns).find(b => b.textContent.trim() === '↑');
+                        const btns = doc.querySelectorAll('[data-testid="stFormSubmitButton"] button, button[kind="formSubmit"]');
+                        const btn = Array.from(btns).find(b => b.textContent.trim() === '↑') || btns[btns.length - 1];
                         if (btn) btn.click();
                     }
                     // Cmd/Ctrl+Enter → let default newline happen
@@ -3699,40 +3696,41 @@ with chat_col:
             )
             if _attached_file:
                 st.caption(f"Attached: {_attached_file.name}")
-    # Input row — [+] [textarea] [↑] all inline, no form wrapper
-    if _is_multimodal:
-        _mc, _tc, _sc = st.columns([0.08, 0.79, 0.13], gap="small")
-    else:
-        _tc, _sc = st.columns([0.87, 0.13], gap="small")
-        _mc = None
-    if _mc:
-        with _mc:
-            st.markdown('<div class="june-media-btn">', unsafe_allow_html=True)
-            if st.button("+", key="media_attach_toggle", help="Attach image / audio / video"):
-                st.session_state.show_media_upload = not st.session_state.show_media_upload
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
-    with _tc:
-        if _prefill:
-            st.session_state["chat_input_widget"] = _prefill
-        prompt = st.text_area(
-            "Message June",
-            placeholder="Talk to June — anything worth remembering.",
-            label_visibility="collapsed", height=52,
-            key="chat_input_widget",
-        )
-    with _sc:
-        st.markdown('<div class="june-send-btn">', unsafe_allow_html=True)
-        _send_clicked = st.button("↑", key="send_btn")
-        st.markdown('</div>', unsafe_allow_html=True)
+    # st.form bundles textarea + buttons so Streamlit reliably captures
+    # the typed value on submit (plain st.button has a race with textarea blur).
+    with st.form("june_input_form", clear_on_submit=True):
+        if _is_multimodal:
+            _mc, _tc, _sc = st.columns([0.08, 0.79, 0.13], gap="small")
+        else:
+            _tc, _sc = st.columns([0.87, 0.13], gap="small")
+            _mc = None
+        if _mc:
+            with _mc:
+                st.markdown('<div class="june-media-btn">', unsafe_allow_html=True)
+                _plus = st.form_submit_button("+", help="Attach image / audio / video")
+                st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            _plus = False
+        with _tc:
+            prompt = st.text_area(
+                "Message June", value=_prefill,
+                placeholder="Talk to June — anything worth remembering.",
+                label_visibility="collapsed", height=52,
+            )
+        with _sc:
+            st.markdown('<div class="june-send-btn">', unsafe_allow_html=True)
+            submitted = st.form_submit_button("↑")
+            st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)  # june-input-wrap
 
-    if _send_clicked and prompt.strip() and not st.session_state.is_generating:
+    if _is_multimodal and _plus:
+        st.session_state.show_media_upload = not st.session_state.get("show_media_upload", False)
+        st.rerun()
+    elif submitted and prompt.strip() and not st.session_state.is_generating:
         _final_prompt = prompt.strip()
         if _attached_file:
             _final_prompt += f"\n\n[Attached: {_attached_file.name}]"
             st.session_state.show_media_upload = False
-        st.session_state["chat_input_widget"] = ""  # clear textarea
         st.session_state.pending_prompt = _final_prompt
         st.session_state.active_skill_key = infer_skill_from_text(prompt)
         st.session_state.is_generating = True
