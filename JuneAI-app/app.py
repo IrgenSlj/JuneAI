@@ -1418,16 +1418,18 @@ st.markdown(
 
     /* ── Chat column: sticky panel, scrollable transcript, pinned input ─ */
     /*
-     * NO overflow:hidden here — that would clip the position:fixed input-wrap
-     * in some browsers (Safari, older Chrome) when the parent creates a scroll
-     * container.  The transcript's own max-height + overflow-y:auto is enough.
+     * The column is a flex column so intermediate Streamlit wrappers (set to
+     * display:flex;flex:1 by JS) stretch to fill the height, pushing the form
+     * to the bottom without needing position:fixed.
      */
     .june-chat-sticky {
         position: sticky !important;
         top: 56px !important;
         height: calc(100vh - 56px) !important;
         align-self: flex-start !important;
-        overflow-x: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
     }
 
     /* ── Chat input — JS pins this at bottom via position:fixed ────── */
@@ -1443,6 +1445,8 @@ st.markdown(
         background: var(--j-surface) !important;
         padding: 0.15rem 0.5rem 0.15rem 0.5rem !important;
         overflow: visible !important;
+        flex-shrink: 0 !important;
+        margin-bottom: 0.75rem !important;
     }
     /* Textarea inside the card — borderless and transparent, applied via JS */
     .june-form-textarea {
@@ -3327,50 +3331,47 @@ components.html(
                 }}
             }});
 
-            // 5. Sticky chat column: pin actual input row to viewport bottom, size transcript
-            // NOTE: .june-input-wrap is an empty marker div (Streamlit markdown quirk).
-            // The real input is the stHorizontalBlock containing the textarea — target that.
+            // 5. Chat column layout: flexbox stretch so form sits at bottom naturally.
+            // position:fixed is avoided — Streamlit's ancestor transforms break it.
             var inputWrap = doc.querySelector('.june-input-wrap');
             if (inputWrap) {{
                 var col = inputWrap.closest('[data-testid="stColumn"]');
                 if (col) {{
                     col.classList.add('june-chat-sticky');
-                    // Remove overflow + transforms on intermediates so position:fixed works
+                    // Stretch the two intermediate wrappers to fill the column height
+                    // so the form ends up at the bottom without position:fixed.
                     col.querySelectorAll(
                         '[data-testid="stVerticalBlockBorderWrapper"],' +
                         '[data-testid="stVerticalBlock"]'
                     ).forEach(function(el) {{
+                        el.style.display = 'flex';
+                        el.style.flexDirection = 'column';
+                        el.style.flex = '1';
+                        el.style.minHeight = '0';
                         el.style.overflow = 'visible';
-                        el.style.transform = 'none';
                     }});
-                    var colRect = col.getBoundingClientRect();
-                    if (colRect.width > 50) {{
-                        var form = col.querySelector('[data-testid="stForm"]');
-                        if (form) {{
-                            // Pin the form to the viewport bottom with margin
-                            form.style.position = 'fixed';
-                            form.style.bottom = '0.75rem';
-                            form.style.left = colRect.left + 'px';
-                            form.style.width = colRect.width + 'px';
-                            form.style.zIndex = '100';
-                            form.style.background = 'var(--j-bg, #f5f5f5)';
-                            form.style.padding = '0.15rem 0.5rem 0.15rem';
-                            form.style.boxSizing = 'border-box';
-                            if (!form.classList.contains('june-form-card')) {{
-                                form.classList.add('june-form-card');
-                            }}
-                            var ta = form.querySelector('textarea');
-                            if (ta) {{ ta.classList.add('june-form-textarea'); }}
-                            // Size transcript to fill the space above the fixed form
-                            var inputH = form.offsetHeight || 80;
-                            var transcript = col.querySelector('.june-transcript');
-                            if (transcript) {{
-                                var tTop = transcript.getBoundingClientRect().top;
-                                var avail = window.innerHeight - 12 - tTop - inputH - 8;
-                                transcript.style.height = Math.max(120, avail) + 'px';
-                                transcript.style.maxHeight = Math.max(120, avail) + 'px';
-                                transcript.style.overflowY = 'auto';
-                            }}
+                    // Style the form card (no repositioning)
+                    var form = col.querySelector('[data-testid="stForm"]');
+                    if (form) {{
+                        if (!form.classList.contains('june-form-card')) {{
+                            form.classList.add('june-form-card');
+                        }}
+                        var ta = form.querySelector('textarea');
+                        if (ta) {{ ta.classList.add('june-form-textarea'); }}
+                    }}
+                    // Size transcript: column height minus everything above and the form
+                    var colH = col.offsetHeight;
+                    if (colH > 100) {{
+                        var transcript = col.querySelector('.june-transcript');
+                        var formH = form ? (form.offsetHeight || 80) : 80;
+                        if (transcript) {{
+                            var tRect = transcript.getBoundingClientRect();
+                            var colRect = col.getBoundingClientRect();
+                            var topOffset = tRect.top - colRect.top;
+                            var avail = colH - topOffset - formH - 20;
+                            transcript.style.height = Math.max(100, avail) + 'px';
+                            transcript.style.maxHeight = Math.max(100, avail) + 'px';
+                            transcript.style.overflowY = 'auto';
                         }}
                     }}
                 }}
