@@ -644,7 +644,8 @@ st.markdown(
 
     /* ── Conversation ──────────────────────────────────────── */
     .june-transcript {
-        max-height: calc(100vh - 350px);
+        min-height: 200px;
+        max-height: calc(100vh - 260px);
         overflow-y: auto;
         padding-right: 0.25rem;
         padding-bottom: 0.5rem;
@@ -3323,40 +3324,52 @@ components.html(
                 }}
             }});
 
-            // 5. Sticky chat column: pin input at viewport bottom, size transcript
+            // 5. Sticky chat column: pin actual input row to viewport bottom, size transcript
+            // NOTE: .june-input-wrap is an empty marker div (Streamlit markdown quirk).
+            // The real input is the stHorizontalBlock containing the textarea — target that.
             var inputWrap = doc.querySelector('.june-input-wrap');
             if (inputWrap) {{
                 var col = inputWrap.closest('[data-testid="stColumn"]');
                 if (col) {{
                     col.classList.add('june-chat-sticky');
-                    // Ensure intermediate Streamlit wrappers don't clip fixed child
+                    // Remove overflow + transforms on intermediates so position:fixed works
                     col.querySelectorAll(
                         '[data-testid="stVerticalBlockBorderWrapper"],' +
                         '[data-testid="stVerticalBlock"]'
-                    ).forEach(function(el) {{ el.style.overflow = 'visible'; }});
-                    var rect = col.getBoundingClientRect();
-                    if (rect.width > 50) {{
-                        inputWrap.style.position = 'fixed';
-                        inputWrap.style.bottom = '0';
-                        inputWrap.style.left = rect.left + 'px';
-                        inputWrap.style.width = rect.width + 'px';
-                        inputWrap.style.zIndex = '50';
-                        var inputH = inputWrap.offsetHeight || 100;
-                        var transcript = col.querySelector('.june-transcript');
-                        if (transcript) {{
-                            var tTop = transcript.getBoundingClientRect().top;
-                            var avail = window.innerHeight - tTop - inputH - 6;
-                            transcript.style.maxHeight = Math.max(80, avail) + 'px';
-                            transcript.style.overflowY = 'auto';
-                        }}
-                    }}
-                    // 6. Apply input card styling to the horizontal block containing the textarea
-                    var ta = col.querySelector('textarea');
-                    if (ta) {{
-                        ta.classList.add('june-form-textarea');
-                        var hb = ta.closest('[data-testid="stHorizontalBlock"]');
-                        if (hb && !hb.classList.contains('june-form-card')) {{
-                            hb.classList.add('june-form-card');
+                    ).forEach(function(el) {{
+                        el.style.overflow = 'visible';
+                        el.style.transform = 'none';
+                    }});
+                    var colRect = col.getBoundingClientRect();
+                    if (colRect.width > 50) {{
+                        var ta = col.querySelector('textarea');
+                        if (ta) {{
+                            ta.classList.add('june-form-textarea');
+                            var inputBlock = ta.closest('[data-testid="stHorizontalBlock"]');
+                            if (inputBlock) {{
+                                // Pin the actual input row to the viewport bottom
+                                inputBlock.style.position = 'fixed';
+                                inputBlock.style.bottom = '0';
+                                inputBlock.style.left = colRect.left + 'px';
+                                inputBlock.style.width = colRect.width + 'px';
+                                inputBlock.style.zIndex = '100';
+                                inputBlock.style.background = 'var(--j-bg, #f5f5f5)';
+                                inputBlock.style.padding = '0.5rem 0.75rem 0.75rem';
+                                inputBlock.style.boxSizing = 'border-box';
+                                if (!inputBlock.classList.contains('june-form-card')) {{
+                                    inputBlock.classList.add('june-form-card');
+                                }}
+                                // Size transcript to fill the space above the fixed input
+                                var inputH = inputBlock.offsetHeight || 90;
+                                var transcript = col.querySelector('.june-transcript');
+                                if (transcript) {{
+                                    var tTop = transcript.getBoundingClientRect().top;
+                                    var avail = window.innerHeight - tTop - inputH - 8;
+                                    transcript.style.height = Math.max(120, avail) + 'px';
+                                    transcript.style.maxHeight = Math.max(120, avail) + 'px';
+                                    transcript.style.overflowY = 'auto';
+                                }}
+                            }}
                         }}
                     }}
                 }}
@@ -3368,6 +3381,7 @@ components.html(
         setTimeout(applyLayout, 200);
         setTimeout(applyLayout, 600);
         setTimeout(applyLayout, 1500);
+        window.parent.addEventListener('resize', applyLayout);
     }})();
     </script>
     """,

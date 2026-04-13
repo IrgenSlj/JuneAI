@@ -611,7 +611,9 @@ def _select_tools_for_runtime(runtime: RuntimeConfig) -> list[Any]:
     """Choose a tool set sized for the active runtime."""
     if runtime.preset_key == "local_mistral_3b":
         return JUNE_TOOLS_CORE
-    if runtime.preset_key == "local_gemma_4" or "gemma4" in runtime.model.lower():
+    if runtime.preset_key in ("local_gemma_4", "local_llama3_2") or \
+       "gemma4" in runtime.model.lower() or \
+       ("llama" in runtime.model.lower() and "70b" not in runtime.model.lower()):
         return JUNE_TOOLS_GEMMA
     return JUNE_TOOLS
 
