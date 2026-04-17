@@ -1,0 +1,29 @@
+# Architecture Decision Records
+
+This directory records the architectural decisions that shape June. Each ADR captures a single decision, the context that produced it, the alternatives considered, and the consequences accepted.
+
+## Why ADRs
+
+Code tells you what is true today. ADRs tell you why it is true. When a future contributor (or you, six months from now) asks "why did we pick Svelte instead of React?" or "why Tauri instead of Electron?", the ADR is the answer. Without these, every old decision becomes a re-debate.
+
+## How to Write One
+
+Follow the template of the existing files. Keep each ADR to one decision. Keep it under two pages. Write in complete sentences.
+
+Status progression:
+
+- **Proposed** — drafted but not yet acted on
+- **Accepted** — in effect
+- **Deprecated** — no longer applied but kept for historical context
+- **Superseded by ADR-XXXX** — replaced by a newer decision
+
+## Index
+
+| ID | Title | Status |
+|---|---|---|
+| [0001](0001-monorepo-structure.md) | Monorepo structure with apps/packages/skills separation | Accepted |
+| [0002](0002-gemma-gemini-only.md) | Gemma 4 and Gemini as the only supported models | Accepted |
+| [0003](0003-streamlit-to-sveltekit.md) | Retire Streamlit, adopt SvelteKit frontend over FastAPI | Accepted |
+| [0004](0004-memory-architecture.md) | SQLite for structured memory, ChromaDB for semantic recall | Accepted |
+| [0005](0005-skills-as-mcp.md) | Skills as Model Context Protocol servers | Accepted |
+| [0006](0006-desktop-and-mobile-shells.md) | Tauri for desktop, Capacitor for mobile | Accepted |

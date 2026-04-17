@@ -1,9 +1,0 @@
-# Compatibility Notice
-
-The canonical planning files now live in the root docs tree.
-
-Use:
-
-- roadmap: [../../docs/product/roadmap.md](/Users/admin/JuneAI/docs/product/roadmap.md)
-- next sessions: [../../docs/product/next-sessions.md](/Users/admin/JuneAI/docs/product/next-sessions.md)
-- environment: [../../docs/setup/environment.md](/Users/admin/JuneAI/docs/setup/environment.md)

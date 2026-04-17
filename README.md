@@ -1,47 +1,44 @@
-# JuneAI
+# June
 
-JuneAI is a local-first personal AI system built around one product: June, a memory-aware assistant that helps you keep continuity across plans, health, habits, relationships, and daily execution.
+The open personal AI that remembers you.
 
-This repository is split into a top-level product/docs layer and the runnable application in `JuneAI-app/`.
+June runs privately on your laptop via Gemma 4 and scales to the cloud via Gemini. It works identically in your browser, on your Mac, and on your iPhone. Everything is open source. Everything is free.
 
-## Repo Map
+## Status
 
-```text
+June is mid-migration from v1 (Streamlit prototype) to v2 (multi-platform product). The v2 architecture is documented and the 8-week plan is active. See [`docs/product/plan.md`](docs/product/plan.md) for the current week and exit criteria.
+
+The v1 Streamlit app still runs in `JuneAI-app/` during the transition but is no longer being developed.
+
+## Read These First
+
+1. [Vision](docs/vision.md) — what June is and the three non-negotiables
+2. [Architecture overview](docs/architecture/overview.md) — the layered model
+3. [Architecture decisions](docs/decisions/README.md) — the six ADRs that justify the design
+4. [8-week plan](docs/product/plan.md) — what we're building and when
+5. [Environment](docs/setup/environment.md) — configuration reference
+
+## Repository Layout
+
+```
 JuneAI/
-├── README.md
-├── docs/
-│   ├── README.md
-│   ├── architecture/
-│   │   └── README.md
-│   ├── architecture.html
-│   ├── product/
-│   │   ├── roadmap.md
-│   │   └── next-sessions.md
-│   └── setup/
-│       └── environment.md
-├── JuneAI-app/
-│   ├── README.md
-│   ├── app.py
-│   ├── src/
-│   ├── tests/
-│   ├── scripts/
-│   └── .env.example
-└── docs/PLAN.md, docs/NEXT_SESSION.md
+├── apps/              # end-user apps: web, desktop (Tauri), mobile (Capacitor)
+├── packages/          # internal libraries: brain, api, ui, design
+├── skills/            # MCP skill servers: calendar, health, research, files, daily
+├── docs/              # vision, architecture, decisions, product plan, setup
+├── tools/             # developer tooling
+├── JuneAI-app/        # v1 Streamlit app (legacy, retiring during Week 1)
+└── README.md
 ```
 
-## Start Here
+For the rationale behind this layout see [ADR 0001](docs/decisions/0001-monorepo-structure.md).
 
-- Product and repo overview: [docs/README.md](/Users/admin/JuneAI/docs/README.md)
-- Application setup and developer commands: [JuneAI-app/README.md](/Users/admin/JuneAI/JuneAI-app/README.md)
-- Architecture overview: [docs/architecture/README.md](/Users/admin/JuneAI/docs/architecture/README.md)
-- Interactive architecture diagrams: [docs/architecture.html](/Users/admin/JuneAI/docs/architecture.html)
-- Runtime and environment variables: [docs/setup/environment.md](/Users/admin/JuneAI/docs/setup/environment.md)
-- Roadmap and next sessions: [docs/product/roadmap.md](/Users/admin/JuneAI/docs/product/roadmap.md), [docs/product/next-sessions.md](/Users/admin/JuneAI/docs/product/next-sessions.md)
+## Running v1 (Legacy)
 
-## Quick Start
+While the v2 migration is in progress, the v1 Streamlit app is still runnable:
 
 ```bash
-cd JuneAI/JuneAI-app
+cd JuneAI-app
 cp .env.example .env
 make bootstrap
 make check-ollama
@@ -50,16 +47,16 @@ make run
 
 Open `http://127.0.0.1:8501`.
 
-## Current State
+v1 will be deleted at the end of Week 1. See [`docs/product/plan.md`](docs/product/plan.md).
 
-- Runtime profiles support local Ollama models and Anthropic Claude
-- Gemma 4 is the default local preset
-- Memory is stored in SQLite under `MEMORY_DIR`
-- The Streamlit shell is active and production-usable
-- Source-tree lint and type checks are green through `make lint`
-- Unit and integration tests are green
+## Running v2
 
-## Notes
+Not yet available. Week 1 produces the foundation. Week 3 produces the first usable browser build.
 
-- `JuneAI-app/.env` is a local machine file. Review it against [docs/setup/environment.md](/Users/admin/JuneAI/docs/setup/environment.md) because it may still contain older runtime selections.
-- The old docs entry points `docs/PLAN.md` and `docs/NEXT_SESSION.md` remain as compatibility files and now point to the new docs structure.
+## License
+
+Open source under a permissive license. See [`LICENSE`](JuneAI-app/LICENSE).
+
+## Contributing
+
+Contribution guidelines will be published in Week 8. Until then, discussion happens in GitHub issues.

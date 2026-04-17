@@ -1,69 +1,64 @@
-# Environment Variables
+# Environment Reference
 
-This file is the canonical reference for JuneAI runtime configuration.
+This file is the canonical reference for June's runtime configuration. Per [ADR 0002](../decisions/0002-gemma-gemini-only.md), only Gemma 4 and Gemini are supported.
 
-## Core Variables
+## Variables
 
-| Variable | Required | Typical value | Purpose | Notes |
-|---|---|---|---|---|
-| `MODEL_PRESET` | Yes | `local_gemma_4` | Selects the named runtime preset | Recommended primary switch |
-| `LLM_BASE_URL` | Local/OpenAI-compatible | `http://localhost:11434/v1` | Base URL for Ollama or another compatible endpoint | Ignored for default Claude use |
-| `LLM_API_KEY` | Local/OpenAI-compatible | `ollama` | API key for OpenAI-compatible endpoints | Usually `ollama` for local use |
-| `MEMORY_DIR` | No | `.june_memory` | Directory that contains `june.db` | Relative to `JuneAI-app/` unless absolute |
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `MODEL_PROVIDER` | Yes | `gemma` | One of `gemma` (local, via Ollama) or `gemini` (cloud, via Google AI Studio) |
+| `GEMMA_MODEL` | No | `gemma4:e4b` | Ollama tag for the local Gemma model. Must match `ollama list` |
+| `OLLAMA_BASE_URL` | No | `http://localhost:11434/v1` | Base URL for the local Ollama server |
+| `GEMINI_API_KEY` | For `gemini` | — | API key from https://aistudio.google.com |
+| `GEMINI_MODEL` | No | `gemini-2.0-flash` | Gemini model identifier |
+| `JUNE_DATA_DIR` | No | platform default | Directory for `june.db` and ChromaDB index |
+| `JUNE_LOG_DIR` | No | platform default | Directory for structured logs |
+| `MODEL_TEMPERATURE` | No | `0.4` | Applied to both providers |
+| `MODEL_MAX_TOKENS` | No | `4096` | Applied to both providers |
 
-## Provider and Model Overrides
+## Default Data Directory
 
-| Variable | Required | Typical value | Purpose | Notes |
-|---|---|---|---|---|
-| `MODEL_PROVIDER` | No | `openai_compatible` or `anthropic` | Forces provider selection | Advanced override only |
-| `MODEL_NAME` | No | blank | Overrides the resolved preset model directly | Use sparingly |
-| `MODEL_TEMPERATURE` | No | blank | Overrides preset temperature | Numeric string |
-| `MODEL_MAX_TOKENS` | No | blank | Overrides preset max tokens | Integer string |
-| `MODEL_TOOL_STRATEGY` | No | blank | Overrides tool strategy | Advanced/runtime debugging |
-
-## Preset-Specific Model Tag Overrides
-
-| Variable | Required | Typical value | Used by | Notes |
-|---|---|---|---|---|
-| `LOCAL_LLAMA_MODEL_NAME` | No | `llama3.2:3b` | `local_llama3_2` | Optional |
-| `LOCAL_SMALL_MODEL_NAME` | No | `mistral` | `local_mistral_3b` | Optional |
-| `LOCAL_LARGE_MODEL_NAME` | No | blank | `local_mistral_7b`, `local_mistral_8b` | Shared by both presets; leave blank unless intentionally overriding both |
-| `LOCAL_GEMMA_MODEL_NAME` | No | `gemma4:e4b` | `local_gemma_4` | Must match `ollama list` if set |
-| `CLAUDE_MODEL_NAME` | No | `claude-sonnet-4-6` | `claude_high` | Optional override |
-
-## API Credentials
-
-| Variable | Required | Typical value | Purpose | Notes |
-|---|---|---|---|---|
-| `ANTHROPIC_API_KEY` | For `claude_high` | blank | Auth for Anthropic runtime | Required only for Claude |
+| Platform | Path |
+|---|---|
+| macOS | `~/Library/Application Support/June/` |
+| Linux | `~/.local/share/June/` |
+| Windows | `%APPDATA%/June/` |
+| iOS | app sandbox container |
 
 ## Recommended Local `.env`
 
 ```env
-MODEL_PRESET=local_gemma_4
-LLM_BASE_URL=http://localhost:11434/v1
-LLM_API_KEY=ollama
-MEMORY_DIR=.june_memory
+# Local inference (default)
+MODEL_PROVIDER=gemma
+GEMMA_MODEL=gemma4:e4b
+OLLAMA_BASE_URL=http://localhost:11434/v1
 
-# Optional model tag overrides
-LOCAL_GEMMA_MODEL_NAME=gemma4:e4b
-LOCAL_LLAMA_MODEL_NAME=llama3.2:3b
+# Optional cloud escape valve
+# MODEL_PROVIDER=gemini
+# GEMINI_API_KEY=your_key_here
+# GEMINI_MODEL=gemini-2.0-flash
 
-# Leave blank unless intentionally overriding preset defaults
-LOCAL_LARGE_MODEL_NAME=
-LOCAL_SMALL_MODEL_NAME=
-MODEL_NAME=
-MODEL_PROVIDER=
-MODEL_TEMPERATURE=
-MODEL_MAX_TOKENS=
-MODEL_TOOL_STRATEGY=
-CLAUDE_MODEL_NAME=
-ANTHROPIC_API_KEY=
+# Optional overrides
+# JUNE_DATA_DIR=
+# MODEL_TEMPERATURE=
+# MODEL_MAX_TOKENS=
 ```
 
-## Important Reminders
+## Switching Between Local and Cloud
 
-- `LOCAL_LARGE_MODEL_NAME` is shared by both large Mistral presets in the current config implementation.
-- If you switch to Claude, make sure `ANTHROPIC_API_KEY` is set.
-- If your app behavior does not match the docs, inspect your local `JuneAI-app/.env` first.
-- `make check-ollama` should be run after changing local runtime settings.
+Toggle `MODEL_PROVIDER` between `gemma` and `gemini`. Both can be configured at the same time; the active one is selected by `MODEL_PROVIDER`. This is deliberate: users who want both can switch with one line.
+
+## First-Run Setup
+
+1. Install Ollama: `brew install ollama` on macOS.
+2. Pull Gemma 4: `ollama pull gemma4:e4b`.
+3. Start Ollama: `ollama serve` (runs in the background on first `ollama` command).
+4. Set `MODEL_PROVIDER=gemma` in `.env`.
+
+Cloud-only users skip Ollama entirely and set `MODEL_PROVIDER=gemini` with a `GEMINI_API_KEY`.
+
+## v1 Legacy Variables
+
+The v1 Streamlit app used a broader set of variables (`LLM_BASE_URL`, `LLM_API_KEY`, `MODEL_NAME`, `MEMORY_DIR`, `LOCAL_LLAMA_MODEL_NAME`, `LOCAL_SMALL_MODEL_NAME`, `LOCAL_LARGE_MODEL_NAME`, `CLAUDE_MODEL_NAME`, `ANTHROPIC_API_KEY`, `MODEL_PRESET`, `MODEL_TOOL_STRATEGY`). These are removed in v2.
+
+While the v1 app remains runnable under `JuneAI-app/` during the transition, its local `.env` still reads the old variables. This compatibility ends when v1 is deleted at the close of Week 1.
