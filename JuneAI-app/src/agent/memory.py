@@ -1260,7 +1260,7 @@ class Memory:
         food_programs = self.get_food_programs(limit=20)
         habits = self.get_habits()
         active_goals = [g for g in goals if g.get("status") == "active"]
-        unresolved = [l for l in open_loops if l.get("status", "open") == "open"]
+        unresolved = [loop for loop in open_loops if loop.get("status", "open") == "open"]
         return {
             "mood_count": len(moods),
             "latest_mood": moods[-1]["mood"] if moods else "",
@@ -1286,8 +1286,6 @@ class Memory:
 
     def _migrate_from_json(self, db_dir: Path) -> None:
         """Import any legacy per-user JSON files into SQLite, then rename them."""
-        import os
-
         uid = self.user_id
         file_map = {
             "chat":             db_dir / f"{uid}_chat.json",

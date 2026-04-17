@@ -21,7 +21,13 @@ from .shell import (
     stat_card_html,
     stat_grid_html,
 )
-from .transcript import extract_text, render_save_summary_html as _render_save_summary_html, render_transcript_html
+from .transcript import (
+    extract_text,
+    render_transcript_html,
+)
+from .transcript import (
+    render_save_summary_html as _render_save_summary_html,
+)
 
 __all__ = [
     "chapter_ring_svg",

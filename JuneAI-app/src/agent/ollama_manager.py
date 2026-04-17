@@ -73,7 +73,7 @@ def is_ollama_running(base_url: str) -> bool:
     api_base = _ollama_api_base(base_url)
     try:
         with urllib.request.urlopen(f"{api_base}/api/tags", timeout=3) as resp:
-            return resp.status == 200
+            return int(resp.status) == 200
     except Exception:
         return False
 
@@ -141,7 +141,7 @@ def is_model_available(model_name: str, base_url: str) -> bool:
 # Async pull (CLI subprocess — non-blocking)
 # ---------------------------------------------------------------------------
 
-def start_pull(model_name: str) -> subprocess.Popen | None:
+def start_pull(model_name: str) -> subprocess.Popen[bytes] | None:
     """Launch `ollama pull <model>` as a background OS process.
 
     Returns the Popen handle so callers can check .poll() for completion,
@@ -165,7 +165,7 @@ def ollama_cli_available() -> bool:
     return _find_ollama_bin() is not None
 
 
-def start_pull_with_progress(model_name: str) -> tuple[subprocess.Popen | None, str]:
+def start_pull_with_progress(model_name: str) -> tuple[subprocess.Popen[str] | None, str]:
     """Launch `ollama pull <model>` and track its progress via a temp file.
 
     Returns (process, progress_file_path).  A daemon thread reads the
@@ -195,7 +195,7 @@ def start_pull_with_progress(model_name: str) -> tuple[subprocess.Popen | None, 
         errors="replace",
     )
 
-    def _reader(proc: subprocess.Popen, path: str) -> None:
+    def _reader(proc: subprocess.Popen[str], path: str) -> None:
         """Read subprocess output char-by-char; split on \\r and \\n."""
         pct = 0
         status = "Downloading"
@@ -309,7 +309,10 @@ def model_size_label(model_name: str) -> str:
 # Legacy streaming pull (kept for CLI / non-Streamlit callers only)
 # ---------------------------------------------------------------------------
 
-def pull_model_stream(model_name: str, base_url: str) -> Generator[dict, None, None]:
+def pull_model_stream(
+    model_name: str,
+    base_url: str,
+) -> Generator[dict[str, object], None, None]:
     """Stream pull progress via the Ollama REST API.
 
     WARNING: this generator blocks the calling thread for the entire

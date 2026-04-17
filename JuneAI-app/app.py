@@ -72,6 +72,14 @@ from agent_ui.shell_views import (
     render_onboarding_surface,
     render_turn_save_feedback,
 )
+from agent_ui.shell_runtime import (
+    append_activity as append_activity_entry,
+    build_turn_save_summary,
+    current_local_time,
+    current_part_of_day,
+    get_rotating_sidebar_phrase,
+    handle_stream_chunk as handle_stream_chunk_entry,
+)
 from agent_ui.state import (
     initialize_session_state,
     reset_session_state,
@@ -1691,7 +1699,8 @@ def chapter_saved_count(memory: Memory, chapter_key: str) -> int:
 
 
 def append_activity(message: str) -> None:
-    st.session_state.activity_log.append(message)
+    """Append one item to the in-session activity log."""
+    append_activity_entry(st.session_state, message)
 
 
 @st.cache_resource(show_spinner=False)
@@ -1725,61 +1734,6 @@ def get_compiled_agent(
 def runtime_for_preset(preset_key: str) -> RuntimeConfig:
     """Resolve one runtime preset for the current app session."""
     return resolve_runtime_config(preset_key)
-
-
-def build_turn_save_summary(last_calls: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """Build a compact in-chat summary of what June saved this turn."""
-    label_map = {
-        "save_goal": "Goal saved",
-        "save_open_loop": "Open loop saved",
-        "save_calendar_item": "Calendar item saved",
-        "save_relationship_profile": "Relationship note saved",
-        "save_user_preference": "Preference saved",
-        "save_favorite_recommendation": "Favorite saved",
-        "save_journal_entry": "Journal saved",
-        "log_body_metrics": "Body check-in saved",
-        "log_workout_session": "Workout saved",
-        "log_nutrition": "Meal log saved",
-        "log_water": "Water updated",
-        "log_habit_completion": "Habit completion saved",
-        "track_goal": "Goal saved",
-        "create_habit": "Habit saved",
-    }
-    chapter_map = {
-        "save_goal": ("plans", "Plans"),
-        "track_goal": ("plans", "Plans"),
-        "save_open_loop": ("plans", "Plans"),
-        "save_calendar_item": ("calendar", "Calendar"),
-        "save_relationship_profile": ("family", "Family"),
-        "log_body_metrics": ("body", "Body"),
-        "log_workout_session": ("gym", "Gym"),
-        "log_nutrition": ("food", "Food"),
-        "log_water": ("water", "Water"),
-        "log_habit_completion": ("habits", "Habits"),
-        "create_habit": ("habits", "Habits"),
-    }
-    items: list[str] = []
-    actions: list[dict[str, str]] = []
-    for call in last_calls:
-        if call.get("status") != "success":
-            continue
-        tool_name = str(call.get("name", "")).strip()
-        if not tool_name.startswith(("save_", "log_", "track_", "create_")):
-            continue
-        preview = str(call.get("preview", "")).strip() or "Saved to memory."
-        label = label_map.get(tool_name, tool_name.replace("_", " ").title())
-        items.append(f"{label}: {preview}")
-        chapter = chapter_map.get(tool_name)
-        if chapter and not any(item.get("chapter_key") == chapter[0] for item in actions):
-            actions.append({"chapter_key": chapter[0], "chapter_label": chapter[1]})
-    if not items:
-        return None
-    return {
-        "type": "save_summary",
-        "label": "What June saved",
-        "items": items[:5],
-        "actions": actions[:3],
-    }
 
 
 def onboarding_prompt(summary: FirstRunSummary) -> tuple[str, str, str]:
@@ -2329,56 +2283,6 @@ def render_detail_focus(memory: Memory, chapter_key: str) -> None:
     st.markdown(render_memory_focus(memory, chapter_key), unsafe_allow_html=True)
 
 
-def current_local_time() -> datetime:
-    return datetime.now().astimezone()
-
-
-def current_part_of_day(now: datetime) -> str:
-    if 5 <= now.hour < 12:
-        return "morning"
-    if 12 <= now.hour < 17:
-        return "afternoon"
-    if 17 <= now.hour < 22:
-        return "evening"
-    return "night"
-
-
-def phrase_bucket(now: datetime) -> str:
-    return f"{now.strftime('%Y-%m-%d')}-{now.hour:02d}-{now.minute // 15}"
-
-
-def generate_sidebar_phrase(now: datetime) -> str:
-    openings = [
-        "Health begins with gentle attention.",
-        "A good life grows from small kindnesses to the body.",
-        "Energy is built in quiet disciplines.",
-        "Strength lasts longer when it is renewed by care.",
-        "Well-being lives between motion, rest, and meaning.",
-        "A clear day starts with one honest choice.",
-    ]
-    middles = [
-        "Let today favour steady movement.",
-        "Protect your peace like a serious habit.",
-        "Feed the body with rhythm.",
-        "Choose what leaves you lighter by tonight.",
-        "Walk toward what strengthens you quietly.",
-        "Keep your routines human and durable.",
-    ]
-    seed = now.timetuple().tm_yday + (now.hour * 4) + (now.minute // 15)
-    return f"{openings[seed % len(openings)]} {middles[(seed * 3 + now.weekday()) % len(middles)]}"
-
-
-def get_rotating_sidebar_phrase(memory: Memory, now: datetime) -> str:
-    bucket = phrase_bucket(now)
-    state = memory.get_app_state()
-    if state.get("sidebar_phrase_bucket") != bucket:
-        phrase = generate_sidebar_phrase(now)
-        memory.set_app_state_value("sidebar_phrase_text", phrase)
-        memory.set_app_state_value("sidebar_phrase_bucket", bucket)
-        return phrase
-    return str(state.get("sidebar_phrase_text", generate_sidebar_phrase(now)))
-
-
 def is_first_run(memory: Memory) -> bool:
     """Return True only once per user — when no messages and no data exist yet."""
     if memory.get_app_state().get("_welcomed"):
@@ -2808,89 +2712,19 @@ def handle_stream_chunk(
     workspace_placeholder: Any,
     activity_placeholder: Any,
 ) -> None:
-    if mode == "custom":
-        event = data or {}
-        if event.get("event") == "chat_started":
-            append_activity(f"route | {event.get('skill')}")
-            append_activity(
-                "runtime | "
-                + f"{event.get('runtime_label', st.session_state.get('current_runtime_label', RUNTIME_CONFIG.label))}"
-                + f" | {event.get('runtime_model', st.session_state.get('current_runtime_model', RUNTIME_CONFIG.model))}"
-            )
-            st.session_state.active_tool_names = []
-        elif event.get("event") == "tool_calls_requested":
-            tools = event.get("tools", [])
-            st.session_state.active_tool_names = tools
-            append_activity("tool request | " + ", ".join(tools))
-        elif event.get("event") == "tool_results":
-            st.session_state.active_tool_names = []  # tools done → back to typing state
-            summary = event.get("summary", {})
-            append_activity(
-                "tool results | "
-                + f"{summary.get('succeeded', 0)} ok / {summary.get('failed', 0)} failed total"
-            )
-            for call in event.get("calls", []):
-                append_activity(
-                    f"tool {call.get('status', 'unknown')} | "
-                    f"{call.get('name', '?')} | {call.get('preview', '')}"
-                )
-        elif event.get("event") == "response_completed":
-            append_activity("response | direct answer")
-        activity_placeholder.markdown(render_activity(st.session_state.activity_log), unsafe_allow_html=True)
-        return
-
-    if mode == "messages":
-        message, _metadata = data
-        if isinstance(message, AIMessageChunk):
-            token_text = extract_text(message.content)
-            if token_text:
-                st.session_state.live_response += token_text
-                if transcript_placeholder is not None:
-                    transcript_placeholder.markdown(
-                        transcript_html(st.session_state.messages, st.session_state.live_response),
-                        unsafe_allow_html=True,
-                    )
-                render_scroll_to_latest()
-            for chunk in getattr(message, "tool_call_chunks", []) or []:
-                name = chunk.get("name")
-                if name:
-                    append_activity(f"planning | {name}")
-        activity_placeholder.markdown(render_activity(st.session_state.activity_log), unsafe_allow_html=True)
-        return
-
-    if mode == "updates":
-        for node_name, payload in (data or {}).items():
-            append_activity(f"node | {node_name}")
-            if isinstance(payload, dict):
-                if "ui_state" in payload:
-                    st.session_state.ui_state = payload["ui_state"]
-                    sync_selected_chapter(st.session_state, st.session_state.ui_state.get("selected_chapter", ""))
-                    if not st.session_state.selected_chapter:
-                        workspace_placeholder.markdown(
-                            render_workspace(st.session_state.ui_state, include_header=False),
-                            unsafe_allow_html=True,
-                        )
-                for message in payload.get("messages", []):
-                    if isinstance(message, ToolMessage):
-                        append_activity(f"tool | {extract_text(message.content)}")
-                    elif isinstance(message, AIMessage):
-                        for tc in getattr(message, "tool_calls", []) or []:
-                            append_activity(f"tool args | {tc.get('name')} {tc.get('args')}")
-        activity_placeholder.markdown(render_activity(st.session_state.activity_log), unsafe_allow_html=True)
-        return
-
-    if mode == "values" and isinstance(data, dict):
-        st.session_state.final_state = data
-        if "tool_stats" in data:
-            st.session_state.tool_stats = data["tool_stats"]
-        if "ui_state" in data:
-            st.session_state.ui_state = data["ui_state"]
-            sync_selected_chapter(st.session_state, st.session_state.ui_state.get("selected_chapter", ""))
-            if not st.session_state.selected_chapter:
-                workspace_placeholder.markdown(
-                    render_workspace(st.session_state.ui_state, include_header=False),
-                    unsafe_allow_html=True,
-                )
+    """Proxy one stream event into the shared shell-runtime helper module."""
+    handle_stream_chunk_entry(
+        mode,
+        data,
+        session_state=st.session_state,
+        transcript_placeholder=transcript_placeholder,
+        workspace_placeholder=workspace_placeholder,
+        activity_placeholder=activity_placeholder,
+        default_runtime_label=RUNTIME_CONFIG.label,
+        default_runtime_model=RUNTIME_CONFIG.model,
+        on_sync_selected_chapter=sync_selected_chapter,
+        on_render_scroll_to_latest=render_scroll_to_latest,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -3521,9 +3355,9 @@ with chat_col:
                 st.session_state["_pulling_active_model"] = _dl_model
                 st.rerun()
         with _bc2:
-            if st.button("Use Llama 3.2 instead", key="fallback_to_llama", use_container_width=True):
-                st.session_state.selected_runtime_preset = "local_llama3_2"
-                memory.set_app_state_value("runtime_preset", "local_llama3_2")
+            if st.button("Use Mistral 7B instead", key="fallback_to_mistral", use_container_width=True):
+                st.session_state.selected_runtime_preset = "local_mistral_7b"
+                memory.set_app_state_value("runtime_preset", "local_mistral_7b")
                 st.rerun()
     else:
         # Kick off download with progress tracking (once)
@@ -3567,17 +3401,17 @@ with chat_col:
                         else:
                             st.error(f"brew upgrade failed:\n{_brew.stderr[:200]}")
                 with _uc2:
-                    if st.button("Use Llama 3.2 instead", key="err_fallback_llama",
+                    if st.button("Use Mistral 7B instead", key="err_fallback_mistral",
                                  use_container_width=True):
-                        st.session_state.selected_runtime_preset = "local_llama3_2"
-                        memory.set_app_state_value("runtime_preset", "local_llama3_2")
+                        st.session_state.selected_runtime_preset = "local_mistral_7b"
+                        memory.set_app_state_value("runtime_preset", "local_mistral_7b")
                         st.rerun()
             else:
                 st.error(f"Download failed: {_err_detail}")
-                if st.button("Use Llama 3.2 instead", key="err_fallback_llama2",
+                if st.button("Use Mistral 7B instead", key="err_fallback_mistral2",
                              use_container_width=True):
-                    st.session_state.selected_runtime_preset = "local_llama3_2"
-                    memory.set_app_state_value("runtime_preset", "local_llama3_2")
+                    st.session_state.selected_runtime_preset = "local_mistral_7b"
+                    memory.set_app_state_value("runtime_preset", "local_mistral_7b")
                     st.rerun()
         elif not ollama_cli_available():
             st.info("Ollama CLI not found. Run manually:")

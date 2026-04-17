@@ -335,6 +335,7 @@ def test_build_chat_model_uses_current_openai_signature():
     assert captured["base_url"] == runtime.base_url
     assert captured["max_completion_tokens"] == runtime.max_tokens
     assert captured["streaming"] is True
+    assert captured["timeout"] == 120
 
 
 def test_build_chat_model_uses_current_anthropic_signature():

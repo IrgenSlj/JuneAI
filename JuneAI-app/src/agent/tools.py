@@ -11,23 +11,23 @@ from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
 from typing_extensions import TypeAlias
 
+from .config import apply_runtime_preset_switch
 from .context_intelligence import (
     build_active_commitments_summary,
     build_recovery_readiness_summary,
     format_active_commitments_summary,
     format_recovery_readiness_summary,
 )
-from .config import apply_runtime_preset_switch
 from .memory import Memory
 from .runtime_privacy import (
-    build_runtime_privacy_status,
     build_runtime_preset_switch_preview,
-    format_runtime_privacy_status,
+    build_runtime_privacy_status,
     format_runtime_preset_switch_plan,
+    format_runtime_privacy_status,
 )
 
 AgentPayload: TypeAlias = dict[str, Any]
-AgentState: TypeAlias = Optional[AgentPayload]
+AgentState: TypeAlias = Optional[dict[str, Any]]
 InjectedAgentState = Annotated[AgentState, InjectedState]
 ToolCommand: TypeAlias = Command[str]
 
@@ -66,7 +66,7 @@ def _memory_for_state(state: AgentState) -> Memory:
     return Memory(state["user_id"])
 
 
-def _merge_ui_state(current: Optional[dict[str, Any]], updates: dict[str, Any]) -> dict[str, Any]:
+def _merge_ui_state(current: dict[str, Any] | None, updates: dict[str, Any]) -> dict[str, Any]:
     """Merge UI state updates onto defaults and current state."""
     merged = dict(DEFAULT_UI_STATE)
     if current:
@@ -83,7 +83,7 @@ def log_mood(
 ) -> str:
     """Log the user's emotional state when they describe how they feel."""
     memory = _memory_for_state(state)
-    entry = memory.log_mood(mood, note)
+    memory.log_mood(mood, note)
     return f"Noted your mood as '{mood}'."
 
 
@@ -111,7 +111,7 @@ def save_journal_entry(
 ) -> str:
     """Save an important reflection or conversation note."""
     memory = _memory_for_state(state)
-    item = memory.save_journal(entry)
+    memory.save_journal(entry)
     return "I've saved that to your journal."
 
 
@@ -1189,7 +1189,7 @@ def get_personal_context(
                 g_lines.append(line)
             parts.append("Active goals: " + "; ".join(g_lines) + ".")
         if loops:
-            parts.append("Open loops: " + "; ".join(l.get("topic", "") for l in loops) + ".")
+            parts.append("Open loops: " + "; ".join(loop.get("topic", "") for loop in loops) + ".")
         if not goals and not loops:
             parts.append("No goals or open loops saved yet.")
 
@@ -1204,7 +1204,7 @@ def get_personal_context(
             parts.append("No relationship context saved yet.")
 
     if any(t in topic_lower for t in ("calendar", "upcoming", "schedule", "event", "appointment")):
-        from datetime import date, timedelta
+        from datetime import date
         today = date.today()
         items = memory.get_calendar_items(limit=10)
         upcoming = [
@@ -1416,6 +1416,7 @@ JUNE_TOOLS_GEMMA = [
     get_today_summary,
     set_ui_chapter,
     set_ui_focus,
+    set_ui_layout,
 ]
 
 JUNE_TOOLS = [

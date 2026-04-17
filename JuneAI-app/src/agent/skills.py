@@ -237,7 +237,7 @@ def build_system_prompt(
     skill_key: str,
     now: datetime | None = None,
     runtime: RuntimeConfig | None = None,
-    memory: "Memory | None" = None,
+    memory: Memory | None = None,
 ) -> str:
     """Build the system prompt for the active skill."""
     now = now or datetime.now().astimezone()

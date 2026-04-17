@@ -19,10 +19,6 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.types import StreamWriter
 
 from .config import RuntimeConfig, resolve_runtime_config
-
-
-_CONTEXT_CACHE: dict[str, tuple[float, str]] = {}  # user_id -> (timestamp, context)
-_CONTEXT_TTL = 30.0  # seconds
 from .context_intelligence import (
     build_active_commitments_summary,
     build_recovery_readiness_summary,
@@ -34,6 +30,9 @@ from .models import build_chat_model
 from .skills import DEFAULT_SKILL, build_system_prompt
 from .telemetry import record_route_selection, record_save_event, record_tool_call
 from .tools import JUNE_TOOLS, JUNE_TOOLS_CORE, JUNE_TOOLS_GEMMA
+
+_CONTEXT_CACHE: dict[str, tuple[float, str]] = {}  # user_id -> (timestamp, context)
+_CONTEXT_TTL = 30.0  # seconds
 
 
 class AgentState(TypedDict):
@@ -791,5 +790,5 @@ startup_error: str | None = None
 try:
     june_agent = create_june_agent()
 except Exception as exc:
-    june_agent = None  # type: ignore[assignment]
+    june_agent = None
     startup_error = str(exc)

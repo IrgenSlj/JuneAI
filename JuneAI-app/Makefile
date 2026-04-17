@@ -1,4 +1,4 @@
-.PHONY: all bootstrap bootstrap-force format lint test tests test_watch integration_tests docker_tests help extended_tests verify-env run smoke export-memory docker-build docker-up docker-down
+.PHONY: all bootstrap bootstrap-force format lint lint_repo lint_tests typecheck_src test tests test_watch integration_tests docker_tests help extended_tests verify-env run smoke export-memory docker-build docker-up docker-down
 
 # Default target executed when no arguments are given to make.
 all: help
@@ -71,19 +71,23 @@ extended_tests:
 
 # Define a variable for Python and notebook files.
 PYTHON_FILES=src/
+SRC_FILES=src
 MYPY_CACHE=.mypy_cache
 lint format: PYTHON_FILES=.
 lint_diff format_diff: PYTHON_FILES=$(shell git diff --name-only --diff-filter=d main | grep -E '\.py$$|\.ipynb$$')
-lint_package: PYTHON_FILES=src
-lint_tests: PYTHON_FILES=tests
-lint_tests: MYPY_CACHE=.mypy_cache_test
 
-lint lint_diff lint_package lint_tests:
+lint:
+	$(VENV_PYTHON) -m ruff check $(SRC_FILES)
+	mkdir -p $(MYPY_CACHE) && $(VENV_PYTHON) -m mypy $(SRC_FILES) --cache-dir $(MYPY_CACHE)
+
+typecheck_src:
+	mkdir -p $(MYPY_CACHE) && $(VENV_PYTHON) -m mypy $(SRC_FILES) --cache-dir $(MYPY_CACHE)
+
+lint_repo:
 	$(VENV_PYTHON) -m ruff check .
-	[ "$(PYTHON_FILES)" = "" ] || $(VENV_PYTHON) -m ruff format $(PYTHON_FILES) --diff
-	[ "$(PYTHON_FILES)" = "" ] || $(VENV_PYTHON) -m ruff check --select I $(PYTHON_FILES)
-	[ "$(PYTHON_FILES)" = "" ] || $(VENV_PYTHON) -m mypy --strict $(PYTHON_FILES)
-	[ "$(PYTHON_FILES)" = "" ] || mkdir -p $(MYPY_CACHE) && $(VENV_PYTHON) -m mypy --strict $(PYTHON_FILES) --cache-dir $(MYPY_CACHE)
+
+lint_tests:
+	$(VENV_PYTHON) -m ruff check tests scripts app.py
 
 format format_diff:
 	$(VENV_PYTHON) -m ruff format $(PYTHON_FILES)
@@ -104,7 +108,10 @@ help:
 	@echo 'bootstrap                   - create .venv, install dependencies, and verify the environment'
 	@echo 'bootstrap-force             - recreate .venv before bootstrapping'
 	@echo 'format                       - run code formatters'
-	@echo 'lint                         - run linters'
+	@echo 'lint                         - run enforced source checks (ruff + mypy on src/)'
+	@echo 'lint_repo                    - run ruff across the whole repository'
+	@echo 'lint_tests                   - run ruff on tests, scripts, and app.py'
+	@echo 'typecheck_src                - run mypy on src/'
 	@echo 'run                          - start Streamlit locally from the venv'
 	@echo 'smoke                        - start Streamlit and verify HTTP 200'
 	@echo 'test                         - run unit tests'

@@ -160,7 +160,7 @@ RUNTIME_PRESETS: dict[str, RuntimePreset] = {
     ),
 }
 
-DEFAULT_RUNTIME_PRESET = "local_llama3_2"
+DEFAULT_RUNTIME_PRESET = "local_gemma_4"
 
 
 def detect_tool_strategy(model_name: str) -> str:
@@ -202,7 +202,6 @@ def _env_text(name: str, default: str = "") -> str:
 
 def _resolve_runtime_config_for_preset(preset: RuntimePreset) -> RuntimeConfig:
     """Resolve a runtime config for a specific preset using current environment overrides."""
-
     provider = _env_text("MODEL_PROVIDER", preset.provider)
     model = _env_text(preset.model_env_var) or _env_text("MODEL_NAME") or preset.default_model
 

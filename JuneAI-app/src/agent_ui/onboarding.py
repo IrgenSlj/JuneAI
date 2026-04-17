@@ -38,7 +38,7 @@ class FirstRunSummary:
     recommended_next_action: str
     recommended_next_reason: str
     staged_steps: tuple[str, ...]
-    stages: tuple["OnboardingStage", ...]
+    stages: tuple[OnboardingStage, ...]
     profile_lines: tuple[str, ...]
     setup_steps: tuple[str, ...]
     missing_surfaces: tuple[str, ...]
