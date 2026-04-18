@@ -27,3 +27,4 @@ Status progression:
 | [0004](0004-memory-architecture.md) | SQLite for structured memory, ChromaDB for semantic recall | Accepted |
 | [0005](0005-skills-as-mcp.md) | Skills as Model Context Protocol servers | Accepted |
 | [0006](0006-desktop-and-mobile-shells.md) | Tauri for desktop, Capacitor for mobile | Accepted |
+| [0007](0007-sse-over-websockets.md) | SSE over WebSockets for chat streaming | Accepted |
