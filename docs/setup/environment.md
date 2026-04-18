@@ -61,4 +61,4 @@ Cloud-only users skip Ollama entirely and set `MODEL_PROVIDER=gemini` with a `GE
 
 The v1 Streamlit app used a broader set of variables (`LLM_BASE_URL`, `LLM_API_KEY`, `MODEL_NAME`, `MEMORY_DIR`, `LOCAL_LLAMA_MODEL_NAME`, `LOCAL_SMALL_MODEL_NAME`, `LOCAL_LARGE_MODEL_NAME`, `CLAUDE_MODEL_NAME`, `ANTHROPIC_API_KEY`, `MODEL_PRESET`, `MODEL_TOOL_STRATEGY`). These are removed in v2.
 
-While the v1 app remains runnable under `JuneAI-app/` during the transition, its local `.env` still reads the old variables. This compatibility ends when v1 is deleted at the close of Week 1.
+v1 itself lives on the `legacy/streamlit` branch if you need to reference the old configuration.

@@ -6,9 +6,9 @@ June runs privately on your laptop via Gemma 4 and scales to the cloud via Gemin
 
 ## Status
 
-June is mid-migration from v1 (Streamlit prototype) to v2 (multi-platform product). The v2 architecture is documented and the 8-week plan is active. See [`docs/product/plan.md`](docs/product/plan.md) for the current week and exit criteria.
+June is in early development. Week 1 is complete: the monorepo is in place, the brain is in `packages/brain/`, and the two supported model runtimes (Gemma 4 and Gemini) are wired through one code path. See [`docs/product/plan.md`](docs/product/plan.md) for the current week and exit criteria.
 
-The v1 Streamlit app still runs in `JuneAI-app/` during the transition but is no longer being developed.
+The original v1 Streamlit prototype is preserved on the `legacy/streamlit` branch for historical reference.
 
 ## Read These First
 
@@ -26,36 +26,36 @@ JuneAI/
 ├── packages/          # internal libraries: brain, api, ui, design
 ├── skills/            # MCP skill servers: calendar, health, research, files, daily
 ├── docs/              # vision, architecture, decisions, product plan, setup
-├── tools/             # developer tooling
-├── JuneAI-app/        # v1 Streamlit app (legacy, retiring during Week 1)
+├── tools/             # developer tooling (dev.sh, migrate_v1_data.py)
 └── README.md
 ```
 
 For the rationale behind this layout see [ADR 0001](docs/decisions/0001-monorepo-structure.md).
 
-## Running v1 (Legacy)
-
-While the v2 migration is in progress, the v1 Streamlit app is still runnable:
+## Quickstart
 
 ```bash
-cd JuneAI-app
 cp .env.example .env
-make bootstrap
-make check-ollama
-make run
+./tools/dev.sh
 ```
 
-Open `http://127.0.0.1:8501`.
+`dev.sh` verifies Ollama is running with Gemma 4 pulled (or that a `GEMINI_API_KEY` is set when `MODEL_PROVIDER=gemini`), creates a Python venv at `packages/brain/.venv`, and runs the brain tests.
 
-v1 will be deleted at the end of Week 1. See [`docs/product/plan.md`](docs/product/plan.md).
+An end-to-end user experience lands in Week 3 when the SvelteKit app is wired up.
 
-## Running v2
+## Migrating from v1
 
-Not yet available. Week 1 produces the foundation. Week 3 produces the first usable browser build.
+If you ran the v1 Streamlit app locally and want to keep your conversation history:
+
+```bash
+python tools/migrate_v1_data.py
+```
+
+The script copies `JuneAI-app/.june_memory/june.db` to the platform-appropriate location (`~/Library/Application Support/June/` on macOS) and archives the source.
 
 ## License
 
-Open source under a permissive license. See [`LICENSE`](JuneAI-app/LICENSE).
+MIT. See [`LICENSE`](LICENSE).
 
 ## Contributing
 
