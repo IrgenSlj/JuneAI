@@ -19,7 +19,10 @@ export type MemorySnapshot = components["schemas"]["MemorySnapshot"];
 export type MemoryFact = components["schemas"]["MemoryFact"];
 export type MemoryDeleteResponse = components["schemas"]["MemoryDeleteResponse"];
 export type SkillInfo = components["schemas"]["SkillInfo"];
+export type SkillToolInfo = components["schemas"]["SkillToolInfo"];
 export type SkillsResponse = components["schemas"]["SkillsResponse"];
+export type SkillToggleRequest = components["schemas"]["SkillToggleRequest"];
+export type SkillToggleResponse = components["schemas"]["SkillToggleResponse"];
 export type SystemStatus = components["schemas"]["SystemStatus"];
 
 export interface JuneClientOptions {
@@ -67,9 +70,36 @@ export function createJuneClient(options: JuneClientOptions) {
       return getJson<SystemStatus>("/system");
     },
 
-    /** GET /skills — tools exposed to the agent right now. */
+    /** GET /skills — MCP skill servers and the tools they expose. */
     getSkills(): Promise<SkillsResponse> {
       return getJson<SkillsResponse>("/skills");
+    },
+
+    /**
+     * POST /skills/{key}/toggle — enable or disable a skill.
+     *
+     * The API persists the flip to the on-disk manifest and rebuilds the
+     * agent so the next chat turn sees the updated tool surface.
+     */
+    async toggleSkill(
+      key: string,
+      enabled: boolean,
+    ): Promise<SkillToggleResponse> {
+      const response = await fetchImpl(
+        `${baseUrl}/skills/${encodeURIComponent(key)}/toggle`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({ enabled }),
+        },
+      );
+      if (!response.ok) {
+        throw new ApiError(response.status, response.statusText, await response.text());
+      }
+      return (await response.json()) as SkillToggleResponse;
     },
 
     /** GET /memory/{user_id} — structured highlights of what June remembers. */

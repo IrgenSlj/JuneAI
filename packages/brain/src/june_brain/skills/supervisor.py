@@ -203,6 +203,15 @@ class SkillSupervisor:
         try:
             env = os.environ.copy()
             env.update(skill.entry.env)
+            # Break the import recursion: a skill subprocess does
+            # ``from june_brain.memory import Memory`` which re-enters the
+            # brain package, which without this flag would try to build a new
+            # agent and spawn five more skill subprocesses — a fork bomb that
+            # can OOM a laptop in seconds. Both the subprocess guard and the
+            # disabled supervisor are needed: one stops agent construction,
+            # the other stops any code that still reaches the supervisor.
+            env["JUNE_IS_SKILL_SUBPROCESS"] = "1"
+            env["JUNE_SKILLS_DISABLED"] = "1"
             skill.proc = subprocess.Popen(  # noqa: S603 - command comes from user-owned manifest
                 [skill.entry.command, *skill.entry.args],
                 stdin=subprocess.PIPE,
@@ -491,12 +500,22 @@ _singleton: SkillSupervisor | None = None
 
 
 def get_supervisor() -> SkillSupervisor:
-    """Return the process-wide supervisor, creating + starting it on first use."""
+    """Return the process-wide supervisor, creating + starting it on first use.
+
+    Auto-start is skipped when ``JUNE_SKILLS_DISABLED=1`` or
+    ``JUNE_IS_SKILL_SUBPROCESS=1`` — the latter is set by the supervisor in
+    every child env so a skill importing ``june_brain`` cannot trigger its own
+    supervisor to spawn a fresh set of skill children.
+    """
     global _singleton
     with _singleton_lock:
         if _singleton is None:
             _singleton = SkillSupervisor()
-            if os.environ.get("JUNE_SKILLS_DISABLED") != "1":
+            autostart = (
+                os.environ.get("JUNE_SKILLS_DISABLED") != "1"
+                and os.environ.get("JUNE_IS_SKILL_SUBPROCESS") != "1"
+            )
+            if autostart:
                 _singleton.start()
     return _singleton
 

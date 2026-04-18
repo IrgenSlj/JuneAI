@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import operator
+import os
 import re
 import threading
 import time
@@ -840,11 +841,18 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
 
 _agent_lock = threading.Lock()
 startup_error: str | None = None
-try:
-    june_agent = create_june_agent()
-except Exception as exc:
+# When this module is imported inside a skill subprocess (set by the
+# supervisor), do NOT build an agent at import time. The skill only needs
+# memory + server helpers; constructing an agent here would pull in the
+# whole LLM stack and, worse, re-enter the skill supervisor.
+if os.environ.get("JUNE_IS_SKILL_SUBPROCESS") == "1":
     june_agent = None
-    startup_error = str(exc)
+else:
+    try:
+        june_agent = create_june_agent()
+    except Exception as exc:
+        june_agent = None
+        startup_error = str(exc)
 
 
 def reload_agent() -> None:

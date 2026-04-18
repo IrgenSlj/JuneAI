@@ -145,7 +145,7 @@
           "skills"
         ],
         "summary": "List Skills",
-        "description": "Enumerate the tools June can call right now.",
+        "description": "List every MCP skill with its current enabled state and tools.",
         "operationId": "list_skills_skills_get",
         "responses": {
           "200": {
@@ -154,6 +154,59 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SkillsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills/{key}/toggle": {
+      "post": {
+        "tags": [
+          "skills"
+        ],
+        "summary": "Toggle Skill",
+        "description": "Enable or disable a skill.\n\nPersists to ``~/Library/Application Support/June/skills.toml`` and\nrebuilds the agent so the next chat turn picks up the new tool set.",
+        "operationId": "toggle_skill_skills__key__toggle_post",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillToggleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillToggleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -374,30 +427,115 @@
       },
       "SkillInfo": {
         "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "description": "Stable skill id, e.g. 'calendar' or 'research'."
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "What the skill does.",
+            "default": ""
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "description": "Manifest toggle state.",
+            "default": true
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Lifecycle state: stopped, starting, running, crashed, or disabled.",
+            "default": "stopped"
+          },
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "description": "Last error message when status is 'crashed', empty otherwise.",
+            "default": ""
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/SkillToolInfo"
+            },
+            "type": "array",
+            "title": "Tools",
+            "description": "Tools this skill contributes to the agent when running."
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "SkillInfo",
+        "description": "One MCP skill server with its current lifecycle state."
+      },
+      "SkillToggleRequest": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "description": "New enabled state."
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "SkillToggleRequest",
+        "description": "POST /skills/{key}/toggle body."
+      },
+      "SkillToggleResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "enabled",
+          "status"
+        ],
+        "title": "SkillToggleResponse",
+        "description": "Result of a toggle \u2014 callers refresh their UI from this."
+      },
+      "SkillToolInfo": {
+        "properties": {
           "name": {
             "type": "string",
             "title": "Name",
-            "description": "Tool identifier used by the agent when calling it."
+            "description": "Tool identifier the agent uses to call it."
           },
           "description": {
             "type": "string",
             "title": "Description",
             "description": "Human-readable description.",
             "default": ""
-          },
-          "category": {
-            "type": "string",
-            "title": "Category",
-            "description": "Group label; Week 5 maps this to MCP skill server.",
-            "default": "core"
           }
         },
         "type": "object",
         "required": [
           "name"
         ],
-        "title": "SkillInfo",
-        "description": "A single tool exposed to the agent.\n\nWeek 2 maps one-to-one onto the current LangChain tools. Week 5\ngroups these by skill (calendar, health, research, ...) once the\nMCP decomposition lands."
+        "title": "SkillToolInfo",
+        "description": "A single tool inside a skill \u2014 shown under the skill in the UI."
       },
       "SkillsResponse": {
         "properties": {
@@ -415,7 +553,8 @@
           }
         },
         "type": "object",
-        "title": "SkillsResponse"
+        "title": "SkillsResponse",
+        "description": "GET /skills payload."
       },
       "SystemStatus": {
         "properties": {

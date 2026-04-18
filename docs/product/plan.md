@@ -16,10 +16,10 @@ Then pick up the current week below.
 
 ## Current State
 
-As of 2026-04-18:
+As of 2026-04-19:
 
-- **Weeks 1 through 4 are shipped.** Monorepo, API, web UI, and the three-store memory system are all on `main`.
-- **Week 5 is next** — skills as MCP servers.
+- **Weeks 1 through 5 are shipped.** Monorepo, API, web UI, the three-store memory system, and the MCP skills layer are all on `main`.
+- **Week 6 is next** — Mac desktop app (Tauri 2.x).
 - v1 Streamlit app is retired and preserved on `legacy/streamlit`.
 - v1 user data migration (`tools/migrate_v1_data.py`) is in place.
 
@@ -31,8 +31,8 @@ Progress anchors:
 | 2 — API layer | Shipped | `07d2ea2d` |
 | 3 — Web UI skeleton | Shipped | `9d8e48c0` |
 | 4 — Memory excellence | Shipped | `8864599e` |
-| 5 — Skills as MCP | Next | — |
-| 6 — Mac desktop | Pending | — |
+| 5 — Skills as MCP | Shipped | — |
+| 6 — Mac desktop | Next | — |
 | 7 — iPhone app | Pending | — |
 | 8 — Polish and launch | Pending | — |
 
@@ -139,9 +139,11 @@ Progress anchors:
 - Embedding model download on first run is large. Mitigated by a one-time setup prompt and cache.
 - Extraction quality depends on prompt engineering. Mitigated by keeping the extractor prompt in a dedicated file (`packages/brain/.../memory/extractor_prompt.txt`) that can be iterated on.
 
-## Week 5 — Skills as MCP
+## Week 5 — Skills as MCP (Shipped)
 
 **Goal:** Decompose `tools.py` into five MCP skill servers. Wire them through the brain.
+
+**What shipped:** Five standalone skill packages (`skills/calendar|health|research|files|daily/`) each expose a stdio MCP server via `packages/brain/src/june_brain/skills/server.py`. The supervisor in `supervisor.py` spawns each enabled skill, discovers its tools via `tools/list`, and bridges each one into a LangChain `StructuredTool` so the existing LangGraph `ToolNode` can dispatch without knowing about MCP. The manifest at `~/Library/Application Support/June/skills.toml` is materialized on first use and reconciled against the default set on every load, so new skills light up automatically. `GET /skills` and `POST /skills/{key}/toggle` expose the registry to any shell; the web route at `apps/web/src/routes/skills/+page.svelte` lists, enables, and disables skills with live status. Fork-bomb guard: the supervisor sets `JUNE_IS_SKILL_SUBPROCESS=1` in child envs so a skill re-importing `june_brain` does not rebuild the agent and spawn another generation of children. Tests cover manifest load/save round-trips, missing-entry recovery, malformed-TOML tolerance, supervisor spawn + tool list, bridged tool invocation, crash-restart retry, and the `/skills` list + toggle HTTP surface.
 
 **Deliverables:**
 

@@ -133,7 +133,10 @@
   <header class="top">
     <div class="brand">
       <h1>June</h1>
-      <a class="memory-link" href="/memory">Memory</a>
+      <nav class="nav-links">
+        <a href="/memory">Memory</a>
+        <a href="/skills">Skills</a>
+      </nav>
     </div>
     {#if system}
       <span
@@ -207,12 +210,16 @@
     letter-spacing: -0.01em;
   }
 
-  .memory-link {
+  .nav-links {
+    display: inline-flex;
+    gap: var(--space-3);
+  }
+  .nav-links a {
     font-size: var(--size-sm);
     color: var(--color-fg-muted);
     text-decoration: none;
   }
-  .memory-link:hover {
+  .nav-links a:hover {
     color: var(--color-accent);
   }
 

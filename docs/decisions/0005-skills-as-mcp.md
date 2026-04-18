@@ -57,3 +57,16 @@ Skill state persistence stays in the shared memory layer described in ADR 0004. 
 **LangChain tool registry with dynamic loading.** Rejected because LangChain's tool surface is tightly coupled to its own agent primitives. MCP is agent-agnostic and future-proofs the skills against LangGraph being replaced.
 
 **OpenAPI-described HTTP tools.** Considered. Rejected because it is heavier (HTTP round-trip, schema overhead, process-per-tool is overkill) and offers no benefit over MCP for local skills.
+
+## Implementation Notes
+
+Shipped in Week 5:
+
+- Five skill packages under `skills/{calendar,health,research,files,daily}/`, each a standalone `pyproject.toml` with a `python -m june_skill_<name>` entry point.
+- Stdio MCP server helper: `packages/brain/src/june_brain/skills/server.py` (`MCPStdioServer`) — JSON-RPC 2.0 with `initialize` / `tools/list` / `tools/call`.
+- Supervisor: `packages/brain/src/june_brain/skills/supervisor.py` — spawns each enabled skill, discovers its tools, bridges them to LangChain `StructuredTool` instances, and restarts on crash with a single retry.
+- Manifest: `~/Library/Application Support/June/skills.toml`, loaded via `packages/brain/src/june_brain/skills/manifest.py` with default materialization, missing-entry recovery, and malformed-TOML tolerance.
+- HTTP surface: `GET /skills` and `POST /skills/{key}/toggle` in `packages/api/src/june_api/routes/skills.py`. Toggling persists to the manifest and calls `brain_graph.reload_agent()` so the next turn sees the new tool list.
+- Web route: `apps/web/src/routes/skills/+page.svelte` lists skills with enable/disable, live status, and the tools each exposes.
+
+Critical pitfall resolved: a skill subprocess that imports `june_brain.memory` re-enters the brain's `__init__`. Without a guard, the agent would be rebuilt inside each child, which would spawn five more skill subprocesses — a fork bomb. The supervisor sets `JUNE_IS_SKILL_SUBPROCESS=1` and `JUNE_SKILLS_DISABLED=1` in the child environment; `graph.py` skips module-level agent creation under that flag, and `get_supervisor()` skips auto-start.

@@ -81,11 +81,34 @@ export interface paths {
         };
         /**
          * List Skills
-         * @description Enumerate the tools June can call right now.
+         * @description List every MCP skill with its current enabled state and tools.
          */
         get: operations["list_skills_skills_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/skills/{key}/toggle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Toggle Skill
+         * @description Enable or disable a skill.
+         *
+         *     Persists to ``~/Library/Application Support/June/skills.toml`` and
+         *     rebuilds the agent so the next chat turn picks up the new tool set.
+         */
+        post: operations["toggle_skill_skills__key__toggle_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -257,16 +280,80 @@ export interface components {
         };
         /**
          * SkillInfo
-         * @description A single tool exposed to the agent.
-         *
-         *     Week 2 maps one-to-one onto the current LangChain tools. Week 5
-         *     groups these by skill (calendar, health, research, ...) once the
-         *     MCP decomposition lands.
+         * @description One MCP skill server with its current lifecycle state.
          */
         SkillInfo: {
             /**
+             * Key
+             * @description Stable skill id, e.g. 'calendar' or 'research'.
+             */
+            key: string;
+            /**
+             * Description
+             * @description What the skill does.
+             * @default
+             */
+            description: string;
+            /**
+             * Enabled
+             * @description Manifest toggle state.
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Status
+             * @description Lifecycle state: stopped, starting, running, crashed, or disabled.
+             * @default stopped
+             */
+            status: string;
+            /**
+             * Error
+             * @description Last error message when status is 'crashed', empty otherwise.
+             * @default
+             */
+            error: string;
+            /**
+             * Tools
+             * @description Tools this skill contributes to the agent when running.
+             */
+            tools?: components["schemas"]["SkillToolInfo"][];
+        };
+        /**
+         * SkillToggleRequest
+         * @description POST /skills/{key}/toggle body.
+         */
+        SkillToggleRequest: {
+            /**
+             * Enabled
+             * @description New enabled state.
+             */
+            enabled: boolean;
+        };
+        /**
+         * SkillToggleResponse
+         * @description Result of a toggle — callers refresh their UI from this.
+         */
+        SkillToggleResponse: {
+            /** Key */
+            key: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Status */
+            status: string;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+        };
+        /**
+         * SkillToolInfo
+         * @description A single tool inside a skill — shown under the skill in the UI.
+         */
+        SkillToolInfo: {
+            /**
              * Name
-             * @description Tool identifier used by the agent when calling it.
+             * @description Tool identifier the agent uses to call it.
              */
             name: string;
             /**
@@ -275,14 +362,11 @@ export interface components {
              * @default
              */
             description: string;
-            /**
-             * Category
-             * @description Group label; Week 5 maps this to MCP skill server.
-             * @default core
-             */
-            category: string;
         };
-        /** SkillsResponse */
+        /**
+         * SkillsResponse
+         * @description GET /skills payload.
+         */
         SkillsResponse: {
             /** Skills */
             skills?: components["schemas"]["SkillInfo"][];
@@ -521,6 +605,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SkillsResponse"];
+                };
+            };
+        };
+    };
+    toggle_skill_skills__key__toggle_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillToggleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillToggleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
