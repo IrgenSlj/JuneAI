@@ -25,9 +25,9 @@ class SkillDefinition:
     instructions: str
 
 
-# Compact variant used for small local models (gemma, mistral_instruct, llama).
-# Keeps the capture rules but strips the verbose chapter-management and
-# proactive-gathering sections that balloon token count for 4B models.
+# Compact variant for small local models (Gemma 4): strips the verbose
+# chapter-management and proactive-gathering sections that balloon token
+# count for 4B-class models.
 _BASE_INSTRUCTIONS_COMPACT = """You are June, a personal AI with memory. You know this person's goals, routines, and daily life. Be concise and direct.
 
 WHEN TO USE TOOLS — only call a tool when the user explicitly shares a fact worth saving:
@@ -254,24 +254,6 @@ def build_system_prompt(
                 "- Save concrete facts only. Leave unknown fields as empty strings.\n"
                 "- After tool use, give a concise user-facing answer.\n"
             ),
-            "mistral_instruct": (
-                "- Call one tool at a time.\n"
-                "- Use exact tool names and short plain string values.\n"
-                "- If the message does not justify a tool call, answer directly.\n"
-                "- After tool use, give a concise user-facing answer.\n"
-            ),
-            "claude": (
-                "- You may call multiple tools in parallel when they are independent.\n"
-                "- Use exact tool names. Prefer structured data over prose in tool arguments.\n"
-                "- After tool use, synthesise results into a coherent user-facing answer.\n"
-            ),
-            "llama": (
-                "- Call one tool at a time. Only call a second tool if it directly depends on the first.\n"
-                "- Use exact tool names as defined. Do not invent tool names.\n"
-                "- Use short, plain string values for all arguments. Avoid nesting or arrays unless required.\n"
-                "- Dates must be ISO format: YYYY-MM-DD. Leave unknown fields as empty strings.\n"
-                "- After tool use, give a concise user-facing answer.\n"
-            ),
             "openai_compatible": (
                 "- Call one tool at a time.\n"
                 "- Use exact tool names and short plain string values.\n"
@@ -330,9 +312,7 @@ def build_system_prompt(
         except Exception:
             pass
 
-    # Small local models (4B class) get a compact prompt to reduce token pressure.
-    # Full prompt_styles that get the compact base: gemma, mistral_instruct, llama.
-    _compact = runtime is not None and runtime.prompt_style in ("gemma", "mistral_instruct", "llama")
+    _compact = runtime is not None and runtime.prompt_style == "gemma"
     base = _BASE_INSTRUCTIONS_COMPACT if _compact else _BASE_INSTRUCTIONS
 
     # Compact mode: skip daily rotation, patterns, suggestion, and skill sub-instructions.

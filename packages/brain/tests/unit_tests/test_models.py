@@ -23,58 +23,58 @@ class FakeLLM:
         return response
 
 
-def test_resolve_runtime_config_for_local_mistral():
+def test_resolve_runtime_config_for_gemma():
     with patch.dict(
         "os.environ",
         {
-            "MODEL_PRESET": "local_mistral_3b",
-            "LOCAL_SMALL_MODEL_NAME": "mistral-local-3b",
-            "LLM_BASE_URL": "http://127.0.0.1:11434/v1",
-            "LLM_API_KEY": "ollama",
+            "MODEL_PROVIDER": "gemma",
+            "GEMMA_MODEL": "gemma4:custom",
+            "OLLAMA_BASE_URL": "http://127.0.0.1:11434/v1",
         },
         clear=False,
     ):
         runtime = resolve_runtime_config()
 
     assert runtime.provider == "openai_compatible"
-    assert runtime.label == "Local Mistral 3B"
-    assert runtime.model == "mistral-local-3b"
+    assert runtime.label == "Gemma 4 (local)"
+    assert runtime.model == "gemma4:custom"
     assert runtime.base_url == "http://127.0.0.1:11434/v1"
+    assert runtime.is_local is True
 
 
-def test_resolve_runtime_config_for_claude():
+def test_resolve_runtime_config_for_gemini():
     with patch.dict(
         "os.environ",
         {
-            "MODEL_PRESET": "claude_high",
-            "ANTHROPIC_API_KEY": "test-key",
-            "CLAUDE_MODEL_NAME": "claude-test",
+            "MODEL_PROVIDER": "gemini",
+            "GEMINI_API_KEY": "test-key",
+            "GEMINI_MODEL": "gemini-2.0-flash",
         },
         clear=False,
     ):
         runtime = resolve_runtime_config()
 
-    assert runtime.provider == "anthropic"
-    assert runtime.label == "Claude (API)"
-    assert runtime.model == "claude-test"
+    assert runtime.provider == "openai_compatible"
+    assert runtime.label == "Gemini (cloud)"
+    assert runtime.model == "gemini-2.0-flash"
     assert runtime.api_key == "test-key"
+    assert runtime.is_api is True
 
 
 def test_resolve_runtime_config_accepts_explicit_preset_key():
     with patch.dict("os.environ", {}, clear=False):
-        runtime = resolve_runtime_config("local_mistral_8b")
+        runtime = resolve_runtime_config("gemma")
 
-    assert runtime.preset_key == "local_mistral_8b"
-    assert runtime.label == "Local Mistral 8B"
+    assert runtime.preset_key == "gemma"
+    assert runtime.label == "Gemma 4 (local)"
 
 
 def test_runtime_preset_options_expose_known_presets():
     option_keys = [preset.key for preset in runtime_preset_options()]
 
-    assert "local_gemma_4" in option_keys
-    assert "local_mistral_3b" in option_keys
-    assert "local_mistral_8b" in option_keys
-    assert "claude_high" in option_keys
+    assert "gemma" in option_keys
+    assert "gemini" in option_keys
+    assert len(option_keys) == 2
 
 
 def test_graph_tracks_tool_success():
@@ -336,36 +336,6 @@ def test_build_chat_model_uses_current_openai_signature():
     assert captured["max_completion_tokens"] == runtime.max_tokens
     assert captured["streaming"] is True
     assert captured["timeout"] == 120
-
-
-def test_build_chat_model_uses_current_anthropic_signature():
-    runtime = resolve_runtime_config()
-    runtime = runtime.__class__(
-        preset_key="claude_high",
-        label="Claude (API)",
-        provider="anthropic",
-        model="claude-test",
-        api_key="test-key",
-        base_url="",
-        temperature=0.3,
-        max_tokens=777,
-        tool_strategy="native",
-        prompt_style="claude",
-    )
-    captured = {}
-
-    class FakeChatAnthropic:
-        def __init__(self, **kwargs):
-            captured.update(kwargs)
-
-    with patch.dict("sys.modules", {"langchain_anthropic": type("M", (), {"ChatAnthropic": FakeChatAnthropic})}):
-        build_chat_model(runtime)
-
-    assert captured["model_name"] == "claude-test"
-    assert isinstance(captured["api_key"], SecretStr)
-    assert captured["api_key"].get_secret_value() == "test-key"
-    assert captured["max_tokens_to_sample"] == 777
-    assert captured["streaming"] is True
 
 
 def test_memory_context_includes_detailed_body_metrics(tmp_path):

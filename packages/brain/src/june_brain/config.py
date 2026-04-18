@@ -1,4 +1,9 @@
-"""Configuration and runtime profiles for JuneAI."""
+"""Configuration and runtime profiles for June.
+
+Per ADR 0002, June supports exactly two model providers: Gemma 4 (local via
+Ollama) and Gemini (cloud via Google's OpenAI-compatible endpoint). Both use
+the same LangChain OpenAI-compatible client under the hood.
+"""
 
 from __future__ import annotations
 
@@ -11,8 +16,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-MEMORY_DIR = os.getenv("MEMORY_DIR", ".june_memory")
+MEMORY_DIR = os.getenv("JUNE_DATA_DIR") or os.getenv("MEMORY_DIR", ".june_memory")
 LOCAL_LOOPBACK_HOSTNAMES = {"localhost", "127.0.0.1", "::1"}
+
+GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
 
 @dataclass(frozen=True)
@@ -29,8 +36,6 @@ class RuntimePreset:
     temperature: float
     max_tokens: int
     tool_strategy: str
-    # Controls which system-prompt tool rules are injected (see skills.build_system_prompt).
-    # Values: "gemma" | "mistral_instruct" | "claude" | "openai_compatible"
     prompt_style: str = "openai_compatible"
 
 
@@ -59,84 +64,27 @@ class RuntimeConfig:
 
     @property
     def mode(self) -> str:
-        """Return the runtime transport mode: local or api."""
         return resolve_runtime_mode(self.provider, self.base_url)
 
     @property
     def privacy_label(self) -> str:
-        """Return a compact privacy label for UI display."""
         return "local-only" if self.is_local else "api-assisted"
 
     @property
     def privacy_boundary(self) -> str:
-        """Return a short description of where inference happens."""
         if self.is_local:
             return "Inference stays on this machine."
-        if self.provider == "anthropic":
-            return "Inference is sent to Anthropic's API."
-        if self.provider == "openai_compatible" and self.base_url:
+        if self.base_url:
             return f"Inference is sent to {self.base_url}."
         return "Inference is sent to a remote API."
 
 
 RUNTIME_PRESETS: dict[str, RuntimePreset] = {
-    "local_llama3_2": RuntimePreset(
-        key="local_llama3_2",
-        label="Llama 3.2 3B (local)",
+    "gemma": RuntimePreset(
+        key="gemma",
+        label="Gemma 4 (local)",
         provider="openai_compatible",
-        model_env_var="LOCAL_LLAMA_MODEL_NAME",
-        default_model="llama3.2:3b",
-        default_base_url="http://localhost:11434/v1",
-        default_api_key="ollama",
-        temperature=0.3,
-        max_tokens=4096,
-        tool_strategy="native",
-        prompt_style="llama",
-    ),
-    "local_mistral_3b": RuntimePreset(
-        key="local_mistral_3b",
-        label="Local Mistral 3B",
-        provider="openai_compatible",
-        model_env_var="LOCAL_SMALL_MODEL_NAME",
-        default_model="mistral",
-        default_base_url="http://localhost:11434/v1",
-        default_api_key="ollama",
-        temperature=0.2,
-        max_tokens=700,
-        tool_strategy="recovery",
-        prompt_style="mistral_instruct",
-    ),
-    "local_mistral_8b": RuntimePreset(
-        key="local_mistral_8b",
-        label="Local Mistral 8B",
-        provider="openai_compatible",
-        model_env_var="LOCAL_LARGE_MODEL_NAME",
-        default_model="mistral-nemo",
-        default_base_url="http://localhost:11434/v1",
-        default_api_key="ollama",
-        temperature=0.2,
-        max_tokens=900,
-        tool_strategy="recovery",
-        prompt_style="mistral_instruct",
-    ),
-    "local_mistral_7b": RuntimePreset(
-        key="local_mistral_7b",
-        label="Mistral 7B (local)",
-        provider="openai_compatible",
-        model_env_var="LOCAL_LARGE_MODEL_NAME",
-        default_model="mistral:7b-instruct-v0.3",
-        default_base_url="http://localhost:11434/v1",
-        default_api_key="ollama",
-        temperature=0.3,
-        max_tokens=4096,
-        tool_strategy="native",
-        prompt_style="mistral_instruct",
-    ),
-    "local_gemma_4": RuntimePreset(
-        key="local_gemma_4",
-        label="Gemma 4 — 4B (local)",
-        provider="openai_compatible",
-        model_env_var="LOCAL_GEMMA_MODEL_NAME",
+        model_env_var="GEMMA_MODEL",
         default_model="gemma4:e4b",
         default_base_url="http://localhost:11434/v1",
         default_api_key="ollama",
@@ -145,54 +93,41 @@ RUNTIME_PRESETS: dict[str, RuntimePreset] = {
         tool_strategy="native",
         prompt_style="gemma",
     ),
-    "claude_high": RuntimePreset(
-        key="claude_high",
-        label="Claude (API)",
-        provider="anthropic",
-        model_env_var="CLAUDE_MODEL_NAME",
-        default_model="claude-sonnet-4-6",
-        default_base_url="",
+    "gemini": RuntimePreset(
+        key="gemini",
+        label="Gemini (cloud)",
+        provider="openai_compatible",
+        model_env_var="GEMINI_MODEL",
+        default_model="gemini-2.0-flash",
+        default_base_url=GEMINI_OPENAI_BASE_URL,
         default_api_key="",
-        temperature=0.35,
+        temperature=0.4,
         max_tokens=4096,
         tool_strategy="native",
-        prompt_style="claude",
+        prompt_style="gemma",
     ),
 }
 
-DEFAULT_RUNTIME_PRESET = "local_gemma_4"
+DEFAULT_RUNTIME_PRESET = "gemma"
 
 
 def detect_tool_strategy(model_name: str) -> str:
-    """Return 'native' for models known to support OpenAI-style function calling, else 'recovery'."""
-    model_lower = model_name.lower()
-    native_patterns = (
-        "gemma4",
-        "gemma-4",
-        "gemma3n",
-        "7b-instruct-v0.3",
-        "mistral-nemo",
-        "mistral-small",
-        "mistral-large",
-        "mixtral",
-        "claude",
-        "gpt-4",
-        "gpt-3.5-turbo",
-        "gemini",
-    )
-    return "native" if any(p in model_lower for p in native_patterns) else "recovery"
+    """Both supported families use native OpenAI-compatible tool calling."""
+    return "native"
 
 
 def resolve_runtime_config(preset_key: str | None = None) -> RuntimeConfig:
-    """Resolve the active runtime from environment variables or an explicit preset."""
-    preset_key = _env_text("MODEL_PRESET", DEFAULT_RUNTIME_PRESET) if preset_key is None else preset_key.strip() or DEFAULT_RUNTIME_PRESET
-    preset = RUNTIME_PRESETS.get(preset_key, RUNTIME_PRESETS[DEFAULT_RUNTIME_PRESET])
+    """Resolve the active runtime from env vars or an explicit preset key."""
+    if preset_key is None:
+        preset_key = _env_text("MODEL_PROVIDER") or _env_text("MODEL_PRESET") or DEFAULT_RUNTIME_PRESET
+    else:
+        preset_key = preset_key.strip() or DEFAULT_RUNTIME_PRESET
 
+    preset = RUNTIME_PRESETS.get(preset_key, RUNTIME_PRESETS[DEFAULT_RUNTIME_PRESET])
     return _resolve_runtime_config_for_preset(preset)
 
 
 def _env_text(name: str, default: str = "") -> str:
-    """Read an environment variable as a trimmed string."""
     value = os.getenv(name)
     if value is None:
         return default
@@ -200,32 +135,37 @@ def _env_text(name: str, default: str = "") -> str:
     return stripped or default
 
 
+def _resolve_api_key_for_preset(preset: RuntimePreset) -> str:
+    """Read the appropriate API key env var for the given preset."""
+    if preset.key == "gemini":
+        return _env_text("GEMINI_API_KEY") or _env_text("LLM_API_KEY") or preset.default_api_key
+    return _env_text("LLM_API_KEY") or preset.default_api_key
+
+
 def _resolve_runtime_config_for_preset(preset: RuntimePreset) -> RuntimeConfig:
     """Resolve a runtime config for a specific preset using current environment overrides."""
-    provider = _env_text("MODEL_PROVIDER", preset.provider)
     model = _env_text(preset.model_env_var) or _env_text("MODEL_NAME") or preset.default_model
+    api_key = _resolve_api_key_for_preset(preset)
 
-    if provider == "anthropic":
-        api_key = _env_text("ANTHROPIC_API_KEY") or _env_text("LLM_API_KEY") or preset.default_api_key
-        base_url = _env_text("LLM_BASE_URL")
-        if not api_key:
-            raise ValueError(
-                "ANTHROPIC_API_KEY is required for the 'claude_high' preset but was not set. "
-                "Set it in your .env file."
-            )
+    if preset.key == "gemma":
+        base_url = _env_text("OLLAMA_BASE_URL") or _env_text("LLM_BASE_URL") or preset.default_base_url
     else:
-        api_key = _env_text("LLM_API_KEY") or preset.default_api_key
         base_url = _env_text("LLM_BASE_URL") or preset.default_base_url
+
+    if preset.key == "gemini" and not api_key:
+        raise ValueError(
+            "GEMINI_API_KEY is required for the 'gemini' preset but was not set. "
+            "Get a key at https://aistudio.google.com and set it in your .env."
+        )
 
     temperature = float(_env_text("MODEL_TEMPERATURE", str(preset.temperature)))
     max_tokens = int(_env_text("MODEL_MAX_TOKENS", str(preset.max_tokens)))
-    _env_tool_strategy = _env_text("MODEL_TOOL_STRATEGY")
-    tool_strategy = _env_tool_strategy or preset.tool_strategy or detect_tool_strategy(model)
+    tool_strategy = _env_text("MODEL_TOOL_STRATEGY") or preset.tool_strategy
 
     return RuntimeConfig(
         preset_key=preset.key,
         label=preset.label,
-        provider=provider,
+        provider=preset.provider,
         model=model,
         api_key=api_key,
         base_url=base_url,
@@ -275,51 +215,30 @@ def build_runtime_preset_switch_plan(
         "resolved_preset_key": preset.key,
         "requires_confirmation": requires_confirmation,
         "warnings": warnings,
-        "current": {
-            "preset_key": current_runtime.preset_key,
-            "mode": current_runtime.mode,
-            "privacy_label": current_runtime.privacy_label,
-            "provider": current_runtime.provider,
-            "label": current_runtime.label,
-            "model": current_runtime.model,
-            "base_url": current_runtime.base_url,
-        },
-        "target": {
-            "preset_key": target_runtime.preset_key,
-            "mode": target_runtime.mode,
-            "privacy_label": target_runtime.privacy_label,
-            "provider": target_runtime.provider,
-            "label": target_runtime.label,
-            "model": target_runtime.model,
-            "base_url": target_runtime.base_url,
-        },
+        "current": _runtime_summary(current_runtime),
+        "target": _runtime_summary(target_runtime),
         "env_patch": {
-            "MODEL_PRESET": preset.key,
-            "MODEL_PROVIDER": target_runtime.provider,
+            "MODEL_PROVIDER": preset.key,
             "MODEL_NAME": target_runtime.model,
             preset.model_env_var: target_runtime.model,
             "MODEL_TEMPERATURE": str(target_runtime.temperature),
             "MODEL_MAX_TOKENS": str(target_runtime.max_tokens),
-            "MODEL_TOOL_STRATEGY": target_runtime.tool_strategy,
             "LLM_BASE_URL": target_runtime.base_url,
         },
     }
 
 
 def _resolve_target_runtime_for_preset(preset: RuntimePreset) -> RuntimeConfig:
-    """Resolve the target runtime for a preset switch."""
+    """Resolve the target runtime for a preset switch (tolerates missing keys)."""
     model = _env_text(preset.model_env_var) or preset.default_model
-
-    if preset.provider == "anthropic":
-        api_key = _env_text("ANTHROPIC_API_KEY") or _env_text("LLM_API_KEY")
-        base_url = ""
+    api_key = _resolve_api_key_for_preset(preset)
+    if preset.key == "gemma":
+        base_url = _env_text("OLLAMA_BASE_URL") or _env_text("LLM_BASE_URL") or preset.default_base_url
     else:
-        api_key = _env_text("LLM_API_KEY") or preset.default_api_key
         base_url = _env_text("LLM_BASE_URL") or preset.default_base_url
-
     temperature = float(_env_text("MODEL_TEMPERATURE", str(preset.temperature)))
     max_tokens = int(_env_text("MODEL_MAX_TOKENS", str(preset.max_tokens)))
-    tool_strategy = _env_text("MODEL_TOOL_STRATEGY", preset.tool_strategy)
+    tool_strategy = _env_text("MODEL_TOOL_STRATEGY") or preset.tool_strategy
 
     return RuntimeConfig(
         preset_key=preset.key,
@@ -333,6 +252,18 @@ def _resolve_target_runtime_for_preset(preset: RuntimePreset) -> RuntimeConfig:
         tool_strategy=tool_strategy,
         prompt_style=preset.prompt_style,
     )
+
+
+def _runtime_summary(runtime: RuntimeConfig) -> dict[str, Any]:
+    return {
+        "preset_key": runtime.preset_key,
+        "mode": runtime.mode,
+        "privacy_label": runtime.privacy_label,
+        "provider": runtime.provider,
+        "label": runtime.label,
+        "model": runtime.model,
+        "base_url": runtime.base_url,
+    }
 
 
 def apply_runtime_preset_switch(
@@ -349,41 +280,33 @@ def apply_runtime_preset_switch(
             "Confirm the privacy warning before switching away from local inference.",
         ]
         return plan
-    if target_mode == "api":
-        target_preset = RUNTIME_PRESETS.get(str(plan["resolved_preset_key"]), RUNTIME_PRESETS[DEFAULT_RUNTIME_PRESET])
-        target_runtime = _resolve_target_runtime_for_preset(target_preset)
-        if not target_runtime.api_key:
-            plan["warnings"] = [
-                *plan["warnings"],
-                f"{target_runtime.label} needs ANTHROPIC_API_KEY or LLM_API_KEY before it can run.",
-            ]
-            return plan
 
-    target_preset = RUNTIME_PRESETS.get(str(plan["resolved_preset_key"]), RUNTIME_PRESETS[DEFAULT_RUNTIME_PRESET])
+    target_preset = RUNTIME_PRESETS.get(
+        str(plan["resolved_preset_key"]),
+        RUNTIME_PRESETS[DEFAULT_RUNTIME_PRESET],
+    )
     target_runtime = _resolve_target_runtime_for_preset(target_preset)
-    os.environ["MODEL_PRESET"] = target_preset.key
-    os.environ["MODEL_PROVIDER"] = target_runtime.provider
+    if target_mode == "api" and not target_runtime.api_key:
+        plan["warnings"] = [
+            *plan["warnings"],
+            f"{target_runtime.label} needs GEMINI_API_KEY or LLM_API_KEY before it can run.",
+        ]
+        return plan
+
+    os.environ["MODEL_PROVIDER"] = target_preset.key
     os.environ["MODEL_NAME"] = target_runtime.model
     os.environ[target_preset.model_env_var] = target_runtime.model
     os.environ["MODEL_TEMPERATURE"] = str(target_runtime.temperature)
     os.environ["MODEL_MAX_TOKENS"] = str(target_runtime.max_tokens)
-    os.environ["MODEL_TOOL_STRATEGY"] = target_runtime.tool_strategy
-    os.environ["LLM_BASE_URL"] = target_runtime.base_url
-    if target_runtime.provider == "anthropic":
-        os.environ["ANTHROPIC_API_KEY"] = target_runtime.api_key
+    if target_preset.key == "gemini":
+        os.environ["GEMINI_API_KEY"] = target_runtime.api_key
+        os.environ["LLM_BASE_URL"] = target_runtime.base_url
     else:
         os.environ["LLM_API_KEY"] = target_runtime.api_key
+        os.environ["OLLAMA_BASE_URL"] = target_runtime.base_url
 
     plan["applied"] = True
-    plan["current"] = {
-        "preset_key": target_runtime.preset_key,
-        "mode": target_runtime.mode,
-        "privacy_label": target_runtime.privacy_label,
-        "provider": target_runtime.provider,
-        "label": target_runtime.label,
-        "model": target_runtime.model,
-        "base_url": target_runtime.base_url,
-    }
+    plan["current"] = _runtime_summary(target_runtime)
     plan["warnings"] = [
         *plan["warnings"],
         "Runtime environment updated for the current process.",
@@ -401,8 +324,6 @@ def is_loopback_base_url(base_url: str) -> bool:
 def resolve_runtime_mode(provider: str, base_url: str) -> str:
     """Classify the runtime transport as local or api."""
     normalized_provider = provider.strip().lower()
-    if normalized_provider == "anthropic":
-        return "api"
     if normalized_provider == "openai_compatible":
         return "local" if is_loopback_base_url(base_url) else "api"
     return "api"

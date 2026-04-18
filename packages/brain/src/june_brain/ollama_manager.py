@@ -22,23 +22,12 @@ import threading
 import urllib.request
 from typing import Generator
 
-# Approximate compressed download sizes in GB for known models.
+# Approximate compressed download sizes in GB for the Gemma 4 family.
 MODEL_SIZE_GB: dict[str, float] = {
-    "llama3.2:3b": 2.0,
-    "llama3.2:1b": 1.3,
-    "gemma4:e4b": 9.6,
     "gemma4:e2b": 7.2,
+    "gemma4:e4b": 9.6,
     "gemma4:26b": 18.0,
     "gemma4:31b": 20.0,
-    "gemma3:4b": 3.3,
-    "gemma3:12b": 8.1,
-    "gemma3:27b": 17.0,
-    "gemma3n:e4b": 7.5,
-    "gemma3n:e2b": 5.6,
-    "mistral:7b-instruct-v0.3": 4.1,
-    "mistral-nemo": 7.1,
-    "mistral": 3.8,
-    "phi3:mini": 2.2,
 }
 
 _DEFAULT_TIMEOUT_S = 8

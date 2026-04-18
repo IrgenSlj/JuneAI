@@ -141,27 +141,19 @@ def test_empty_mood_history_returns_empty_list(tmp_path):
     assert result == []
 
 
-def test_config_anthropic_raises_without_api_key():
-    """_resolve_runtime_config_for_preset raises ValueError when anthropic preset has no key."""
+def test_config_gemini_raises_without_api_key():
+    """_resolve_runtime_config_for_preset raises ValueError when gemini preset has no key."""
     import os
     from june_brain.config import RUNTIME_PRESETS, _resolve_runtime_config_for_preset
 
-    preset = RUNTIME_PRESETS["claude_high"]
-    # Remove any API keys from the environment for this test
-    env_patch = {
-        "ANTHROPIC_API_KEY": "",
-        "LLM_API_KEY": "",
-    }
-    with patch.dict(os.environ, env_patch, clear=False):
-        # Temporarily unset the vars (patch.dict with empty strings still passes _env_text checks)
-        import os as _os
-        saved_anthropic = _os.environ.pop("ANTHROPIC_API_KEY", None)
-        saved_llm = _os.environ.pop("LLM_API_KEY", None)
-        try:
-            with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
-                _resolve_runtime_config_for_preset(preset)
-        finally:
-            if saved_anthropic is not None:
-                _os.environ["ANTHROPIC_API_KEY"] = saved_anthropic
-            if saved_llm is not None:
-                _os.environ["LLM_API_KEY"] = saved_llm
+    preset = RUNTIME_PRESETS["gemini"]
+    saved_gemini = os.environ.pop("GEMINI_API_KEY", None)
+    saved_llm = os.environ.pop("LLM_API_KEY", None)
+    try:
+        with pytest.raises(ValueError, match="GEMINI_API_KEY"):
+            _resolve_runtime_config_for_preset(preset)
+    finally:
+        if saved_gemini is not None:
+            os.environ["GEMINI_API_KEY"] = saved_gemini
+        if saved_llm is not None:
+            os.environ["LLM_API_KEY"] = saved_llm

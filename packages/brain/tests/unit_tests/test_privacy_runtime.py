@@ -1,4 +1,9 @@
-"""Tests for runtime and privacy inspection helpers."""
+"""Tests for runtime and privacy inspection helpers.
+
+Per ADR 0002 the two supported presets are `gemma` (local Ollama) and
+`gemini` (cloud OpenAI-compatible). The privacy model warns whenever a
+user moves from a loopback endpoint to a remote one.
+"""
 
 from unittest.mock import patch
 
@@ -20,9 +25,9 @@ def test_local_runtime_is_reported_as_local():
     with patch.dict(
         "os.environ",
         {
-            "MODEL_PRESET": "local_mistral_3b",
-            "LOCAL_SMALL_MODEL_NAME": "mistral-local-3b",
-            "LLM_BASE_URL": "http://127.0.0.1:11434/v1",
+            "MODEL_PROVIDER": "gemma",
+            "GEMMA_MODEL": "gemma4:e4b",
+            "OLLAMA_BASE_URL": "http://127.0.0.1:11434/v1",
         },
         clear=True,
     ):
@@ -46,10 +51,9 @@ def test_api_runtime_is_reported_as_api():
     with patch.dict(
         "os.environ",
         {
-            "MODEL_PRESET": "claude_high",
-            "MODEL_PROVIDER": "anthropic",
-            "ANTHROPIC_API_KEY": "test-key",
-            "CLAUDE_MODEL_NAME": "claude-test",
+            "MODEL_PROVIDER": "gemini",
+            "GEMINI_API_KEY": "test-key",
+            "GEMINI_MODEL": "gemini-2.0-flash",
         },
         clear=True,
     ):
@@ -62,18 +66,18 @@ def test_api_runtime_is_reported_as_api():
     assert runtime.privacy_label == "api-assisted"
     assert status["local_first"] is False
     assert status["mode"] == "api"
-    assert status["provider"] == "anthropic"
+    assert status["provider"] == "openai_compatible"
     assert "remote API" in status["summary"]
-    assert "Anthropic" in status["privacy_boundary"]
+    assert "generativelanguage.googleapis.com" in status["privacy_boundary"]
 
 
 def test_remote_openai_compatible_endpoint_is_treated_as_api():
     with patch.dict(
         "os.environ",
         {
-            "MODEL_PRESET": "local_mistral_3b",
-            "LOCAL_SMALL_MODEL_NAME": "mistral-local-3b",
-            "LLM_BASE_URL": "https://api.example.com/v1",
+            "MODEL_PROVIDER": "gemma",
+            "GEMMA_MODEL": "gemma4:e4b",
+            "OLLAMA_BASE_URL": "https://api.example.com/v1",
         },
         clear=True,
     ):
@@ -91,18 +95,16 @@ def test_previewing_local_to_api_switch_shows_privacy_warning():
     with patch.dict(
         "os.environ",
         {
-            "MODEL_PRESET": "local_mistral_8b",
-            "LOCAL_LARGE_MODEL_NAME": "mistral-local-8b",
-            "MODEL_PROVIDER": "openai_compatible",
-            "LLM_BASE_URL": "http://127.0.0.1:11434/v1",
-            "MODEL_NAME": "mistral-local-8b",
-            "ANTHROPIC_API_KEY": "test-key",
+            "MODEL_PROVIDER": "gemma",
+            "GEMMA_MODEL": "gemma4:e4b",
+            "OLLAMA_BASE_URL": "http://127.0.0.1:11434/v1",
+            "GEMINI_API_KEY": "test-key",
         },
         clear=True,
     ):
-        preview = build_runtime_preset_switch_preview("claude_high")
+        preview = build_runtime_preset_switch_preview("gemini")
         text = format_runtime_preset_switch_plan(preview)
-        tool_text = preview_runtime_preset_switch.func("claude_high")
+        tool_text = preview_runtime_preset_switch.func("gemini")
 
     assert preview["schema_version"] == 1
     assert preview["requires_confirmation"] is True
@@ -118,19 +120,17 @@ def test_switch_runtime_preset_requires_confirmation_for_local_to_api():
     with patch.dict(
         "os.environ",
         {
-            "MODEL_PRESET": "local_mistral_8b",
-            "LOCAL_LARGE_MODEL_NAME": "mistral-local-8b",
-            "MODEL_PROVIDER": "openai_compatible",
-            "LLM_BASE_URL": "http://127.0.0.1:11434/v1",
-            "MODEL_NAME": "mistral-local-8b",
-            "ANTHROPIC_API_KEY": "test-key",
+            "MODEL_PROVIDER": "gemma",
+            "GEMMA_MODEL": "gemma4:e4b",
+            "OLLAMA_BASE_URL": "http://127.0.0.1:11434/v1",
+            "GEMINI_API_KEY": "test-key",
         },
         clear=True,
     ):
-        result = switch_runtime_preset.func("claude_high")
+        result = switch_runtime_preset.func("gemini")
         runtime = resolve_runtime_config()
 
-    assert runtime.preset_key == "local_mistral_8b"
+    assert runtime.preset_key == "gemma"
     assert runtime.is_local is True
     assert runtime.provider == "openai_compatible"
     assert "Confirm the privacy warning" in result
@@ -141,21 +141,19 @@ def test_switch_runtime_preset_applies_when_confirmed():
     with patch.dict(
         "os.environ",
         {
-            "MODEL_PRESET": "local_mistral_8b",
-            "LOCAL_LARGE_MODEL_NAME": "mistral-local-8b",
-            "MODEL_PROVIDER": "openai_compatible",
-            "LLM_BASE_URL": "http://127.0.0.1:11434/v1",
-            "MODEL_NAME": "mistral-local-8b",
-            "ANTHROPIC_API_KEY": "test-key",
+            "MODEL_PROVIDER": "gemma",
+            "GEMMA_MODEL": "gemma4:e4b",
+            "OLLAMA_BASE_URL": "http://127.0.0.1:11434/v1",
+            "GEMINI_API_KEY": "test-key",
         },
         clear=True,
     ):
-        result = switch_runtime_preset.func("claude_high", confirm_api_transition=True)
+        result = switch_runtime_preset.func("gemini", confirm_api_transition=True)
         runtime = resolve_runtime_config()
 
-    assert runtime.preset_key == "claude_high"
+    assert runtime.preset_key == "gemini"
     assert runtime.is_api is True
-    assert runtime.provider == "anthropic"
-    assert runtime.model == "claude-sonnet-4-6"
+    assert runtime.provider == "openai_compatible"
+    assert runtime.model.startswith("gemini")
     assert "Runtime environment updated" in result
     assert "Confirmed: yes" in result
