@@ -7,7 +7,7 @@ import pytest
 
 def test_startup_error_exported_from_graph():
     """graph module exports startup_error at module level."""
-    import agent.graph as g
+    import june_brain.graph as g
 
     # startup_error is either None (agent started OK) or a string (error message)
     assert hasattr(g, "startup_error")
@@ -18,7 +18,7 @@ def test_extract_json_payload_does_not_use_eval():
     """_extract_json_payload must not use ast.literal_eval."""
     import inspect
 
-    import agent.graph as g
+    import june_brain.graph as g
 
     source = inspect.getsource(g._extract_json_payload)
     assert "literal_eval" not in source
@@ -29,21 +29,21 @@ def test_ast_not_imported_in_graph():
     """The ast module must not be imported in agent.graph."""
     import inspect
 
-    import agent.graph as g
+    import june_brain.graph as g
 
     source = inspect.getsource(g)
     assert "import ast" not in source
 
 
 def test_extract_json_payload_handles_clean_json():
-    from agent.graph import _extract_json_payload
+    from june_brain.graph import _extract_json_payload
 
     result = _extract_json_payload('{"name": "log_mood", "args": {"mood": "good"}}')
     assert result == {"name": "log_mood", "args": {"mood": "good"}}
 
 
 def test_extract_json_payload_returns_none_on_garbage():
-    from agent.graph import _extract_json_payload
+    from june_brain.graph import _extract_json_payload
 
     result = _extract_json_payload("this is not json at all %%%")
     assert result is None
@@ -51,7 +51,7 @@ def test_extract_json_payload_returns_none_on_garbage():
 
 def test_extract_json_payload_handles_embedded_json():
     """Extracts JSON even when surrounded by prose."""
-    from agent.graph import _extract_json_payload
+    from june_brain.graph import _extract_json_payload
 
     result = _extract_json_payload('Sure, here is the call: {"name": "log_water", "args": {}} Done.')
     assert result == {"name": "log_water", "args": {}}
@@ -59,9 +59,9 @@ def test_extract_json_payload_handles_embedded_json():
 
 def test_memory_context_cache_returns_same_value_within_ttl(tmp_path):
     """Second call within TTL must not re-read memory files."""
-    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
-        from agent.memory import Memory
-        from agent.graph import _build_memory_context, invalidate_context_cache
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
+        from june_brain.memory import Memory
+        from june_brain.graph import _build_memory_context, invalidate_context_cache
 
         invalidate_context_cache("cache_test_user")
         mem = Memory("cache_test_user")
@@ -74,7 +74,7 @@ def test_memory_context_cache_returns_same_value_within_ttl(tmp_path):
             return original_get_today_summary()
 
         # Patch Memory so _build_memory_context uses our counting instance
-        with patch("agent.graph.Memory") as MockMemory:
+        with patch("june_brain.graph.Memory") as MockMemory:
             mock_instance = MockMemory.return_value
             mock_instance.get_today_summary.return_value = {}
             mock_instance.get_body_metrics.return_value = []
@@ -83,10 +83,10 @@ def test_memory_context_cache_returns_same_value_within_ttl(tmp_path):
             mock_instance.get_calendar_items.return_value = []
 
             # Also patch the context_intelligence functions to avoid real reads
-            with patch("agent.graph.build_recovery_readiness_summary", return_value={}), \
-                 patch("agent.graph.format_recovery_readiness_summary", return_value=""), \
-                 patch("agent.graph.build_active_commitments_summary", return_value={}), \
-                 patch("agent.graph.format_active_commitments_summary", return_value=""):
+            with patch("june_brain.graph.build_recovery_readiness_summary", return_value={}), \
+                 patch("june_brain.graph.format_recovery_readiness_summary", return_value=""), \
+                 patch("june_brain.graph.build_active_commitments_summary", return_value={}), \
+                 patch("june_brain.graph.format_active_commitments_summary", return_value=""):
 
                 invalidate_context_cache("cache_test_user")
 
@@ -104,14 +104,14 @@ def test_memory_context_cache_returns_same_value_within_ttl(tmp_path):
 
 def test_invalidate_context_cache_clears_entry(tmp_path):
     """invalidate_context_cache removes the cached entry so the next call re-reads."""
-    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
-        from agent.graph import _build_memory_context, invalidate_context_cache
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
+        from june_brain.graph import _build_memory_context, invalidate_context_cache
 
-        with patch("agent.graph.Memory") as MockMemory, \
-             patch("agent.graph.build_recovery_readiness_summary", return_value={}), \
-             patch("agent.graph.format_recovery_readiness_summary", return_value=""), \
-             patch("agent.graph.build_active_commitments_summary", return_value={}), \
-             patch("agent.graph.format_active_commitments_summary", return_value=""):
+        with patch("june_brain.graph.Memory") as MockMemory, \
+             patch("june_brain.graph.build_recovery_readiness_summary", return_value={}), \
+             patch("june_brain.graph.format_recovery_readiness_summary", return_value=""), \
+             patch("june_brain.graph.build_active_commitments_summary", return_value={}), \
+             patch("june_brain.graph.format_active_commitments_summary", return_value=""):
 
             mock_instance = MockMemory.return_value
             mock_instance.get_today_summary.return_value = {}
@@ -133,8 +133,8 @@ def test_invalidate_context_cache_clears_entry(tmp_path):
 
 def test_empty_mood_history_returns_empty_list(tmp_path):
     """get_mood_history returns [] when no moods have been logged."""
-    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
-        from agent.memory import Memory
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
+        from june_brain.memory import Memory
         mem = Memory("fresh_user")
         result = mem.get_mood_history()
 
@@ -144,7 +144,7 @@ def test_empty_mood_history_returns_empty_list(tmp_path):
 def test_config_anthropic_raises_without_api_key():
     """_resolve_runtime_config_for_preset raises ValueError when anthropic preset has no key."""
     import os
-    from agent.config import RUNTIME_PRESETS, _resolve_runtime_config_for_preset
+    from june_brain.config import RUNTIME_PRESETS, _resolve_runtime_config_for_preset
 
     preset = RUNTIME_PRESETS["claude_high"]
     # Remove any API keys from the environment for this test

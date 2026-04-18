@@ -1,8 +1,10 @@
 # Virtual environments
-junevenv/
-langchain-academy/
 .venv/
+venv/
+env/
+junevenv/
 .junenv/
+langchain-academy/
 
 # Secrets
 .env
@@ -17,8 +19,22 @@ __pycache__/
 dist/
 build/
 .eggs/
+*.egg
 
-# Memory data
+# Node
+node_modules/
+.svelte-kit/
+.pnpm-store/
+
+# Rust / Tauri
+target/
+apps/desktop/src-tauri/target/
+
+# iOS / Capacitor
+apps/mobile/ios/App/Pods/
+apps/mobile/ios/DerivedData/
+
+# Memory data (v1 legacy; v2 data lives outside the repo)
 .june_memory/
 
 # OS
@@ -29,9 +45,14 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+*.swo
 
-# Testing
+# Claude Code worktrees
+.claude/
+
+# Testing / caches
 .pytest_cache/
 .coverage
 htmlcov/
 .mypy_cache/
+.ruff_cache/

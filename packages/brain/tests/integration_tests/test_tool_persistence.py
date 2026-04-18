@@ -13,8 +13,8 @@ from unittest.mock import patch
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
-from agent.graph import create_june_agent
-from agent.memory import Memory
+from june_brain.graph import create_june_agent
+from june_brain.memory import Memory
 
 pytestmark = pytest.mark.anyio
 
@@ -72,7 +72,7 @@ async def test_save_calendar_item_persists_to_sqlite(tmp_path):
         "details": "Annual check-up",
     }))
 
-    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
         await agent.ainvoke({
             **_BASE_STATE,
             "messages": [HumanMessage(content="Doctor appointment May 15 at 10am.")],
@@ -98,7 +98,7 @@ async def test_track_goal_persists_to_sqlite(tmp_path):
         "category": "fitness",
     }))
 
-    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
         await agent.ainvoke({
             **_BASE_STATE,
             "messages": [HumanMessage(content="I want to run a half marathon by September.")],
@@ -124,7 +124,7 @@ async def test_log_workout_session_persists_to_sqlite(tmp_path):
         "notes": "Felt strong today",
     }))
 
-    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
         await agent.ainvoke({
             **_BASE_STATE,
             "messages": [HumanMessage(content="Just finished push day — bench, OHP, dips.")],
@@ -147,7 +147,7 @@ async def test_tool_stats_are_updated_after_successful_call(tmp_path):
         "next_step": "Send email by Friday",
     }))
 
-    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
         result = await agent.ainvoke({
             **_BASE_STATE,
             "messages": [HumanMessage(content="I need to follow up with the landlord.")],
@@ -194,7 +194,7 @@ async def test_ui_state_and_memory_update_in_same_turn(tmp_path):
     user_id = "combo_user"
     agent = create_june_agent(llm=_TwoToolLLM())
 
-    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
         result = await agent.ainvoke({
             **_BASE_STATE,
             "messages": [HumanMessage(content="Team lunch on May 20.")],

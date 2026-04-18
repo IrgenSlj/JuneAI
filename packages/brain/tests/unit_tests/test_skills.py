@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
-from agent.skills import infer_skill_from_text
-from agent.skills import build_system_prompt
+from june_brain.skills import infer_skill_from_text
+from june_brain.skills import build_system_prompt
 
 
 def test_infer_planner_skill() -> None:

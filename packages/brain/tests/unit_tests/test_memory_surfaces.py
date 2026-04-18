@@ -11,12 +11,12 @@ from unittest.mock import patch
 
 import pytest
 
-from agent.memory import Memory
+from june_brain.memory import Memory
 
 
 @pytest.fixture
 def memory_dir(tmp_path):
-    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
         yield tmp_path
 
 
@@ -161,14 +161,14 @@ def test_relationship_profile_upserts(mem):
 # ---------------------------------------------------------------------------
 
 def test_build_recovery_readiness_summary_returns_dict(mem):
-    from agent.context_intelligence import build_recovery_readiness_summary
+    from june_brain.context_intelligence import build_recovery_readiness_summary
     result = build_recovery_readiness_summary(mem)
     assert isinstance(result, dict)
     assert "score" in result or "readiness" in result or isinstance(result, dict)
 
 
 def test_format_recovery_readiness_summary_returns_string(mem):
-    from agent.context_intelligence import (
+    from june_brain.context_intelligence import (
         build_recovery_readiness_summary,
         format_recovery_readiness_summary,
     )
@@ -179,7 +179,7 @@ def test_format_recovery_readiness_summary_returns_string(mem):
 
 
 def test_build_active_commitments_summary_returns_dict(mem):
-    from agent.context_intelligence import build_active_commitments_summary
+    from june_brain.context_intelligence import build_active_commitments_summary
     mem.save_calendar_item("Doctor", (date.today() + timedelta(days=2)).isoformat())
     mem.save_goal("Ship v1.0", next_step="Write release notes")
     result = build_active_commitments_summary(mem)
@@ -187,7 +187,7 @@ def test_build_active_commitments_summary_returns_dict(mem):
 
 
 def test_format_active_commitments_summary_returns_string(mem):
-    from agent.context_intelligence import (
+    from june_brain.context_intelligence import (
         build_active_commitments_summary,
         format_active_commitments_summary,
     )

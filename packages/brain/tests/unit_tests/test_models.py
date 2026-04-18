@@ -3,10 +3,10 @@ from unittest.mock import patch
 from langchain_core.messages import AIMessage, HumanMessage
 from pydantic import SecretStr
 
-from agent.config import resolve_runtime_config, runtime_preset_options
-from agent.graph import _build_memory_context, create_june_agent
-from agent.memory import Memory
-from agent.models import build_chat_model
+from june_brain.config import resolve_runtime_config, runtime_preset_options
+from june_brain.graph import _build_memory_context, create_june_agent
+from june_brain.memory import Memory
+from june_brain.models import build_chat_model
 
 
 class FakeLLM:
@@ -100,7 +100,7 @@ def test_graph_tracks_tool_success():
     )
     agent = create_june_agent(llm=fake_llm)
 
-    with patch("agent.memory.MEMORY_DIR", "/tmp/juneai_test_memory"):
+    with patch("june_brain.memory.MEMORY_DIR", "/tmp/juneai_test_memory"):
         result = agent.invoke(
             {
                 "messages": [HumanMessage(content="Track this as a goal.")],
@@ -139,7 +139,7 @@ def test_graph_recovers_food_program_tool_call_from_json(tmp_path):
     )
     agent = create_june_agent(llm=fake_llm)
 
-    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
         result = agent.invoke(
             {
                 "messages": [HumanMessage(content="Suggest and save a food schedule.")],
@@ -178,7 +178,7 @@ def test_graph_remaps_birthday_journal_json_to_calendar_item(tmp_path):
     )
     agent = create_june_agent(llm=fake_llm)
 
-    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
         result = agent.invoke(
             {
                 "messages": [HumanMessage(content="Remember my son's birthday 24 August")],
@@ -217,7 +217,7 @@ def test_graph_recovers_html_escaped_tool_json_with_wrapper_text(tmp_path):
     )
     agent = create_june_agent(llm=fake_llm)
 
-    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
         result = agent.invoke(
             {
                 "messages": [HumanMessage(content="Remember my son's birthday 24 August")],
@@ -255,7 +255,7 @@ def test_graph_recovers_single_quoted_multiple_tool_calls_with_aliases(tmp_path)
     )
     agent = create_june_agent(llm=fake_llm)
 
-    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
         result = agent.invoke(
             {
                 "messages": [HumanMessage(content="Track booking the trip and show my plans.")],
@@ -294,7 +294,7 @@ def test_graph_recovers_function_wrapper_tool_payload(tmp_path):
     )
     agent = create_june_agent(llm=fake_llm)
 
-    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
         result = agent.invoke(
             {
                 "messages": [HumanMessage(content="Save my cut plan.")],
@@ -326,7 +326,7 @@ def test_build_chat_model_uses_current_openai_signature():
         def __init__(self, **kwargs):
             captured.update(kwargs)
 
-    with patch("agent.models.ChatOpenAI", FakeChatOpenAI):
+    with patch("june_brain.models.ChatOpenAI", FakeChatOpenAI):
         build_chat_model(runtime)
 
     assert captured["model"] == runtime.model
@@ -369,7 +369,7 @@ def test_build_chat_model_uses_current_anthropic_signature():
 
 
 def test_memory_context_includes_detailed_body_metrics(tmp_path):
-    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
         memory = Memory("body_context_user")
         memory.log_body_metrics(
             weight_kg=80.2,

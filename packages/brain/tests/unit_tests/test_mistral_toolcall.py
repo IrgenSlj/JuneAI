@@ -1,11 +1,11 @@
 """Tests for Session 2: Mistral tool calling reliability."""
-from agent.config import (
+from june_brain.config import (
     RUNTIME_PRESETS,
     detect_tool_strategy,
     resolve_runtime_config,
 )
-from agent.graph import _select_tools_for_runtime
-from agent.tools import JUNE_TOOLS, JUNE_TOOLS_CORE, JUNE_TOOLS_GEMMA
+from june_brain.graph import _select_tools_for_runtime
+from june_brain.tools import JUNE_TOOLS, JUNE_TOOLS_CORE, JUNE_TOOLS_GEMMA
 
 
 def test_local_mistral_7b_preset_exists():

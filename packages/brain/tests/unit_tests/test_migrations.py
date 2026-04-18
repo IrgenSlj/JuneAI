@@ -7,13 +7,13 @@ from unittest.mock import patch
 
 import pytest
 
-from agent.memory import Memory
+from june_brain.memory import Memory
 
 
 @pytest.fixture
 def memory_dir(tmp_path):
     """Patch the memory directory for each test."""
-    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
         yield tmp_path
 
 

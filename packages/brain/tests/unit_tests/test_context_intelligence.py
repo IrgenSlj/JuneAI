@@ -5,15 +5,15 @@ from unittest.mock import patch
 
 import pytest
 
-from agent.context_intelligence import (
+from june_brain.context_intelligence import (
     build_active_commitments_summary,
     build_recovery_readiness_summary,
     format_active_commitments_summary,
     format_recovery_readiness_summary,
 )
-from agent.memory import Memory
-from agent.skills import build_system_prompt
-from agent.tools import (
+from june_brain.memory import Memory
+from june_brain.skills import build_system_prompt
+from june_brain.tools import (
     JUNE_TOOLS,
     get_active_commitments_summary,
     get_recovery_readiness_summary,
@@ -23,7 +23,7 @@ from agent.tools import (
 @pytest.fixture
 def memory_dir(tmp_path):
     """Patch the memory directory for each test."""
-    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
         yield
 
 

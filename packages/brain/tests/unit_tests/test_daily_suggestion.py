@@ -15,7 +15,7 @@ def _make_memory(**kwargs):
 
 
 def test_daily_suggestion_stalled_goal():
-    from agent.patterns import get_daily_suggestion
+    from june_brain.patterns import get_daily_suggestion
 
     stale_date = (date.today() - timedelta(days=20)).isoformat()
     memory = _make_memory(
@@ -28,7 +28,7 @@ def test_daily_suggestion_stalled_goal():
 
 
 def test_daily_suggestion_none_for_empty_memory():
-    from agent.patterns import get_daily_suggestion
+    from june_brain.patterns import get_daily_suggestion
 
     memory = _make_memory()
     result = get_daily_suggestion(memory)
@@ -37,7 +37,7 @@ def test_daily_suggestion_none_for_empty_memory():
 
 
 def test_daily_suggestion_habit_low_completion():
-    from agent.patterns import get_daily_suggestion
+    from june_brain.patterns import get_daily_suggestion
 
     # Habit with only 1 completion this week (14%)
     week_ago = (date.today() - timedelta(days=7)).isoformat()

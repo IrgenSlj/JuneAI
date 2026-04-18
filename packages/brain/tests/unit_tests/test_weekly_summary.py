@@ -23,9 +23,9 @@ def _make_memory(
 
 def _run_summary(memory):
     """Run generate_weekly_summary with an injected mock memory."""
-    from agent.tools import generate_weekly_summary
+    from june_brain.tools import generate_weekly_summary
 
-    with patch("agent.tools._memory_for_state", return_value=memory):
+    with patch("june_brain.tools._memory_for_state", return_value=memory):
         return generate_weekly_summary.invoke({"state": {"messages": [], "user_id": "test"}})
 
 

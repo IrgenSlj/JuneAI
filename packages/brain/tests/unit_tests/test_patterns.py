@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
-from agent.memory import Memory
-from agent.patterns import (
+from june_brain.memory import Memory
+from june_brain.patterns import (
     PatternInsight,
     detect_patterns,
     format_patterns_for_prompt,
@@ -20,7 +20,7 @@ from agent.patterns import (
 
 @pytest.fixture
 def mem(tmp_path):
-    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
         yield Memory(user_id="pat")
 
 

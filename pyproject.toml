@@ -1,0 +1,25 @@
+[project]
+name = "june-workspace"
+version = "0.0.0"
+description = "June monorepo workspace root"
+requires-python = ">=3.10"
+
+[tool.uv.workspace]
+members = [
+    "packages/brain",
+    "packages/api",
+    "skills/*",
+]
+
+[tool.ruff]
+line-length = 100
+lint.select = ["E", "F", "I", "UP", "T201"]
+lint.ignore = ["E501", "UP006", "UP007", "UP035"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/*" = ["D", "UP"]
+"**/scripts/*" = ["T201"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true

@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from agent.memory import Memory
-from agent.tools import (
+from june_brain.memory import Memory
+from june_brain.tools import (
     clear_ui_workspace,
     list_calendar_items,
     list_favorites,
@@ -34,7 +34,7 @@ from agent.tools import (
 @pytest.fixture
 def memory_dir(tmp_path):
     """Patch the memory directory for each test."""
-    with patch("agent.memory.MEMORY_DIR", str(tmp_path)):
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
         yield
 
 
@@ -55,7 +55,7 @@ def test_save_and_load_message(mem):
 
 def test_memory_creates_nested_directories(tmp_path):
     nested_dir = tmp_path / "nested" / "memory" / "state"
-    with patch("agent.memory.MEMORY_DIR", str(nested_dir)):
+    with patch("june_brain.memory.MEMORY_DIR", str(nested_dir)):
         memory = Memory("test_user")
         memory.save_message("user", "hello")
 
