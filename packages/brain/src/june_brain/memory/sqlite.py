@@ -1,8 +1,6 @@
 """JuneAI memory system — SQLite backend.
 
 Single june.db per MEMORY_DIR. user_id is a column in every table.
-Public interface is identical to the previous JSON implementation so
-no other files need changing.
 """
 
 from __future__ import annotations
@@ -16,7 +14,11 @@ from datetime import date, datetime
 from pathlib import Path
 from uuid import uuid4
 
-from .config import MEMORY_DIR
+
+def _current_memory_dir() -> str:
+    """Resolve MEMORY_DIR lazily so tests that patch june_brain.memory.MEMORY_DIR win."""
+    from . import MEMORY_DIR  # re-read package attribute each call
+    return MEMORY_DIR
 
 APP_STATE_SCHEMA_VERSION = 1
 
@@ -238,7 +240,7 @@ class Memory:
 
     def __init__(self, user_id: str):
         self.user_id = user_id
-        db_dir = Path(MEMORY_DIR)
+        db_dir = Path(_current_memory_dir())
         db_dir.mkdir(parents=True, exist_ok=True)
         self._db_path = str(db_dir / "june.db")
         conn = _get_connection(self._db_path)
