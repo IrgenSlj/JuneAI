@@ -1,0 +1,473 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "June API",
+    "description": "HTTP boundary for the June brain. The canonical client is apps/web (Next.js) but any shell speaking JSON/SSE can use it.",
+    "version": "0.2.0"
+  },
+  "paths": {
+    "/chat": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Chat",
+        "description": "Stream June's reply as SSE. Each frame is a JSON-encoded ChatEvent.",
+        "operationId": "chat_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Server-Sent Events stream. See ChatEvent for the frame payload schema.",
+            "content": {
+              "text/event-stream": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/memory/{user_id}": {
+      "get": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Get Memory",
+        "description": "Return a structured highlight reel of what June remembers about a user.\n\nWeek 2: SQLite-only. Week 4 will fan out to vector + graph stores\nand merge the rankings (ADR 0004).",
+        "operationId": "get_memory_memory__user_id__get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemorySnapshot"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills": {
+      "get": {
+        "tags": [
+          "skills"
+        ],
+        "summary": "List Skills",
+        "description": "Enumerate the tools June can call right now.",
+        "operationId": "list_skills_skills_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Get System Status",
+        "description": "Report which runtime is active and whether it's actually usable.\n\nShells display a small runtime badge built from this payload, so it\nmust be honest about misconfigurations (Ollama not running, Gemma\ntag not pulled, missing API key) instead of pretending everything\nis fine.",
+        "operationId": "get_system_status_system_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Healthz",
+        "description": "Liveness probe \u2014 no brain calls, just confirms the process is up.",
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Healthz Healthz Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ChatRequest": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id",
+            "description": "Stable identifier for the user. Used as the memory partition key."
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "The user's message in plain text."
+          },
+          "skill": {
+            "type": "string",
+            "title": "Skill",
+            "description": "Optional skill hint to guide the agent. Defaults to general assistant behavior.",
+            "default": "assistant"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "message"
+        ],
+        "title": "ChatRequest",
+        "description": "A single user turn submitted to POST /chat."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "MemoryFact": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Category of fact, e.g. 'goal', 'calendar_item', 'preference'."
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "Short human-readable label.",
+            "default": ""
+          },
+          "body": {
+            "type": "string",
+            "title": "Body",
+            "description": "Longer description or detail, when present.",
+            "default": ""
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata",
+            "description": "Structured fields specific to this fact kind."
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "MemoryFact",
+        "description": "One structured row read from memory."
+      },
+      "MemorySnapshot": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "goals": {
+            "items": {
+              "$ref": "#/components/schemas/MemoryFact"
+            },
+            "type": "array",
+            "title": "Goals"
+          },
+          "open_loops": {
+            "items": {
+              "$ref": "#/components/schemas/MemoryFact"
+            },
+            "type": "array",
+            "title": "Open Loops"
+          },
+          "calendar": {
+            "items": {
+              "$ref": "#/components/schemas/MemoryFact"
+            },
+            "type": "array",
+            "title": "Calendar"
+          },
+          "recent_messages": {
+            "type": "integer",
+            "title": "Recent Messages",
+            "description": "Chat messages stored for this user.",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id"
+        ],
+        "title": "MemorySnapshot",
+        "description": "Summary of what June remembers about a user.\n\nWeek 2 returns structured highlights from the SQLite store. Week 4\nwill extend this with vector-recalled facts and graph neighbors."
+      },
+      "SkillInfo": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Tool identifier used by the agent when calling it."
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "Human-readable description.",
+            "default": ""
+          },
+          "category": {
+            "type": "string",
+            "title": "Category",
+            "description": "Group label; Week 5 maps this to MCP skill server.",
+            "default": "core"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "SkillInfo",
+        "description": "A single tool exposed to the agent.\n\nWeek 2 maps one-to-one onto the current LangChain tools. Week 5\ngroups these by skill (calendar, health, research, ...) once the\nMCP decomposition lands."
+      },
+      "SkillsResponse": {
+        "properties": {
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/SkillInfo"
+            },
+            "type": "array",
+            "title": "Skills"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "SkillsResponse"
+      },
+      "SystemStatus": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "description": "Active preset key: 'gemma' or 'gemini'."
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "Human-readable runtime label."
+          },
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "description": "Active model identifier."
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode",
+            "description": "'local' when inference stays on-device, 'api' otherwise."
+          },
+          "privacy_label": {
+            "type": "string",
+            "title": "Privacy Label",
+            "description": "'local-only' or 'api-assisted'."
+          },
+          "base_url": {
+            "type": "string",
+            "title": "Base Url",
+            "description": "Endpoint the brain is talking to.",
+            "default": ""
+          },
+          "ollama_reachable": {
+            "type": "boolean",
+            "title": "Ollama Reachable",
+            "description": "True when the configured Ollama instance responds. Only meaningful for the gemma preset.",
+            "default": false
+          },
+          "ollama_has_model": {
+            "type": "boolean",
+            "title": "Ollama Has Model",
+            "description": "True when the active Gemma tag is already pulled. Only meaningful for the gemma preset.",
+            "default": false
+          },
+          "api_key_present": {
+            "type": "boolean",
+            "title": "Api Key Present",
+            "description": "True when the active runtime has the credentials it needs. Only meaningful for the gemini preset.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "label",
+          "model",
+          "mode",
+          "privacy_label"
+        ],
+        "title": "SystemStatus",
+        "description": "What the shells need to display a honest runtime indicator."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "ChatEvent": {
+        "description": "One item in the SSE stream returned by POST /chat.\n\nThe wire format is one ``data:`` frame per event carrying a JSON\nobject with this shape. ``type`` drives the UI.",
+        "properties": {
+          "type": {
+            "description": "Discriminator that determines the meaning of the payload.",
+            "enum": [
+              "token",
+              "tool_call",
+              "tool_result",
+              "done",
+              "error"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "content": {
+            "default": "",
+            "description": "Textual content for token and error events; empty otherwise.",
+            "title": "Content",
+            "type": "string"
+          },
+          "tool_name": {
+            "default": "",
+            "description": "Name of the tool for tool_call and tool_result events.",
+            "title": "Tool Name",
+            "type": "string"
+          },
+          "tool_args": {
+            "additionalProperties": true,
+            "description": "Arguments passed to the tool for tool_call events.",
+            "title": "Tool Args",
+            "type": "object"
+          },
+          "tool_result": {
+            "default": "",
+            "description": "Serialized result returned by the tool for tool_result events.",
+            "title": "Tool Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "ChatEvent",
+        "type": "object"
+      }
+    }
+  }
+}

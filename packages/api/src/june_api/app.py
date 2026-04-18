@@ -1,0 +1,87 @@
+"""FastAPI app factory.
+
+The shells (apps/web, apps/desktop, apps/mobile) all hit this one API.
+Routes live in ``june_api.routes``; schemas live in ``june_api.schemas``.
+"""
+
+from __future__ import annotations
+
+import os
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from .routes import chat, memory, skills, system
+from .schemas import ChatEvent
+
+
+def _cors_origins() -> list[str]:
+    """Resolve allowed origins from env.
+
+    Defaults to the dev-server origins for apps/web (Next.js on 3000) and
+    apps/desktop (Tauri embeds the Next.js app locally). Override with
+    ``JUNE_API_CORS_ORIGINS`` (comma-separated) in production.
+    """
+    raw = os.getenv("JUNE_API_CORS_ORIGINS", "").strip()
+    if raw:
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+    return [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "tauri://localhost",
+    ]
+
+
+def create_app() -> FastAPI:
+    """Assemble the FastAPI instance."""
+    app = FastAPI(
+        title="June API",
+        version="0.2.0",
+        description=(
+            "HTTP boundary for the June brain. The canonical client is "
+            "apps/web (Next.js) but any shell speaking JSON/SSE can use it."
+        ),
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins(),
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["*"],
+    )
+
+    app.include_router(chat.router)
+    app.include_router(memory.router)
+    app.include_router(skills.router)
+    app.include_router(system.router)
+
+    @app.get("/healthz", tags=["system"])
+    def healthz() -> dict[str, str]:
+        """Liveness probe — no brain calls, just confirms the process is up."""
+        return {"status": "ok"}
+
+    _register_streaming_schemas(app)
+    return app
+
+
+def _register_streaming_schemas(app: FastAPI) -> None:
+    """Force ChatEvent into the OpenAPI components schemas.
+
+    SSE frames aren't a response_model so FastAPI can't discover
+    ChatEvent on its own. Without this, the generated TypeScript would
+    miss the payload shape for /chat — the most important schema on the
+    wire.
+    """
+    base_openapi = app.openapi
+
+    def openapi_with_streaming_schemas() -> dict:
+        schema = base_openapi()
+        components = schema.setdefault("components", {}).setdefault("schemas", {})
+        components.setdefault("ChatEvent", ChatEvent.model_json_schema())
+        return schema
+
+    app.openapi = openapi_with_streaming_schemas  # type: ignore[method-assign]
+
+
+app = create_app()
