@@ -10,17 +10,33 @@ Read in this order:
 
 1. [`docs/vision.md`](../vision.md) — the three non-negotiables
 2. [`docs/architecture/overview.md`](../architecture/overview.md) — the layered model
-3. [`docs/decisions/README.md`](../decisions/README.md) — the six ADRs that justify this plan
+3. [`docs/decisions/README.md`](../decisions/README.md) — the seven ADRs that justify this plan
 
 Then pick up the current week below.
 
 ## Current State
 
-- v1 Streamlit app is functional on `main`. It is being retired, not improved.
-- v1 brain modules (`JuneAI-app/src/agent/*`) are preserved and will be migrated.
-- v1 user data in `JuneAI-app/.june_memory/` must be migrated to the new platform-appropriate location during Week 1.
+As of 2026-04-18:
 
-## Week 1 — Foundation
+- **Weeks 1 through 4 are shipped.** Monorepo, API, web UI, and the three-store memory system are all on `main`.
+- **Week 5 is next** — skills as MCP servers.
+- v1 Streamlit app is retired and preserved on `legacy/streamlit`.
+- v1 user data migration (`tools/migrate_v1_data.py`) is in place.
+
+Progress anchors:
+
+| Week | Status | Landing commit |
+|---|---|---|
+| 1 — Foundation | Shipped | — |
+| 2 — API layer | Shipped | `07d2ea2d` |
+| 3 — Web UI skeleton | Shipped | `9d8e48c0` |
+| 4 — Memory excellence | Shipped | `8864599e` |
+| 5 — Skills as MCP | Next | — |
+| 6 — Mac desktop | Pending | — |
+| 7 — iPhone app | Pending | — |
+| 8 — Polish and launch | Pending | — |
+
+## Week 1 — Foundation (Shipped)
 
 **Goal:** Establish the monorepo skeleton. Move the brain. Cut model presets. Delete Streamlit.
 
@@ -47,7 +63,7 @@ Then pick up the current week below.
 - Test failures during the move. Mitigated by moving files first, updating imports, running tests, then splitting `memory.py` as a second commit.
 - Losing user data. Mitigated by migration script that copies (not moves) first, verifies, then marks v1 location as archived.
 
-## Week 2 — API Layer
+## Week 2 — API Layer (Shipped)
 
 **Goal:** Build the FastAPI boundary. Ship the first working `/chat` endpoint with streaming.
 
@@ -71,7 +87,7 @@ Then pick up the current week below.
 - SSE behavior across proxies. Mitigated by explicit `Content-Type: text/event-stream` and flush handling.
 - LangGraph streaming shape changing under the hood. Mitigated by pinning LangGraph version.
 
-## Week 3 — Web UI Skeleton
+## Week 3 — Web UI Skeleton (Shipped)
 
 **Goal:** Ship the first working browser app. Round-trip a message from a real frontend.
 
@@ -95,9 +111,11 @@ Then pick up the current week below.
 - CORS between Vercel-hosted frontend and a local API. Mitigated by deploying the API alongside (Fly.io, Render, or Modal) or by running both locally for development.
 - SvelteKit's SSR interacting with SSE. Mitigated by rendering chat routes client-only.
 
-## Week 4 — Memory Excellence
+## Week 4 — Memory Excellence (Shipped)
 
 **Goal:** Implement the three-store memory described in [ADR 0004](../decisions/0004-memory-architecture.md). Ship the recall-extract loop.
+
+**What shipped (`8864599e`):** All deliverables below are in `packages/brain/src/june_brain/memory/` and `apps/web/src/routes/memory/`. `MemoryManager.recall` fans out to SQLite keyword, ChromaDB semantic, and graph entity queries with dedupe and ranking; `MemoryManager.extract` runs on a FastAPI `BackgroundTask` so the user never waits for the extractor. The `/memory` browser groups facts, entities, goals, open loops, and calendar with a search box and per-fact Forget button. Delete refs are source-prefixed (`semantic:`, `node:`, `edge:`) so one endpoint routes to the right store. 143 brain tests and 8 API tests cover the stores, the manager facade, the two-turn recall exit criterion, and the delete-removes-from-recall path.
 
 **Deliverables:**
 

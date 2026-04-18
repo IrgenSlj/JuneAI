@@ -58,12 +58,13 @@ The API is the network boundary. It is deliberately thin: routes wrap `JuneAgent
 Routes:
 
 - **`POST /chat`** — stream an agent turn over SSE. Request: user ID, message. Response: token stream, tool call events, memory events.
-- **`GET /memory/{user_id}`** — structured memory by domain.
-- **`POST /memory/{user_id}/fact`** — manual fact edits.
-- **`DELETE /memory/{user_id}/fact/{id}`** — fact removal.
-- **`GET /skills`** — discovered skill servers with their tool lists.
-- **`POST /skills/{name}/enable`** and **`/disable`** — runtime toggling.
+- **`GET /memory/{user_id}`** — snapshot across all three stores: structured rows, semantic facts, entities.
+- **`DELETE /memory/{user_id}/fact/{ref}`** — fact removal. The `ref` carries a source prefix (`semantic:`, `node:`, `edge:`) so the handler routes to the correct store through `MemoryManager.forget`.
+- **`GET /skills`** — discovered skill servers with their tool lists. *(stub until Week 5)*
+- **`POST /skills/{name}/enable`** and **`/disable`** — runtime toggling. *(Week 5)*
 - **`GET /system`** — model provider status, Ollama health, memory paths.
+
+Manual fact editing (`POST /memory/{user_id}/fact`) is deferred. The memory browser currently supports delete-and-re-learn; a `POST`/`PATCH` surface lands when the UI needs it.
 
 All request and response schemas are defined as Pydantic models in `packages/api/src/june_api/schemas/`. A codegen step (`tools/codegen.sh`) produces TypeScript types under `packages/ui/src/api/types.ts`. The UI never defines its own API types.
 

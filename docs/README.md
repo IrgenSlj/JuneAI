@@ -6,7 +6,7 @@ This directory is the documentation root. Everything you need to understand, con
 
 - [**Vision**](vision.md) — the product premise and the three non-negotiables
 - [**Architecture overview**](architecture/overview.md) — how the system is layered
-- [**Architecture decisions**](decisions/README.md) — the six ADRs that justify the design
+- [**Architecture decisions**](decisions/README.md) — the seven ADRs that justify the design
 - [**8-week plan**](product/plan.md) — the canonical development plan
 - [**Environment**](setup/environment.md) — runtime configuration reference
 
@@ -24,7 +24,8 @@ docs/
 │   ├── 0003-streamlit-to-sveltekit.md
 │   ├── 0004-memory-architecture.md
 │   ├── 0005-skills-as-mcp.md
-│   └── 0006-desktop-and-mobile-shells.md
+│   ├── 0006-desktop-and-mobile-shells.md
+│   └── 0007-sse-over-websockets.md
 ├── product/
 │   └── plan.md                    # canonical 8-week plan
 ├── setup/

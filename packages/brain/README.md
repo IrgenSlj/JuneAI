@@ -14,11 +14,15 @@ pip install june-brain
 from june_brain import create_june_agent
 from june_brain.memory import MemoryManager
 
-memory = MemoryManager()
-agent = create_june_agent(memory=memory)
-for event in agent.stream(user_id="me", message="Hello"):
-    print(event)
+agent = create_june_agent()
+
+# Recall is automatic inside the agent. To inspect or mutate memory
+# directly, go through MemoryManager (per-user).
+memory = MemoryManager(user_id="me")
+hits = memory.recall("what did I say about ramen", k=5)
 ```
+
+The three stores (`Memory` for SQLite, `VectorStore` for ChromaDB, `KnowledgeGraph` for entities) live behind `MemoryManager`. Direct access is available for scripts and migrations — see `packages/brain/src/june_brain/memory/`.
 
 ## See Also
 

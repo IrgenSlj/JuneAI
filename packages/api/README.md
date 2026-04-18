@@ -4,8 +4,9 @@ FastAPI boundary in front of `june-brain`. One HTTP surface that every shell (we
 
 ## Routes
 
-- `POST /chat` — SSE stream. Events: `token`, `tool_call`, `tool_result`, `done`, `error`.
-- `GET /memory/{user_id}` — structured memory snapshot.
+- `POST /chat` — SSE stream. Events: `token`, `tool_call`, `tool_result`, `done`, `error`. Runs `MemoryManager.extract` as a background task after the stream closes.
+- `GET /memory/{user_id}` — snapshot across SQLite (goals, open loops, calendar), ChromaDB (semantic facts), and the knowledge graph (entities). Each fact carries a stable `ref` so the UI can target deletes.
+- `DELETE /memory/{user_id}/fact/{ref}` — remove a fact. Ref prefixes: `semantic:<fact_id>`, `node:<node_id>`, `edge:<src>|<dst>|<kind>`.
 - `GET /skills` — tools currently available to the agent.
 - `GET /system` — runtime and Ollama status.
 

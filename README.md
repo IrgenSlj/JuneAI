@@ -6,7 +6,14 @@ June runs privately on your laptop via Gemma 4 and scales to the cloud via Gemin
 
 ## Status
 
-June is in early development. Week 1 is complete: the monorepo is in place, the brain is in `packages/brain/`, and the two supported model runtimes (Gemma 4 and Gemini) are wired through one code path. See [`docs/product/plan.md`](docs/product/plan.md) for the current week and exit criteria.
+June is in early development. Weeks 1 through 4 are complete:
+
+- **Week 1** — monorepo reshaped; `packages/brain/` holds the intelligence layer; Gemma 4 and Gemini wired through one code path.
+- **Week 2** — FastAPI boundary at `packages/api/` with SSE streaming on `POST /chat`; TypeScript types generated from Pydantic schemas.
+- **Week 3** — SvelteKit PWA at `apps/web/` streaming live tokens from Gemma; shared components in `packages/ui/`.
+- **Week 4** — three-store memory shipped (SQLite + ChromaDB + knowledge graph) behind a single `MemoryManager`; recall on every turn, extract runs post-stream; `/memory` browser with per-fact delete.
+
+Week 5 (skills as MCP servers) is next. See [`docs/product/plan.md`](docs/product/plan.md) for the current exit criteria.
 
 The original v1 Streamlit prototype is preserved on the `legacy/streamlit` branch for historical reference.
 
@@ -41,7 +48,17 @@ cp .env.example .env
 
 `dev.sh` verifies Ollama is running with Gemma 4 pulled (or that a `GEMINI_API_KEY` is set when `MODEL_PROVIDER=gemini`), creates a Python venv at `packages/brain/.venv`, and runs the brain tests.
 
-An end-to-end user experience lands in Week 3 when the SvelteKit app is wired up.
+To run the full stack locally:
+
+```bash
+# terminal 1 — API
+packages/brain/.venv/bin/uvicorn june_api.app:app --reload --port 8000
+
+# terminal 2 — web
+pnpm --filter @june/web dev
+```
+
+Open http://localhost:5173 for the chat surface and http://localhost:5173/memory for the memory browser.
 
 ## Migrating from v1
 
