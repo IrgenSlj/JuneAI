@@ -131,7 +131,10 @@
 
 <main class="app">
   <header class="top">
-    <h1>June</h1>
+    <div class="brand">
+      <h1>June</h1>
+      <a class="memory-link" href="/memory">Memory</a>
+    </div>
     {#if system}
       <span
         class="runtime"
@@ -191,11 +194,26 @@
     border-bottom: 1px solid var(--color-border);
   }
 
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-4);
+  }
+
   h1 {
     margin: 0;
     font-size: var(--size-xl);
     font-weight: 600;
     letter-spacing: -0.01em;
+  }
+
+  .memory-link {
+    font-size: var(--size-sm);
+    color: var(--color-fg-muted);
+    text-decoration: none;
+  }
+  .memory-link:hover {
+    color: var(--color-accent);
   }
 
   .runtime {

@@ -25,7 +25,7 @@ from .context_intelligence import (
     format_active_commitments_summary,
     format_recovery_readiness_summary,
 )
-from .memory import Memory
+from .memory import Memory, MemoryManager
 from .models import build_chat_model
 from .skills import DEFAULT_SKILL, build_system_prompt
 from .telemetry import record_route_selection, record_save_event, record_tool_call
@@ -606,6 +606,34 @@ def _build_memory_context(user_id: str) -> str:
     return result
 
 
+def _build_recall_block(user_id: str, query: str, k: int = 5) -> str:
+    """Fresh per-turn fan-out across the three memory stores.
+
+    Not cached because the query changes every turn and the individual
+    lookups are cheap (vector search ~tens of ms, graph + sqlite keyword
+    scans ~ms). If recall raises, we swallow and return an empty block so
+    a broken memory store never takes down the chat loop.
+    """
+    query = (query or "").strip()
+    if not query:
+        return ""
+    try:
+        manager = MemoryManager(user_id)
+        hits = manager.recall(query, k=k)
+    except Exception as exc:  # noqa: BLE001
+        logging.warning("recall block failed for user=%s: %s", user_id, exc)
+        return ""
+    return manager.format_for_prompt(hits)
+
+
+def _latest_user_text(messages: list[AnyMessage]) -> str:
+    """Find the most recent human message content in the agent state."""
+    for message in reversed(messages or []):
+        if getattr(message, "type", None) == "human" or message.__class__.__name__ == "HumanMessage":
+            return _extract_text(message.content)
+    return ""
+
+
 def _select_tools_for_runtime(runtime: RuntimeConfig) -> list[Any]:
     """Choose a tool set sized for the active runtime.
 
@@ -703,10 +731,16 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
             }
         )
         memory_context = _build_memory_context(state["user_id"])
-        messages = [
+        recall_block = _build_recall_block(
+            state["user_id"], _latest_user_text(state["messages"])
+        )
+        system_messages = [
             SystemMessage(content=prompt),
             SystemMessage(content=memory_context),
-        ] + _trim_messages(state["messages"])
+        ]
+        if recall_block:
+            system_messages.append(SystemMessage(content=recall_block))
+        messages = system_messages + _trim_messages(state["messages"])
         raw_response = llm.invoke(messages)
         if isinstance(getattr(raw_response, "content", None), str):
             raw_response.content = _strip_internal_thoughts(str(raw_response.content))

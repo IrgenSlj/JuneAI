@@ -9,8 +9,10 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from starlette.background import BackgroundTask
 
 from june_brain import graph as brain_graph
+from june_brain.memory import MemoryManager
 
 from ..schemas import ChatEvent, ChatRequest
 
@@ -74,7 +76,11 @@ def _tool_result_event(message: ToolMessage) -> ChatEvent:
     )
 
 
-async def _iter_events(agent: Any, request: ChatRequest) -> AsyncIterator[str]:
+async def _iter_events(
+    agent: Any,
+    request: ChatRequest,
+    assistant_buffer: list[str],
+) -> AsyncIterator[str]:
     state = {
         "messages": [HumanMessage(content=request.message)],
         "user_id": request.user_id,
@@ -92,6 +98,7 @@ async def _iter_events(agent: Any, request: ChatRequest) -> AsyncIterator[str]:
                 message, _metadata = chunk
                 text = getattr(message, "content", "")
                 if isinstance(text, str) and text:
+                    assistant_buffer.append(text)
                     yield _event_to_sse(ChatEvent(type="token", content=text))
             elif mode == "updates":
                 for _node, update in chunk.items():
@@ -119,6 +126,23 @@ async def _iter_events(agent: Any, request: ChatRequest) -> AsyncIterator[str]:
         yield _event_to_sse(ChatEvent(type="error", content=str(exc)))
 
 
+def _run_extract(user_id: str, user_text: str, assistant_buffer: list[str]) -> None:
+    """Post-stream background task: extract durable memory from the exchange.
+
+    Runs after the SSE response is fully sent so the user never waits for
+    the extractor LLM call. Any error here stays out of the user's view —
+    memory extraction is best-effort; the chat already succeeded.
+    """
+    assistant_text = "".join(assistant_buffer).strip()
+    if not user_text.strip() and not assistant_text:
+        return
+    try:
+        manager = MemoryManager(user_id)
+        manager.extract({"user": user_text, "assistant": assistant_text})
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("post-chat extract failed for user=%s: %s", user_id, exc)
+
+
 @router.post(
     "/chat",
     response_class=StreamingResponse,
@@ -134,11 +158,15 @@ async def chat(
     agent: Any = Depends(get_agent),
 ) -> StreamingResponse:
     """Stream June's reply as SSE. Each frame is a JSON-encoded ChatEvent."""
+    assistant_buffer: list[str] = []
     return StreamingResponse(
-        _iter_events(agent, request),
+        _iter_events(agent, request, assistant_buffer),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
         },
+        background=BackgroundTask(
+            _run_extract, request.user_id, request.message, assistant_buffer
+        ),
     )

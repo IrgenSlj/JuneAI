@@ -1,19 +1,28 @@
-"""June's memory system.
+"""June's memory system — three complementary stores behind one facade.
 
-Today this is a single SQLite store. Per ADR 0004, two more stores land
-in Week 4: a vector store for semantic recall (ChromaDB) and a
-knowledge graph for entity relationships. `MemoryManager` will compose
-all three behind one interface.
+Per ADR 0004:
+- ``Memory`` — SQLite, structured domain tables (goals, journal, body, …)
+- ``VectorStore`` — ChromaDB, semantic recall via a local embedder
+- ``KnowledgeGraph`` — SQLite graph tables (nodes + edges), entity/relation memory
+- ``MemoryManager`` — the facade that recalls across all three and
+  extracts new memory from each exchange
 
-Until then, `Memory` (the SQLite store) is the sole public class and
-re-exported here for backward compatibility with `from june_brain.memory
-import Memory`.
+Callers should prefer ``MemoryManager``. ``Memory`` is still re-exported
+because a lot of legacy brain code speaks directly to SQLite tables.
 """
 
 from __future__ import annotations
 
 from ..config import MEMORY_DIR  # re-exported so tests can patch it here
+from .graph import KnowledgeGraph
 from .manager import MemoryManager
 from .sqlite import Memory
+from .vector import VectorStore
 
-__all__ = ["MEMORY_DIR", "Memory", "MemoryManager"]
+__all__ = [
+    "MEMORY_DIR",
+    "Memory",
+    "MemoryManager",
+    "VectorStore",
+    "KnowledgeGraph",
+]

@@ -50,7 +50,7 @@
           "memory"
         ],
         "summary": "Get Memory",
-        "description": "Return a structured highlight reel of what June remembers about a user.\n\nWeek 2: SQLite-only. Week 4 will fan out to vector + graph stores\nand merge the rankings (ADR 0004).",
+        "description": "Return everything June remembers about a user, across all three stores.",
         "operationId": "get_memory_memory__user_id__get",
         "parameters": [
           {
@@ -70,6 +70,58 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MemorySnapshot"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/memory/{user_id}/fact/{ref}": {
+      "delete": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Delete Memory Fact",
+        "description": "Remove a fact by its opaque ref.\n\nSupports refs returned from ``GET /memory``:\n  - ``semantic:<fact_id>`` removes a semantic fact from vector + shadow\n  - ``node:<node_id>`` removes a graph entity and its edges\n  - ``edge:<src>|<dst>|<kind>`` removes a single edge\n  - ``goal:<title>`` / ``open_loop:<topic>`` / ``calendar:<title>``\n    remove the structured row. (Not yet wired \u2014 Week 4 scope is\n    semantic + graph; the SQLite rows remain read-only for now.)",
+        "operationId": "delete_memory_fact_memory__user_id__fact__ref__delete",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ref"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryDeleteResponse"
                 }
               }
             }
@@ -200,12 +252,36 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "MemoryDeleteResponse": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "ref": {
+            "type": "string",
+            "title": "Ref"
+          },
+          "removed": {
+            "type": "boolean",
+            "title": "Removed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "ref",
+          "removed"
+        ],
+        "title": "MemoryDeleteResponse",
+        "description": "Result of DELETE /memory/{user_id}/fact/{ref}."
+      },
       "MemoryFact": {
         "properties": {
           "kind": {
             "type": "string",
             "title": "Kind",
-            "description": "Category of fact, e.g. 'goal', 'calendar_item', 'preference'."
+            "description": "Category of fact, e.g. 'goal', 'semantic', 'entity:person'."
           },
           "title": {
             "type": "string",
@@ -217,6 +293,12 @@
             "type": "string",
             "title": "Body",
             "description": "Longer description or detail, when present.",
+            "default": ""
+          },
+          "ref": {
+            "type": "string",
+            "title": "Ref",
+            "description": "Opaque identifier for delete/edit operations.",
             "default": ""
           },
           "metadata": {
@@ -231,7 +313,7 @@
           "kind"
         ],
         "title": "MemoryFact",
-        "description": "One structured row read from memory."
+        "description": "One structured row read from memory.\n\n``ref`` is a stable opaque string that DELETE /memory/{user}/fact/{ref}\nunderstands. It carries the source tag (``semantic:``, ``node:``,\n``edge:``, ``goal:``\u2026) so the API can route the delete to the right\nstore without a second schema lookup."
       },
       "MemorySnapshot": {
         "properties": {
@@ -260,6 +342,22 @@
             "type": "array",
             "title": "Calendar"
           },
+          "semantic_facts": {
+            "items": {
+              "$ref": "#/components/schemas/MemoryFact"
+            },
+            "type": "array",
+            "title": "Semantic Facts",
+            "description": "Facts extracted from conversation and embedded for semantic recall."
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/MemoryFact"
+            },
+            "type": "array",
+            "title": "Entities",
+            "description": "People, places, projects and concepts June has mapped for this user."
+          },
           "recent_messages": {
             "type": "integer",
             "title": "Recent Messages",
@@ -272,7 +370,7 @@
           "user_id"
         ],
         "title": "MemorySnapshot",
-        "description": "Summary of what June remembers about a user.\n\nWeek 2 returns structured highlights from the SQLite store. Week 4\nwill extend this with vector-recalled facts and graph neighbors."
+        "description": "Summary of what June remembers about a user.\n\nThe SQLite structured tables, the vector semantic store, and the\nknowledge graph are all represented. UI can show them grouped or\nmerged in a timeline."
       },
       "SkillInfo": {
         "properties": {

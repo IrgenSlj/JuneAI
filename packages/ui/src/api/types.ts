@@ -33,15 +33,40 @@ export interface paths {
         };
         /**
          * Get Memory
-         * @description Return a structured highlight reel of what June remembers about a user.
-         *
-         *     Week 2: SQLite-only. Week 4 will fan out to vector + graph stores
-         *     and merge the rankings (ADR 0004).
+         * @description Return everything June remembers about a user, across all three stores.
          */
         get: operations["get_memory_memory__user_id__get"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/memory/{user_id}/fact/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Memory Fact
+         * @description Remove a fact by its opaque ref.
+         *
+         *     Supports refs returned from ``GET /memory``:
+         *       - ``semantic:<fact_id>`` removes a semantic fact from vector + shadow
+         *       - ``node:<node_id>`` removes a graph entity and its edges
+         *       - ``edge:<src>|<dst>|<kind>`` removes a single edge
+         *       - ``goal:<title>`` / ``open_loop:<topic>`` / ``calendar:<title>``
+         *         remove the structured row. (Not yet wired — Week 4 scope is
+         *         semantic + graph; the SQLite rows remain read-only for now.)
+         */
+        delete: operations["delete_memory_fact_memory__user_id__fact__ref__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -144,13 +169,30 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * MemoryDeleteResponse
+         * @description Result of DELETE /memory/{user_id}/fact/{ref}.
+         */
+        MemoryDeleteResponse: {
+            /** User Id */
+            user_id: string;
+            /** Ref */
+            ref: string;
+            /** Removed */
+            removed: boolean;
+        };
+        /**
          * MemoryFact
          * @description One structured row read from memory.
+         *
+         *     ``ref`` is a stable opaque string that DELETE /memory/{user}/fact/{ref}
+         *     understands. It carries the source tag (``semantic:``, ``node:``,
+         *     ``edge:``, ``goal:``…) so the API can route the delete to the right
+         *     store without a second schema lookup.
          */
         MemoryFact: {
             /**
              * Kind
-             * @description Category of fact, e.g. 'goal', 'calendar_item', 'preference'.
+             * @description Category of fact, e.g. 'goal', 'semantic', 'entity:person'.
              */
             kind: string;
             /**
@@ -166,6 +208,12 @@ export interface components {
              */
             body: string;
             /**
+             * Ref
+             * @description Opaque identifier for delete/edit operations.
+             * @default
+             */
+            ref: string;
+            /**
              * Metadata
              * @description Structured fields specific to this fact kind.
              */
@@ -177,8 +225,9 @@ export interface components {
          * MemorySnapshot
          * @description Summary of what June remembers about a user.
          *
-         *     Week 2 returns structured highlights from the SQLite store. Week 4
-         *     will extend this with vector-recalled facts and graph neighbors.
+         *     The SQLite structured tables, the vector semantic store, and the
+         *     knowledge graph are all represented. UI can show them grouped or
+         *     merged in a timeline.
          */
         MemorySnapshot: {
             /** User Id */
@@ -189,6 +238,16 @@ export interface components {
             open_loops?: components["schemas"]["MemoryFact"][];
             /** Calendar */
             calendar?: components["schemas"]["MemoryFact"][];
+            /**
+             * Semantic Facts
+             * @description Facts extracted from conversation and embedded for semantic recall.
+             */
+            semantic_facts?: components["schemas"]["MemoryFact"][];
+            /**
+             * Entities
+             * @description People, places, projects and concepts June has mapped for this user.
+             */
+            entities?: components["schemas"]["MemoryFact"][];
             /**
              * Recent Messages
              * @description Chat messages stored for this user.
@@ -401,6 +460,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemorySnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_memory_fact_memory__user_id__fact__ref__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryDeleteResponse"];
                 };
             };
             /** @description Validation Error */

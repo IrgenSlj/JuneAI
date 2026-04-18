@@ -17,6 +17,7 @@ export type ChatRequest = components["schemas"]["ChatRequest"];
 export type ChatEvent = components["schemas"]["ChatEvent"];
 export type MemorySnapshot = components["schemas"]["MemorySnapshot"];
 export type MemoryFact = components["schemas"]["MemoryFact"];
+export type MemoryDeleteResponse = components["schemas"]["MemoryDeleteResponse"];
 export type SkillInfo = components["schemas"]["SkillInfo"];
 export type SkillsResponse = components["schemas"]["SkillsResponse"];
 export type SystemStatus = components["schemas"]["SystemStatus"];
@@ -74,6 +75,27 @@ export function createJuneClient(options: JuneClientOptions) {
     /** GET /memory/{user_id} — structured highlights of what June remembers. */
     getMemory(userId: string): Promise<MemorySnapshot> {
       return getJson<MemorySnapshot>(`/memory/${encodeURIComponent(userId)}`);
+    },
+
+    /**
+     * DELETE /memory/{user_id}/fact/{ref} — remove a fact across stores.
+     *
+     * `ref` is the opaque identifier from a MemoryFact (e.g. "semantic:abc",
+     * "node:person:ana"). Colons inside the ref are fine — the route is
+     * declared with `{ref:path}` on the server.
+     */
+    deleteMemoryFact(userId: string, ref: string): Promise<MemoryDeleteResponse> {
+      const url = `${baseUrl}/memory/${encodeURIComponent(userId)}/fact/${encodeURI(ref)}`;
+      return (async () => {
+        const response = await fetchImpl(url, {
+          method: "DELETE",
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) {
+          throw new ApiError(response.status, response.statusText, await response.text());
+        }
+        return (await response.json()) as MemoryDeleteResponse;
+      })();
     },
 
     /**

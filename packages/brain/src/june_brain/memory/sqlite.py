@@ -220,6 +220,36 @@ CREATE TABLE IF NOT EXISTS app_state (
     value   TEXT NOT NULL,
     PRIMARY KEY (user_id, key)
 );
+CREATE TABLE IF NOT EXISTS graph_nodes (
+    user_id    TEXT NOT NULL,
+    node_id    TEXT NOT NULL,
+    kind       TEXT NOT NULL DEFAULT 'entity',
+    label      TEXT NOT NULL DEFAULT '',
+    props      TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, node_id)
+);
+CREATE TABLE IF NOT EXISTS graph_edges (
+    user_id    TEXT NOT NULL,
+    src        TEXT NOT NULL,
+    dst        TEXT NOT NULL,
+    kind       TEXT NOT NULL DEFAULT 'related_to',
+    props      TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, src, dst, kind)
+);
+CREATE INDEX IF NOT EXISTS idx_graph_edges_src ON graph_edges(user_id, src);
+CREATE INDEX IF NOT EXISTS idx_graph_edges_dst ON graph_edges(user_id, dst);
+CREATE TABLE IF NOT EXISTS semantic_facts (
+    user_id     TEXT NOT NULL,
+    fact_id     TEXT NOT NULL,
+    text        TEXT NOT NULL,
+    source      TEXT NOT NULL DEFAULT 'conversation',
+    metadata    TEXT NOT NULL DEFAULT '{}',
+    created_at  TEXT NOT NULL,
+    PRIMARY KEY (user_id, fact_id)
+);
+CREATE INDEX IF NOT EXISTS idx_semantic_facts_created ON semantic_facts(user_id, created_at);
 """
 
 

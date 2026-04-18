@@ -5,13 +5,14 @@ OpenAPI spec that tools/codegen.sh converts to TypeScript for the UI.
 """
 
 from .chat import ChatEvent, ChatRequest
-from .memory import MemoryFact, MemorySnapshot
+from .memory import MemoryDeleteResponse, MemoryFact, MemorySnapshot
 from .skills import SkillInfo, SkillsResponse
 from .system import SystemStatus
 
 __all__ = [
     "ChatEvent",
     "ChatRequest",
+    "MemoryDeleteResponse",
     "MemoryFact",
     "MemorySnapshot",
     "SkillInfo",
