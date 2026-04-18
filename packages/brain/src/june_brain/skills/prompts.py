@@ -6,10 +6,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from .config import RuntimeConfig
+from ..config import RuntimeConfig
 
 if TYPE_CHECKING:
-    from .memory import Memory
+    from ..memory import Memory
 
 
 @dataclass(frozen=True)
@@ -293,7 +293,7 @@ def build_system_prompt(
     patterns_context = ""
     if memory is not None:
         try:
-            from .patterns import detect_patterns, format_patterns_for_prompt
+            from ..patterns import detect_patterns, format_patterns_for_prompt
             insights = detect_patterns(memory)
             patterns_context = format_patterns_for_prompt(insights)
         except Exception:
@@ -302,7 +302,7 @@ def build_system_prompt(
     suggestion_context = ""
     if memory is not None:
         try:
-            from .patterns import get_daily_suggestion
+            from ..patterns import get_daily_suggestion
             suggestion = get_daily_suggestion(memory)
             if suggestion:
                 suggestion_context = (

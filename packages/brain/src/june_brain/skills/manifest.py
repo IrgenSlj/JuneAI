@@ -1,0 +1,220 @@
+"""Skill manifest — lists installed MCP skill servers and their enabled state.
+
+The manifest lives at ``~/Library/Application Support/June/skills.toml`` on
+macOS (and the XDG equivalent elsewhere). If the file is missing, a default
+manifest is materialized on first read so users never have to hand-author it.
+
+Each entry is:
+
+    [skill.research]
+    enabled = true
+    command = "python"
+    args = ["-m", "june_skill_research"]
+    env = { BRAVE_SEARCH_API_KEY = "..." }
+
+``command`` + ``args`` tell the supervisor how to spawn the MCP stdio server.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+try:  # Python 3.11+
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - 3.10 fallback
+    import tomli as tomllib  # type: ignore[no-redef]
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class SkillManifestEntry:
+    """One skill's configuration in the manifest."""
+
+    key: str
+    enabled: bool = True
+    command: str = sys.executable
+    args: list[str] = field(default_factory=list)
+    env: dict[str, str] = field(default_factory=dict)
+    description: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "enabled": self.enabled,
+            "command": self.command,
+            "args": list(self.args),
+            "env": dict(self.env),
+            "description": self.description,
+        }
+
+
+@dataclass
+class SkillManifest:
+    """Parsed skills.toml."""
+
+    entries: dict[str, SkillManifestEntry] = field(default_factory=dict)
+
+    def enabled_entries(self) -> list[SkillManifestEntry]:
+        return [e for e in self.entries.values() if e.enabled]
+
+    def get(self, key: str) -> SkillManifestEntry | None:
+        return self.entries.get(key)
+
+    def set_enabled(self, key: str, enabled: bool) -> SkillManifestEntry | None:
+        entry = self.entries.get(key)
+        if entry is None:
+            return None
+        entry.enabled = enabled
+        return entry
+
+
+# The five Week-5 skills. Each assumes the skill package is installed in the
+# same venv as the brain, so we invoke it as "python -m <module>".
+DEFAULT_MANIFEST: SkillManifest = SkillManifest(
+    entries={
+        "calendar": SkillManifestEntry(
+            key="calendar",
+            enabled=True,
+            command=sys.executable,
+            args=["-m", "june_skill_calendar"],
+            description="Calendar events, reminders, and birthdays.",
+        ),
+        "health": SkillManifestEntry(
+            key="health",
+            enabled=True,
+            command=sys.executable,
+            args=["-m", "june_skill_health"],
+            description="Body metrics, workouts, water, and habits.",
+        ),
+        "research": SkillManifestEntry(
+            key="research",
+            enabled=True,
+            command=sys.executable,
+            args=["-m", "june_skill_research"],
+            description="Web search via Brave Search or DuckDuckGo.",
+        ),
+        "files": SkillManifestEntry(
+            key="files",
+            enabled=True,
+            command=sys.executable,
+            args=["-m", "june_skill_files"],
+            description="Read local PDFs and extract clean text from webpages.",
+        ),
+        "daily": SkillManifestEntry(
+            key="daily",
+            enabled=True,
+            command=sys.executable,
+            args=["-m", "june_skill_daily"],
+            description="Journaling, moods, goals, and chapter intake.",
+        ),
+    }
+)
+
+
+def _default_config_root() -> Path:
+    """Return the user's June configuration root."""
+    env_override = os.environ.get("JUNE_CONFIG_ROOT")
+    if env_override:
+        return Path(env_override)
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "June"
+    xdg = os.environ.get("XDG_CONFIG_HOME")
+    base = Path(xdg) if xdg else Path.home() / ".config"
+    return base / "june"
+
+
+def manifest_path(root: Path | None = None) -> Path:
+    """Return the manifest file path, creating the parent directory if needed."""
+    root = root or _default_config_root()
+    root.mkdir(parents=True, exist_ok=True)
+    return root / "skills.toml"
+
+
+def _serialize(manifest: SkillManifest) -> str:
+    """Hand-written TOML writer (avoids adding tomli-w as a dep)."""
+    lines: list[str] = [
+        "# June skills manifest — edit to enable/disable skills or change launch args.",
+        "# Documented at docs/decisions/0005-skills-as-mcp.md.",
+        "",
+    ]
+    for key, entry in manifest.entries.items():
+        lines.append(f"[skill.{key}]")
+        lines.append(f"enabled = {str(entry.enabled).lower()}")
+        lines.append(f'command = "{entry.command}"')
+        args = ", ".join(f'"{a}"' for a in entry.args)
+        lines.append(f"args = [{args}]")
+        if entry.description:
+            lines.append(f'description = "{entry.description}"')
+        if entry.env:
+            env_inline = ", ".join(f'{k} = "{v}"' for k, v in entry.env.items())
+            lines.append(f"env = {{ {env_inline} }}")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def load_manifest(path: Path | None = None) -> SkillManifest:
+    """Load the manifest, materializing a default file if missing.
+
+    Missing-entry recovery: if the on-disk manifest lacks one of the five
+    DEFAULT_MANIFEST skills, the missing entry is added with its default
+    (enabled) config. Existing entries are never overwritten.
+    """
+    target = path or manifest_path()
+    if not target.exists():
+        save_manifest(DEFAULT_MANIFEST, target)
+        return SkillManifest(
+            entries={k: _copy_entry(v) for k, v in DEFAULT_MANIFEST.entries.items()}
+        )
+
+    try:
+        with target.open("rb") as fh:
+            data = tomllib.load(fh)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed to parse %s (%s); falling back to default manifest.", target, exc)
+        return SkillManifest(
+            entries={k: _copy_entry(v) for k, v in DEFAULT_MANIFEST.entries.items()}
+        )
+
+    manifest = SkillManifest()
+    skill_block = data.get("skill") or {}
+    for key, raw in skill_block.items():
+        if not isinstance(raw, dict):
+            continue
+        default = DEFAULT_MANIFEST.entries.get(key)
+        manifest.entries[key] = SkillManifestEntry(
+            key=key,
+            enabled=bool(raw.get("enabled", True)),
+            command=str(raw.get("command") or (default.command if default else sys.executable)),
+            args=list(raw.get("args") or (default.args if default else [])),
+            env=dict(raw.get("env") or {}),
+            description=str(raw.get("description") or (default.description if default else "")),
+        )
+
+    for key, default_entry in DEFAULT_MANIFEST.entries.items():
+        if key not in manifest.entries:
+            manifest.entries[key] = _copy_entry(default_entry)
+
+    return manifest
+
+
+def save_manifest(manifest: SkillManifest, path: Path | None = None) -> Path:
+    """Write the manifest to disk and return the path."""
+    target = path or manifest_path()
+    target.write_text(_serialize(manifest), encoding="utf-8")
+    return target
+
+
+def _copy_entry(entry: SkillManifestEntry) -> SkillManifestEntry:
+    return SkillManifestEntry(
+        key=entry.key,
+        enabled=entry.enabled,
+        command=entry.command,
+        args=list(entry.args),
+        env=dict(entry.env),
+        description=entry.description,
+    )

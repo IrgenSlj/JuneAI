@@ -6,6 +6,7 @@ import json
 import logging
 import operator
 import re
+import threading
 import time
 from datetime import datetime
 from html import unescape
@@ -27,7 +28,7 @@ from .context_intelligence import (
 )
 from .memory import Memory, MemoryManager
 from .models import build_chat_model
-from .skills import DEFAULT_SKILL, build_system_prompt
+from .skills import DEFAULT_SKILL, build_system_prompt, load_skill_tools
 from .telemetry import record_route_selection, record_save_event, record_tool_call
 from .tools import JUNE_TOOLS, JUNE_TOOLS_CORE, JUNE_TOOLS_GEMMA
 
@@ -638,11 +639,28 @@ def _select_tools_for_runtime(runtime: RuntimeConfig) -> list[Any]:
     """Choose a tool set sized for the active runtime.
 
     Gemma 4 (local, small) runs with the trimmed tool schema to keep prompts
-    lean. Gemini (cloud) gets the full tool set.
+    lean. Gemini (cloud) gets the full tool set. Enabled MCP skills append
+    their tools on top, so toggling a skill on the /skills page adds or
+    removes its capabilities on the next agent build.
+
+    Native tools win on name collision — the skill is shadowed until the
+    native copy is removed. That matters while we're mid-migration: we do
+    not want two implementations of e.g. ``log_water`` competing for the
+    same call.
     """
     if runtime.preset_key == "gemma":
-        return JUNE_TOOLS_GEMMA
-    return JUNE_TOOLS
+        native = JUNE_TOOLS_GEMMA
+    else:
+        native = JUNE_TOOLS
+
+    native_names = {getattr(t, "name", "") for t in native}
+    try:
+        skill_tools = [t for t in load_skill_tools() if t.name not in native_names]
+    except Exception as exc:  # noqa: BLE001
+        logging.warning("Failed to load skill tools: %s", exc)
+        skill_tools = []
+
+    return list(native) + skill_tools
 
 
 _MESSAGE_WINDOW = 24  # messages kept verbatim (must be even so pairs stay intact)
@@ -820,9 +838,29 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
     return graph.compile()
 
 
+_agent_lock = threading.Lock()
 startup_error: str | None = None
 try:
     june_agent = create_june_agent()
 except Exception as exc:
     june_agent = None
     startup_error = str(exc)
+
+
+def reload_agent() -> None:
+    """Rebuild :data:`june_agent` in place. Call after a skill toggle so the
+    next chat turn sees the updated tool surface.
+
+    The module-level ``june_agent`` reference is replaced atomically. Callers
+    that already captured a reference to the old agent keep a working copy
+    until their request completes.
+    """
+    global june_agent, startup_error
+    with _agent_lock:
+        try:
+            june_agent = create_june_agent()
+            startup_error = None
+        except Exception as exc:  # noqa: BLE001
+            june_agent = None
+            startup_error = str(exc)
+            logging.warning("reload_agent failed: %s", exc)
