@@ -39,7 +39,7 @@ Then pick up the current week below.
 **Exit criteria:**
 
 - All non-UI v1 tests pass against the new `packages/brain/` layout.
-- `from june_brain import JuneAgent` works from a fresh Python venv.
+- `from june_brain import create_june_agent, june_agent` works from a fresh Python venv.
 - The repo has no Streamlit imports anywhere on `main`.
 
 **Risks:**
