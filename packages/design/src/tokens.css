@@ -1,0 +1,64 @@
+/* June design tokens as CSS custom properties.
+ *
+ * Import this file once at the app entry point. Every Svelte
+ * component references `var(--color-bg-base)` etc. so a token update
+ * propagates without a component rebuild. Keys mirror tokens.ts.
+ */
+
+:root {
+  /* Surfaces */
+  --color-bg-base: #0b0d10;
+  --color-bg-raised: #14181d;
+  --color-bg-sunken: #08090b;
+
+  /* Foregrounds */
+  --color-fg-primary: #f5f6f7;
+  --color-fg-muted: #a3acb6;
+  --color-fg-subtle: #6a727d;
+
+  /* Accent */
+  --color-accent: #f5a524;
+  --color-accent-muted: #b87917;
+
+  /* Semantic */
+  --color-success: #3ecf8e;
+  --color-danger: #ef4146;
+  --color-border: #20262e;
+  --color-border-strong: #2e3641;
+
+  /* Typography */
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+  --size-xs: 0.75rem;
+  --size-sm: 0.875rem;
+  --size-md: 1rem;
+  --size-lg: 1.125rem;
+  --size-xl: 1.375rem;
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.7;
+
+  /* Spacing */
+  --space-0: 0;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.45);
+}

@@ -1,0 +1,19 @@
+{
+  "name": "june",
+  "version": "0.0.0",
+  "private": true,
+  "description": "June AI — the open personal AI that remembers you. JS workspace root.",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @june/web dev",
+    "build": "pnpm -r --filter './packages/**' --filter './apps/**' build",
+    "check": "pnpm -r --filter './packages/**' --filter './apps/**' check",
+    "codegen": "./tools/codegen.sh"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

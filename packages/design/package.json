@@ -1,0 +1,19 @@
+{
+  "name": "@june/design",
+  "version": "0.1.0",
+  "private": true,
+  "description": "June design tokens — single source of truth for colors, type, spacing.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens.css": "./src/tokens.css"
+  },
+  "scripts": {
+    "check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

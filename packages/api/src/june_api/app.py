@@ -18,17 +18,20 @@ from .schemas import ChatEvent
 def _cors_origins() -> list[str]:
     """Resolve allowed origins from env.
 
-    Defaults to the dev-server origins for apps/web (Next.js on 3000) and
-    apps/desktop (Tauri embeds the Next.js app locally). Override with
-    ``JUNE_API_CORS_ORIGINS`` (comma-separated) in production.
+    Defaults cover the SvelteKit dev server (apps/web) plus the Tauri
+    desktop shell and Capacitor mobile shell which load the built app
+    from custom schemes. Override with ``JUNE_API_CORS_ORIGINS``
+    (comma-separated) in production.
     """
     raw = os.getenv("JUNE_API_CORS_ORIGINS", "").strip()
     if raw:
         return [origin.strip() for origin in raw.split(",") if origin.strip()]
     return [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
         "tauri://localhost",
+        "capacitor://localhost",
     ]
 
 
