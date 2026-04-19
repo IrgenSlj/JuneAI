@@ -1,8 +1,6 @@
 # Architecture Overview
 
-This document describes the v2 architecture of June. It replaces the v1 `architecture/README.md` and the v1 `architecture.html` diagrams.
-
-For the rationale behind each choice, see the Architecture Decision Records under `docs/decisions/`.
+This document describes how June is built. For the rationale behind each choice, see the Architecture Decision Records under `docs/decisions/`.
 
 ## Layered View
 
@@ -162,10 +160,4 @@ Post-turn: MemoryManager.extract(conversation)
 - **Logs and telemetry:** `~/Library/Logs/June/` on macOS.
 - **Config:** `~/Library/Application Support/June/config.toml`.
 
-The repo never contains user data in v2.
-
-## What This Replaces
-
-The v1 architecture stored everything under `JuneAI-app/.june_memory/` inside the repo. The v1 `app.py` was both shell, UI, and orchestration glue. The v1 `agent_ui/` modules were Streamlit-specific helpers. All of that is gone in v2.
-
-The v1 brain modules under `src/agent/` are preserved and migrated — the LangGraph graph, the SQLite memory schema, the pattern detection, and the tool implementations all survive. They change shape, not substance.
+The repository never contains user data.

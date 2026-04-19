@@ -57,8 +57,13 @@ Toggle `MODEL_PROVIDER` between `gemma` and `gemini`. Both can be configured at 
 
 Cloud-only users skip Ollama entirely and set `MODEL_PROVIDER=gemini` with a `GEMINI_API_KEY`.
 
-## v1 Legacy Variables
+## Skill Subprocess Variables
 
-The v1 Streamlit app used a broader set of variables (`LLM_BASE_URL`, `LLM_API_KEY`, `MODEL_NAME`, `MEMORY_DIR`, `LOCAL_LLAMA_MODEL_NAME`, `LOCAL_SMALL_MODEL_NAME`, `LOCAL_LARGE_MODEL_NAME`, `CLAUDE_MODEL_NAME`, `ANTHROPIC_API_KEY`, `MODEL_PRESET`, `MODEL_TOOL_STRATEGY`). These are removed in v2.
+Set by the brain's skill supervisor when spawning an MCP skill server. Never set these manually in a shell.
 
-v1 itself lives on the `legacy/streamlit` branch if you need to reference the old configuration.
+| Variable | Set By | Purpose |
+|---|---|---|
+| `JUNE_IS_SKILL_SUBPROCESS` | Supervisor | Signals that the process is a skill child. The brain's graph module skips agent construction under this flag to prevent a recursive fork bomb. |
+| `JUNE_SKILLS_DISABLED` | Supervisor | Defense in depth — prevents `get_supervisor()` from auto-starting skill subprocesses in children. |
+
+See [ADR 0005](../decisions/0005-skills-as-mcp.md) for the full rationale.
