@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import {
     createJuneClient,
+    OfflineNotice,
     type SkillInfo,
     type SkillsResponse,
   } from "@june/ui";
@@ -14,17 +15,19 @@
 
   let skills: SkillInfo[] = $state([]);
   let loading = $state(true);
-  let error: string | null = $state(null);
+  let loadError: string | null = $state(null);
+  let actionError: string | null = $state(null);
   let pendingToggle: string | null = $state(null);
 
   async function refresh() {
     loading = true;
-    error = null;
+    loadError = null;
+    actionError = null;
     try {
       const response: SkillsResponse = await client.getSkills();
       skills = response.skills ?? [];
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      loadError = err instanceof Error ? err.message : String(err);
     } finally {
       loading = false;
     }
@@ -35,11 +38,12 @@
   async function toggle(skill: SkillInfo) {
     if (pendingToggle) return;
     pendingToggle = skill.key;
+    actionError = null;
     try {
       await client.toggleSkill(skill.key, !skill.enabled);
       await refresh();
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      actionError = err instanceof Error ? err.message : String(err);
     } finally {
       pendingToggle = null;
     }
@@ -82,12 +86,21 @@
     </div>
   </header>
 
-  {#if error}
-    <div class="error">Couldn't load skills: {error}</div>
+  {#if loadError && skills.length === 0}
+    <OfflineNotice
+      kind="skills"
+      detail={loadError}
+      onRetry={refresh}
+      retrying={loading}
+    />
+  {:else if actionError}
+    <div class="error">Couldn't update that skill: {actionError}</div>
   {/if}
 
   {#if loading && skills.length === 0}
     <div class="empty">Loading June's skills…</div>
+  {:else if loadError && skills.length === 0}
+    <!-- OfflineNotice above already covers this state. -->
   {:else if skills.length === 0}
     <div class="empty">No skills installed.</div>
   {:else}

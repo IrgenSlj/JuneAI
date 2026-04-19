@@ -4,6 +4,7 @@
     ChatBubble,
     Composer,
     MessageList,
+    OfflineNotice,
     createJuneClient,
     type ChatMessage,
     type SystemStatus,
@@ -24,15 +25,24 @@
   let messages: ChatMessage[] = $state([]);
   let streaming = $state(false);
   let system: SystemStatus | null = $state(null);
+  let systemError: string | null = $state(null);
+  let systemLoading = $state(false);
   let abortController: AbortController | null = $state(null);
 
-  onMount(async () => {
+  async function loadSystem() {
+    systemLoading = true;
     try {
       system = await client.getSystem();
+      systemError = null;
     } catch (err) {
+      systemError = err instanceof Error ? err.message : String(err);
       console.warn("June: /system unreachable", err);
+    } finally {
+      systemLoading = false;
     }
-  });
+  }
+
+  onMount(loadSystem);
 
   function pushMessage(msg: ChatMessage) {
     messages = [...messages, msg];
@@ -167,7 +177,16 @@
   </header>
 
   <section class="transcript">
-    {#if messages.length === 0}
+    {#if messages.length === 0 && !system && systemError}
+      <div class="empty">
+        <OfflineNotice
+          kind="system"
+          detail={systemError}
+          onRetry={loadSystem}
+          retrying={systemLoading}
+        />
+      </div>
+    {:else if messages.length === 0}
       <div class="empty">
         <p>Hi, I'm June. I'll remember what matters so you don't have to.</p>
         <p class="muted">Type below to start.</p>

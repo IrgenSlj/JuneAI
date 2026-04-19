@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import {
     createJuneClient,
+    OfflineNotice,
     type MemoryFact,
     type MemorySnapshot,
   } from "@june/ui";
@@ -15,7 +16,8 @@
 
   let snapshot: MemorySnapshot | null = $state(null);
   let loading = $state(true);
-  let error: string | null = $state(null);
+  let loadError: string | null = $state(null);
+  let actionError: string | null = $state(null);
   let query = $state("");
   let pendingDelete: string | null = $state(null);
 
@@ -87,11 +89,12 @@
 
   async function refresh() {
     loading = true;
-    error = null;
+    loadError = null;
+    actionError = null;
     try {
       snapshot = await client.getMemory(USER_ID);
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      loadError = err instanceof Error ? err.message : String(err);
     } finally {
       loading = false;
     }
@@ -102,11 +105,12 @@
   async function handleDelete(fact: MemoryFact) {
     if (!fact.ref || pendingDelete) return;
     pendingDelete = fact.ref;
+    actionError = null;
     try {
       await client.deleteMemoryFact(USER_ID, fact.ref);
       await refresh();
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      actionError = err instanceof Error ? err.message : String(err);
     } finally {
       pendingDelete = null;
     }
@@ -143,9 +147,16 @@
     </div>
   </header>
 
-  {#if error}
+  {#if loadError && !snapshot}
+    <OfflineNotice
+      kind="memory"
+      detail={loadError}
+      onRetry={refresh}
+      retrying={loading}
+    />
+  {:else if actionError}
     <div class="error">
-      Couldn't load memory: {error}
+      Couldn't save that change: {actionError}
     </div>
   {/if}
 
