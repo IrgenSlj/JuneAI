@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from june_brain.config_store import apply_stored_config_to_env
 
-from .routes import chat, memory, setup, skills, system
+from .routes import chat, memory, settings, setup, skills, system
 from .schemas import ChatEvent
 
 apply_stored_config_to_env()
@@ -60,6 +60,7 @@ def create_app() -> FastAPI:
 
     app.include_router(chat.router)
     app.include_router(memory.router)
+    app.include_router(settings.router)
     app.include_router(setup.router)
     app.include_router(skills.router)
     app.include_router(system.router)

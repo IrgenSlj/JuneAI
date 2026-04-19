@@ -136,6 +136,7 @@
       <nav class="nav-links">
         <a href="/memory">Memory</a>
         <a href="/skills">Skills</a>
+        <a href="/settings">Settings</a>
       </nav>
     </div>
     {#if system}
@@ -166,7 +167,7 @@
         <p class="muted">Type below to start.</p>
       </div>
     {:else}
-      <MessageList {messages} />
+      <MessageList {messages} {streaming} />
     {/if}
   </section>
 

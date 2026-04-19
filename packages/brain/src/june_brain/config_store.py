@@ -26,8 +26,16 @@ from pathlib import Path
 from typing import Final
 
 from .config import MEMORY_DIR
+from .secret_store import (
+    SecretLocation,
+    delete_secret,
+    keyring_available,
+    load_secret,
+    save_secret,
+)
 
 CONFIG_FILENAME: Final = "config.json"
+GEMINI_KEY_NAME: Final = "gemini_api_key"
 
 
 @dataclass
@@ -64,18 +72,21 @@ def config_path() -> Path:
 
 
 def load_stored_config() -> StoredConfig:
-    """Read config.json if present. Missing or malformed files return defaults."""
+    """Read config.json if present. Missing or malformed files return defaults.
+
+    The Gemini API key is pulled from the OS credential store first; only if
+    no keyring backend is present do we fall back to the ``gemini_api_key``
+    field in the JSON file.
+    """
     path = config_path()
-    if not path.exists():
-        return StoredConfig()
-
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return StoredConfig()
-
-    if not isinstance(raw, dict):
-        return StoredConfig()
+    raw: dict[str, object] = {}
+    if path.exists():
+        try:
+            parsed = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            parsed = None
+        if isinstance(parsed, dict):
+            raw = parsed
 
     known = {"provider", "gemma_model", "gemini_model", "gemini_api_key", "ollama_base_url"}
     extras = {
@@ -84,20 +95,34 @@ def load_stored_config() -> StoredConfig:
         if k not in known and isinstance(v, (str, int, float, bool))
     }
 
+    gemini_key = load_secret(GEMINI_KEY_NAME) or _as_str(raw.get("gemini_api_key"))
+
     return StoredConfig(
         provider=_as_str(raw.get("provider")),
         gemma_model=_as_str(raw.get("gemma_model")),
         gemini_model=_as_str(raw.get("gemini_model")),
-        gemini_api_key=_as_str(raw.get("gemini_api_key")),
+        gemini_api_key=gemini_key,
         ollama_base_url=_as_str(raw.get("ollama_base_url")),
         extras=extras,
     )
 
 
 def save_stored_config(config: StoredConfig) -> Path:
-    """Write config.json atomically with mode 0600 so keys don't leak to other users."""
+    """Write config.json atomically with mode 0600.
+
+    The Gemini API key is routed through the OS credential store when one is
+    available; only if that fails does it land in the file. In either case the
+    JSON blob keeps non-secret fields (provider, model tags, base URL).
+    """
     path = config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
+
+    key_location: SecretLocation = "none"
+    if config.gemini_api_key:
+        key_location = save_secret(GEMINI_KEY_NAME, config.gemini_api_key)
+    elif keyring_available():
+        # Ensure a prior keyring entry doesn't outlive an explicit clear.
+        delete_secret(GEMINI_KEY_NAME)
 
     payload: dict[str, str] = {}
     if config.provider:
@@ -106,7 +131,7 @@ def save_stored_config(config: StoredConfig) -> Path:
         payload["gemma_model"] = config.gemma_model
     if config.gemini_model:
         payload["gemini_model"] = config.gemini_model
-    if config.gemini_api_key:
+    if config.gemini_api_key and key_location != "keyring":
         payload["gemini_api_key"] = config.gemini_api_key
     if config.ollama_base_url:
         payload["ollama_base_url"] = config.ollama_base_url
@@ -117,6 +142,48 @@ def save_stored_config(config: StoredConfig) -> Path:
     os.chmod(tmp, stat.S_IRUSR | stat.S_IWUSR)
     tmp.replace(path)
     return path
+
+
+def forget_gemini_key() -> SecretLocation:
+    """Remove the Gemini key from both the keyring and the JSON fallback.
+
+    Returns where the key had been living so the UI can report whether a
+    keyring or file entry was removed. ``"none"`` means there was nothing to
+    delete. Callers should also scrub the environment via ``os.environ.pop``
+    if the current process might still hold the old value in memory.
+    """
+    location: SecretLocation = "none"
+    if delete_secret(GEMINI_KEY_NAME):
+        location = "keyring"
+
+    path = config_path()
+    if path.exists():
+        try:
+            parsed = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            parsed = None
+        if isinstance(parsed, dict) and "gemini_api_key" in parsed:
+            parsed.pop("gemini_api_key", None)
+            path.write_text(json.dumps(parsed, indent=2, sort_keys=True), encoding="utf-8")
+            os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)
+            if location == "none":
+                location = "file"
+    return location
+
+
+def gemini_key_location() -> SecretLocation:
+    """Report where the active Gemini key lives, without returning its value."""
+    if load_secret(GEMINI_KEY_NAME):
+        return "keyring"
+    path = config_path()
+    if path.exists():
+        try:
+            parsed = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            parsed = None
+        if isinstance(parsed, dict) and parsed.get("gemini_api_key"):
+            return "file"
+    return "none"
 
 
 def apply_stored_config_to_env() -> StoredConfig:

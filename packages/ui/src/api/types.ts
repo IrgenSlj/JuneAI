@@ -72,6 +72,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Settings
+         * @description Return the current non-secret configuration plus reachability flags.
+         */
+        get: operations["get_settings_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/forget-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forget Key
+         * @description Delete the Gemini key from the OS credential store and the JSON fallback.
+         */
+        post: operations["forget_key_settings_forget_key_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/setup/status": {
         parameters: {
             query?: never;
@@ -226,6 +266,18 @@ export interface components {
              */
             skill: string;
         };
+        /**
+         * ForgetKeyResponse
+         * @description Outcome of POST /settings/forget-key.
+         */
+        ForgetKeyResponse: {
+            /**
+             * Cleared From
+             * @description Where the key actually lived. 'none' means nothing was stored.
+             * @enum {string}
+             */
+            cleared_from: "keyring" | "file" | "none";
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -317,6 +369,69 @@ export interface components {
              * @default 0
              */
             recent_messages: number;
+        };
+        /**
+         * SettingsView
+         * @description Non-secret snapshot of the active configuration.
+         */
+        SettingsView: {
+            /**
+             * Provider
+             * @description Active preset key ('gemma' or 'gemini').
+             */
+            provider: string;
+            /**
+             * Model
+             * @description Active model identifier.
+             */
+            model: string;
+            /**
+             * Gemma Model
+             * @description Persisted Gemma tag override, if any.
+             * @default
+             */
+            gemma_model: string;
+            /**
+             * Gemini Model
+             * @description Persisted Gemini model override, if any.
+             * @default
+             */
+            gemini_model: string;
+            /**
+             * Ollama Base Url
+             * @description Override for the Ollama endpoint, if any.
+             * @default
+             */
+            ollama_base_url: string;
+            /**
+             * Ollama Reachable
+             * @description Gemma preset only.
+             * @default false
+             */
+            ollama_reachable: boolean;
+            /**
+             * Ollama Has Model
+             * @description Gemma preset only.
+             * @default false
+             */
+            ollama_has_model: boolean;
+            /**
+             * Api Key Present
+             * @description Gemini preset only.
+             * @default false
+             */
+            api_key_present: boolean;
+            /**
+             * Key Storage
+             * @description Where the Gemini key is stored. 'keyring' means the OS credential store, 'file' means the 0600 config.json fallback, 'none' means no key is set.
+             * @enum {string}
+             */
+            key_storage: "keyring" | "file" | "none";
+            /**
+             * Key Storage Label
+             * @description Human-readable storage label for the settings UI.
+             */
+            key_storage_label: string;
         };
         /**
          * SetupApplyRequest
@@ -731,6 +846,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_settings_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsView"];
+                };
+            };
+        };
+    };
+    forget_key_settings_forget_key_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForgetKeyResponse"];
                 };
             };
         };

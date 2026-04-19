@@ -9,9 +9,14 @@
     role: "user" | "assistant" | "tool";
     content: string;
     toolName?: string;
+    /** True for the tail of an active stream, so an empty assistant bubble can pulse. */
+    pending?: boolean;
   }
 
-  const { role, content, toolName = "" }: Props = $props();
+  const { role, content, toolName = "", pending = false }: Props = $props();
+  const showThinking = $derived(
+    pending && role === "assistant" && content.length === 0,
+  );
 </script>
 
 <article class="bubble" data-role={role}>
@@ -21,7 +26,17 @@
       <span class="tool-label">{toolName || "tool"}</span>
     </header>
   {/if}
-  <div class="body" class:tool={role === "tool"}>{content}</div>
+  <div class="body" class:tool={role === "tool"}>
+    {#if showThinking}
+      <span class="thinking" aria-label="June is thinking">
+        <span class="pulse"></span>
+        <span class="pulse"></span>
+        <span class="pulse"></span>
+      </span>
+    {:else}
+      {content}
+    {/if}
+  </div>
 </article>
 
 <style>
@@ -84,5 +99,34 @@
 
   .body.tool {
     color: var(--color-fg-muted);
+  }
+
+  .thinking {
+    display: inline-flex;
+    gap: 4px;
+    padding: 2px 0;
+  }
+  .pulse {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-pill);
+    background: var(--color-fg-subtle);
+    animation: june-pulse 1.1s ease-in-out infinite;
+  }
+  .pulse:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+  .pulse:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+  @keyframes june-pulse {
+    0%, 80%, 100% {
+      opacity: 0.25;
+      transform: scale(0.85);
+    }
+    40% {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
 </style>

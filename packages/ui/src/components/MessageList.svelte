@@ -4,9 +4,11 @@
 
   interface Props {
     messages: ChatMessage[];
+    streaming?: boolean;
   }
 
-  const { messages }: Props = $props();
+  const { messages, streaming = false }: Props = $props();
+  const lastId = $derived(messages[messages.length - 1]?.id);
 
   let scrollEl: HTMLDivElement | undefined = $state();
 
@@ -29,6 +31,7 @@
       role={message.role}
       content={message.content}
       toolName={message.toolName}
+      pending={streaming && message.id === lastId}
     />
   {/each}
 </div>

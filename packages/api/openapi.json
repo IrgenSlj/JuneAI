@@ -139,6 +139,50 @@
         }
       }
     },
+    "/settings": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Get Settings",
+        "description": "Return the current non-secret configuration plus reachability flags.",
+        "operationId": "get_settings_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/forget-key": {
+      "post": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Forget Key",
+        "description": "Delete the Gemini key from the OS credential store and the JSON fallback.",
+        "operationId": "forget_key_settings_forget_key_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForgetKeyResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/setup/status": {
       "get": {
         "tags": [
@@ -356,6 +400,26 @@
         "title": "ChatRequest",
         "description": "A single user turn submitted to POST /chat."
       },
+      "ForgetKeyResponse": {
+        "properties": {
+          "cleared_from": {
+            "type": "string",
+            "enum": [
+              "keyring",
+              "file",
+              "none"
+            ],
+            "title": "Cleared From",
+            "description": "Where the key actually lived. 'none' means nothing was stored."
+          }
+        },
+        "type": "object",
+        "required": [
+          "cleared_from"
+        ],
+        "title": "ForgetKeyResponse",
+        "description": "Outcome of POST /settings/forget-key."
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -488,6 +552,80 @@
         ],
         "title": "MemorySnapshot",
         "description": "Summary of what June remembers about a user.\n\nThe SQLite structured tables, the vector semantic store, and the\nknowledge graph are all represented. UI can show them grouped or\nmerged in a timeline."
+      },
+      "SettingsView": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "description": "Active preset key ('gemma' or 'gemini')."
+          },
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "description": "Active model identifier."
+          },
+          "gemma_model": {
+            "type": "string",
+            "title": "Gemma Model",
+            "description": "Persisted Gemma tag override, if any.",
+            "default": ""
+          },
+          "gemini_model": {
+            "type": "string",
+            "title": "Gemini Model",
+            "description": "Persisted Gemini model override, if any.",
+            "default": ""
+          },
+          "ollama_base_url": {
+            "type": "string",
+            "title": "Ollama Base Url",
+            "description": "Override for the Ollama endpoint, if any.",
+            "default": ""
+          },
+          "ollama_reachable": {
+            "type": "boolean",
+            "title": "Ollama Reachable",
+            "description": "Gemma preset only.",
+            "default": false
+          },
+          "ollama_has_model": {
+            "type": "boolean",
+            "title": "Ollama Has Model",
+            "description": "Gemma preset only.",
+            "default": false
+          },
+          "api_key_present": {
+            "type": "boolean",
+            "title": "Api Key Present",
+            "description": "Gemini preset only.",
+            "default": false
+          },
+          "key_storage": {
+            "type": "string",
+            "enum": [
+              "keyring",
+              "file",
+              "none"
+            ],
+            "title": "Key Storage",
+            "description": "Where the Gemini key is stored. 'keyring' means the OS credential store, 'file' means the 0600 config.json fallback, 'none' means no key is set."
+          },
+          "key_storage_label": {
+            "type": "string",
+            "title": "Key Storage Label",
+            "description": "Human-readable storage label for the settings UI."
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "model",
+          "key_storage",
+          "key_storage_label"
+        ],
+        "title": "SettingsView",
+        "description": "Non-secret snapshot of the active configuration."
       },
       "SetupApplyRequest": {
         "properties": {

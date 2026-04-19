@@ -27,6 +27,8 @@ export type SystemStatus = components["schemas"]["SystemStatus"];
 export type SetupStatus = components["schemas"]["SetupStatus"];
 export type SetupApplyRequest = components["schemas"]["SetupApplyRequest"];
 export type SetupApplyResponse = components["schemas"]["SetupApplyResponse"];
+export type SettingsView = components["schemas"]["SettingsView"];
+export type ForgetKeyResponse = components["schemas"]["ForgetKeyResponse"];
 
 export interface JuneClientOptions {
   /** Base URL for the API, e.g. "http://localhost:8000". No trailing slash. */
@@ -76,6 +78,23 @@ export function createJuneClient(options: JuneClientOptions) {
     /** GET /setup/status — whether the active provider is usable end to end. */
     getSetupStatus(): Promise<SetupStatus> {
       return getJson<SetupStatus>("/setup/status");
+    },
+
+    /** GET /settings — non-secret snapshot of the active configuration. */
+    getSettings(): Promise<SettingsView> {
+      return getJson<SettingsView>("/settings");
+    },
+
+    /** POST /settings/forget-key — delete the Gemini key from the credential store. */
+    async forgetGeminiKey(): Promise<ForgetKeyResponse> {
+      const response = await fetchImpl(`${baseUrl}/settings/forget-key`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) {
+        throw new ApiError(response.status, response.statusText, await response.text());
+      }
+      return (await response.json()) as ForgetKeyResponse;
     },
 
     /** POST /setup/apply — persist provider + key choice and verify with a round-trip. */

@@ -50,9 +50,14 @@ Toggle `MODEL_PROVIDER` between `gemma` and `gemini`. Both can be configured at 
 
 ## Persistent User Choices
 
-The `/setup` screen writes the user's provider pick and Gemini key to `JUNE_DATA_DIR/config.json` with file mode 0600. The brain overlays that file onto `os.environ` at startup, but any value already present in the environment (including `.env`) wins. A developer can still force a provider from `.env`; an end user's one-time pick through the UI survives restart without needing to touch `.env`.
+The `/setup` and `/settings` screens write the user's provider pick to `JUNE_DATA_DIR/config.json` (mode 0600). The brain overlays that file onto `os.environ` at startup; any value already set in the environment (including `.env`) wins, so developers can still force a provider from `.env`.
 
-Native credential storage (macOS Keychain, libsecret, Credential Manager) replaces the 0600 file once roadmap item 2 ships.
+The Gemini API key goes through a separate path:
+
+- **macOS Keychain, Linux Secret Service, Windows Credential Manager** — used automatically via the `keyring` package when a backend is available. The key never lands in `config.json` in this case.
+- **Mode-0600 JSON fallback** — headless Linux, Docker, CI, or any environment without a keyring backend. `config.json` still holds the key with restrictive permissions.
+
+The `/settings` screen shows which of the two is active. "Forget key" removes the value from whichever store holds it.
 
 ## First-Run Setup
 
