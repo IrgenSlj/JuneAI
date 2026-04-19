@@ -48,6 +48,12 @@ OLLAMA_BASE_URL=http://localhost:11434/v1
 
 Toggle `MODEL_PROVIDER` between `gemma` and `gemini`. Both can be configured at the same time; the active one is selected by `MODEL_PROVIDER`. This is deliberate: users who want both can switch with one line.
 
+## Persistent User Choices
+
+The `/setup` screen writes the user's provider pick and Gemini key to `JUNE_DATA_DIR/config.json` with file mode 0600. The brain overlays that file onto `os.environ` at startup, but any value already present in the environment (including `.env`) wins. A developer can still force a provider from `.env`; an end user's one-time pick through the UI survives restart without needing to touch `.env`.
+
+Native credential storage (macOS Keychain, libsecret, Credential Manager) replaces the 0600 file once roadmap item 2 ships.
+
 ## First-Run Setup
 
 1. Install Ollama: `brew install ollama` on macOS.

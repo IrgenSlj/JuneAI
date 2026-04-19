@@ -139,6 +139,70 @@
         }
       }
     },
+    "/setup/status": {
+      "get": {
+        "tags": [
+          "setup"
+        ],
+        "summary": "Get Setup Status",
+        "description": "Report whether the active runtime is ready to serve chat requests.",
+        "operationId": "get_setup_status_setup_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/setup/apply": {
+      "post": {
+        "tags": [
+          "setup"
+        ],
+        "summary": "Apply Setup",
+        "description": "Persist the user's provider choice and verify it with a live round-trip.",
+        "operationId": "apply_setup_setup_apply_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupApplyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupApplyResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/skills": {
       "get": {
         "tags": [
@@ -424,6 +488,151 @@
         ],
         "title": "MemorySnapshot",
         "description": "Summary of what June remembers about a user.\n\nThe SQLite structured tables, the vector semantic store, and the\nknowledge graph are all represented. UI can show them grouped or\nmerged in a timeline."
+      },
+      "SetupApplyRequest": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "gemma",
+              "gemini"
+            ],
+            "title": "Provider",
+            "description": "Which runtime to activate."
+          },
+          "gemini_api_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gemini Api Key",
+            "description": "Required when provider is 'gemini'. Stored in config.json with mode 0600 until native credential storage lands."
+          },
+          "gemma_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gemma Model",
+            "description": "Ollama tag override. Defaults to the preset's default (gemma4:e4b)."
+          },
+          "gemini_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gemini Model",
+            "description": "Gemini model override. Defaults to gemini-2.0-flash."
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider"
+        ],
+        "title": "SetupApplyRequest",
+        "description": "User's provider pick from the /setup screen."
+      },
+      "SetupApplyResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "description": "True when the chosen provider successfully produced a token."
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "description": "The preset that was applied."
+          },
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "description": "The model the provider is configured to use."
+          },
+          "verified": {
+            "type": "boolean",
+            "title": "Verified",
+            "description": "True when a one-shot request to the provider returned a response."
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Short, human-readable status. Empty on clean success.",
+            "default": ""
+          },
+          "hint": {
+            "type": "string",
+            "title": "Hint",
+            "description": "When ok is false, a specific actionable hint (e.g. 'Ollama not running').",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "provider",
+          "model",
+          "verified"
+        ],
+        "title": "SetupApplyResponse",
+        "description": "Result of a setup attempt, including a verification round-trip."
+      },
+      "SetupStatus": {
+        "properties": {
+          "is_configured": {
+            "type": "boolean",
+            "title": "Is Configured",
+            "description": "True once the active provider has everything it needs to run: Ollama reachable with the Gemma tag pulled, or a Gemini API key present."
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "description": "Active preset key ('gemma' or 'gemini'), or empty when no choice has been persisted.",
+            "default": ""
+          },
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "description": "Active model identifier, if any.",
+            "default": ""
+          },
+          "ollama_reachable": {
+            "type": "boolean",
+            "title": "Ollama Reachable",
+            "description": "Gemma preset only.",
+            "default": false
+          },
+          "ollama_has_model": {
+            "type": "boolean",
+            "title": "Ollama Has Model",
+            "description": "Gemma preset only.",
+            "default": false
+          },
+          "api_key_present": {
+            "type": "boolean",
+            "title": "Api Key Present",
+            "description": "Gemini preset only.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "is_configured"
+        ],
+        "title": "SetupStatus",
+        "description": "Snapshot used by the UI to decide whether to show /setup or /chat."
       },
       "SkillInfo": {
         "properties": {

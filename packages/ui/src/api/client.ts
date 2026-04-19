@@ -24,6 +24,9 @@ export type SkillsResponse = components["schemas"]["SkillsResponse"];
 export type SkillToggleRequest = components["schemas"]["SkillToggleRequest"];
 export type SkillToggleResponse = components["schemas"]["SkillToggleResponse"];
 export type SystemStatus = components["schemas"]["SystemStatus"];
+export type SetupStatus = components["schemas"]["SetupStatus"];
+export type SetupApplyRequest = components["schemas"]["SetupApplyRequest"];
+export type SetupApplyResponse = components["schemas"]["SetupApplyResponse"];
 
 export interface JuneClientOptions {
   /** Base URL for the API, e.g. "http://localhost:8000". No trailing slash. */
@@ -68,6 +71,27 @@ export function createJuneClient(options: JuneClientOptions) {
     /** GET /system — runtime indicator (provider, model, mode). */
     getSystem(): Promise<SystemStatus> {
       return getJson<SystemStatus>("/system");
+    },
+
+    /** GET /setup/status — whether the active provider is usable end to end. */
+    getSetupStatus(): Promise<SetupStatus> {
+      return getJson<SetupStatus>("/setup/status");
+    },
+
+    /** POST /setup/apply — persist provider + key choice and verify with a round-trip. */
+    async applySetup(request: SetupApplyRequest): Promise<SetupApplyResponse> {
+      const response = await fetchImpl(`${baseUrl}/setup/apply`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(request),
+      });
+      if (!response.ok) {
+        throw new ApiError(response.status, response.statusText, await response.text());
+      }
+      return (await response.json()) as SetupApplyResponse;
     },
 
     /** GET /skills — MCP skill servers and the tools they expose. */

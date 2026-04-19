@@ -72,6 +72,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/setup/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Setup Status
+         * @description Report whether the active runtime is ready to serve chat requests.
+         */
+        get: operations["get_setup_status_setup_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Setup
+         * @description Persist the user's provider choice and verify it with a live round-trip.
+         */
+        post: operations["apply_setup_setup_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/skills": {
         parameters: {
             query?: never;
@@ -277,6 +317,112 @@ export interface components {
              * @default 0
              */
             recent_messages: number;
+        };
+        /**
+         * SetupApplyRequest
+         * @description User's provider pick from the /setup screen.
+         */
+        SetupApplyRequest: {
+            /**
+             * Provider
+             * @description Which runtime to activate.
+             * @enum {string}
+             */
+            provider: "gemma" | "gemini";
+            /**
+             * Gemini Api Key
+             * @description Required when provider is 'gemini'. Stored in config.json with mode 0600 until native credential storage lands.
+             */
+            gemini_api_key?: string | null;
+            /**
+             * Gemma Model
+             * @description Ollama tag override. Defaults to the preset's default (gemma4:e4b).
+             */
+            gemma_model?: string | null;
+            /**
+             * Gemini Model
+             * @description Gemini model override. Defaults to gemini-2.0-flash.
+             */
+            gemini_model?: string | null;
+        };
+        /**
+         * SetupApplyResponse
+         * @description Result of a setup attempt, including a verification round-trip.
+         */
+        SetupApplyResponse: {
+            /**
+             * Ok
+             * @description True when the chosen provider successfully produced a token.
+             */
+            ok: boolean;
+            /**
+             * Provider
+             * @description The preset that was applied.
+             */
+            provider: string;
+            /**
+             * Model
+             * @description The model the provider is configured to use.
+             */
+            model: string;
+            /**
+             * Verified
+             * @description True when a one-shot request to the provider returned a response.
+             */
+            verified: boolean;
+            /**
+             * Message
+             * @description Short, human-readable status. Empty on clean success.
+             * @default
+             */
+            message: string;
+            /**
+             * Hint
+             * @description When ok is false, a specific actionable hint (e.g. 'Ollama not running').
+             * @default
+             */
+            hint: string;
+        };
+        /**
+         * SetupStatus
+         * @description Snapshot used by the UI to decide whether to show /setup or /chat.
+         */
+        SetupStatus: {
+            /**
+             * Is Configured
+             * @description True once the active provider has everything it needs to run: Ollama reachable with the Gemma tag pulled, or a Gemini API key present.
+             */
+            is_configured: boolean;
+            /**
+             * Provider
+             * @description Active preset key ('gemma' or 'gemini'), or empty when no choice has been persisted.
+             * @default
+             */
+            provider: string;
+            /**
+             * Model
+             * @description Active model identifier, if any.
+             * @default
+             */
+            model: string;
+            /**
+             * Ollama Reachable
+             * @description Gemma preset only.
+             * @default false
+             */
+            ollama_reachable: boolean;
+            /**
+             * Ollama Has Model
+             * @description Gemma preset only.
+             * @default false
+             */
+            ollama_has_model: boolean;
+            /**
+             * Api Key Present
+             * @description Gemini preset only.
+             * @default false
+             */
+            api_key_present: boolean;
         };
         /**
          * SkillInfo
@@ -576,6 +722,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemoryDeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_setup_status_setup_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupStatus"];
+                };
+            };
+        };
+    };
+    apply_setup_setup_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetupApplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupApplyResponse"];
                 };
             };
             /** @description Validation Error */
