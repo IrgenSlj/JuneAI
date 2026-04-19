@@ -1,10 +1,11 @@
 <script lang="ts">
   /**
-   * Message composer. Enter sends, Shift+Enter inserts a newline.
+   * Message composer. Enter and Cmd/Ctrl+Enter send, Shift+Enter inserts a
+   * newline. While a turn is streaming, the submit button turns into a Stop
+   * button that fires `onCancel`.
    *
-   * While a turn is streaming, the submit button turns into a Stop
-   * button that fires `onCancel` so the caller can AbortController
-   * the in-flight fetch.
+   * The caller can bind `focus` to pull focus from a parent-level shortcut
+   * (e.g. Cmd+K).
    */
   interface Props {
     streaming?: boolean;
@@ -12,18 +13,24 @@
     placeholder?: string;
     onSubmit: (message: string) => void;
     onCancel?: () => void;
+    focus?: () => void;
   }
 
-  const {
+  let {
     streaming = false,
     disabled = false,
     placeholder = "Message June...",
     onSubmit,
     onCancel,
+    focus = $bindable(),
   }: Props = $props();
 
   let value = $state("");
   let textarea: HTMLTextAreaElement | undefined = $state();
+
+  focus = () => {
+    textarea?.focus();
+  };
 
   function autoResize() {
     if (!textarea) return;
@@ -40,7 +47,13 @@
   }
 
   function handleKey(event: KeyboardEvent) {
-    if (event.key === "Enter" && !event.shiftKey) {
+    const isEnter = event.key === "Enter";
+    const isShift = event.shiftKey;
+    const isMod = event.metaKey || event.ctrlKey;
+    if (isEnter && !isShift) {
+      event.preventDefault();
+      submit();
+    } else if (isEnter && isMod) {
       event.preventDefault();
       submit();
     }

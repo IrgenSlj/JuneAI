@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import {
-    ChatBubble,
     Composer,
     MessageList,
     OfflineNotice,
@@ -28,6 +27,17 @@
   let systemError: string | null = $state(null);
   let systemLoading = $state(false);
   let abortController: AbortController | null = $state(null);
+  let focusComposer: (() => void) | undefined = $state();
+
+  const lastUserMessage = $derived(
+    [...messages].reverse().find((m) => m.role === "user"),
+  );
+  const canRegenerate = $derived(
+    !streaming &&
+      messages.length > 0 &&
+      messages[messages.length - 1]?.role === "assistant" &&
+      !!lastUserMessage,
+  );
 
   async function loadSystem() {
     systemLoading = true;
@@ -124,6 +134,43 @@
     abortController?.abort();
   }
 
+  function handleRegenerate() {
+    if (!canRegenerate || !lastUserMessage) return;
+    // Trim the last assistant reply (and any tool bubbles after the last
+    // user message) before re-asking, so the transcript doesn't grow a
+    // dead branch on each retry.
+    const lastUserIdx = messages.findIndex((m) => m.id === lastUserMessage.id);
+    if (lastUserIdx < 0) return;
+    const userText = lastUserMessage.content;
+    messages = messages.slice(0, lastUserIdx);
+    handleSubmit(userText);
+  }
+
+  function handleGlobalKey(event: KeyboardEvent) {
+    const isMod = event.metaKey || event.ctrlKey;
+    const target = event.target as HTMLElement | null;
+    const inEditable =
+      target?.tagName === "INPUT" ||
+      target?.tagName === "TEXTAREA" ||
+      target?.isContentEditable;
+
+    if (isMod && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      focusComposer?.();
+    } else if (event.key === "Escape" && streaming) {
+      event.preventDefault();
+      handleCancel();
+    } else if (
+      event.key === "/" &&
+      !inEditable &&
+      !isMod &&
+      !event.shiftKey
+    ) {
+      event.preventDefault();
+      focusComposer?.();
+    }
+  }
+
   function formatToolCall(
     name: string,
     args: Record<string, unknown> | undefined,
@@ -138,6 +185,8 @@
 <svelte:head>
   <title>June — your personal AI</title>
 </svelte:head>
+
+<svelte:window onkeydown={handleGlobalKey} />
 
 <main class="app">
   <header class="top">
@@ -197,8 +246,16 @@
   </section>
 
   <footer class="compose">
+    {#if canRegenerate}
+      <div class="actions">
+        <button type="button" class="regenerate" onclick={handleRegenerate}>
+          ↻ Regenerate
+        </button>
+      </div>
+    {/if}
     <Composer
       {streaming}
+      bind:focus={focusComposer}
       onSubmit={handleSubmit}
       onCancel={handleCancel}
     />
@@ -301,5 +358,29 @@
 
   .compose {
     padding: var(--space-3) 0 var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .actions {
+    display: flex;
+    justify-content: center;
+  }
+
+  .regenerate {
+    background: transparent;
+    color: var(--color-fg-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    padding: var(--space-1) var(--space-4);
+    font-size: var(--size-xs);
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: color 120ms ease, border-color 120ms ease;
+  }
+  .regenerate:hover {
+    color: var(--color-fg-primary);
+    border-color: var(--color-border-strong);
   }
 </style>
