@@ -103,13 +103,13 @@
                   <span class="ok">Ollama is ready with {status.model || "gemma4:e4b"}.</span>
                 {:else if status.ollama_reachable}
                   <span class="warn">
-                    Ollama is running but the model isn't pulled. Run
-                    <code>ollama pull gemma4:e4b</code>.
+                    Ollama is running but the model isn't pulled.
+                    <a href="/help/ollama">See the three-step guide.</a>
                   </span>
                 {:else}
                   <span class="warn">
-                    Ollama isn't running. Install with <code>brew install ollama</code>,
-                    then run <code>ollama serve</code>.
+                    Ollama isn't running.
+                    <a href="/help/ollama">See the three-step guide.</a>
                   </span>
                 {/if}
               </span>
@@ -287,13 +287,9 @@
   .status-line .warn {
     color: var(--color-accent);
   }
-  code {
-    font-family: var(--font-mono);
-    font-size: 0.92em;
-    padding: 0.1em 0.35em;
-    background: var(--color-bg-sunken);
-    border-radius: var(--radius-sm);
-    color: var(--color-fg-primary);
+  .status-line a {
+    color: var(--color-accent);
+    text-decoration: underline;
   }
 
   .key-field {

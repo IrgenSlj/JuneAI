@@ -147,9 +147,15 @@
         <span class="dot" data-mode={system.mode}></span>
         {system.label} · {system.model}
         {#if system.provider === "gemma"}
-          · {system.ollama_reachable ? (system.ollama_has_model ? "ready" : "model missing") : "Ollama offline"}
+          {#if system.ollama_reachable && system.ollama_has_model}
+            · ready
+          {:else}
+            · <a class="warn-link" href="/help/ollama">
+              {system.ollama_reachable ? "model missing" : "Ollama offline"}
+            </a>
+          {/if}
         {:else if !system.api_key_present}
-          · key missing
+          · <a class="warn-link" href="/settings">key missing</a>
         {/if}
       </span>
     {:else}
@@ -234,6 +240,13 @@
   }
   .runtime.offline {
     color: var(--color-danger);
+  }
+  .warn-link {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+  .warn-link:hover {
+    text-decoration: underline;
   }
 
   .dot {

@@ -114,9 +114,13 @@
                 {#if settings.ollama_reachable && settings.ollama_has_model}
                   <span class="ok">Ollama ready with {settings.model || "gemma4:e4b"}.</span>
                 {:else if settings.ollama_reachable}
-                  <span class="warn">Model not pulled. Run <code>ollama pull gemma4:e4b</code>.</span>
+                  <span class="warn">
+                    Model not pulled. <a href="/help/ollama">Fix it</a>.
+                  </span>
                 {:else}
-                  <span class="warn">Ollama isn't reachable. Run <code>ollama serve</code>.</span>
+                  <span class="warn">
+                    Ollama isn't reachable. <a href="/help/ollama">Fix it</a>.
+                  </span>
                 {/if}
               {:else}
                 <span>Local inference via Ollama.</span>
@@ -330,12 +334,9 @@
   .warn {
     color: var(--color-accent);
   }
-  code {
-    font-family: var(--font-mono);
-    font-size: 0.92em;
-    padding: 0.1em 0.35em;
-    background: var(--color-bg-sunken);
-    border-radius: var(--radius-sm);
+  .warn a {
+    color: var(--color-accent);
+    text-decoration: underline;
   }
 
   .grid {
