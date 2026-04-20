@@ -16,16 +16,16 @@ The browser application is the first and only surface for June 1.0. Installable 
 
 Ordered by dependency, not priority.
 
-1. **First-run setup flow.** A `/setup` route that detects Ollama reachability, lets the user pick a provider, paste a Gemini key if they chose cloud, and verifies end to end before landing them on the chat screen. Until this exists, a new user has to read the README to get past the first screen.
-2. **API key entry UI.** A settings screen that reads and writes `GEMINI_API_KEY` through a new API surface. Keys are stored in the platform's native credential store when available and in `config.toml` otherwise. Never logged, never echoed back to the UI after save.
-3. **Ollama detection and guidance.** When the provider is `gemma` and Ollama is not reachable, the header's warning should deep-link to a one-screen troubleshooting page with the exact commands to install, pull, and start Ollama for the user's OS.
-4. **PWA installability.** `manifest.webmanifest`, a service worker that caches the shell, icons at the required sizes, and a theme color. `vite-plugin-pwa` generates these. Verify install prompts on Chrome, Edge, and mobile Safari.
-5. **Offline fallback screen.** When the brain is unreachable, render a useful offline state instead of a fetch error. Chat history and memory browser are read-only offline because they fetch from the API; show that clearly rather than spinning.
-6. **Branding.** A wordmark, an app icon set, and a coherent visual identity. See [design/claude-design-prompt.md](../design/claude-design-prompt.md) for the design brief.
-7. **Chat polish.** Keyboard shortcuts (Cmd+Enter to send, Cmd+K to focus, Esc to cancel stream). Message selection and copy. Regenerate last response. Scroll-to-bottom pinning.
-8. **Memory browser polish.** Search box that filters across all three stores. Grouping by source and date. Empty states that teach the user what to expect.
-9. **Skills registry polish.** A tools-documentation view per skill. Per-tool enable/disable within a skill (skill-level toggle is live). Status tooltips that explain `starting`, `crashed`, `stopped`.
-10. **Accessibility pass.** Keyboard navigation, focus rings, semantic landmarks, color-contrast audit. Screen-reader announcement for streaming tokens is deferred until complaints arrive.
+1. **First-run setup flow.** A `/setup` route that detects Ollama reachability, lets the user pick a provider, paste a Gemini key if they chose cloud, and verifies end to end before landing them on the chat screen. Until this exists, a new user has to read the README to get past the first screen. _Shipped._
+2. **API key entry UI.** A settings screen that reads and writes `GEMINI_API_KEY` through a new API surface. Keys are stored in the platform's native credential store when available and in `config.toml` otherwise. Never logged, never echoed back to the UI after save. _Shipped._
+3. **Ollama detection and guidance.** When the provider is `gemma` and Ollama is not reachable, the header's warning should deep-link to a one-screen troubleshooting page with the exact commands to install, pull, and start Ollama for the user's OS. _Shipped._
+4. **PWA installability.** `manifest.webmanifest`, a service worker that caches the shell, icons at the required sizes, and a theme color. `vite-plugin-pwa` generates these. Verify install prompts on Chrome, Edge, and mobile Safari. _Shipped._
+5. **Offline fallback screen.** When the brain is unreachable, render a useful offline state instead of a fetch error. Chat history and memory browser are read-only offline because they fetch from the API; show that clearly rather than spinning. _Shipped._
+6. **Branding.** A wordmark, an app icon set, and a coherent visual identity. See [design/claude-design-prompt.md](../design/claude-design-prompt.md) for the design brief. _In progress — placeholder amber "J" mark shipped alongside the PWA work; full identity pending design iteration._
+7. **Chat polish.** Keyboard shortcuts (Cmd+Enter to send, Cmd+K to focus, Esc to cancel stream). Message selection and copy. Regenerate last response. Scroll-to-bottom pinning. _Shipped._
+8. **Memory browser polish.** Search box that filters across all three stores. Grouping by source and date. Empty states that teach the user what to expect. _Shipped._
+9. **Skills registry polish.** A tools-documentation view per skill. Per-tool enable/disable within a skill (skill-level toggle is live). Status tooltips that explain `starting`, `crashed`, `stopped`. _Shipped — skill-level toggle, status tooltips, and collapsible per-skill tool list are live; per-tool toggle deferred until a user asks._
+10. **Accessibility pass.** Keyboard navigation, focus rings, semantic landmarks, color-contrast audit. Screen-reader announcement for streaming tokens is deferred until complaints arrive. _Shipped._
 
 ### Done Criteria for the Prototype
 
