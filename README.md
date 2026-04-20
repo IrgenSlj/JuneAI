@@ -6,24 +6,26 @@ June runs privately on your laptop via Gemma 4 and scales to the cloud via Gemin
 
 ## Status
 
-June is in early development. Weeks 1 through 4 are complete:
+The web prototype is feature-complete. Everything on the prototype checklist is shipped except the final branding pass:
 
-- **Week 1** — monorepo reshaped; `packages/brain/` holds the intelligence layer; Gemma 4 and Gemini wired through one code path.
-- **Week 2** — FastAPI boundary at `packages/api/` with SSE streaming on `POST /chat`; TypeScript types generated from Pydantic schemas.
-- **Week 3** — SvelteKit PWA at `apps/web/` streaming live tokens from Gemma; shared components in `packages/ui/`.
-- **Week 4** — three-store memory shipped (SQLite + ChromaDB + knowledge graph) behind a single `MemoryManager`; recall on every turn, extract runs post-stream; `/memory` browser with per-fact delete.
+- **Intelligence** — `packages/brain/` runs Gemma 4 (local, via Ollama) or Gemini (cloud) behind one code path.
+- **API** — `packages/api/` exposes a FastAPI surface with SSE streaming on `POST /chat`; Pydantic schemas generate the TypeScript client.
+- **Memory** — three stores behind one `MemoryManager`: SQLite for structured facts, ChromaDB for semantic recall, a graph for entities and relationships. Recall runs before every turn; extract runs after.
+- **Skills** — each skill is a standalone MCP server launched by a supervisor in the brain; the `/skills` page toggles them on and off at runtime.
+- **Web shell** — SvelteKit PWA at `apps/web/` with installable manifest, service worker, first-run setup, settings, memory browser, skills registry, offline states, keyboard shortcuts, and an accessibility pass.
 
-Week 5 (skills as MCP servers) is next. See [`docs/product/plan.md`](docs/product/plan.md) for the current exit criteria.
+See [`docs/product/roadmap.md`](docs/product/roadmap.md) for the item-by-item breakdown and what comes next (gated on user traction, not calendar).
 
 The original v1 Streamlit prototype is preserved on the `legacy/streamlit` branch for historical reference.
 
 ## Read These First
 
 1. [Vision](docs/vision.md) — what June is and the three non-negotiables
-2. [Architecture overview](docs/architecture/overview.md) — the layered model
-3. [Architecture decisions](docs/decisions/README.md) — the six ADRs that justify the design
-4. [8-week plan](docs/product/plan.md) — what we're building and when
-5. [Environment](docs/setup/environment.md) — configuration reference
+2. [Product overview](docs/product/overview.md) — the surfaces and the product boundary
+3. [Roadmap](docs/product/roadmap.md) — what ships next and what triggers the next surface
+4. [Architecture overview](docs/architecture/overview.md) — the layered model
+5. [Architecture decisions](docs/decisions/README.md) — the ADRs that justify the design
+6. [Environment](docs/setup/environment.md) — configuration reference
 
 ## Repository Layout
 
@@ -58,7 +60,13 @@ packages/brain/.venv/bin/uvicorn june_api.app:app --reload --port 8000
 pnpm --filter @june/web dev
 ```
 
-Open http://localhost:5173 for the chat surface and http://localhost:5173/memory for the memory browser.
+Open http://localhost:5173 for the chat surface. From there you can reach:
+
+- `/setup` — first-run provider selection and key verification
+- `/memory` — browse, search, and forget anything June has learned
+- `/skills` — toggle MCP skills on and off at runtime
+- `/settings` — switch providers and update your Gemini key
+- `/help/ollama` — troubleshooting for local Gemma via Ollama
 
 ## Migrating from v1
 
@@ -76,4 +84,4 @@ MIT. See [`LICENSE`](LICENSE).
 
 ## Contributing
 
-Contribution guidelines will be published in Week 8. Until then, discussion happens in GitHub issues.
+Formal contribution guidelines are not yet published — the project is still hardening its first surface. Discussion happens in GitHub issues; pull requests are welcome for bug fixes and for items listed in [`docs/product/roadmap.md`](docs/product/roadmap.md).
