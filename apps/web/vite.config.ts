@@ -42,15 +42,14 @@ export default defineConfig({
       workbox: {
         globPatterns: ["client/**/*.{js,css,ico,png,svg,webp,woff2}"],
         navigateFallback: "/",
-        navigateFallbackDenylist: [
-          /^\/api/,
-          /^\/chat/,
-          /^\/system/,
-          /^\/memory\//,
-          /^\/skills\//,
-          /^\/setup\//,
-          /^\/settings\b/,
-        ],
+        // The API lives on a separate origin (see PUBLIC_JUNE_API_URL), so the
+        // service worker only ever intercepts navigations for the web app's
+        // own origin — every one of those is a SvelteKit SPA route and should
+        // fall back to the cached shell. We keep /api/* denylisted only as a
+        // forward-looking hedge: if a future reverse-proxy setup ever colocates
+        // the API under /api on this origin, those requests must bypass the
+        // shell and hit the network.
+        navigateFallbackDenylist: [/^\/api\//],
       },
       devOptions: {
         enabled: false,
