@@ -67,6 +67,24 @@
         return "muted";
     }
   }
+
+  function statusExplain(skill: SkillInfo): string {
+    if (!skill.enabled) {
+      return "Skill is turned off. Its tools aren't available to June.";
+    }
+    switch (skill.status) {
+      case "running":
+        return "Subprocess is up. Tools are ready to call.";
+      case "starting":
+        return "Subprocess is launching. Tools become available once the handshake completes.";
+      case "crashed":
+        return "Subprocess exited unexpectedly. Check the error below and toggle off/on to retry.";
+      case "stopped":
+        return "Subprocess isn't running. It'll start the first time a tool is needed.";
+      default:
+        return `Status: ${skill.status}`;
+    }
+  }
 </script>
 
 <svelte:head>
@@ -119,7 +137,10 @@
               {/if}
             </div>
             <div class="skill-actions">
-              <span class="status status-{statusKind(skill)}">
+              <span
+                class="status status-{statusKind(skill)}"
+                title={statusExplain(skill)}
+              >
                 {statusLabel(skill)}
               </span>
               <button
@@ -139,10 +160,14 @@
           </div>
 
           {#if skill.error}
-            <div class="skill-error">{skill.error}</div>
+            <div class="skill-error" role="alert">{skill.error}</div>
           {/if}
 
           {#if skill.tools?.length}
+            <details class="tools-wrap" open={skill.tools.length <= 5}>
+              <summary>
+                {skill.tools.length} tool{skill.tools.length === 1 ? "" : "s"}
+              </summary>
             <ul class="tools">
               {#each skill.tools as tool (tool.name)}
                 <li class="tool">
@@ -153,8 +178,11 @@
                 </li>
               {/each}
             </ul>
-          {:else if skill.enabled}
+            </details>
+          {:else if skill.enabled && skill.status === "running"}
             <p class="muted">No tools discovered yet.</p>
+          {:else if skill.enabled}
+            <p class="muted">Tools load once the skill starts.</p>
           {/if}
         </li>
       {/each}
@@ -343,6 +371,33 @@
     color: var(--color-danger);
     font-size: var(--size-sm);
     font-family: var(--font-mono);
+  }
+
+  .tools-wrap {
+    border-top: 1px solid var(--color-border);
+    padding-top: var(--space-2);
+  }
+  .tools-wrap summary {
+    cursor: pointer;
+    color: var(--color-fg-muted);
+    font-size: var(--size-sm);
+    padding: var(--space-1) 0;
+    list-style: none;
+  }
+  .tools-wrap summary::-webkit-details-marker {
+    display: none;
+  }
+  .tools-wrap summary::before {
+    content: "▸ ";
+    color: var(--color-fg-subtle);
+    display: inline-block;
+    transition: transform 120ms ease;
+  }
+  .tools-wrap[open] summary::before {
+    transform: rotate(90deg);
+  }
+  .tools-wrap[open] .tools {
+    margin-top: var(--space-2);
   }
 
   .tools {

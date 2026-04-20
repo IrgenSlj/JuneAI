@@ -35,40 +35,85 @@
       {
         id: "semantic",
         title: "Facts",
-        empty: "No durable facts yet. They'll appear as June learns from conversations.",
+        empty:
+          "No durable facts yet. As June learns that you prefer tea or live in Berlin, those land here.",
         facts: snapshot.semantic_facts ?? [],
         deletable: true,
       },
       {
         id: "entities",
         title: "People, places, and things",
-        empty: "No entities mapped yet.",
+        empty:
+          "No entities mapped yet. People and projects you mention become nodes here.",
         facts: snapshot.entities ?? [],
         deletable: true,
       },
       {
         id: "goals",
         title: "Goals",
-        empty: "No goals tracked.",
+        empty: "No goals tracked. Ask June to remember a goal and it shows up here.",
         facts: snapshot.goals ?? [],
         deletable: false,
       },
       {
         id: "open_loops",
         title: "Open loops",
-        empty: "No open threads.",
+        empty:
+          "No open threads. Questions left dangling or follow-ups June is holding will appear here.",
         facts: snapshot.open_loops ?? [],
         deletable: false,
       },
       {
         id: "calendar",
         title: "Calendar",
-        empty: "Nothing on the calendar.",
+        empty: "Nothing on the calendar. Ask June to save events or reminders.",
         facts: snapshot.calendar ?? [],
         deletable: false,
       },
     ];
   });
+
+  const TIMESTAMP_KEYS = [
+    "timestamp",
+    "created_at",
+    "updated_at",
+    "last_seen",
+    "when",
+    "at",
+  ];
+
+  function pickTimestamp(fact: MemoryFact): string | null {
+    const meta = fact.metadata ?? {};
+    for (const key of TIMESTAMP_KEYS) {
+      const raw = meta[key];
+      if (typeof raw === "string" && raw.length > 0) return raw;
+    }
+    return null;
+  }
+
+  function formatRelative(iso: string): string {
+    const then = Date.parse(iso);
+    if (Number.isNaN(then)) return iso;
+    const diffMs = Date.now() - then;
+    const abs = Math.abs(diffMs);
+    const minute = 60_000;
+    const hour = 3_600_000;
+    const day = 86_400_000;
+    if (abs < minute) return "just now";
+    if (abs < hour) {
+      const m = Math.round(diffMs / minute);
+      return m > 0 ? `${m}m ago` : `in ${-m}m`;
+    }
+    if (abs < day) {
+      const h = Math.round(diffMs / hour);
+      return h > 0 ? `${h}h ago` : `in ${-h}h`;
+    }
+    if (abs < day * 30) {
+      const d = Math.round(diffMs / day);
+      return d > 0 ? `${d}d ago` : `in ${-d}d`;
+    }
+    return new Date(then).toLocaleDateString();
+  }
 
   const filteredSections = $derived.by<Section[]>(() => {
     const q = query.trim().toLowerCase();
@@ -119,6 +164,7 @@
   function metadataEntries(fact: MemoryFact): [string, string][] {
     const meta = fact.metadata ?? {};
     return Object.entries(meta)
+      .filter(([k]) => !TIMESTAMP_KEYS.includes(k))
       .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "")
       .map(([k, v]) => [k, String(v)]);
   }
@@ -176,17 +222,26 @@
     {#each filteredSections as section (section.id)}
       {#if !query.trim() || section.facts.length > 0}
         <section class="group">
-          <h2>{section.title}</h2>
+          <div class="group-head">
+            <h2>{section.title}</h2>
+            <span class="count">{section.facts.length}</span>
+          </div>
           {#if section.facts.length === 0}
             <p class="muted">{section.empty}</p>
           {:else}
             <ul class="facts">
               {#each section.facts as fact (fact.ref || `${section.id}-${fact.title}`)}
+                {@const ts = pickTimestamp(fact)}
                 <li class="fact">
                   <div class="fact-main">
-                    {#if fact.title}
-                      <div class="fact-title">{fact.title}</div>
-                    {/if}
+                    <div class="fact-head">
+                      {#if fact.title}
+                        <div class="fact-title">{fact.title}</div>
+                      {/if}
+                      {#if ts}
+                        <time class="fact-time" datetime={ts}>{formatRelative(ts)}</time>
+                      {/if}
+                    </div>
                     {#if fact.body && fact.body !== fact.title}
                       <div class="fact-body">{fact.body}</div>
                     {/if}
@@ -325,6 +380,11 @@
     gap: var(--space-3);
   }
 
+  .group-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+  }
   .group h2 {
     margin: 0;
     font-size: var(--size-sm);
@@ -332,6 +392,11 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--color-fg-muted);
+  }
+  .count {
+    font-size: var(--size-xs);
+    color: var(--color-fg-subtle);
+    font-family: var(--font-mono);
   }
 
   .muted {
@@ -367,9 +432,23 @@
     gap: var(--space-1);
   }
 
+  .fact-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    justify-content: space-between;
+  }
   .fact-title {
     font-weight: 500;
     color: var(--color-fg-primary);
+    min-width: 0;
+    flex: 1;
+  }
+  .fact-time {
+    font-size: var(--size-xs);
+    font-family: var(--font-mono);
+    color: var(--color-fg-subtle);
+    flex-shrink: 0;
   }
 
   .fact-body {
