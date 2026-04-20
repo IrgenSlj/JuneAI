@@ -43,12 +43,16 @@ def test_gemma_tools_is_a_trimmed_subset():
     assert len(JUNE_TOOLS_GEMMA) < len(JUNE_TOOLS)
 
 
-def test_graph_uses_gemma_tool_subset_for_gemma_runtime():
+def test_graph_uses_gemma_tool_subset_for_gemma_runtime(monkeypatch):
+    # Skills are a separate subsystem — keep this test focused on native
+    # tool selection by suppressing the MCP skill aggregation.
+    monkeypatch.setattr("june_brain.graph.load_skill_tools", lambda: [])
     selected = _select_tools_for_runtime(resolve_runtime_config("gemma"))
     assert {tool.name for tool in selected} == {tool.name for tool in JUNE_TOOLS_GEMMA}
 
 
 def test_graph_uses_full_tools_for_gemini_runtime(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr("june_brain.graph.load_skill_tools", lambda: [])
     selected = _select_tools_for_runtime(resolve_runtime_config("gemini"))
     assert {tool.name for tool in selected} == {tool.name for tool in JUNE_TOOLS}
