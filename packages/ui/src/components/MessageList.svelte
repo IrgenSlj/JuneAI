@@ -35,7 +35,13 @@
   });
 </script>
 
-<div class="list" bind:this={scrollEl} onscroll={handleScroll}>
+<div
+  class="list"
+  bind:this={scrollEl}
+  onscroll={handleScroll}
+  role="log"
+  aria-label="Chat transcript"
+>
   {#each messages as message (message.id)}
     <ChatBubble
       role={message.role}

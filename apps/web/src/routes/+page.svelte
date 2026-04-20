@@ -188,11 +188,11 @@
 
 <svelte:window onkeydown={handleGlobalKey} />
 
-<main class="app">
+<main class="app" id="main-content">
   <header class="top">
     <div class="brand">
       <h1>June</h1>
-      <nav class="nav-links">
+      <nav class="nav-links" aria-label="Primary">
         <a href="/memory">Memory</a>
         <a href="/skills">Skills</a>
         <a href="/settings">Settings</a>
@@ -225,7 +225,7 @@
     {/if}
   </header>
 
-  <section class="transcript">
+  <section class="transcript" aria-label="Conversation">
     {#if messages.length === 0 && !system && systemError}
       <div class="empty">
         <OfflineNotice

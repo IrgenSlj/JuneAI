@@ -174,10 +174,10 @@
   <title>Memory — June</title>
 </svelte:head>
 
-<main class="page">
+<main class="page" id="main-content">
   <header class="top">
     <div class="heading">
-      <a class="back" href="/">← Chat</a>
+      <a class="back" href="/"><span aria-hidden="true">←</span> Chat</a>
       <h1>Memory</h1>
     </div>
     <div class="controls">

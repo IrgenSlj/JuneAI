@@ -91,10 +91,10 @@
   <title>Skills — June</title>
 </svelte:head>
 
-<main class="page">
+<main class="page" id="main-content">
   <header class="top">
     <div class="heading">
-      <a class="back" href="/">← Chat</a>
+      <a class="back" href="/"><span aria-hidden="true">←</span> Chat</a>
       <h1>Skills</h1>
     </div>
     <div class="controls">
@@ -140,6 +140,7 @@
               <span
                 class="status status-{statusKind(skill)}"
                 title={statusExplain(skill)}
+                aria-label="Status: {statusLabel(skill)}. {statusExplain(skill)}"
               >
                 {statusLabel(skill)}
               </span>

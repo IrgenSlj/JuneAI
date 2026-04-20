@@ -88,9 +88,9 @@
   <title>Settings — June</title>
 </svelte:head>
 
-<main class="page">
+<main class="page" id="main-content">
   <header>
-    <a class="back" href="/">← Chat</a>
+    <a class="back" href="/"><span aria-hidden="true">←</span> Chat</a>
     <h1>Settings</h1>
   </header>
 

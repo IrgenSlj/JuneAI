@@ -40,3 +40,45 @@ a {
 a:hover {
   text-decoration: underline;
 }
+
+/* Keyboard focus indicator. Applies only when focus arrives via keyboard,
+ * so mouse clicks don't leave rings behind. Elements that need a
+ * different look (e.g. the composer textarea) opt out locally. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Skip-link: invisible until focused, lets keyboard users jump past the
+ * header nav into the main content. */
+.skip-link {
+  position: absolute;
+  left: var(--space-3);
+  top: var(--space-3);
+  z-index: 100;
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-bg-raised);
+  color: var(--color-fg-primary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  font-size: var(--size-sm);
+  transform: translateY(-200%);
+  transition: transform 120ms ease;
+}
+.skip-link:focus {
+  transform: translateY(0);
+  text-decoration: none;
+}
+
+/* Respect the OS reduced-motion preference. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

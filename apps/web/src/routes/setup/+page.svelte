@@ -72,7 +72,7 @@
   <title>Set up — June</title>
 </svelte:head>
 
-<main class="page">
+<main class="page" id="main-content">
   <header>
     <p class="eyebrow">June</p>
     <h1>Set up your assistant</h1>

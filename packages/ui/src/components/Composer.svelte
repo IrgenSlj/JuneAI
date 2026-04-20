@@ -104,6 +104,12 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-md);
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+  .composer:focus-within {
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-md),
+      0 0 0 1px color-mix(in srgb, var(--color-accent) 60%, transparent);
   }
 
   textarea {

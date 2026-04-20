@@ -43,9 +43,9 @@
   <title>Ollama setup — June</title>
 </svelte:head>
 
-<main class="page">
+<main class="page" id="main-content">
   <header>
-    <a class="back" href="/">← Chat</a>
+    <a class="back" href="/"><span aria-hidden="true">←</span> Chat</a>
     <h1>Get Ollama running</h1>
     <p class="lede">
       June uses Ollama to run Gemma 4 locally. Three short commands and you're
