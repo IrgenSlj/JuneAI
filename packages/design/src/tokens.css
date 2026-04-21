@@ -5,7 +5,8 @@
  * propagates without a component rebuild. Keys mirror tokens.ts.
  */
 
-:root {
+:root,
+:root[data-theme="dark"] {
   /* Surfaces */
   --color-bg-base: #0b0d10;
   --color-bg-raised: #14181d;
@@ -61,4 +62,29 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.35);
   --shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.45);
+}
+
+/* Light theme. The structure mirrors the dark palette one-for-one so
+ * every component just reads var(--color-*) without branching on theme. */
+:root[data-theme="light"] {
+  --color-bg-base: #fdfcfa;
+  --color-bg-raised: #ffffff;
+  --color-bg-sunken: #f2efe9;
+
+  --color-fg-primary: #161a1f;
+  --color-fg-muted: #585f69;
+  --color-fg-subtle: #8a919d;
+
+  /* Amber needs to darken on white to meet contrast for link text. */
+  --color-accent: #b46a00;
+  --color-accent-muted: #8a5000;
+
+  --color-success: #1f7a4f;
+  --color-danger: #b52529;
+  --color-border: #e3ddd1;
+  --color-border-strong: #cdc4b2;
+
+  --shadow-sm: 0 1px 2px rgba(20, 24, 30, 0.06);
+  --shadow-md: 0 4px 16px rgba(20, 24, 30, 0.08);
+  --shadow-lg: 0 12px 48px rgba(20, 24, 30, 0.12);
 }

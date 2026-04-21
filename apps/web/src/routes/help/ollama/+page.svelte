@@ -45,7 +45,6 @@
 
 <main class="page" id="main-content">
   <header>
-    <a class="back" href="/"><span aria-hidden="true">←</span> Chat</a>
     <h1>Get Ollama running</h1>
     <p class="lede">
       June uses Ollama to run Gemma 4 locally. Three short commands and you're
@@ -195,15 +194,6 @@ ollama serve</code></pre>
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-  }
-  .back {
-    color: var(--color-fg-muted);
-    text-decoration: none;
-    font-size: var(--size-sm);
-    width: max-content;
-  }
-  .back:hover {
-    color: var(--color-accent);
   }
   h1 {
     margin: 0;

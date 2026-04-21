@@ -94,7 +94,6 @@
 <main class="page" id="main-content">
   <header class="top">
     <div class="heading">
-      <a class="back" href="/"><span aria-hidden="true">←</span> Chat</a>
       <h1>Skills</h1>
     </div>
     <div class="controls">
@@ -220,15 +219,6 @@
     font-size: var(--size-xl);
     font-weight: 600;
     letter-spacing: -0.01em;
-  }
-
-  .back {
-    font-size: var(--size-sm);
-    color: var(--color-fg-muted);
-    text-decoration: none;
-  }
-  .back:hover {
-    color: var(--color-accent);
   }
 
   .controls {
