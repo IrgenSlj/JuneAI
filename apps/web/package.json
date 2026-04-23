@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@june/design": "workspace:*",
-    "@june/ui": "workspace:*"
+    "@june/ui": "workspace:*",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^7.0.0",

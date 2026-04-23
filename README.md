@@ -6,13 +6,14 @@ June runs privately on your laptop via Gemma 4 and scales to the cloud via Gemin
 
 ## Status
 
-The web prototype is feature-complete. Everything on the prototype checklist is shipped except the final branding pass:
+The web prototype is **shipped**. The prototype checklist is complete:
 
 - **Intelligence** — `packages/brain/` runs Gemma 4 (local, via Ollama) or Gemini (cloud) behind one code path.
 - **API** — `packages/api/` exposes a FastAPI surface with SSE streaming on `POST /chat`; Pydantic schemas generate the TypeScript client.
 - **Memory** — three stores behind one `MemoryManager`: SQLite for structured facts, ChromaDB for semantic recall, a graph for entities and relationships. Recall runs before every turn; extract runs after.
 - **Skills** — each skill is a standalone MCP server launched by a supervisor in the brain; the `/skills` page toggles them on and off at runtime.
 - **Web shell** — SvelteKit PWA at `apps/web/` with installable manifest, service worker, first-run setup, settings, memory browser, skills registry, offline states, keyboard shortcuts, and an accessibility pass.
+- **Branding** — June "J" wordmark with light mode default and dark mode toggle.
 
 See [`docs/product/roadmap.md`](docs/product/roadmap.md) for the item-by-item breakdown and what comes next (gated on user traction, not calendar).
 
@@ -60,12 +61,12 @@ packages/brain/.venv/bin/uvicorn june_api.app:app --reload --port 8000
 pnpm --filter @june/web dev
 ```
 
-Open http://localhost:5173 for the chat surface. From there you can reach:
+Open http://localhost:5173 for the chat surface. The app defaults to **light mode** — click the moon icon in the header to switch to dark mode. From there you can reach:
 
 - `/setup` — first-run provider selection and key verification
 - `/memory` — browse, search, and forget anything June has learned
 - `/skills` — toggle MCP skills on and off at runtime
-- `/settings` — switch providers and update your Gemini key
+- `/settings` — switch providers, update your Gemini key, or toggle theme
 - `/help/ollama` — troubleshooting for local Gemma via Ollama
 
 ## Migrating from v1
