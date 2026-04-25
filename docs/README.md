@@ -2,7 +2,10 @@
 
 This directory is the documentation root. Everything you need to understand, contribute to, or operate June lives here.
 
-## Start Here
+## What's New
+
+- **Light mode default** — June now defaults to light theme. Click the moon icon in the header to switch to dark mode.
+- **Black J branding** — Clean black "J" on transparent for favicon and PWA icons.
 
 - [**Vision**](vision.md) — the product premise and the three non-negotiables
 - [**Product overview**](product/overview.md) — what June is

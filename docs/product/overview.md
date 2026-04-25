@@ -75,4 +75,6 @@ A skill subprocess that re-imports the brain is a fork bomb. The supervisor sets
 
 ## Status
 
-June 1.0 ships as a web application first. The brain, the API, the memory stores, and the skills system are complete and under test. The shared UI renders the chat, memory, and skills surfaces. What remains before a useful first prototype is documented in [roadmap.md](roadmap.md).
+June 1.0 ships as a web application. The brain, the API, the memory stores, and the skills system are complete. The shared UI renders the chat, memory, and skills surfaces. Light mode is the default with dark mode toggle available.
+
+See [roadmap.md](roadmap.md) for what ships next.
