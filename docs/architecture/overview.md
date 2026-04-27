@@ -91,11 +91,13 @@ A small capability layer (`packages/ui/src/platform.ts`) exposes platform featur
 
 Three thin shells wrap the UI:
 
-- **`apps/desktop/`** — Tauri. Rust commands for system tray, global hotkey (⌘⇧J), native notifications, Ollama process supervision, filesystem access, autostart. Ships a macOS `.dmg` (and Windows/Linux for free).
-- **`apps/mobile/`** — Capacitor. Swift plugins for iOS push notifications, share extensions, voice input via AVFoundation. Ships an iOS `.ipa` for TestFlight and the App Store.
-- **Web** — the SvelteKit PWA served directly. Installable via the browser's native install flow.
+- **Web** — the SvelteKit PWA served directly. Installable via the browser's native install flow. Shipped.
+- **`apps/desktop/`** — Tauri 2.x. Rust commands for Ollama process supervision (see [ADR 0008](../decisions/0008-ollama-supervision.md)), system tray, global hotkey (`Cmd+Shift+J`), native notifications, filesystem access, autostart. Ships a macOS `.dmg` (universal), a Windows `.msi`, and a Linux `.AppImage` from one build pipeline. In progress per [desktop-shell-plan.md](../product/desktop-shell-plan.md).
+- **`apps/mobile/`** — Capacitor. Swift plugins for iOS push notifications, share extensions, voice input via AVFoundation. Ships an iOS `.ipa` for TestFlight and the App Store. Trigger-gated; planned after the desktop shell ships.
 
-Shells do not contain business logic. If a shell needs to do something, there is a Tauri command or a Capacitor plugin, and the UI calls it through the capability layer.
+Shells do not contain business logic. If a shell needs to do something, there is a Tauri command or a Capacitor plugin, and the UI calls it through the capability layer (`packages/ui/src/platform.ts`). The capability layer has three runtime backends — Tauri, Capacitor, and Web — selected at module load via runtime detection.
+
+Across all three shells the same UI must look and behave correctly on every screen size and input method. Touch, tablet, and PWA-on-iOS specifics are covered in [responsive-plan.md](../product/responsive-plan.md).
 
 ## The Skills
 

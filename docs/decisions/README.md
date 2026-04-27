@@ -28,3 +28,4 @@ Status progression:
 | [0005](0005-skills-as-mcp.md) | Skills as Model Context Protocol servers | Accepted |
 | [0006](0006-desktop-and-mobile-shells.md) | Tauri for desktop, Capacitor for mobile | Accepted |
 | [0007](0007-sse-over-websockets.md) | SSE over WebSockets for chat streaming | Accepted |
+| [0008](0008-ollama-supervision.md) | In-app Ollama supervision (use, do not bundle) | Accepted |

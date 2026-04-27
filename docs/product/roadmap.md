@@ -8,9 +8,11 @@ This document describes what is left to ship for a useful first prototype, and w
 
 No parallel construction. No half-finished platforms. Each surface must reach real users before the next one gets detailed design.
 
-## Current Surface: Web PWA
+## Current Surface: Web PWA (Shipped)
 
-The browser application is the first and only surface for June 1.0. Installable through the browser's native install flow. Works offline against a local Ollama. Works online against Gemini. No account. No cloud dependency beyond the optional model call.
+The browser application is the first surface for June 1.0. Installable through the browser's native install flow. Works offline against a local Ollama. Works online against Gemini. No account. No cloud dependency beyond the optional model call. The prototype checklist below is fully shipped as of 2026-04-20.
+
+The desktop shell (next section) does not retire the PWA. The PWA remains a first-class surface and the same SvelteKit build serves both.
 
 ### Remaining Work for the First Working Prototype
 
@@ -31,30 +33,36 @@ Ordered by dependency, not priority.
 
 A first-time user opens the URL, completes setup in under two minutes, has their first conversation with Gemma or Gemini, sees a memory land in the browser, and toggles at least one skill. The browser prompts them to install. They close the tab and tomorrow open the installed app from their dock or home screen and continue the conversation.
 
-## Next Surface: Desktop Shell
+## Next Surface: Desktop Shell — In Progress
 
-### Trigger to Plan
+### Trigger Fired
 
-The web PWA has at least one hundred active users, or one of the following capability gaps is blocking real usage:
+The Ollama process-supervision capability gap fired the trigger on 2026-04-27. The PWA can detect Ollama reachability but cannot install it, start it, or pull a model on the user's behalf, leaving non-technical users at a terminal-instructions cliff. Closing that cliff requires shell access the browser does not grant. The native shell is the way it gets closed.
 
-- Global hotkey. Users want to summon June from any app with a keyboard shortcut.
-- System tray presence. Users want June quietly running with unread-memory badges.
-- Native notifications. Reminders, proactive nudges, calendar alerts.
-- Autostart on login.
-- Filesystem reach. Reading documents the user points at, without upload steps.
-- Ollama process supervision. Start and stop the local model server from inside June.
+The full plan is in [desktop-shell-plan.md](desktop-shell-plan.md). The architectural decision behind the choice of Tauri lives in [ADR 0006](../decisions/0006-desktop-and-mobile-shells.md); the architectural decision behind in-app Ollama supervision lives in [ADR 0008](../decisions/0008-ollama-supervision.md). Touch and tablet hardening that ships alongside the shell is in [responsive-plan.md](responsive-plan.md).
 
 ### What It Is
 
-A Tauri 2.x shell that wraps the same SvelteKit build. Rust commands expose the capabilities above to the UI through the capability layer at `packages/ui/src/platform.ts`. Ships a macOS `.dmg`, a Windows installer, and a Linux AppImage from one build pipeline.
+A Tauri 2.x shell at `apps/desktop/` that wraps the same SvelteKit build. Rust commands expose native capabilities (Ollama supervision, system tray, global hotkey, native notifications, autostart, filesystem) to the UI through the capability layer at `packages/ui/src/platform.ts`. Ships a macOS `.dmg`, a Windows installer, and a Linux AppImage from one build pipeline.
 
-### Why Not Now
+### The Phases (full detail in desktop-shell-plan.md)
 
-Tauri requires the Rust toolchain in every contributor's environment. The PWA already delivers install-to-dock via the browser. Until a capability gap is blocking a real user, the native shell adds friction without adding value.
+1. **Scaffold** — existing UI runs unchanged inside a Tauri window.
+2. **Capability layer** — typed `platform.ts` interface with Tauri, Capacitor, and Web backends.
+3. **Ollama supervision** — install, start, pull, monitor; one-click setup.
+4. **Native affordances** — tray, global hotkey, notifications, autostart, window state.
+5. **Touch and responsive hardening** — see [responsive-plan.md](responsive-plan.md).
+6. **Distribution** — code signing, auto-update, GitHub Actions build pipeline.
+7. **Migration and polish** — first-run welcome, opt-in crash reporting, data-path consolidation.
 
-### When Implemented
+### Estimate
 
-The plan is written when the trigger fires. Implementation follows the plan. Estimate one to two weeks once started; most of the UI already works.
+Roughly nine working days plus a one-week external test period.
+
+### What This Unblocks
+
+- The mobile-shell trigger (push, share extensions, voice) becomes the next one to watch once the desktop shell is in users' hands.
+- The proactive assistant feature plan can begin in parallel late in Phase 4 because tray and notifications are its prerequisites.
 
 ## Later Surface: Mobile Shell
 
@@ -88,7 +96,7 @@ Speech-to-text input and text-to-speech output. The PWA uses the Web Speech API 
 
 ### Proactive Assistant
 
-June surfaces its own thoughts without being prompted: reminders, gentle nudges, pattern observations. Requires the scheduler (a background loop that inspects memory and pushes messages into the next opened conversation) and a notification channel on each shell. Plan alongside the desktop shell; implement after mobile push lands.
+June surfaces its own thoughts without being prompted: reminders, gentle nudges, pattern observations. Requires the scheduler (a background loop that inspects memory and pushes messages into the next opened conversation) and a notification channel on each shell. Plan alongside the desktop shell once Phase 4 (native affordances, including notifications) lands; implement after mobile push lands.
 
 ### Skill Marketplace
 

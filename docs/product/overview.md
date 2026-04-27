@@ -77,4 +77,6 @@ A skill subprocess that re-imports the brain is a fork bomb. The supervisor sets
 
 June 1.0 ships as a web application. The brain, the API, the memory stores, and the skills system are complete. The shared UI renders the chat, memory, and skills surfaces. Light mode is the default with dark mode toggle available.
 
+The desktop shell is in progress. The Ollama capability gap fired the trigger on 2026-04-27; the concrete plan lives in [desktop-shell-plan.md](desktop-shell-plan.md) with touch and tablet hardening detailed in [responsive-plan.md](responsive-plan.md).
+
 See [roadmap.md](roadmap.md) for what ships next.

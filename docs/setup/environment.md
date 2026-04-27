@@ -68,6 +68,8 @@ The `/settings` screen shows which of the two is active. "Forget key" removes th
 
 Cloud-only users skip Ollama entirely and set `MODEL_PROVIDER=gemini` with a `GEMINI_API_KEY`.
 
+The desktop shell will perform steps 1 through 3 on the user's behalf with one click — see [ADR 0008](../decisions/0008-ollama-supervision.md). The web shell continues to require manual setup as documented above.
+
 ## Skill Subprocess Variables
 
 Set by the brain's skill supervisor when spawning an MCP skill server. Never set these manually in a shell.

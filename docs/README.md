@@ -4,12 +4,15 @@ This directory is the documentation root. Everything you need to understand, con
 
 ## What's New
 
-- **Light mode default** — June now defaults to light theme. Click the moon icon in the header to switch to dark mode.
+- **Desktop shell trigger fired** — On 2026-04-27 the Ollama capability gap fired the trigger to plan and build the desktop shell. The full plan lives at [`product/desktop-shell-plan.md`](product/desktop-shell-plan.md). Touch and tablet hardening that ships alongside the shell is at [`product/responsive-plan.md`](product/responsive-plan.md). The new ADR [0008](decisions/0008-ollama-supervision.md) records the in-app Ollama supervision decision.
+- **Light mode default** — June defaults to light theme. Click the moon icon in the header to switch to dark mode.
 - **Black J branding** — Clean black "J" on transparent for favicon and PWA icons.
 
 - [**Vision**](vision.md) — the product premise and the three non-negotiables
 - [**Product overview**](product/overview.md) — what June is
 - [**Roadmap**](product/roadmap.md) — what ships next and when the next surface is worth planning
+- [**Desktop shell plan**](product/desktop-shell-plan.md) — phased plan for the Tauri desktop shell
+- [**Responsive and touch plan**](product/responsive-plan.md) — how the UI works on every screen size and input method
 - [**Architecture overview**](architecture/overview.md) — how the system is layered
 - [**Architecture decisions**](decisions/README.md) — the ADRs that justify the design
 - [**Environment**](setup/environment.md) — runtime configuration reference
@@ -22,7 +25,9 @@ docs/
 ├── vision.md                      # product north star
 ├── product/
 │   ├── overview.md                # what June is
-│   └── roadmap.md                 # scaling map + remaining prototype work
+│   ├── roadmap.md                 # scaling map, trigger-gated
+│   ├── desktop-shell-plan.md      # active development plan for the Tauri desktop shell
+│   └── responsive-plan.md         # touch and tablet hardening shipped alongside the shell
 ├── architecture/
 │   └── overview.md                # layered system architecture
 ├── decisions/                     # Architecture Decision Records
@@ -33,7 +38,8 @@ docs/
 │   ├── 0004-memory-architecture.md
 │   ├── 0005-skills-as-mcp.md
 │   ├── 0006-desktop-and-mobile-shells.md
-│   └── 0007-sse-over-websockets.md
+│   ├── 0007-sse-over-websockets.md
+│   └── 0008-ollama-supervision.md
 ├── design/
 │   └── claude-design-prompt.md    # UI design brief
 ├── setup/

@@ -15,6 +15,8 @@ The web prototype is **shipped**. The prototype checklist is complete:
 - **Web shell** — SvelteKit PWA at `apps/web/` with installable manifest, service worker, first-run setup, settings, memory browser, skills registry, offline states, keyboard shortcuts, and an accessibility pass.
 - **Branding** — June "J" wordmark with light mode default and dark mode toggle.
 
+The **desktop shell** is in progress. The Ollama capability gap fired the trigger on 2026-04-27 — the PWA cannot install or supervise Ollama on the user's behalf, leaving non-technical users at a terminal-instructions cliff. The full plan is in [`docs/product/desktop-shell-plan.md`](docs/product/desktop-shell-plan.md). Touch and tablet hardening that ships alongside the shell is in [`docs/product/responsive-plan.md`](docs/product/responsive-plan.md). The architectural decision behind in-app Ollama supervision is recorded in [ADR 0008](docs/decisions/0008-ollama-supervision.md).
+
 See [`docs/product/roadmap.md`](docs/product/roadmap.md) for the item-by-item breakdown and what comes next (gated on user traction, not calendar).
 
 The original v1 Streamlit prototype is preserved on the `legacy/streamlit` branch for historical reference.
@@ -24,9 +26,11 @@ The original v1 Streamlit prototype is preserved on the `legacy/streamlit` branc
 1. [Vision](docs/vision.md) — what June is and the three non-negotiables
 2. [Product overview](docs/product/overview.md) — the surfaces and the product boundary
 3. [Roadmap](docs/product/roadmap.md) — what ships next and what triggers the next surface
-4. [Architecture overview](docs/architecture/overview.md) — the layered model
-5. [Architecture decisions](docs/decisions/README.md) — the ADRs that justify the design
-6. [Environment](docs/setup/environment.md) — configuration reference
+4. [Desktop shell plan](docs/product/desktop-shell-plan.md) — the active development plan
+5. [Responsive and touch plan](docs/product/responsive-plan.md) — how the UI works on every screen
+6. [Architecture overview](docs/architecture/overview.md) — the layered model
+7. [Architecture decisions](docs/decisions/README.md) — the ADRs that justify the design
+8. [Environment](docs/setup/environment.md) — configuration reference
 
 ## Repository Layout
 
