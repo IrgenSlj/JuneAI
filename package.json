@@ -9,8 +9,10 @@
   },
   "scripts": {
     "dev": "pnpm --filter @june/web dev",
-    "build": "pnpm -r --filter './packages/**' --filter './apps/**' build",
-    "check": "pnpm -r --filter './packages/**' --filter './apps/**' check",
+    "build": "pnpm -r --filter './packages/**' --filter '@june/web' build",
+    "check": "pnpm -r --filter './packages/**' --filter '@june/web' check",
+    "desktop:dev": "pnpm --filter @june/desktop dev",
+    "desktop:build": "pnpm --filter @june/desktop build",
     "codegen": "./tools/codegen.sh"
   },
   "devDependencies": {

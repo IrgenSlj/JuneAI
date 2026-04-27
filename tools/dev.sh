@@ -53,6 +53,14 @@ if [ "$PROVIDER" = "gemini" ]; then
   echo "    gemini   : API key present"
 fi
 
+if command -v cargo >/dev/null 2>&1; then
+  echo "    rust     : $(rustc --version 2>/dev/null | awk '{print $1, $2}')"
+else
+  echo "    rust     : NOT FOUND — needed for the desktop shell only."
+  echo "               Install with 'curl --proto =https --tlsv1.2 -sSf https://sh.rustup.rs | sh' when you start Phase 1."
+  echo "               See docs/setup/desktop.md."
+fi
+
 VENV="packages/brain/.venv"
 if [ ! -d "$VENV" ]; then
   echo "    venv     : creating at $VENV"

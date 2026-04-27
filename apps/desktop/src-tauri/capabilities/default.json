@@ -1,0 +1,10 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "default",
+  "description": "Permissions granted to the main June window. Phase 1 ships the minimum surface needed to load the UI; later phases extend this file as Rust commands and plugins are added.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:allow-open"
+  ]
+}

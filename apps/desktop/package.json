@@ -1,0 +1,15 @@
+{
+  "name": "@june/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "June desktop shell — Tauri 2.x wrapper around the SvelteKit build.",
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

@@ -16,6 +16,7 @@ This directory is the documentation root. Everything you need to understand, con
 - [**Architecture overview**](architecture/overview.md) — how the system is layered
 - [**Architecture decisions**](decisions/README.md) — the ADRs that justify the design
 - [**Environment**](setup/environment.md) — runtime configuration reference
+- [**Desktop setup**](setup/desktop.md) — Rust toolchain, run/build commands for the desktop shell
 - [**Design brief**](design/claude-design-prompt.md) — the prompt for iterating on June's UI with Claude
 
 ## Structure
@@ -43,7 +44,8 @@ docs/
 ├── design/
 │   └── claude-design-prompt.md    # UI design brief
 ├── setup/
-│   └── environment.md             # env vars, .env template
+│   ├── environment.md             # env vars, .env template
+│   └── desktop.md                 # Rust toolchain, dev/build commands for the desktop shell
 └── README.md                      # this file
 ```
 
