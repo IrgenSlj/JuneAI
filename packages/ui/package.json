@@ -14,6 +14,10 @@
       "types": "./src/api/index.ts",
       "default": "./src/api/index.ts"
     },
+    "./platform": {
+      "types": "./src/platform/index.ts",
+      "default": "./src/platform/index.ts"
+    },
     "./components/*.svelte": "./src/components/*.svelte"
   },
   "files": ["src"],
@@ -23,6 +27,9 @@
   },
   "dependencies": {
     "@june/design": "workspace:*",
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-notification": "^2.0.0",
+    "@tauri-apps/plugin-shell": "^2.0.0",
     "svelte": "^5.0.0"
   },
   "devDependencies": {

@@ -5,11 +5,13 @@
     type SettingsView,
     type SetupApplyResponse,
   } from "@june/ui";
+  import { getPlatform, UnsupportedError } from "@june/ui/platform";
 
   const DEFAULT_API = "http://localhost:8000";
   const apiUrl =
     (import.meta.env.PUBLIC_JUNE_API_URL as string | undefined) ?? DEFAULT_API;
   const client = createJuneClient({ baseUrl: apiUrl });
+  const platform = getPlatform();
 
   type Provider = "gemma" | "gemini";
 
@@ -21,6 +23,7 @@
   let busy = $state(false);
   let result: SetupApplyResponse | null = $state(null);
   let note: string | null = $state(null);
+  let notifyState: "idle" | "ok" | "denied" | "unsupported" = $state("idle");
 
   onMount(refresh);
 
@@ -64,6 +67,21 @@
     }
     await refresh();
     busy = false;
+  }
+
+  async function handleTestNotification() {
+    notifyState = "idle";
+    try {
+      await platform.notify({
+        title: "June",
+        body: "Notifications are wired up on this shell.",
+        tag: "june-test",
+      });
+      notifyState = "ok";
+    } catch (err) {
+      if (err instanceof UnsupportedError) notifyState = "unsupported";
+      else notifyState = "denied";
+    }
   }
 
   async function handleForgetKey() {
@@ -210,6 +228,27 @@
         >
           Forget key
         </button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Notifications</h2>
+      <p class="hint">
+        Send a test notification through the active shell. On the desktop app
+        this uses the OS notification center; in a browser it uses the Web
+        Notifications API. Running in: <code>{platform.runtime}</code>.
+      </p>
+      <div class="row">
+        <button type="button" class="ghost" onclick={handleTestNotification}>
+          Send test notification
+        </button>
+        {#if notifyState === "ok"}
+          <span class="ok">Sent.</span>
+        {:else if notifyState === "denied"}
+          <span class="warn">Permission denied or unavailable.</span>
+        {:else if notifyState === "unsupported"}
+          <span class="warn">Not supported on this shell.</span>
+        {/if}
       </div>
     </section>
 
