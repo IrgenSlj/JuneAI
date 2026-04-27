@@ -1,16 +1,25 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { createJuneClient, type SystemStatus } from "@june/ui";
+  import { getPlatform, UnsupportedError } from "@june/ui/platform";
 
   const DEFAULT_API = "http://localhost:8000";
   const apiUrl =
     (import.meta.env.PUBLIC_JUNE_API_URL as string | undefined) ?? DEFAULT_API;
   const client = createJuneClient({ baseUrl: apiUrl });
+  const platform = getPlatform();
+  const isDesktop = platform.runtime === "tauri";
+  const MODEL_TAG = "gemma4:e4b";
 
   type OS = "mac" | "linux" | "windows";
   let status = $state<SystemStatus | null>(null);
   let detectedOS: OS = $state("mac");
   let checking = $state(false);
+
+  type Step = "install" | "start" | "pull";
+  let busyStep: Step | null = $state(null);
+  let progress = $state<{ fraction: number | null; status: string } | null>(null);
+  let stepError: string | null = $state(null);
 
   onMount(async () => {
     detectedOS = detectOS();
@@ -35,8 +44,34 @@
     checking = false;
   }
 
+  async function runStep(step: Step, fn: () => Promise<void>) {
+    busyStep = step;
+    progress = null;
+    stepError = null;
+    try {
+      await fn();
+    } catch (err) {
+      if (err instanceof UnsupportedError) {
+        stepError = "This shell can't perform the action — follow the manual steps below.";
+      } else {
+        stepError = String((err as Error)?.message ?? err);
+      }
+    }
+    busyStep = null;
+    await recheck();
+  }
+
+  const installOllama = () =>
+    runStep("install", () => platform.bootstrapOllama((p) => (progress = p)));
+
+  const startOllama = () => runStep("start", () => platform.startOllama());
+
+  const pullModel = () =>
+    runStep("pull", () => platform.pullModel(MODEL_TAG, (p) => (progress = p)));
+
   const reachable = $derived(status ? status.ollama_reachable : false);
   const hasModel = $derived(status ? status.ollama_has_model : false);
+  const installedOnDesktop = $derived(reachable);
 </script>
 
 <svelte:head>
@@ -80,6 +115,87 @@
     </button>
   </section>
 
+  {#if isDesktop}
+    <section class="card desktop-fix">
+      <h2>One-click setup</h2>
+      <p class="hint">
+        You're running the desktop app, so June can do the work for you. Each
+        step waits for the previous one to finish.
+      </p>
+      <ol class="fix-steps">
+        <li class:done={reachable || hasModel}>
+          <div class="fix-row">
+            <span class="dot" class:ok={reachable || hasModel} class:warn={!reachable && !hasModel}></span>
+            <span class="fix-label">Install Ollama</span>
+            <button
+              type="button"
+              class="primary"
+              onclick={installOllama}
+              disabled={busyStep !== null}
+            >
+              {busyStep === "install" ? "Opening…" : "Install Ollama"}
+            </button>
+          </div>
+          <p class="hint">
+            Opens the official installer for your OS. Run it, then come back and
+            click "Start Ollama".
+          </p>
+        </li>
+        <li class:done={reachable}>
+          <div class="fix-row">
+            <span class="dot" class:ok={reachable} class:warn={!reachable}></span>
+            <span class="fix-label">Start Ollama</span>
+            <button
+              type="button"
+              class="primary"
+              onclick={startOllama}
+              disabled={busyStep !== null || reachable}
+            >
+              {busyStep === "start" ? "Starting…" : reachable ? "Running" : "Start Ollama"}
+            </button>
+          </div>
+          <p class="hint">
+            Launches <code>ollama serve</code> in the background and waits for
+            it to answer.
+          </p>
+        </li>
+        <li class:done={hasModel}>
+          <div class="fix-row">
+            <span class="dot" class:ok={hasModel} class:warn={!hasModel}></span>
+            <span class="fix-label">Pull {MODEL_TAG}</span>
+            <button
+              type="button"
+              class="primary"
+              onclick={pullModel}
+              disabled={busyStep !== null || !reachable || hasModel}
+            >
+              {busyStep === "pull" ? "Pulling…" : hasModel ? "Pulled" : "Pull model"}
+            </button>
+          </div>
+          {#if busyStep === "pull" && progress}
+            <div class="progress" aria-live="polite">
+              {#if progress.fraction !== null}
+                <div class="bar">
+                  <div class="fill" style="width: {Math.round(progress.fraction * 100)}%"></div>
+                </div>
+                <span class="hint">
+                  {progress.status} — {Math.round(progress.fraction * 100)}%
+                </span>
+              {:else}
+                <span class="hint">{progress.status}</span>
+              {/if}
+            </div>
+          {:else}
+            <p class="hint">A few gigabytes — this takes a while on first install.</p>
+          {/if}
+        </li>
+      </ol>
+      {#if stepError}
+        <p class="error">{stepError}</p>
+      {/if}
+    </section>
+  {/if}
+
   <nav class="os-tabs" aria-label="Operating system">
     <button
       type="button"
@@ -97,6 +213,13 @@
       onclick={() => (detectedOS = "windows")}
     >Windows</button>
   </nav>
+
+  {#if !isDesktop}
+  <p class="hint manual-lede">
+    Below are the manual steps for browser users. The desktop app does all of
+    this for you.
+  </p>
+  {/if}
 
   <section class="steps">
     {#if detectedOS === "mac"}
@@ -351,5 +474,75 @@ ollama serve</code></pre>
   button.ghost:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .desktop-fix {
+    border-color: var(--color-accent);
+  }
+  .fix-steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .fix-steps li {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .fix-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+  .fix-label {
+    flex: 1;
+    font-weight: 500;
+  }
+  .fix-steps li.done .fix-label {
+    color: var(--color-fg-muted);
+  }
+  button.primary {
+    background: var(--color-accent);
+    color: var(--color-bg-base);
+    border: 0;
+    font-weight: 500;
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: var(--size-sm);
+  }
+  button.primary:hover:not(:disabled) {
+    background: var(--color-accent-muted);
+  }
+  button.primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .progress {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .bar {
+    height: 6px;
+    background: var(--color-bg-sunken);
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+  }
+  .fill {
+    height: 100%;
+    background: var(--color-accent);
+    transition: width 200ms ease;
+  }
+  .error {
+    margin: 0;
+    color: var(--color-danger);
+    font-size: var(--size-sm);
+  }
+  .manual-lede {
+    margin: 0;
   }
 </style>
