@@ -47,17 +47,17 @@ A Tauri 2.x shell at `apps/desktop/` that wraps the same SvelteKit build. Rust c
 
 ### The Phases (full detail in desktop-shell-plan.md)
 
-1. **Scaffold** — existing UI runs unchanged inside a Tauri window.
-2. **Capability layer** — typed `platform.ts` interface with Tauri, Capacitor, and Web backends.
-3. **Ollama supervision** — install, start, pull, monitor; one-click setup.
-4. **Native affordances** — tray, global hotkey, notifications, autostart, window state.
-5. **Touch and responsive hardening** — see [responsive-plan.md](responsive-plan.md).
+1. **Scaffold** — _Shipped (`e2639312`)._ Existing UI runs unchanged inside a Tauri window.
+2. **Capability layer** — _Shipped (`2cd0408b`)._ Typed `platform.ts` interface with Tauri, Capacitor, and Web backends.
+3. **Ollama supervision** — _Shipped (`49400967`)._ Install (opens OS installer), start, pull with streamed progress, model check; one-click `/help/ollama` flow on desktop.
+4. **Native affordances** — _Shipped (`f5e24dfa`)._ Tray, global hotkey, notifications, autostart, window state. Hidden-inset title bar deferred to 4.5.
+5. **Touch and responsive hardening** — _Next._ See [responsive-plan.md](responsive-plan.md).
 6. **Distribution** — code signing, auto-update, GitHub Actions build pipeline.
 7. **Migration and polish** — first-run welcome, opt-in crash reporting, data-path consolidation.
 
 ### Estimate
 
-Roughly nine working days plus a one-week external test period.
+Roughly nine working days plus a one-week external test period. Phases 1–4 took two implementation sessions (TypeScript verified clean; the Rust in 3 and 4 awaits its first compile on a machine with rustup).
 
 ### What This Unblocks
 

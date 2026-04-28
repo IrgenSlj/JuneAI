@@ -27,6 +27,20 @@ The macOS build is the one we polish first. Windows and Linux come for free from
 - **No Tauri-mobile experiment.** Mobile stays on the Capacitor track in [ADR 0006](../decisions/0006-desktop-and-mobile-shells.md). Adopting Tauri 2's mobile target would split the mobile plan; it is reconsidered when the desktop shell has shipped and stabilized.
 - **No multi-window UI.** One window per running app. Tray icon and global hotkey raise the existing window; they do not spawn extra ones.
 
+## Phase Status (live)
+
+| Phase | Status | Commit |
+|---|---|---|
+| 1. Scaffold | Shipped | `e2639312` |
+| 2. Capability layer | Shipped | `2cd0408b` |
+| 3. Ollama supervision | Shipped (with bootstrap caveat — see below) | `49400967` |
+| 4. Native affordances | Shipped (title-bar overlay deferred to 4.5) | `f5e24dfa` |
+| 5. Touch + responsive hardening | Next |  |
+| 6. Distribution | Pending |  |
+| 7. Migration + polish | Pending |  |
+
+The Rust code in Phases 3 and 4 has not been compiled locally (no rustup on the dev machine yet). The TypeScript side of every phase is clean (`pnpm check` 0/0). The first `pnpm desktop:dev` run by anyone with Rust installed is also the first compile of `apps/desktop/src-tauri/src/ollama.rs` and `native.rs`; expect minor fix-ups.
+
 ## The Phases
 
 The plan is divided into seven phases. Each phase ends in a working artifact you can install and use. Phases are sequential because each builds on the last; do not parallelize.
@@ -48,6 +62,8 @@ The plan is divided into seven phases. Each phase ends in a working artifact you
 
 **Estimate:** 1 day.
 
+**Shipped:** commit `e2639312`. Window opens at `http://localhost:5173`, repo-root scripts wired (`pnpm desktop:dev` / `desktop:build`), Rust toolchain detection in `tools/dev.sh` warns instead of fails. apps/desktop excluded from default `pnpm build` so contributors without Rust aren't blocked.
+
 ### Phase 2: Capability Layer
 
 **Goal:** the UI calls platform features through one typed interface that has a Tauri implementation, a Capacitor stub, and a Web fallback.
@@ -65,6 +81,8 @@ The plan is divided into seven phases. Each phase ends in a working artifact you
 **Done when:** the existing PWA build still works in the browser unchanged, the desktop shell calls a `notify` test command, and the type system catches a typo'd command name.
 
 **Estimate:** 1 day.
+
+**Shipped:** commit `2cd0408b`. Files landed under `packages/ui/src/platform/`: `types.ts` (Platform interface + UnsupportedError + closed `TauriCommand` union), `web.ts`, `tauri.ts` (lazy-imports `@tauri-apps/api/*` so the bundle still works in the browser), `capacitor.ts` (stubs), `index.ts` (runtime detection). The contract proved itself mid-build: a missing `"pick_file"` entry in `TauriCommand` was caught by `tsc` rather than at runtime. Settings page has a "Send test notification" button showing `platform.runtime`.
 
 ### Phase 3: Ollama Supervision
 
@@ -87,6 +105,12 @@ The plan is divided into seven phases. Each phase ends in a working artifact you
 
 **Estimate:** 2 days.
 
+**Shipped:** commit `49400967`. Five Rust commands in `src-tauri/src/ollama.rs`: `is_ollama_installed`, `start_ollama` (spawns `ollama serve`, retains the child handle in `OllamaState`, waits up to 10s for `/api/tags` to answer), `is_model_pulled`, `pull_model` (POSTs to `/api/pull` with `stream=true`, parses newline-delimited JSON, emits `ollama-pull-progress` events with fraction + status), and `bootstrap_ollama`. The `/help/ollama` route renders a one-click step list (Install → Start → Pull) with a real progress bar driven by Tauri events when `platform.runtime === "tauri"`; web users still see the manual instructions.
+
+**Pragmatic caveat — bootstrap:** `bootstrap_ollama` opens the official OS-specific installer URL via the shell plugin rather than downloading and extracting in-process. The OS-native installer flow (Gatekeeper on macOS, UAC on Windows) is a known UX rather than a half-baked one. Phase 3.5 may revisit if real users hit friction.
+
+**Deferred to Phase 3.5 / never (depending on usage):** crash detection + auto-restart of `ollama serve`; integration tests in Rust for the supervision logic; in-process installer download.
+
 ### Phase 4: Native Affordances
 
 **Goal:** the shell feels like a Mac app, not a Chrome tab.
@@ -104,6 +128,10 @@ The plan is divided into seven phases. Each phase ends in a working artifact you
 **Done when:** every native affordance in the list above works, is configurable in `/settings` where applicable, and survives a quit/relaunch.
 
 **Estimate:** 2 days.
+
+**Shipped:** commit `f5e24dfa`. Three Tauri 2 plugins join the build (`tauri-plugin-window-state`, `tauri-plugin-autostart`, `tauri-plugin-global-shortcut`). Rust module `src-tauri/src/native.rs` installs the tray (left-click toggles main window, right-click opens Open / Quit menu), registers `Cmd+Shift+J` / `Ctrl+Shift+J` as a global hotkey that toggles window visibility, and wraps autostart in `get_autostart` / `set_autostart` commands. Settings page gains a desktop-only "Native shell" card with an autostart toggle, hotkey hint, and tray hint.
+
+**Deferred to Phase 4.5:** hidden-inset title bar (needs a CSS drag region in the layout — defer until verifiable on screen); configurable hotkey (defer until usage data shows the default conflicts with something); dock badge (depends on proactive notifications); "Toggle Local-Only Mode" tray entry (needs brain coordination).
 
 ### Phase 5: Touch and Responsive Hardening
 

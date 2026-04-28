@@ -77,6 +77,6 @@ A skill subprocess that re-imports the brain is a fork bomb. The supervisor sets
 
 June 1.0 ships as a web application. The brain, the API, the memory stores, and the skills system are complete. The shared UI renders the chat, memory, and skills surfaces. Light mode is the default with dark mode toggle available.
 
-The desktop shell is in progress. The Ollama capability gap fired the trigger on 2026-04-27; the concrete plan lives in [desktop-shell-plan.md](desktop-shell-plan.md) with touch and tablet hardening detailed in [responsive-plan.md](responsive-plan.md).
+The desktop shell is in progress. The Ollama capability gap fired the trigger on 2026-04-27. Phases 1–4 of the [desktop-shell-plan](desktop-shell-plan.md) have shipped: the Tauri shell scaffolds the SvelteKit UI in a native window, the `Platform` capability layer routes calls through typed Rust commands, `/help/ollama` does the install/start/pull flow without a terminal, and the shell supports tray, global hotkey, autostart, and window-state persistence. Phase 5 (touch and tablet hardening, detailed in [responsive-plan.md](responsive-plan.md)) is next.
 
 See [roadmap.md](roadmap.md) for what ships next.

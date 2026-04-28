@@ -84,10 +84,37 @@ Then update `apps/desktop/src-tauri/tauri.conf.json` to reference the generated 
 
 **WebView2 missing on Windows 10** — Install the Evergreen runtime from Microsoft's WebView2 page. Windows 11 ships it by default.
 
+## What's Wired Today
+
+The shell is past the scaffold. As of the latest push:
+
+### Capability layer (Phase 2)
+
+The UI calls every native feature through `getPlatform()` from `@june/ui/platform`. On the desktop shell those calls become Tauri `invoke`s; in the browser they fall back to Web APIs or throw `UnsupportedError` for native-only methods. Settings has a "Send test notification" button you can use to verify your runtime: `web` falls back to the Web Notifications API, `tauri` goes through `tauri-plugin-notification`.
+
+### Ollama supervision (Phase 3)
+
+Visit `/help/ollama` inside the desktop shell. You'll see a one-click "Install Ollama → Start Ollama → Pull gemma4:e4b" panel that browser users don't get. The Rust side spawns `ollama serve` in-process (via `tokio::process`) and streams pull progress to the UI through Tauri events.
+
+`bootstrap_ollama` opens the official OS-specific installer URL — Gatekeeper handles the macOS hand-off, UAC handles Windows, the install.sh page handles Linux. You return to the app and click "Start Ollama". This is by design (Phase 3 plan, "pragmatic caveat — bootstrap"); Phase 3.5 may swap to in-process download if real users ask.
+
+### Native affordances (Phase 4)
+
+- **Tray icon** — appears in the menu bar on launch. Left-click toggles the main window; right-click opens an Open / Quit menu.
+- **Global hotkey** — `Cmd+Shift+J` on macOS, `Ctrl+Shift+J` on Windows and Linux. Fires from anywhere; toggles window visibility.
+- **Autostart** — toggle in `/settings` under "Native shell". Off by default. Backed by `tauri-plugin-autostart` (`LaunchAgent` on macOS).
+- **Window state** — size and position persist across launches via `tauri-plugin-window-state`.
+
+If any of the above doesn't work on your machine, the most likely cause is a missing capability in `apps/desktop/src-tauri/capabilities/default.json` — which already lists `core:tray:default`, `global-shortcut:default`, `autostart:default`, `window-state:default`, `notification:default`, `shell:allow-open`. File a fix.
+
 ## Phase Status
 
-This setup doc covers what is actually wired today (Phase 1: scaffold). As later phases land, expect this doc to grow:
-
-- Phase 3 will add a section on running Ollama supervision integration tests.
-- Phase 4 will document the global hotkey, tray, and autostart toggles.
-- Phase 6 will document code signing, notarization, and the GitHub Actions release workflow.
+| Phase | Status |
+|---|---|
+| 1. Scaffold | Shipped |
+| 2. Capability layer | Shipped |
+| 3. Ollama supervision | Shipped (bootstrap opens OS installer URL; in-process download deferred to 3.5) |
+| 4. Native affordances | Shipped (hidden-inset title bar deferred to 4.5) |
+| 5. Touch + responsive hardening | Next — see [responsive-plan.md](../product/responsive-plan.md) |
+| 6. Distribution | Pending — code signing, notarization, GitHub Actions |
+| 7. Migration + polish | Pending |
