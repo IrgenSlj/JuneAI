@@ -23,6 +23,10 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "str
 which = "6"
 futures-util = "0.3"
 tokio = { version = "1", features = ["process", "sync", "time", "io-util", "macros"] }
+# Phase 4: native affordances
+tauri-plugin-window-state = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-global-shortcut = "2"
 
 [profile.release]
 codegen-units = 1

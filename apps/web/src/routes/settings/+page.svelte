@@ -25,7 +25,35 @@
   let note: string | null = $state(null);
   let notifyState: "idle" | "ok" | "denied" | "unsupported" = $state("idle");
 
-  onMount(refresh);
+  const isDesktop = platform.runtime === "tauri";
+  let autostart = $state(false);
+  let autostartBusy = $state(false);
+  let autostartError: string | null = $state(null);
+
+  onMount(async () => {
+    await refresh();
+    if (isDesktop) await loadAutostart();
+  });
+
+  async function loadAutostart() {
+    try {
+      autostart = await platform.getAutostart();
+    } catch (err) {
+      autostartError = String((err as Error)?.message ?? err);
+    }
+  }
+
+  async function toggleAutostart(next: boolean) {
+    autostartBusy = true;
+    autostartError = null;
+    try {
+      await platform.setAutostart(next);
+      autostart = next;
+    } catch (err) {
+      autostartError = String((err as Error)?.message ?? err);
+    }
+    autostartBusy = false;
+  }
 
   async function refresh() {
     try {
@@ -230,6 +258,59 @@
         </button>
       </div>
     </section>
+
+    {#if isDesktop}
+      <section class="card">
+        <h2>Native shell</h2>
+        <p class="hint">
+          June can open with your Mac, sit in the menu bar, and pop open from
+          anywhere with a global hotkey. None of these are on by default.
+        </p>
+
+        <div class="row toggle-row">
+          <div class="toggle-text">
+            <div class="name">Launch June at login</div>
+            <p class="hint">
+              Adds June to your login items via the system autostart manager.
+            </p>
+          </div>
+          <label class="switch">
+            <input
+              type="checkbox"
+              checked={autostart}
+              disabled={autostartBusy}
+              onchange={(e) => toggleAutostart((e.target as HTMLInputElement).checked)}
+            />
+            <span class="slider"></span>
+          </label>
+        </div>
+        {#if autostartError}
+          <p class="warn">{autostartError}</p>
+        {/if}
+
+        <div class="row toggle-row">
+          <div class="toggle-text">
+            <div class="name">Global hotkey</div>
+            <p class="hint">
+              <code>⌘⇧J</code> on macOS, <code>Ctrl+Shift+J</code> on Windows
+              and Linux. Toggles the June window from anywhere. Hard-coded for
+              now; we'll make it configurable once usage tells us a different
+              default fits better.
+            </p>
+          </div>
+        </div>
+
+        <div class="row toggle-row">
+          <div class="toggle-text">
+            <div class="name">Tray icon</div>
+            <p class="hint">
+              June lives in your menu bar. Click to open or hide; right-click
+              for the Open / Quit menu. Always on while the app is running.
+            </p>
+          </div>
+        </div>
+      </section>
+    {/if}
 
     <section class="card">
       <h2>Notifications</h2>
@@ -485,6 +566,68 @@
   }
   .notice p {
     margin: 0;
+  }
+
+  .toggle-row {
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    gap: var(--space-4);
+  }
+  .toggle-text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    flex: 1;
+    min-width: 0;
+  }
+  .toggle-text .name {
+    font-weight: 500;
+  }
+
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .slider {
+    position: absolute;
+    inset: 0;
+    background: var(--color-bg-sunken);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease;
+  }
+  .slider::before {
+    content: "";
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    top: 2px;
+    left: 2px;
+    background: var(--color-fg-muted);
+    border-radius: 50%;
+    transition: transform 120ms ease, background 120ms ease;
+  }
+  .switch input:checked + .slider {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+  .switch input:checked + .slider::before {
+    transform: translateX(20px);
+    background: var(--color-bg-base);
+  }
+  .switch input:disabled + .slider {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   @media (max-width: 520px) {
