@@ -62,14 +62,27 @@ export interface paths {
          *       - ``semantic:<fact_id>`` removes a semantic fact from vector + shadow
          *       - ``node:<node_id>`` removes a graph entity and its edges
          *       - ``edge:<src>|<dst>|<kind>`` removes a single edge
-         *       - ``goal:<title>`` / ``open_loop:<topic>`` / ``calendar:<title>``
-         *         remove the structured row. (Not yet wired — Week 4 scope is
-         *         semantic + graph; the SQLite rows remain read-only for now.)
+         *       - ``goal:<title>`` removes a structured goal
+         *       - ``open_loop:<topic>`` removes a structured open loop
+         *       - ``calendar:<title>|<date>|<time>`` removes a structured calendar item
          */
         delete: operations["delete_memory_fact_memory__user_id__fact__ref__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Memory Fact
+         * @description Patch a structured fact by ref.
+         *
+         *     Only the SQLite ref kinds are supported (``goal:``, ``open_loop:``,
+         *     ``calendar:``). Editing semantic facts or graph nodes is not yet
+         *     exposed here; those have their own paths.
+         *
+         *     The returned ``ref`` may differ from the request ``ref`` when the
+         *     primary key changed (a goal renamed, a calendar item rescheduled).
+         *     Clients should use the returned ref for any subsequent edit or
+         *     delete operation on the same fact.
+         */
+        patch: operations["update_memory_fact_memory__user_id__fact__ref__patch"];
         trace?: never;
     };
     "/settings": {
@@ -369,6 +382,42 @@ export interface components {
              * @default 0
              */
             recent_messages: number;
+        };
+        /**
+         * MemoryUpdateRequest
+         * @description Body of PATCH /memory/{user_id}/fact/{ref}.
+         *
+         *     All fields are optional strings; missing keys preserve current values.
+         *     The set of accepted keys depends on the ref kind:
+         *       - goal: title, category, target_date, next_step, status
+         *       - open_loop: topic, next_step, due_date, status
+         *       - calendar: title, date, time, details, status, source
+         */
+        MemoryUpdateRequest: {
+            /**
+             * Fields
+             * @description Map of field name to new value. Unset fields keep current values.
+             */
+            fields?: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * MemoryUpdateResponse
+         * @description Result of PATCH /memory/{user_id}/fact/{ref}.
+         *
+         *     ``ref`` may be a *new* opaque identifier when the primary key changed
+         *     (e.g. a goal renamed). Clients should use the returned ref for any
+         *     subsequent edit/delete on this fact.
+         */
+        MemoryUpdateResponse: {
+            /** User Id */
+            user_id: string;
+            /** Ref */
+            ref: string;
+            /** Updated */
+            updated: boolean;
+            fact?: components["schemas"]["MemoryFact"] | null;
         };
         /**
          * SettingsView
@@ -837,6 +886,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemoryDeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_memory_fact_memory__user_id__fact__ref__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemoryUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryUpdateResponse"];
                 };
             };
             /** @description Validation Error */

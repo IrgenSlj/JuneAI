@@ -18,6 +18,8 @@ export type ChatEvent = components["schemas"]["ChatEvent"];
 export type MemorySnapshot = components["schemas"]["MemorySnapshot"];
 export type MemoryFact = components["schemas"]["MemoryFact"];
 export type MemoryDeleteResponse = components["schemas"]["MemoryDeleteResponse"];
+export type MemoryUpdateRequest = components["schemas"]["MemoryUpdateRequest"];
+export type MemoryUpdateResponse = components["schemas"]["MemoryUpdateResponse"];
 export type SkillInfo = components["schemas"]["SkillInfo"];
 export type SkillToolInfo = components["schemas"]["SkillToolInfo"];
 export type SkillsResponse = components["schemas"]["SkillsResponse"];
@@ -168,6 +170,35 @@ export function createJuneClient(options: JuneClientOptions) {
           throw new ApiError(response.status, response.statusText, await response.text());
         }
         return (await response.json()) as MemoryDeleteResponse;
+      })();
+    },
+
+    /**
+     * PATCH /memory/{user_id}/fact/{ref} — update structured memory fields.
+     *
+     * The returned `ref` may differ from the request ref when the primary
+     * key changed (rename a goal, reschedule a calendar item). Use the
+     * returned ref for any follow-up edit/delete.
+     */
+    patchMemoryFact(
+      userId: string,
+      ref: string,
+      fields: Record<string, string>,
+    ): Promise<MemoryUpdateResponse> {
+      const url = `${baseUrl}/memory/${encodeURIComponent(userId)}/fact/${encodeURI(ref)}`;
+      return (async () => {
+        const response = await fetchImpl(url, {
+          method: "PATCH",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ fields }),
+        });
+        if (!response.ok) {
+          throw new ApiError(response.status, response.statusText, await response.text());
+        }
+        return (await response.json()) as MemoryUpdateResponse;
       })();
     },
 

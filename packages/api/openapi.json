@@ -88,12 +88,72 @@
       }
     },
     "/memory/{user_id}/fact/{ref}": {
+      "patch": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Update Memory Fact",
+        "description": "Patch a structured fact by ref.\n\nOnly the SQLite ref kinds are supported (``goal:``, ``open_loop:``,\n``calendar:``). Editing semantic facts or graph nodes is not yet\nexposed here; those have their own paths.\n\nThe returned ``ref`` may differ from the request ``ref`` when the\nprimary key changed (a goal renamed, a calendar item rescheduled).\nClients should use the returned ref for any subsequent edit or\ndelete operation on the same fact.",
+        "operationId": "update_memory_fact_memory__user_id__fact__ref__patch",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ref"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemoryUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryUpdateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "tags": [
           "memory"
         ],
         "summary": "Delete Memory Fact",
-        "description": "Remove a fact by its opaque ref.\n\nSupports refs returned from ``GET /memory``:\n  - ``semantic:<fact_id>`` removes a semantic fact from vector + shadow\n  - ``node:<node_id>`` removes a graph entity and its edges\n  - ``edge:<src>|<dst>|<kind>`` removes a single edge\n  - ``goal:<title>`` / ``open_loop:<topic>`` / ``calendar:<title>``\n    remove the structured row. (Not yet wired \u2014 Week 4 scope is\n    semantic + graph; the SQLite rows remain read-only for now.)",
+        "description": "Remove a fact by its opaque ref.\n\nSupports refs returned from ``GET /memory``:\n  - ``semantic:<fact_id>`` removes a semantic fact from vector + shadow\n  - ``node:<node_id>`` removes a graph entity and its edges\n  - ``edge:<src>|<dst>|<kind>`` removes a single edge\n  - ``goal:<title>`` removes a structured goal\n  - ``open_loop:<topic>`` removes a structured open loop\n  - ``calendar:<title>|<date>|<time>`` removes a structured calendar item",
         "operationId": "delete_memory_fact_memory__user_id__fact__ref__delete",
         "parameters": [
           {
@@ -552,6 +612,55 @@
         ],
         "title": "MemorySnapshot",
         "description": "Summary of what June remembers about a user.\n\nThe SQLite structured tables, the vector semantic store, and the\nknowledge graph are all represented. UI can show them grouped or\nmerged in a timeline."
+      },
+      "MemoryUpdateRequest": {
+        "properties": {
+          "fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Fields",
+            "description": "Map of field name to new value. Unset fields keep current values."
+          }
+        },
+        "type": "object",
+        "title": "MemoryUpdateRequest",
+        "description": "Body of PATCH /memory/{user_id}/fact/{ref}.\n\nAll fields are optional strings; missing keys preserve current values.\nThe set of accepted keys depends on the ref kind:\n  - goal: title, category, target_date, next_step, status\n  - open_loop: topic, next_step, due_date, status\n  - calendar: title, date, time, details, status, source"
+      },
+      "MemoryUpdateResponse": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "ref": {
+            "type": "string",
+            "title": "Ref"
+          },
+          "updated": {
+            "type": "boolean",
+            "title": "Updated"
+          },
+          "fact": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MemoryFact"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "ref",
+          "updated"
+        ],
+        "title": "MemoryUpdateResponse",
+        "description": "Result of PATCH /memory/{user_id}/fact/{ref}.\n\n``ref`` may be a *new* opaque identifier when the primary key changed\n(e.g. a goal renamed). Clients should use the returned ref for any\nsubsequent edit/delete on this fact."
       },
       "SettingsView": {
         "properties": {

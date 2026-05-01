@@ -20,13 +20,19 @@
   let actionError: string | null = $state(null);
   let query = $state("");
   let pendingDelete: string | null = $state(null);
+  let editingRef: string | null = $state(null);
+  let editFields: Record<string, string> = $state({});
+  let pendingSave = $state(false);
+
+  type SectionKind = "semantic" | "entities" | "goals" | "open_loops" | "calendar";
 
   type Section = {
-    id: string;
+    id: SectionKind;
     title: string;
     empty: string;
     facts: MemoryFact[];
     deletable: boolean;
+    editable: boolean;
   };
 
   const sections = $derived.by<Section[]>(() => {
@@ -39,6 +45,7 @@
           "No durable facts yet. As June learns that you prefer tea or live in Berlin, those land here.",
         facts: snapshot.semantic_facts ?? [],
         deletable: true,
+        editable: false,
       },
       {
         id: "entities",
@@ -47,6 +54,7 @@
           "No entities mapped yet. People and projects you mention become nodes here.",
         facts: snapshot.entities ?? [],
         deletable: true,
+        editable: false,
       },
       {
         id: "goals",
@@ -54,6 +62,7 @@
         empty: "No goals tracked. Ask June to remember a goal and it shows up here.",
         facts: snapshot.goals ?? [],
         deletable: true,
+        editable: true,
       },
       {
         id: "open_loops",
@@ -62,6 +71,7 @@
           "No open threads. Questions left dangling or follow-ups June is holding will appear here.",
         facts: snapshot.open_loops ?? [],
         deletable: true,
+        editable: true,
       },
       {
         id: "calendar",
@@ -69,9 +79,94 @@
         empty: "Nothing on the calendar. Ask June to save events or reminders.",
         facts: snapshot.calendar ?? [],
         deletable: true,
+        editable: true,
       },
     ];
   });
+
+  type EditField = { key: string; label: string };
+
+  const EDIT_FIELDS: Partial<Record<SectionKind, EditField[]>> = {
+    goals: [
+      { key: "title", label: "Title" },
+      { key: "category", label: "Category" },
+      { key: "next_step", label: "Next step" },
+      { key: "target_date", label: "Target date" },
+      { key: "status", label: "Status" },
+    ],
+    open_loops: [
+      { key: "topic", label: "Topic" },
+      { key: "next_step", label: "Next step" },
+      { key: "due_date", label: "Due date" },
+      { key: "status", label: "Status" },
+    ],
+    calendar: [
+      { key: "title", label: "Title" },
+      { key: "date", label: "Date" },
+      { key: "time", label: "Time" },
+      { key: "details", label: "Details" },
+      { key: "status", label: "Status" },
+    ],
+  };
+
+  function fieldsFromFact(section: SectionKind, fact: MemoryFact): Record<string, string> {
+    const meta = fact.metadata ?? {};
+    if (section === "goals") {
+      return {
+        title: fact.title ?? "",
+        category: String(meta.category ?? ""),
+        next_step: fact.body ?? "",
+        target_date: String(meta.target_date ?? ""),
+        status: String(meta.status ?? ""),
+      };
+    }
+    if (section === "open_loops") {
+      return {
+        topic: fact.title ?? "",
+        next_step: fact.body ?? "",
+        due_date: String(meta.due_date ?? ""),
+        status: String(meta.status ?? ""),
+      };
+    }
+    if (section === "calendar") {
+      return {
+        title: fact.title ?? "",
+        date: String(meta.date ?? ""),
+        time: String(meta.time ?? ""),
+        details: fact.body ?? "",
+        status: String(meta.status ?? ""),
+      };
+    }
+    return {};
+  }
+
+  function startEdit(section: SectionKind, fact: MemoryFact) {
+    if (!fact.ref) return;
+    editingRef = fact.ref;
+    editFields = fieldsFromFact(section, fact);
+    actionError = null;
+  }
+
+  function cancelEdit() {
+    editingRef = null;
+    editFields = {};
+  }
+
+  async function saveEdit() {
+    if (!editingRef || pendingSave) return;
+    pendingSave = true;
+    actionError = null;
+    try {
+      await client.patchMemoryFact(USER_ID, editingRef, editFields);
+      editingRef = null;
+      editFields = {};
+      await refresh();
+    } catch (err) {
+      actionError = err instanceof Error ? err.message : String(err);
+    } finally {
+      pendingSave = false;
+    }
+  }
 
   const TIMESTAMP_KEYS = [
     "timestamp",
@@ -231,40 +326,84 @@
             <ul class="facts">
               {#each section.facts as fact (fact.ref || `${section.id}-${fact.title}`)}
                 {@const ts = pickTimestamp(fact)}
+                {@const isEditing = editingRef !== null && editingRef === fact.ref}
                 <li class="fact">
-                  <div class="fact-main">
-                    <div class="fact-head">
-                      {#if fact.title}
-                        <div class="fact-title">{fact.title}</div>
+                  {#if isEditing && section.editable}
+                    <form
+                      class="fact-editor"
+                      onsubmit={(e) => {
+                        e.preventDefault();
+                        saveEdit();
+                      }}
+                    >
+                      {#each EDIT_FIELDS[section.id] ?? [] as field (field.key)}
+                        <label class="field">
+                          <span class="field-label">{field.label}</span>
+                          <input
+                            type="text"
+                            value={editFields[field.key] ?? ""}
+                            oninput={(e) =>
+                              (editFields[field.key] = e.currentTarget.value)}
+                          />
+                        </label>
+                      {/each}
+                      <div class="editor-actions">
+                        <button type="submit" class="primary" disabled={pendingSave}>
+                          {pendingSave ? "Saving…" : "Save"}
+                        </button>
+                        <button type="button" onclick={cancelEdit} disabled={pendingSave}>
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  {:else}
+                    <div class="fact-main">
+                      <div class="fact-head">
+                        {#if fact.title}
+                          <div class="fact-title">{fact.title}</div>
+                        {/if}
+                        {#if ts}
+                          <time class="fact-time" datetime={ts}>{formatRelative(ts)}</time>
+                        {/if}
+                      </div>
+                      {#if fact.body && fact.body !== fact.title}
+                        <div class="fact-body">{fact.body}</div>
                       {/if}
-                      {#if ts}
-                        <time class="fact-time" datetime={ts}>{formatRelative(ts)}</time>
+                      {#if metadataEntries(fact).length}
+                        <dl class="meta">
+                          {#each metadataEntries(fact) as [key, value] (key)}
+                            <div class="meta-row">
+                              <dt>{key}</dt>
+                              <dd>{value}</dd>
+                            </div>
+                          {/each}
+                        </dl>
                       {/if}
                     </div>
-                    {#if fact.body && fact.body !== fact.title}
-                      <div class="fact-body">{fact.body}</div>
-                    {/if}
-                    {#if metadataEntries(fact).length}
-                      <dl class="meta">
-                        {#each metadataEntries(fact) as [key, value] (key)}
-                          <div class="meta-row">
-                            <dt>{key}</dt>
-                            <dd>{value}</dd>
-                          </div>
-                        {/each}
-                      </dl>
-                    {/if}
-                  </div>
-                  {#if section.deletable && fact.ref}
-                    <button
-                      type="button"
-                      class="delete"
-                      onclick={() => handleDelete(fact)}
-                      disabled={pendingDelete === fact.ref}
-                      aria-label="Forget this"
-                    >
-                      {pendingDelete === fact.ref ? "…" : "Forget"}
-                    </button>
+                    <div class="fact-actions">
+                      {#if section.editable && fact.ref}
+                        <button
+                          type="button"
+                          class="edit"
+                          onclick={() => startEdit(section.id, fact)}
+                          disabled={editingRef !== null}
+                          aria-label="Edit this"
+                        >
+                          Edit
+                        </button>
+                      {/if}
+                      {#if section.deletable && fact.ref}
+                        <button
+                          type="button"
+                          class="delete"
+                          onclick={() => handleDelete(fact)}
+                          disabled={pendingDelete === fact.ref || editingRef !== null}
+                          aria-label="Forget this"
+                        >
+                          {pendingDelete === fact.ref ? "…" : "Forget"}
+                        </button>
+                      {/if}
+                    </div>
                   {/if}
                 </li>
               {/each}
@@ -471,6 +610,14 @@
     color: var(--color-fg-muted);
   }
 
+  .fact-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    flex-shrink: 0;
+  }
+
+  .edit,
   .delete {
     background: transparent;
     color: var(--color-fg-muted);
@@ -480,11 +627,79 @@
     font-size: var(--size-xs);
     cursor: pointer;
   }
+  .edit:hover:not(:disabled) {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+  }
   .delete:hover:not(:disabled) {
     color: var(--color-danger);
     border-color: var(--color-danger);
   }
+  .edit:disabled,
   .delete:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .fact-editor {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .field-label {
+    font-size: var(--size-xs);
+    font-weight: 500;
+    color: var(--color-fg-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .fact-editor input {
+    background: var(--color-bg);
+    color: var(--color-fg-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-2);
+    font: inherit;
+  }
+
+  .fact-editor input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+  }
+
+  .editor-actions {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-1);
+  }
+
+  .editor-actions button {
+    background: var(--color-bg);
+    color: var(--color-fg-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-3);
+    font: inherit;
+    font-size: var(--size-sm);
+    cursor: pointer;
+  }
+
+  .editor-actions button.primary {
+    background: var(--color-accent);
+    color: var(--color-bg);
+    border-color: var(--color-accent);
+  }
+
+  .editor-actions button:disabled {
     opacity: 0.5;
     cursor: default;
   }
