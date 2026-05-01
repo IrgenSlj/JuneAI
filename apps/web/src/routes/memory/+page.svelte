@@ -53,7 +53,7 @@
         title: "Goals",
         empty: "No goals tracked. Ask June to remember a goal and it shows up here.",
         facts: snapshot.goals ?? [],
-        deletable: false,
+        deletable: true,
       },
       {
         id: "open_loops",
@@ -61,14 +61,14 @@
         empty:
           "No open threads. Questions left dangling or follow-ups June is holding will appear here.",
         facts: snapshot.open_loops ?? [],
-        deletable: false,
+        deletable: true,
       },
       {
         id: "calendar",
         title: "Calendar",
         empty: "Nothing on the calendar. Ask June to save events or reminders.",
         facts: snapshot.calendar ?? [],
-        deletable: false,
+        deletable: true,
       },
     ];
   });

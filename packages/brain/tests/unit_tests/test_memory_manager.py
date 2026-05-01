@@ -170,6 +170,44 @@ def test_forget_excludes_fact_from_future_recall(manager):
     assert not any("ramen" in h["text"].lower() for h in hits_after)
 
 
+def test_forget_removes_goal_row(manager):
+    manager.sqlite.save_goal("learn rust")
+    assert manager.forget("goal:learn rust") is True
+    assert all(g["title"].lower() != "learn rust" for g in manager.sqlite.get_goals(limit=20))
+
+
+def test_forget_removes_open_loop_row(manager):
+    manager.sqlite.save_open_loop("call mom")
+    assert manager.forget("open_loop:call mom") is True
+    assert all(
+        loop["topic"].lower() != "call mom"
+        for loop in manager.sqlite.get_open_loops(status="", limit=20)
+    )
+
+
+def test_forget_removes_calendar_item(manager):
+    manager.sqlite.save_calendar_item("dentist", date="2026-06-01", time="10:00")
+    assert manager.forget("calendar:dentist|2026-06-01|10:00") is True
+    assert all(
+        item["title"].lower() != "dentist"
+        for item in manager.sqlite.get_calendar_items(limit=20)
+    )
+
+
+def test_forget_calendar_falls_back_to_title_only(manager):
+    """Older clients may pass calendar:<title> without date/time."""
+    manager.sqlite.save_calendar_item("yoga", date="2026-06-02", time="07:00")
+    assert manager.forget("calendar:yoga") is True
+    assert all(
+        item["title"].lower() != "yoga"
+        for item in manager.sqlite.get_calendar_items(limit=20)
+    )
+
+
+def test_forget_unknown_goal_returns_false(manager):
+    assert manager.forget("goal:nonexistent") is False
+
+
 def test_parse_json_block_strips_code_fence():
     raw = "```json\n{\"facts\": []}\n```"
     assert _parse_json_block(raw) == {"facts": []}

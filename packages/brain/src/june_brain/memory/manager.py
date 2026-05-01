@@ -357,6 +357,10 @@ class MemoryManager:
           - "semantic:<fact_id>" → vector + shadow table
           - "node:<node_id>"     → graph node (and all its edges)
           - "edge:<src>|<dst>|<kind>" → single graph edge
+          - "goal:<title>"       → SQLite goals row
+          - "open_loop:<topic>"  → SQLite open_loops row
+          - "calendar:<title>" or "calendar:<title>|<date>|<time>"
+                                 → SQLite calendar_items row
           - anything else falls through to the vector store by raw id
             (so the memory-browser UI can pass a fact_id directly).
         """
@@ -382,6 +386,19 @@ class MemoryManager:
                 self.graph.remove_edge(parts[0], parts[1], parts[2])
                 return True
             return False
+        if ref.startswith("goal:"):
+            title = ref.removeprefix("goal:")
+            return self.sqlite.delete_goal(title)
+        if ref.startswith("open_loop:"):
+            topic = ref.removeprefix("open_loop:")
+            return self.sqlite.delete_open_loop(topic)
+        if ref.startswith("calendar:"):
+            body = ref.removeprefix("calendar:")
+            parts = body.split("|", 2)
+            title = parts[0]
+            date = parts[1] if len(parts) > 1 else ""
+            time = parts[2] if len(parts) > 2 else ""
+            return self.sqlite.delete_calendar_item(title, date, time)
         # Fall-through: treat as a vector fact_id.
         if self.vector.get(ref):
             self.vector.delete(ref)

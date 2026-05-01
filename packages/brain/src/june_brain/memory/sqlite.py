@@ -454,6 +454,14 @@ class Memory:
         ).fetchone()
         return dict(row) if row else None
 
+    def delete_goal(self, title: str) -> bool:
+        cur = self._conn.execute(
+            "DELETE FROM goals WHERE user_id=? AND lower(title)=lower(?)",
+            (self.user_id, title.strip()),
+        )
+        self._conn.commit()
+        return cur.rowcount > 0
+
     def get_goals(self, status: str = "", limit: int = 10) -> list:
         if status.strip():
             rows = self._conn.execute(
@@ -512,6 +520,14 @@ class Memory:
             (self.user_id, topic.strip()),
         ).fetchone()
         return dict(row) if row else None
+
+    def delete_open_loop(self, topic: str) -> bool:
+        cur = self._conn.execute(
+            "DELETE FROM open_loops WHERE user_id=? AND lower(topic)=lower(?)",
+            (self.user_id, topic.strip()),
+        )
+        self._conn.commit()
+        return cur.rowcount > 0
 
     def get_open_loops(self, status: str = "open", limit: int = 10) -> list:
         if status.strip():
@@ -622,6 +638,19 @@ class Memory:
             (self.user_id, title.strip()),
         ).fetchone()
         return dict(row) if row else None
+
+    def delete_calendar_item(self, title: str, date: str = "", time: str = "") -> bool:
+        query = "DELETE FROM calendar_items WHERE user_id=? AND lower(title)=lower(?)"
+        params: list = [self.user_id, title.strip()]
+        if date.strip():
+            query += " AND lower(date)=lower(?)"
+            params.append(date.strip())
+        if time.strip():
+            query += " AND lower(time)=lower(?)"
+            params.append(time.strip())
+        cur = self._conn.execute(query, params)
+        self._conn.commit()
+        return cur.rowcount > 0
 
     def get_calendar_items(self, status: str = "", limit: int = 20) -> list:
         if status.strip():

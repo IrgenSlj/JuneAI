@@ -47,14 +47,17 @@ def _loop_to_fact(row: dict) -> MemoryFact:
 
 
 def _calendar_to_fact(row: dict) -> MemoryFact:
+    title = row.get("title", "")
+    date = row.get("date", "")
+    time = row.get("time", "")
     return MemoryFact(
         kind="calendar_item",
-        title=row.get("title", ""),
+        title=title,
         body=row.get("details", ""),
-        ref=f"calendar:{row.get('title', '')}",
+        ref=f"calendar:{title}|{date}|{time}",
         metadata={
-            "date": row.get("date", ""),
-            "time": row.get("time", ""),
+            "date": date,
+            "time": time,
             "status": row.get("status", ""),
             "source": row.get("source", ""),
         },
@@ -115,9 +118,9 @@ def delete_memory_fact(user_id: str, ref: str) -> MemoryDeleteResponse:
       - ``semantic:<fact_id>`` removes a semantic fact from vector + shadow
       - ``node:<node_id>`` removes a graph entity and its edges
       - ``edge:<src>|<dst>|<kind>`` removes a single edge
-      - ``goal:<title>`` / ``open_loop:<topic>`` / ``calendar:<title>``
-        remove the structured row. (Not yet wired — Week 4 scope is
-        semantic + graph; the SQLite rows remain read-only for now.)
+      - ``goal:<title>`` removes a structured goal
+      - ``open_loop:<topic>`` removes a structured open loop
+      - ``calendar:<title>|<date>|<time>`` removes a structured calendar item
     """
     manager = MemoryManager(user_id)
     removed = manager.forget(ref)
