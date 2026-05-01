@@ -33,6 +33,12 @@ Ordered by dependency, not priority.
 
 A first-time user opens the URL, completes setup in under two minutes, has their first conversation with Gemma or Gemini, sees a memory land in the browser, and toggles at least one skill. The browser prompts them to install. They close the tab and tomorrow open the installed app from their dock or home screen and continue the conversation.
 
+## Current Depth Track: Memory and Skills
+
+The web prototype is shipped, but the contracts between memory, skills, and the chat UI are weaker than the product's first non-negotiable demands ("memory is the product"). This track deepens those contracts in three phases — making memory editable, making recall legible, and making skill writes feed recall. It runs parallel to the desktop-shell track because it touches separate subsystems; both can advance independently. Full plan in [memory-skills-plan.md](memory-skills-plan.md).
+
+The first slice — making goals, open loops, and calendar items deletable — is the smallest end-to-end pattern that proves the architecture move (`MemoryManager.forget` dispatches across stores). Subsequent slices repeat that pattern.
+
 ## Next Surface: Desktop Shell — In Progress
 
 ### Trigger Fired
