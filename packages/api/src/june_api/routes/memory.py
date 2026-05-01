@@ -10,9 +10,17 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from fastapi import HTTPException
+
 from june_brain.memory import KnowledgeGraph, Memory, MemoryManager, VectorStore
 
-from ..schemas import MemoryDeleteResponse, MemoryFact, MemorySnapshot
+from ..schemas import (
+    MemoryDeleteResponse,
+    MemoryFact,
+    MemorySnapshot,
+    MemoryUpdateRequest,
+    MemoryUpdateResponse,
+)
 
 router = APIRouter(tags=["memory"])
 
@@ -107,6 +115,53 @@ def get_memory(user_id: str) -> MemorySnapshot:
         semantic_facts=[_semantic_to_fact(f) for f in vector.list_facts(limit=30)],
         entities=[_entity_to_fact(n) for n in graph.find_nodes(limit=30)],
         recent_messages=len(mem.load_chat()),
+    )
+
+
+def _row_to_memory_fact(ref_kind: str, row: dict) -> MemoryFact:
+    """Re-encode a freshly-updated SQLite row as a MemoryFact for the response."""
+    if ref_kind == "goal":
+        return _goal_to_fact(row)
+    if ref_kind == "open_loop":
+        return _loop_to_fact(row)
+    if ref_kind == "calendar":
+        return _calendar_to_fact(row)
+    return MemoryFact(kind=ref_kind, title="", body="", ref="")
+
+
+@router.patch("/memory/{user_id}/fact/{ref:path}", response_model=MemoryUpdateResponse)
+def update_memory_fact(
+    user_id: str,
+    ref: str,
+    payload: MemoryUpdateRequest,
+) -> MemoryUpdateResponse:
+    """Patch a structured fact by ref.
+
+    Only the SQLite ref kinds are supported (``goal:``, ``open_loop:``,
+    ``calendar:``). Editing semantic facts or graph nodes is not yet
+    exposed here; those have their own paths.
+
+    The returned ``ref`` may differ from the request ``ref`` when the
+    primary key changed (a goal renamed, a calendar item rescheduled).
+    Clients should use the returned ref for any subsequent edit or
+    delete operation on the same fact.
+    """
+    ref_kind = ref.split(":", 1)[0] if ":" in ref else ""
+    if ref_kind not in {"goal", "open_loop", "calendar"}:
+        raise HTTPException(
+            status_code=400,
+            detail=f"PATCH not supported for ref kind '{ref_kind or '<unknown>'}'",
+        )
+    manager = MemoryManager(user_id)
+    row = manager.update(ref, payload.fields)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Fact not found: {ref}")
+    fact = _row_to_memory_fact(ref_kind, row)
+    return MemoryUpdateResponse(
+        user_id=user_id,
+        ref=fact.ref,
+        updated=True,
+        fact=fact,
     )
 
 

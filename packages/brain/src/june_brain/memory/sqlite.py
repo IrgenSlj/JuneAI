@@ -454,6 +454,28 @@ class Memory:
         ).fetchone()
         return dict(row) if row else None
 
+    def update_goal(self, old_title: str, **fields: str) -> dict | None:
+        """Update a goal in place, or rename it via delete-then-insert when the title changes."""
+        rows = self._conn.execute(
+            "SELECT title,category,target_date,next_step,status,updated_at "
+            "FROM goals WHERE user_id=? AND lower(title)=lower(?)",
+            (self.user_id, old_title.strip()),
+        ).fetchall()
+        if not rows:
+            return None
+        existing = dict(rows[0])
+        merged = {**existing, **{k: v for k, v in fields.items() if v is not None}}
+        new_title = (merged.get("title") or "").strip() or existing["title"]
+        if new_title.lower() != existing["title"].lower():
+            self.delete_goal(existing["title"])
+        return self.save_goal(
+            title=new_title,
+            category=merged.get("category", "personal"),
+            target_date=merged.get("target_date", ""),
+            next_step=merged.get("next_step", ""),
+            status=merged.get("status", "active"),
+        )
+
     def delete_goal(self, title: str) -> bool:
         cur = self._conn.execute(
             "DELETE FROM goals WHERE user_id=? AND lower(title)=lower(?)",
@@ -520,6 +542,26 @@ class Memory:
             (self.user_id, topic.strip()),
         ).fetchone()
         return dict(row) if row else None
+
+    def update_open_loop(self, old_topic: str, **fields: str) -> dict | None:
+        rows = self._conn.execute(
+            "SELECT topic,next_step,due_date,status,updated_at "
+            "FROM open_loops WHERE user_id=? AND lower(topic)=lower(?)",
+            (self.user_id, old_topic.strip()),
+        ).fetchall()
+        if not rows:
+            return None
+        existing = dict(rows[0])
+        merged = {**existing, **{k: v for k, v in fields.items() if v is not None}}
+        new_topic = (merged.get("topic") or "").strip() or existing["topic"]
+        if new_topic.lower() != existing["topic"].lower():
+            self.delete_open_loop(existing["topic"])
+        return self.save_open_loop(
+            topic=new_topic,
+            next_step=merged.get("next_step", ""),
+            due_date=merged.get("due_date", ""),
+            status=merged.get("status", "open"),
+        )
 
     def delete_open_loop(self, topic: str) -> bool:
         cur = self._conn.execute(
@@ -638,6 +680,48 @@ class Memory:
             (self.user_id, title.strip()),
         ).fetchone()
         return dict(row) if row else None
+
+    def update_calendar_item(
+        self,
+        old_title: str,
+        old_date: str = "",
+        old_time: str = "",
+        **fields: str,
+    ) -> dict | None:
+        query = (
+            "SELECT title,date,time,details,status,source,updated_at "
+            "FROM calendar_items WHERE user_id=? AND lower(title)=lower(?)"
+        )
+        params: list = [self.user_id, old_title.strip()]
+        if old_date.strip():
+            query += " AND lower(date)=lower(?)"
+            params.append(old_date.strip())
+        if old_time.strip():
+            query += " AND lower(time)=lower(?)"
+            params.append(old_time.strip())
+        rows = self._conn.execute(query, params).fetchall()
+        if not rows:
+            return None
+        existing = dict(rows[0])
+        merged = {**existing, **{k: v for k, v in fields.items() if v is not None}}
+        new_title = (merged.get("title") or "").strip() or existing["title"]
+        new_date = (merged.get("date") or "").strip()
+        new_time = (merged.get("time") or "").strip()
+        pk_changed = (
+            new_title.lower() != existing["title"].lower()
+            or new_date.lower() != existing["date"].lower()
+            or new_time.lower() != existing["time"].lower()
+        )
+        if pk_changed:
+            self.delete_calendar_item(existing["title"], existing["date"], existing["time"])
+        return self.save_calendar_item(
+            title=new_title,
+            date=new_date,
+            time=new_time,
+            details=merged.get("details", ""),
+            status=merged.get("status", "planned"),
+            source=merged.get("source", "conversation"),
+        )
 
     def delete_calendar_item(self, title: str, date: str = "", time: str = "") -> bool:
         query = "DELETE FROM calendar_items WHERE user_id=? AND lower(title)=lower(?)"

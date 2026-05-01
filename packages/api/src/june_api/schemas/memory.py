@@ -55,3 +55,33 @@ class MemoryDeleteResponse(BaseModel):
     user_id: str
     ref: str
     removed: bool
+
+
+class MemoryUpdateRequest(BaseModel):
+    """Body of PATCH /memory/{user_id}/fact/{ref}.
+
+    All fields are optional strings; missing keys preserve current values.
+    The set of accepted keys depends on the ref kind:
+      - goal: title, category, target_date, next_step, status
+      - open_loop: topic, next_step, due_date, status
+      - calendar: title, date, time, details, status, source
+    """
+
+    fields: dict[str, str] = Field(
+        default_factory=dict,
+        description="Map of field name to new value. Unset fields keep current values.",
+    )
+
+
+class MemoryUpdateResponse(BaseModel):
+    """Result of PATCH /memory/{user_id}/fact/{ref}.
+
+    ``ref`` may be a *new* opaque identifier when the primary key changed
+    (e.g. a goal renamed). Clients should use the returned ref for any
+    subsequent edit/delete on this fact.
+    """
+
+    user_id: str
+    ref: str
+    updated: bool
+    fact: MemoryFact | None = None

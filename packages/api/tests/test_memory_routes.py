@@ -143,3 +143,69 @@ def test_delete_unknown_ref_is_idempotent(client):
     response = client.delete("/memory/alex/fact/semantic:does-not-exist")
     assert response.status_code == 200
     assert response.json()["removed"] is False
+
+
+def test_delete_goal_row_removes_from_snapshot(memory_env, client):
+    from june_brain.memory import Memory
+
+    mem = Memory("alex")
+    mem.save_goal("learn rust", category="career", next_step="install rustup")
+
+    response = client.delete("/memory/alex/fact/goal:learn rust")
+    assert response.status_code == 200
+    assert response.json()["removed"] is True
+
+    snapshot = client.get("/memory/alex").json()
+    assert all(g["title"].lower() != "learn rust" for g in snapshot["goals"])
+
+
+def test_patch_goal_in_place(memory_env, client):
+    from june_brain.memory import Memory
+
+    mem = Memory("alex")
+    mem.save_goal("learn rust", category="career", next_step="install rustup")
+
+    response = client.patch(
+        "/memory/alex/fact/goal:learn rust",
+        json={"fields": {"next_step": "read the book"}},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["updated"] is True
+    assert payload["ref"] == "goal:learn rust"  # PK unchanged
+    assert payload["fact"]["body"] == "read the book"
+
+
+def test_patch_goal_renames_returns_new_ref(memory_env, client):
+    from june_brain.memory import Memory
+
+    mem = Memory("alex")
+    mem.save_goal("old name")
+
+    response = client.patch(
+        "/memory/alex/fact/goal:old name",
+        json={"fields": {"title": "new name"}},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["updated"] is True
+    assert payload["ref"] == "goal:new name"
+    titles = [g["title"] for g in client.get("/memory/alex").json()["goals"]]
+    assert "new name" in titles
+    assert "old name" not in titles
+
+
+def test_patch_unknown_ref_returns_404(client):
+    response = client.patch(
+        "/memory/alex/fact/goal:nonexistent",
+        json={"fields": {"next_step": "x"}},
+    )
+    assert response.status_code == 404
+
+
+def test_patch_rejects_unsupported_ref_kind(client):
+    response = client.patch(
+        "/memory/alex/fact/semantic:abc",
+        json={"fields": {"text": "x"}},
+    )
+    assert response.status_code == 400

@@ -208,6 +208,54 @@ def test_forget_unknown_goal_returns_false(manager):
     assert manager.forget("goal:nonexistent") is False
 
 
+def test_update_goal_in_place(manager):
+    manager.sqlite.save_goal("learn rust", category="career", next_step="install rustup")
+    updated = manager.update("goal:learn rust", {"next_step": "read the book"})
+    assert updated is not None
+    assert updated["next_step"] == "read the book"
+    assert updated["category"] == "career"  # untouched fields preserved
+
+
+def test_update_goal_renames_via_pk_change(manager):
+    manager.sqlite.save_goal("old name", category="health")
+    updated = manager.update("goal:old name", {"title": "new name"})
+    assert updated is not None
+    assert updated["title"] == "new name"
+    titles = [g["title"] for g in manager.sqlite.get_goals(limit=20)]
+    assert "new name" in titles
+    assert "old name" not in titles
+
+
+def test_update_calendar_item_reschedule(manager):
+    manager.sqlite.save_calendar_item("dentist", date="2026-06-01", time="10:00")
+    updated = manager.update(
+        "calendar:dentist|2026-06-01|10:00",
+        {"date": "2026-06-08", "time": "11:00"},
+    )
+    assert updated is not None
+    assert updated["date"] == "2026-06-08"
+    assert updated["time"] == "11:00"
+    items = manager.sqlite.get_calendar_items(limit=20)
+    assert any(
+        i["title"].lower() == "dentist" and i["date"] == "2026-06-08"
+        for i in items
+    )
+    assert not any(
+        i["title"].lower() == "dentist" and i["date"] == "2026-06-01"
+        for i in items
+    )
+
+
+def test_update_unknown_returns_none(manager):
+    assert manager.update("goal:nonexistent", {"next_step": "x"}) is None
+
+
+def test_update_rejects_non_sqlite_refs(manager):
+    """Vector and graph edits go through their own paths; update() ignores them."""
+    record = manager.vector.upsert("a fact")
+    assert manager.update(f"semantic:{record['fact_id']}", {"text": "new"}) is None
+
+
 def test_parse_json_block_strips_code_fence():
     raw = "```json\n{\"facts\": []}\n```"
     assert _parse_json_block(raw) == {"facts": []}

@@ -405,6 +405,36 @@ class MemoryManager:
             return True
         return False
 
+    # ------------------------------------------------------------------
+    # Update — patch a structured row by ref
+    # ------------------------------------------------------------------
+
+    def update(self, ref: str, fields: dict[str, str]) -> dict | None:
+        """Patch a structured-row memory by ``ref``.
+
+        Returns the updated row dict (with the *new* fields), or ``None`` if
+        the row was not found. Only the SQLite ref kinds are supported here:
+        semantic facts and graph nodes have their own edit paths (re-upsert
+        and add_node respectively).
+        """
+        ref = ref.strip()
+        if not ref:
+            return None
+        if ref.startswith("goal:"):
+            old_title = ref.removeprefix("goal:")
+            return self.sqlite.update_goal(old_title, **fields)
+        if ref.startswith("open_loop:"):
+            old_topic = ref.removeprefix("open_loop:")
+            return self.sqlite.update_open_loop(old_topic, **fields)
+        if ref.startswith("calendar:"):
+            body = ref.removeprefix("calendar:")
+            parts = body.split("|", 2)
+            old_title = parts[0]
+            old_date = parts[1] if len(parts) > 1 else ""
+            old_time = parts[2] if len(parts) > 2 else ""
+            return self.sqlite.update_calendar_item(old_title, old_date, old_time, **fields)
+        return None
+
 
 # ----------------------------------------------------------------------
 # Helpers
