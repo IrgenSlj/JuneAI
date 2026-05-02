@@ -1131,7 +1131,97 @@
         ],
         "title": "ValidationError"
       },
+      "RecallHit": {
+        "description": "One memory June drew on while answering this turn.\n\nCarries the same ``ref`` shape used by ``/memory``, so a UI rendering\nthese can deep-link to the source: ``semantic:<id>``, ``node:<id>``,\n``goal:<title>``, etc.",
+        "properties": {
+          "ref": {
+            "default": "",
+            "description": "Stable identifier; resolves in /memory.",
+            "title": "Ref",
+            "type": "string"
+          },
+          "text": {
+            "default": "",
+            "description": "Human-readable snippet that was injected.",
+            "title": "Text",
+            "type": "string"
+          },
+          "source": {
+            "default": "",
+            "description": "Which store the hit came from: 'vector', 'graph', or 'sqlite'.",
+            "title": "Source",
+            "type": "string"
+          },
+          "kind": {
+            "default": "",
+            "description": "Sub-type for filtering / iconography.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Loose relevance score. Lower is more relevant for distance-based sources.",
+            "title": "Score"
+          }
+        },
+        "title": "RecallHit",
+        "type": "object"
+      },
       "ChatEvent": {
+        "$defs": {
+          "RecallHit": {
+            "description": "One memory June drew on while answering this turn.\n\nCarries the same ``ref`` shape used by ``/memory``, so a UI rendering\nthese can deep-link to the source: ``semantic:<id>``, ``node:<id>``,\n``goal:<title>``, etc.",
+            "properties": {
+              "ref": {
+                "default": "",
+                "description": "Stable identifier; resolves in /memory.",
+                "title": "Ref",
+                "type": "string"
+              },
+              "text": {
+                "default": "",
+                "description": "Human-readable snippet that was injected.",
+                "title": "Text",
+                "type": "string"
+              },
+              "source": {
+                "default": "",
+                "description": "Which store the hit came from: 'vector', 'graph', or 'sqlite'.",
+                "title": "Source",
+                "type": "string"
+              },
+              "kind": {
+                "default": "",
+                "description": "Sub-type for filtering / iconography.",
+                "title": "Kind",
+                "type": "string"
+              },
+              "score": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Loose relevance score. Lower is more relevant for distance-based sources.",
+                "title": "Score"
+              }
+            },
+            "title": "RecallHit",
+            "type": "object"
+          }
+        },
         "description": "One item in the SSE stream returned by POST /chat.\n\nThe wire format is one ``data:`` frame per event carrying a JSON\nobject with this shape. ``type`` drives the UI.",
         "properties": {
           "type": {
@@ -1140,6 +1230,7 @@
               "token",
               "tool_call",
               "tool_result",
+              "recall",
               "done",
               "error"
             ],
@@ -1169,6 +1260,14 @@
             "description": "Serialized result returned by the tool for tool_result events.",
             "title": "Tool Result",
             "type": "string"
+          },
+          "recall_hits": {
+            "description": "Memories June drew on this turn. Emitted once, before the first token, so the UI can render a 'memories used' affordance per assistant message.",
+            "items": {
+              "$ref": "#/components/schemas/RecallHit"
+            },
+            "title": "Recall Hits",
+            "type": "array"
           }
         },
         "required": [

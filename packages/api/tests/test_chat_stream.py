@@ -56,6 +56,21 @@ def client_with_agent():
 
 def test_chat_streams_tokens_tool_calls_and_done(client_with_agent):
     script = [
+        (
+            "custom",
+            {
+                "event": "recall",
+                "hits": [
+                    {
+                        "ref": "semantic:abc",
+                        "text": "User loves ramen",
+                        "source": "vector",
+                        "kind": "fact",
+                        "score": 0.2,
+                    }
+                ],
+            },
+        ),
         ("messages", (AIMessage(content="Hello "), {})),
         ("messages", (AIMessage(content="Alex."), {})),
         (
@@ -105,10 +120,16 @@ def test_chat_streams_tokens_tool_calls_and_done(client_with_agent):
     events = _parse_sse(response.text)
     types = [event["type"] for event in events]
 
-    assert types == ["token", "token", "tool_call", "tool_result", "done"]
+    assert types == ["recall", "token", "token", "tool_call", "tool_result", "done"]
 
     tokens = [event["content"] for event in events if event["type"] == "token"]
     assert "".join(tokens) == "Hello Alex."
+
+    recall = next(event for event in events if event["type"] == "recall")
+    assert len(recall["recall_hits"]) == 1
+    assert recall["recall_hits"][0]["ref"] == "semantic:abc"
+    assert recall["recall_hits"][0]["text"] == "User loves ramen"
+    assert recall["recall_hits"][0]["source"] == "vector"
 
     tool_call = next(event for event in events if event["type"] == "tool_call")
     assert tool_call["tool_name"] == "log_mood"
@@ -117,6 +138,33 @@ def test_chat_streams_tokens_tool_calls_and_done(client_with_agent):
     tool_result = next(event for event in events if event["type"] == "tool_result")
     assert tool_result["tool_name"] == "log_mood"
     assert tool_result["tool_result"] == "logged"
+
+
+def test_chat_skips_empty_recall_hits(client_with_agent):
+    """A recall event with no hits should not emit a frame to avoid empty UI noise."""
+    script = [
+        ("custom", {"event": "recall", "hits": []}),
+        ("messages", (AIMessage(content="hi"), {})),
+    ]
+    client = client_with_agent(_FakeAgent(script))
+    response = client.post("/chat", json={"user_id": "u", "message": "hi"})
+    events = _parse_sse(response.text)
+    types = [e["type"] for e in events]
+    assert "recall" not in types
+    assert types == ["token", "done"]
+
+
+def test_chat_ignores_unknown_custom_events(client_with_agent):
+    """The chat stream subscribes to 'custom' for recall; other custom events shouldn't leak."""
+    script = [
+        ("custom", {"event": "chat_started", "skill": "assistant"}),
+        ("messages", (AIMessage(content="hi"), {})),
+    ]
+    client = client_with_agent(_FakeAgent(script))
+    response = client.post("/chat", json={"user_id": "u", "message": "hi"})
+    events = _parse_sse(response.text)
+    types = [e["type"] for e in events]
+    assert types == ["token", "done"]
 
 
 def test_chat_dedupes_tool_calls_across_message_and_update(client_with_agent):

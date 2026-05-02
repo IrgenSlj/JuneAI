@@ -207,7 +207,7 @@ class MemoryManager:
                         "source": "sqlite",
                         "text": f"Journal: {text[:140]}",
                         "kind": "journal",
-                        "ref": f"journal:{entry.get('timestamp', '')}",
+                        "ref": f"journal:{entry.get('id', '')}",
                         "score": 0.6,
                     }
                 )

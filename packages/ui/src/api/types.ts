@@ -767,6 +767,46 @@ export interface components {
             ctx?: Record<string, never>;
         };
         /**
+         * RecallHit
+         * @description One memory June drew on while answering this turn.
+         *
+         *     Carries the same ``ref`` shape used by ``/memory``, so a UI rendering
+         *     these can deep-link to the source: ``semantic:<id>``, ``node:<id>``,
+         *     ``goal:<title>``, etc.
+         */
+        RecallHit: {
+            /**
+             * Ref
+             * @description Stable identifier; resolves in /memory.
+             * @default
+             */
+            ref: string;
+            /**
+             * Text
+             * @description Human-readable snippet that was injected.
+             * @default
+             */
+            text: string;
+            /**
+             * Source
+             * @description Which store the hit came from: 'vector', 'graph', or 'sqlite'.
+             * @default
+             */
+            source: string;
+            /**
+             * Kind
+             * @description Sub-type for filtering / iconography.
+             * @default
+             */
+            kind: string;
+            /**
+             * Score
+             * @description Loose relevance score. Lower is more relevant for distance-based sources.
+             * @default null
+             */
+            score: number | null;
+        };
+        /**
          * ChatEvent
          * @description One item in the SSE stream returned by POST /chat.
          *
@@ -779,7 +819,7 @@ export interface components {
              * @description Discriminator that determines the meaning of the payload.
              * @enum {string}
              */
-            type: "token" | "tool_call" | "tool_result" | "done" | "error";
+            type: "token" | "tool_call" | "tool_result" | "recall" | "done" | "error";
             /**
              * Content
              * @description Textual content for token and error events; empty otherwise.
@@ -805,6 +845,53 @@ export interface components {
              * @default
              */
             tool_result: string;
+            /**
+             * Recall Hits
+             * @description Memories June drew on this turn. Emitted once, before the first token, so the UI can render a 'memories used' affordance per assistant message.
+             */
+            recall_hits?: components["schemas"]["RecallHit"][];
+            $defs: {
+                /**
+                 * RecallHit
+                 * @description One memory June drew on while answering this turn.
+                 *
+                 *     Carries the same ``ref`` shape used by ``/memory``, so a UI rendering
+                 *     these can deep-link to the source: ``semantic:<id>``, ``node:<id>``,
+                 *     ``goal:<title>``, etc.
+                 */
+                RecallHit: {
+                    /**
+                     * Ref
+                     * @description Stable identifier; resolves in /memory.
+                     * @default
+                     */
+                    ref: string;
+                    /**
+                     * Text
+                     * @description Human-readable snippet that was injected.
+                     * @default
+                     */
+                    text: string;
+                    /**
+                     * Source
+                     * @description Which store the hit came from: 'vector', 'graph', or 'sqlite'.
+                     * @default
+                     */
+                    source: string;
+                    /**
+                     * Kind
+                     * @description Sub-type for filtering / iconography.
+                     * @default
+                     */
+                    kind: string;
+                    /**
+                     * Score
+                     * @description Loose relevance score. Lower is more relevant for distance-based sources.
+                     * @default null
+                     */
+                    score: number | null;
+                };
+            };
         };
     };
     responses: never;

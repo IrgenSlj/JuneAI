@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from june_brain.config_store import apply_stored_config_to_env
 
 from .routes import chat, memory, settings, setup, skills, system
-from .schemas import ChatEvent
+from .schemas import ChatEvent, RecallHit
 
 apply_stored_config_to_env()
 
@@ -75,19 +75,30 @@ def create_app() -> FastAPI:
 
 
 def _register_streaming_schemas(app: FastAPI) -> None:
-    """Force ChatEvent into the OpenAPI components schemas.
+    """Force ChatEvent (and its nested models) into the OpenAPI components schemas.
 
     SSE frames aren't a response_model so FastAPI can't discover
     ChatEvent on its own. Without this, the generated TypeScript would
     miss the payload shape for /chat — the most important schema on the
-    wire.
+    wire. Models referenced by ChatEvent (e.g. RecallHit) must also be
+    registered at the top level so $refs resolve to
+    ``#/components/schemas/...`` instead of the per-schema ``$defs``
+    Pydantic emits by default.
     """
     base_openapi = app.openapi
 
     def openapi_with_streaming_schemas() -> dict:
         schema = base_openapi()
         components = schema.setdefault("components", {}).setdefault("schemas", {})
-        components.setdefault("ChatEvent", ChatEvent.model_json_schema())
+        ref_template = "#/components/schemas/{model}"
+        components.setdefault(
+            "RecallHit",
+            RecallHit.model_json_schema(ref_template=ref_template),
+        )
+        components.setdefault(
+            "ChatEvent",
+            ChatEvent.model_json_schema(ref_template=ref_template),
+        )
         return schema
 
     app.openapi = openapi_with_streaming_schemas  # type: ignore[method-assign]

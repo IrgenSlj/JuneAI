@@ -14,7 +14,7 @@ from starlette.background import BackgroundTask
 from june_brain import graph as brain_graph
 from june_brain.memory import MemoryManager
 
-from ..schemas import ChatEvent, ChatRequest
+from ..schemas import ChatEvent, ChatRequest, RecallHit
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["chat"])
@@ -92,7 +92,7 @@ async def _iter_events(
     emitted_tool_call_ids: set[str] = set()
     try:
         async for mode, chunk in agent.astream(
-            state, stream_mode=["messages", "updates"]
+            state, stream_mode=["messages", "updates", "custom"]
         ):
             if mode == "messages":
                 message, _metadata = chunk
@@ -119,6 +119,14 @@ async def _iter_events(
                                 )
                         elif isinstance(msg, ToolMessage):
                             yield _event_to_sse(_tool_result_event(msg))
+            elif mode == "custom":
+                if isinstance(chunk, dict) and chunk.get("event") == "recall":
+                    raw_hits = chunk.get("hits") or []
+                    hits = [RecallHit(**h) for h in raw_hits if isinstance(h, dict)]
+                    if hits:
+                        yield _event_to_sse(
+                            ChatEvent(type="recall", recall_hits=hits)
+                        )
 
         yield _event_to_sse(ChatEvent(type="done"))
     except Exception as exc:  # noqa: BLE001

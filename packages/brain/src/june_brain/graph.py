@@ -608,24 +608,55 @@ def _build_memory_context(user_id: str) -> str:
     return result
 
 
-def _build_recall_block(user_id: str, query: str, k: int = 5) -> str:
+def _normalize_recall_hit(hit: dict[str, Any]) -> dict[str, Any]:
+    """Make a recall hit's ``ref`` match the prefix scheme used in /memory.
+
+    ``MemoryManager.recall`` returns vector hits with bare ``fact_id`` and
+    graph hits with bare ``node_id``; the memory snapshot route emits
+    those as ``semantic:<id>`` and ``node:<id>``. We normalize here so the
+    UI can deep-link recalled memories into the browser without each
+    surface re-implementing the prefix logic.
+    """
+    source = hit.get("source")
+    ref = hit.get("ref", "")
+    kind = hit.get("kind", "")
+    if source == "vector":
+        ref = f"semantic:{ref}"
+    elif source == "graph":
+        ref = f"edge:{ref}" if kind.startswith("edge:") else f"node:{ref}"
+    return {
+        "ref": ref,
+        "text": hit.get("text", ""),
+        "source": str(source or ""),
+        "kind": str(kind or ""),
+        "score": hit.get("score"),
+    }
+
+
+def _recall_with_hits(
+    user_id: str, query: str, k: int = 5
+) -> tuple[str, list[dict[str, Any]]]:
     """Fresh per-turn fan-out across the three memory stores.
+
+    Returns the formatted prompt block AND the raw hits, so the caller can
+    both inject the block into the system prompt and stream the hits to
+    the UI for a "memories used" disclosure.
 
     Not cached because the query changes every turn and the individual
     lookups are cheap (vector search ~tens of ms, graph + sqlite keyword
-    scans ~ms). If recall raises, we swallow and return an empty block so
-    a broken memory store never takes down the chat loop.
+    scans ~ms). If recall raises we swallow and return empties so a broken
+    memory store never takes down the chat loop.
     """
     query = (query or "").strip()
     if not query:
-        return ""
+        return "", []
     try:
         manager = MemoryManager(user_id)
         hits = manager.recall(query, k=k)
     except Exception as exc:  # noqa: BLE001
         logging.warning("recall block failed for user=%s: %s", user_id, exc)
-        return ""
-    return manager.format_for_prompt(hits)
+        return "", []
+    return manager.format_for_prompt(hits), [_normalize_recall_hit(h) for h in hits]
 
 
 def _latest_user_text(messages: list[AnyMessage]) -> str:
@@ -750,9 +781,11 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
             }
         )
         memory_context = _build_memory_context(state["user_id"])
-        recall_block = _build_recall_block(
+        recall_block, recall_hits = _recall_with_hits(
             state["user_id"], _latest_user_text(state["messages"])
         )
+        if recall_hits:
+            writer({"event": "recall", "hits": recall_hits})
         system_messages = [
             SystemMessage(content=prompt),
             SystemMessage(content=memory_context),
