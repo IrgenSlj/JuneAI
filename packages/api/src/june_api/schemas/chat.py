@@ -37,6 +37,10 @@ class RecallHit(BaseModel):
         default=None,
         description="Loose relevance score. Lower is more relevant for distance-based sources.",
     )
+    feedback: str = Field(
+        default="",
+        description="Existing vote on this memory: 'up', 'down', or '' when none.",
+    )
 
 
 class ChatEvent(BaseModel):

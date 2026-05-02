@@ -5,9 +5,10 @@
   interface Props {
     messages: ChatMessage[];
     streaming?: boolean;
+    onVote?: (ref: string, vote: "up" | "down" | "clear") => void | Promise<void>;
   }
 
-  const { messages, streaming = false }: Props = $props();
+  const { messages, streaming = false, onVote }: Props = $props();
   const lastId = $derived(messages[messages.length - 1]?.id);
 
   let scrollEl: HTMLDivElement | undefined = $state();
@@ -49,6 +50,7 @@
       toolName={message.toolName}
       recallHits={message.recallHits}
       pending={streaming && message.id === lastId}
+      {onVote}
     />
   {/each}
   {#if !pinned && messages.length > 0}

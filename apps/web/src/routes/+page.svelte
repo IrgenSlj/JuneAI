@@ -5,6 +5,7 @@
     sendMessage,
     cancelStream,
     regenerateLast,
+    voteRecall,
   } from "$lib/stores/chat.svelte.js";
   import { system, loadSystem } from "$lib/stores/system.svelte.js";
 
@@ -81,7 +82,11 @@
         <p class="muted">Type below to start.</p>
       </div>
     {:else}
-      <MessageList messages={chat.messages} streaming={chat.streaming} />
+      <MessageList
+        messages={chat.messages}
+        streaming={chat.streaming}
+        onVote={voteRecall}
+      />
       {#if awaitingFirstToken && elapsedSec >= 4}
         <p class="waiting" aria-live="polite">
           Still thinking… {elapsedSec}s

@@ -1269,6 +1269,12 @@
             "default": null,
             "description": "Loose relevance score. Lower is more relevant for distance-based sources.",
             "title": "Score"
+          },
+          "feedback": {
+            "default": "",
+            "description": "Existing vote on this memory: 'up', 'down', or '' when none.",
+            "title": "Feedback",
+            "type": "string"
           }
         },
         "title": "RecallHit",
@@ -1315,6 +1321,12 @@
                 "default": null,
                 "description": "Loose relevance score. Lower is more relevant for distance-based sources.",
                 "title": "Score"
+              },
+              "feedback": {
+                "default": "",
+                "description": "Existing vote on this memory: 'up', 'down', or '' when none.",
+                "title": "Feedback",
+                "type": "string"
               }
             },
             "title": "RecallHit",

@@ -872,6 +872,12 @@ export interface components {
              * @default null
              */
             score: number | null;
+            /**
+             * Feedback
+             * @description Existing vote on this memory: 'up', 'down', or '' when none.
+             * @default
+             */
+            feedback: string;
         };
         /**
          * ChatEvent
@@ -957,6 +963,12 @@ export interface components {
                      * @default null
                      */
                     score: number | null;
+                    /**
+                     * Feedback
+                     * @description Existing vote on this memory: 'up', 'down', or '' when none.
+                     * @default
+                     */
+                    feedback: string;
                 };
             };
         };

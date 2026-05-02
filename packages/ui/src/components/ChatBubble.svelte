@@ -19,6 +19,13 @@
     recallHits?: RecallHit[];
     /** Base path of the memory browser, for deep-linking recall hits. */
     memoryHref?: string;
+    /**
+     * Called when the user thumbs-up / thumbs-down a recalled memory.
+     * Vote 'clear' fires when the user re-clicks the active button.
+     * The component does not own the API call — the consumer wires it
+     * through to the server and is responsible for any error UI.
+     */
+    onVote?: (ref: string, vote: "up" | "down" | "clear") => void | Promise<void>;
   }
 
   const {
@@ -28,7 +35,34 @@
     pending = false,
     recallHits = [],
     memoryHref = "/memory",
+    onVote,
   }: Props = $props();
+
+  /** Per-bubble vote overrides applied locally so the button reflects the user's
+   * latest click before the next recall pulls the persisted state. */
+  let voteOverrides: Record<string, "up" | "down" | ""> = $state({});
+
+  function currentVote(hit: RecallHit): "up" | "down" | "" {
+    const ref = hit.ref ?? "";
+    if (ref in voteOverrides) return voteOverrides[ref];
+    const fb = hit.feedback;
+    return fb === "up" || fb === "down" ? fb : "";
+  }
+
+  async function handleVote(hit: RecallHit, intent: "up" | "down") {
+    if (!onVote || !hit.ref) return;
+    const active = currentVote(hit);
+    const next: "up" | "down" | "clear" = active === intent ? "clear" : intent;
+    voteOverrides = { ...voteOverrides, [hit.ref]: next === "clear" ? "" : next };
+    try {
+      await onVote(hit.ref, next);
+    } catch {
+      // Roll back the local override; keep behaviour silent — the consumer
+      // can surface its own error UI if the call fails.
+      const { [hit.ref]: _drop, ...rest } = voteOverrides;
+      voteOverrides = rest;
+    }
+  }
 
   const hasRecall = $derived(role === "assistant" && recallHits.length > 0);
 
@@ -97,11 +131,38 @@
       </summary>
       <ul class="recall-list">
         {#each recallHits as hit (hit.ref || hit.text)}
+          {@const vote = currentVote(hit)}
           <li class="recall-item">
             <a class="recall-link" href={memoryHref}>
               <span class="recall-source">{sourceLabel(hit)}</span>
               <span class="recall-text">{hit.text}</span>
             </a>
+            {#if onVote && hit.ref}
+              <div class="recall-vote">
+                <button
+                  type="button"
+                  class="vote up"
+                  class:active={vote === "up"}
+                  onclick={() => handleVote(hit, "up")}
+                  aria-label="Helpful"
+                  aria-pressed={vote === "up"}
+                  title={vote === "up" ? "Marked helpful — click to clear" : "Helpful"}
+                >
+                  Helpful
+                </button>
+                <button
+                  type="button"
+                  class="vote down"
+                  class:active={vote === "down"}
+                  onclick={() => handleVote(hit, "down")}
+                  aria-label="Wrong"
+                  aria-pressed={vote === "down"}
+                  title={vote === "down" ? "Marked wrong — click to clear" : "Wrong"}
+                >
+                  Wrong
+                </button>
+              </div>
+            {/if}
           </li>
         {/each}
       </ul>
@@ -266,6 +327,8 @@
 
   .recall-item {
     display: flex;
+    gap: var(--space-2);
+    align-items: center;
   }
 
   .recall-link {
@@ -283,6 +346,37 @@
   .recall-link:hover {
     background: var(--color-bg-raised);
     border-color: var(--color-border);
+  }
+
+  .recall-vote {
+    display: flex;
+    gap: var(--space-1);
+    flex-shrink: 0;
+  }
+
+  .vote {
+    background: transparent;
+    color: var(--color-fg-subtle);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 2px 8px;
+    font: inherit;
+    font-size: var(--size-xs);
+    cursor: pointer;
+  }
+  .vote:hover {
+    color: var(--color-fg-primary);
+    border-color: var(--color-border-strong);
+  }
+  .vote.up.active {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  }
+  .vote.down.active {
+    color: var(--color-danger);
+    border-color: var(--color-danger);
+    background: color-mix(in srgb, var(--color-danger) 10%, transparent);
   }
 
   .recall-source {

@@ -136,6 +136,14 @@ export function cancelStream(): void {
   chat.abortController?.abort();
 }
 
+export async function voteRecall(
+  ref: string,
+  vote: "up" | "down" | "clear",
+): Promise<void> {
+  if (!ref) return;
+  await client.postMemoryFeedback(USER_ID, ref, vote);
+}
+
 export function regenerateLast(): void {
   // Find the most recent user message, drop everything after it, resend it.
   const lastUserIdx = [...chat.messages]

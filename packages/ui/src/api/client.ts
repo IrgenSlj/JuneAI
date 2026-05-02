@@ -21,6 +21,8 @@ export type MemoryFact = components["schemas"]["MemoryFact"];
 export type MemoryDeleteResponse = components["schemas"]["MemoryDeleteResponse"];
 export type MemoryUpdateRequest = components["schemas"]["MemoryUpdateRequest"];
 export type MemoryUpdateResponse = components["schemas"]["MemoryUpdateResponse"];
+export type MemoryFeedbackRequest = components["schemas"]["MemoryFeedbackRequest"];
+export type MemoryFeedbackResponse = components["schemas"]["MemoryFeedbackResponse"];
 export type SkillInfo = components["schemas"]["SkillInfo"];
 export type SkillToolInfo = components["schemas"]["SkillToolInfo"];
 export type SkillsResponse = components["schemas"]["SkillsResponse"];
@@ -200,6 +202,35 @@ export function createJuneClient(options: JuneClientOptions) {
           throw new ApiError(response.status, response.statusText, await response.text());
         }
         return (await response.json()) as MemoryUpdateResponse;
+      })();
+    },
+
+    /**
+     * POST /memory/{user_id}/feedback — vote on a recalled memory.
+     *
+     * Pass `vote: "up" | "down"` to record a vote, or `"clear"` to drop a
+     * prior vote. The same ref can be re-voted at any time; the latest
+     * value wins. Server returns the recorded vote (empty string when cleared).
+     */
+    postMemoryFeedback(
+      userId: string,
+      ref: string,
+      vote: "up" | "down" | "clear",
+    ): Promise<MemoryFeedbackResponse> {
+      const url = `${baseUrl}/memory/${encodeURIComponent(userId)}/feedback`;
+      return (async () => {
+        const response = await fetchImpl(url, {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ ref, vote }),
+        });
+        if (!response.ok) {
+          throw new ApiError(response.status, response.statusText, await response.text());
+        }
+        return (await response.json()) as MemoryFeedbackResponse;
       })();
     },
 

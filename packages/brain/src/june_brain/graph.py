@@ -630,6 +630,7 @@ def _normalize_recall_hit(hit: dict[str, Any]) -> dict[str, Any]:
         "source": str(source or ""),
         "kind": str(kind or ""),
         "score": hit.get("score"),
+        "feedback": str(hit.get("feedback") or ""),
     }
 
 
