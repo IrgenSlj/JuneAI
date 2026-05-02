@@ -65,6 +65,8 @@ export interface paths {
          *       - ``goal:<title>`` removes a structured goal
          *       - ``open_loop:<topic>`` removes a structured open loop
          *       - ``calendar:<title>|<date>|<time>`` removes a structured calendar item
+         *       - ``journal:<id>`` removes a journal entry
+         *       - ``body_metric:<date>`` removes a body metric row
          */
         delete: operations["delete_memory_fact_memory__user_id__fact__ref__delete"];
         options?: never;
@@ -366,6 +368,16 @@ export interface components {
             open_loops?: components["schemas"]["MemoryFact"][];
             /** Calendar */
             calendar?: components["schemas"]["MemoryFact"][];
+            /**
+             * Journal
+             * @description Recent journal entries written by the user or by the daily skill.
+             */
+            journal?: components["schemas"]["MemoryFact"][];
+            /**
+             * Body Metrics
+             * @description Body metrics recorded by the health skill (one row per day).
+             */
+            body_metrics?: components["schemas"]["MemoryFact"][];
             /**
              * Semantic Facts
              * @description Facts extracted from conversation and embedded for semantic recall.

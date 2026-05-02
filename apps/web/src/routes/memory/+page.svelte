@@ -24,7 +24,14 @@
   let editFields: Record<string, string> = $state({});
   let pendingSave = $state(false);
 
-  type SectionKind = "semantic" | "entities" | "goals" | "open_loops" | "calendar";
+  type SectionKind =
+    | "semantic"
+    | "entities"
+    | "goals"
+    | "open_loops"
+    | "calendar"
+    | "journal"
+    | "body_metrics";
 
   type Section = {
     id: SectionKind;
@@ -80,6 +87,24 @@
         facts: snapshot.calendar ?? [],
         deletable: true,
         editable: true,
+      },
+      {
+        id: "journal",
+        title: "Journal",
+        empty:
+          "No journal entries yet. The daily skill writes here when you reflect; nothing to read until then.",
+        facts: snapshot.journal ?? [],
+        deletable: true,
+        editable: false,
+      },
+      {
+        id: "body_metrics",
+        title: "Body metrics",
+        empty:
+          "No body metrics logged. The health skill records weight, sleep, and energy; one row per day.",
+        facts: snapshot.body_metrics ?? [],
+        deletable: true,
+        editable: false,
       },
     ];
   });

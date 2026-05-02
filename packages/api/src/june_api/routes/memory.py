@@ -72,6 +72,44 @@ def _calendar_to_fact(row: dict) -> MemoryFact:
     )
 
 
+def _journal_to_fact(row: dict) -> MemoryFact:
+    return MemoryFact(
+        kind="journal",
+        title="",
+        body=row.get("entry", ""),
+        ref=f"journal:{row.get('id', '')}",
+        metadata={
+            "timestamp": row.get("timestamp", ""),
+        },
+    )
+
+
+def _body_metric_to_fact(row: dict) -> MemoryFact:
+    weight = row.get("weight_kg") or 0
+    sleep = row.get("sleep_hours") or 0
+    body_parts: list[str] = []
+    if weight:
+        body_parts.append(f"weight {weight}kg")
+    if sleep:
+        body_parts.append(f"sleep {sleep}h")
+    metadata: dict[str, object] = {"date": row.get("date", "")}
+    for key in ("sleep_quality", "energy", "stress", "soreness", "resting_hr", "steps"):
+        value = row.get(key)
+        if value:
+            metadata[key] = value
+    if row.get("notes"):
+        metadata["notes"] = row["notes"]
+    if row.get("timestamp"):
+        metadata["timestamp"] = row["timestamp"]
+    return MemoryFact(
+        kind="body_metric",
+        title=row.get("date", ""),
+        body=", ".join(body_parts),
+        ref=f"body_metric:{row.get('date', '')}",
+        metadata=metadata,
+    )
+
+
 def _semantic_to_fact(row: dict) -> MemoryFact:
     return MemoryFact(
         kind="semantic",
@@ -112,6 +150,8 @@ def get_memory(user_id: str) -> MemorySnapshot:
         goals=[_goal_to_fact(g) for g in mem.get_goals(limit=20)],
         open_loops=[_loop_to_fact(loop) for loop in mem.get_open_loops(status="", limit=20)],
         calendar=[_calendar_to_fact(item) for item in mem.get_calendar_items(limit=20)],
+        journal=[_journal_to_fact(j) for j in mem.get_journal(limit=20)],
+        body_metrics=[_body_metric_to_fact(b) for b in mem.get_body_metrics(days=14)],
         semantic_facts=[_semantic_to_fact(f) for f in vector.list_facts(limit=30)],
         entities=[_entity_to_fact(n) for n in graph.find_nodes(limit=30)],
         recent_messages=len(mem.load_chat()),
@@ -176,6 +216,8 @@ def delete_memory_fact(user_id: str, ref: str) -> MemoryDeleteResponse:
       - ``goal:<title>`` removes a structured goal
       - ``open_loop:<topic>`` removes a structured open loop
       - ``calendar:<title>|<date>|<time>`` removes a structured calendar item
+      - ``journal:<id>`` removes a journal entry
+      - ``body_metric:<date>`` removes a body metric row
     """
     manager = MemoryManager(user_id)
     removed = manager.forget(ref)

@@ -153,7 +153,7 @@
           "memory"
         ],
         "summary": "Delete Memory Fact",
-        "description": "Remove a fact by its opaque ref.\n\nSupports refs returned from ``GET /memory``:\n  - ``semantic:<fact_id>`` removes a semantic fact from vector + shadow\n  - ``node:<node_id>`` removes a graph entity and its edges\n  - ``edge:<src>|<dst>|<kind>`` removes a single edge\n  - ``goal:<title>`` removes a structured goal\n  - ``open_loop:<topic>`` removes a structured open loop\n  - ``calendar:<title>|<date>|<time>`` removes a structured calendar item",
+        "description": "Remove a fact by its opaque ref.\n\nSupports refs returned from ``GET /memory``:\n  - ``semantic:<fact_id>`` removes a semantic fact from vector + shadow\n  - ``node:<node_id>`` removes a graph entity and its edges\n  - ``edge:<src>|<dst>|<kind>`` removes a single edge\n  - ``goal:<title>`` removes a structured goal\n  - ``open_loop:<topic>`` removes a structured open loop\n  - ``calendar:<title>|<date>|<time>`` removes a structured calendar item\n  - ``journal:<id>`` removes a journal entry\n  - ``body_metric:<date>`` removes a body metric row",
         "operationId": "delete_memory_fact_memory__user_id__fact__ref__delete",
         "parameters": [
           {
@@ -582,6 +582,22 @@
             },
             "type": "array",
             "title": "Calendar"
+          },
+          "journal": {
+            "items": {
+              "$ref": "#/components/schemas/MemoryFact"
+            },
+            "type": "array",
+            "title": "Journal",
+            "description": "Recent journal entries written by the user or by the daily skill."
+          },
+          "body_metrics": {
+            "items": {
+              "$ref": "#/components/schemas/MemoryFact"
+            },
+            "type": "array",
+            "title": "Body Metrics",
+            "description": "Body metrics recorded by the health skill (one row per day)."
           },
           "semantic_facts": {
             "items": {

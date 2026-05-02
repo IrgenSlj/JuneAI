@@ -256,6 +256,28 @@ def test_update_rejects_non_sqlite_refs(manager):
     assert manager.update(f"semantic:{record['fact_id']}", {"text": "new"}) is None
 
 
+def test_forget_removes_journal_entry(manager):
+    manager.sqlite.save_journal("today felt slow")
+    entries = manager.sqlite.get_journal(limit=10)
+    assert len(entries) == 1
+    entry_id = entries[0]["id"]
+    assert manager.forget(f"journal:{entry_id}") is True
+    assert manager.sqlite.get_journal(limit=10) == []
+
+
+def test_forget_journal_with_garbage_id_returns_false(manager):
+    assert manager.forget("journal:not-a-number") is False
+
+
+def test_forget_removes_body_metric(manager):
+    manager.sqlite.log_body_metrics(weight_kg=80, sleep_hours=7)
+    rows = manager.sqlite.get_body_metrics(days=10)
+    assert len(rows) == 1
+    date = rows[0]["date"]
+    assert manager.forget(f"body_metric:{date}") is True
+    assert manager.sqlite.get_body_metrics(days=10) == []
+
+
 def test_parse_json_block_strips_code_fence():
     raw = "```json\n{\"facts\": []}\n```"
     assert _parse_json_block(raw) == {"facts": []}

@@ -354,10 +354,18 @@ class Memory:
 
     def get_journal(self, limit: int = 5) -> list:
         rows = self._conn.execute(
-            "SELECT entry, timestamp FROM journal WHERE user_id=? ORDER BY id DESC LIMIT ?",
+            "SELECT id, entry, timestamp FROM journal WHERE user_id=? ORDER BY id DESC LIMIT ?",
             (self.user_id, limit),
         ).fetchall()
         return [dict(r) for r in reversed(rows)]
+
+    def delete_journal_entry(self, entry_id: int) -> bool:
+        cur = self._conn.execute(
+            "DELETE FROM journal WHERE user_id=? AND id=?",
+            (self.user_id, int(entry_id)),
+        )
+        self._conn.commit()
+        return cur.rowcount > 0
 
     # ------------------------------------------------------------------
     # Relationships
@@ -1005,6 +1013,14 @@ class Memory:
             (self.user_id, days),
         ).fetchall()
         return [dict(r) for r in reversed(rows)]
+
+    def delete_body_metric(self, date: str) -> bool:
+        cur = self._conn.execute(
+            "DELETE FROM body_metrics WHERE user_id=? AND date=?",
+            (self.user_id, date.strip()),
+        )
+        self._conn.commit()
+        return cur.rowcount > 0
 
     def get_today_body_metrics(self) -> dict | None:
         row = self._conn.execute(

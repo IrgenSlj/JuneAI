@@ -361,6 +361,8 @@ class MemoryManager:
           - "open_loop:<topic>"  → SQLite open_loops row
           - "calendar:<title>" or "calendar:<title>|<date>|<time>"
                                  → SQLite calendar_items row
+          - "journal:<id>"       → SQLite journal row
+          - "body_metric:<date>" → SQLite body_metrics row
           - anything else falls through to the vector store by raw id
             (so the memory-browser UI can pass a fact_id directly).
         """
@@ -399,6 +401,15 @@ class MemoryManager:
             date = parts[1] if len(parts) > 1 else ""
             time = parts[2] if len(parts) > 2 else ""
             return self.sqlite.delete_calendar_item(title, date, time)
+        if ref.startswith("journal:"):
+            entry_id = ref.removeprefix("journal:")
+            try:
+                return self.sqlite.delete_journal_entry(int(entry_id))
+            except ValueError:
+                return False
+        if ref.startswith("body_metric:"):
+            date = ref.removeprefix("body_metric:")
+            return self.sqlite.delete_body_metric(date)
         # Fall-through: treat as a vector fact_id.
         if self.vector.get(ref):
             self.vector.delete(ref)

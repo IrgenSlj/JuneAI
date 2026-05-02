@@ -38,6 +38,14 @@ class MemorySnapshot(BaseModel):
     goals: list[MemoryFact] = Field(default_factory=list)
     open_loops: list[MemoryFact] = Field(default_factory=list)
     calendar: list[MemoryFact] = Field(default_factory=list)
+    journal: list[MemoryFact] = Field(
+        default_factory=list,
+        description="Recent journal entries written by the user or by the daily skill.",
+    )
+    body_metrics: list[MemoryFact] = Field(
+        default_factory=list,
+        description="Body metrics recorded by the health skill (one row per day).",
+    )
     semantic_facts: list[MemoryFact] = Field(
         default_factory=list,
         description="Facts extracted from conversation and embedded for semantic recall.",
