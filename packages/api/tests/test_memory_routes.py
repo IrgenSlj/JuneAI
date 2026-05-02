@@ -209,3 +209,46 @@ def test_patch_rejects_unsupported_ref_kind(client):
         json={"fields": {"text": "x"}},
     )
     assert response.status_code == 400
+
+
+def test_feedback_set_clear_round_trip(memory_env, client):
+    from june_brain.memory import Memory
+
+    Memory("alex").save_goal("call mom")
+
+    up = client.post(
+        "/memory/alex/feedback",
+        json={"ref": "goal:call mom", "vote": "up"},
+    )
+    assert up.status_code == 200
+    assert up.json()["vote"] == "up"
+
+    down = client.post(
+        "/memory/alex/feedback",
+        json={"ref": "goal:call mom", "vote": "down"},
+    )
+    assert down.status_code == 200
+    assert down.json()["vote"] == "down"
+
+    cleared = client.post(
+        "/memory/alex/feedback",
+        json={"ref": "goal:call mom", "vote": "clear"},
+    )
+    assert cleared.status_code == 200
+    assert cleared.json()["vote"] == ""
+
+
+def test_feedback_validates_vote(client):
+    bad = client.post(
+        "/memory/alex/feedback",
+        json={"ref": "goal:x", "vote": "maybe"},
+    )
+    assert bad.status_code == 400
+
+
+def test_feedback_requires_ref(client):
+    bad = client.post(
+        "/memory/alex/feedback",
+        json={"ref": "", "vote": "up"},
+    )
+    assert bad.status_code == 400

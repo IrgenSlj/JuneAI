@@ -199,6 +199,59 @@
         }
       }
     },
+    "/memory/{user_id}/feedback": {
+      "post": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Set Memory Feedback",
+        "description": "Record a thumbs-up / thumbs-down vote on a recalled memory.\n\nThe vote nudges the recall ranker for future turns:\n  - ``up`` halves the score (lower is more relevant for distance-based hits).\n  - ``down`` doubles the score.\n  - ``clear`` removes the vote.\n\nVoting on a fact that does not exist is allowed \u2014 the feedback row stands\nalone and applies the next time a hit with this ref is recalled. This\nkeeps the API simple at the cost of orphan rows; ``clear`` always wins\nif the user changes their mind.",
+        "operationId": "set_memory_feedback_memory__user_id__feedback_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemoryFeedbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryFeedbackResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/settings": {
       "get": {
         "tags": [
@@ -555,6 +608,52 @@
         ],
         "title": "MemoryFact",
         "description": "One structured row read from memory.\n\n``ref`` is a stable opaque string that DELETE /memory/{user}/fact/{ref}\nunderstands. It carries the source tag (``semantic:``, ``node:``,\n``edge:``, ``goal:``\u2026) so the API can route the delete to the right\nstore without a second schema lookup."
+      },
+      "MemoryFeedbackRequest": {
+        "properties": {
+          "ref": {
+            "type": "string",
+            "title": "Ref",
+            "description": "Opaque memory identifier (same scheme as /memory)."
+          },
+          "vote": {
+            "type": "string",
+            "title": "Vote",
+            "description": "One of \"up\", \"down\", or \"clear\"."
+          }
+        },
+        "type": "object",
+        "required": [
+          "ref",
+          "vote"
+        ],
+        "title": "MemoryFeedbackRequest",
+        "description": "Body of POST /memory/{user_id}/feedback.\n\n``vote`` is one of:\n  - ``\"up\"`` \u2014 this memory was useful; rank it higher next time.\n  - ``\"down\"`` \u2014 this memory was wrong or irrelevant; rank it lower.\n  - ``\"clear\"`` \u2014 remove any prior vote on this ref."
+      },
+      "MemoryFeedbackResponse": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "ref": {
+            "type": "string",
+            "title": "Ref"
+          },
+          "vote": {
+            "type": "string",
+            "title": "Vote",
+            "description": "\"up\", \"down\", or \"\" when cleared / unrecorded.",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "ref"
+        ],
+        "title": "MemoryFeedbackResponse",
+        "description": "Result of POST /memory/{user_id}/feedback."
       },
       "MemorySnapshot": {
         "properties": {

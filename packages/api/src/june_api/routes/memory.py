@@ -17,6 +17,8 @@ from june_brain.memory import KnowledgeGraph, Memory, MemoryManager, VectorStore
 from ..schemas import (
     MemoryDeleteResponse,
     MemoryFact,
+    MemoryFeedbackRequest,
+    MemoryFeedbackResponse,
     MemorySnapshot,
     MemoryUpdateRequest,
     MemoryUpdateResponse,
@@ -203,6 +205,40 @@ def update_memory_fact(
         updated=True,
         fact=fact,
     )
+
+
+@router.post("/memory/{user_id}/feedback", response_model=MemoryFeedbackResponse)
+def set_memory_feedback(
+    user_id: str,
+    payload: MemoryFeedbackRequest,
+) -> MemoryFeedbackResponse:
+    """Record a thumbs-up / thumbs-down vote on a recalled memory.
+
+    The vote nudges the recall ranker for future turns:
+      - ``up`` halves the score (lower is more relevant for distance-based hits).
+      - ``down`` doubles the score.
+      - ``clear`` removes the vote.
+
+    Voting on a fact that does not exist is allowed — the feedback row stands
+    alone and applies the next time a hit with this ref is recalled. This
+    keeps the API simple at the cost of orphan rows; ``clear`` always wins
+    if the user changes their mind.
+    """
+    ref = payload.ref.strip()
+    vote = payload.vote.strip().lower()
+    if not ref:
+        raise HTTPException(status_code=400, detail="ref is required")
+    if vote not in {"up", "down", "clear"}:
+        raise HTTPException(
+            status_code=400,
+            detail="vote must be 'up', 'down', or 'clear'",
+        )
+    manager = MemoryManager(user_id)
+    if vote == "clear":
+        manager.clear_feedback(ref)
+        return MemoryFeedbackResponse(user_id=user_id, ref=ref, vote="")
+    manager.set_feedback(ref, vote)
+    return MemoryFeedbackResponse(user_id=user_id, ref=ref, vote=vote)
 
 
 @router.delete("/memory/{user_id}/fact/{ref:path}", response_model=MemoryDeleteResponse)

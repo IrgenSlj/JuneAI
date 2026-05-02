@@ -8,6 +8,8 @@ from .chat import ChatEvent, ChatRequest, RecallHit
 from .memory import (
     MemoryDeleteResponse,
     MemoryFact,
+    MemoryFeedbackRequest,
+    MemoryFeedbackResponse,
     MemorySnapshot,
     MemoryUpdateRequest,
     MemoryUpdateResponse,
@@ -29,6 +31,8 @@ __all__ = [
     "RecallHit",
     "MemoryDeleteResponse",
     "MemoryFact",
+    "MemoryFeedbackRequest",
+    "MemoryFeedbackResponse",
     "MemorySnapshot",
     "MemoryUpdateRequest",
     "MemoryUpdateResponse",

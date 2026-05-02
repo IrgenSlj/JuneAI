@@ -87,6 +87,36 @@ export interface paths {
         patch: operations["update_memory_fact_memory__user_id__fact__ref__patch"];
         trace?: never;
     };
+    "/memory/{user_id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Memory Feedback
+         * @description Record a thumbs-up / thumbs-down vote on a recalled memory.
+         *
+         *     The vote nudges the recall ranker for future turns:
+         *       - ``up`` halves the score (lower is more relevant for distance-based hits).
+         *       - ``down`` doubles the score.
+         *       - ``clear`` removes the vote.
+         *
+         *     Voting on a fact that does not exist is allowed — the feedback row stands
+         *     alone and applies the next time a hit with this ref is recalled. This
+         *     keeps the API simple at the cost of orphan rows; ``clear`` always wins
+         *     if the user changes their mind.
+         */
+        post: operations["set_memory_feedback_memory__user_id__feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/settings": {
         parameters: {
             query?: never;
@@ -350,6 +380,43 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             };
+        };
+        /**
+         * MemoryFeedbackRequest
+         * @description Body of POST /memory/{user_id}/feedback.
+         *
+         *     ``vote`` is one of:
+         *       - ``"up"`` — this memory was useful; rank it higher next time.
+         *       - ``"down"`` — this memory was wrong or irrelevant; rank it lower.
+         *       - ``"clear"`` — remove any prior vote on this ref.
+         */
+        MemoryFeedbackRequest: {
+            /**
+             * Ref
+             * @description Opaque memory identifier (same scheme as /memory).
+             */
+            ref: string;
+            /**
+             * Vote
+             * @description One of "up", "down", or "clear".
+             */
+            vote: string;
+        };
+        /**
+         * MemoryFeedbackResponse
+         * @description Result of POST /memory/{user_id}/feedback.
+         */
+        MemoryFeedbackResponse: {
+            /** User Id */
+            user_id: string;
+            /** Ref */
+            ref: string;
+            /**
+             * Vote
+             * @description "up", "down", or "" when cleared / unrecorded.
+             * @default
+             */
+            vote: string;
         };
         /**
          * MemorySnapshot
@@ -1021,6 +1088,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemoryUpdateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_memory_feedback_memory__user_id__feedback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemoryFeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryFeedbackResponse"];
                 };
             };
             /** @description Validation Error */

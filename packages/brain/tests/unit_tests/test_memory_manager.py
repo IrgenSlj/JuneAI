@@ -278,6 +278,48 @@ def test_forget_removes_body_metric(manager):
     assert manager.sqlite.get_body_metrics(days=10) == []
 
 
+def test_feedback_set_get_clear(manager):
+    """Feedback CRUD round-trips through manager → sqlite → recall lookup."""
+    manager.sqlite.save_goal("call mom")
+    assert manager.sqlite.get_feedback_map() == {}
+
+    manager.set_feedback("goal:call mom", "up")
+    assert manager.sqlite.get_feedback_map() == {"goal:call mom": "up"}
+
+    manager.set_feedback("goal:call mom", "down")  # last vote wins
+    assert manager.sqlite.get_feedback_map() == {"goal:call mom": "down"}
+
+    assert manager.clear_feedback("goal:call mom") is True
+    assert manager.sqlite.get_feedback_map() == {}
+
+
+def test_feedback_rejects_invalid_vote(manager):
+    assert manager.set_feedback("goal:x", "maybe") is None
+    assert manager.set_feedback("", "up") is None
+
+
+def test_feedback_down_demotes_recall(manager):
+    """A thumbs-down on a vector hit should sort it after non-voted hits."""
+    a = manager.vector.upsert("apples are crunchy", source="test")
+    b = manager.vector.upsert("apples are tasty", source="test")
+
+    # No feedback yet — both surface; baseline order depends on hash embed.
+    baseline = manager.recall("apples", k=5)
+    refs_baseline = [h["ref"] for h in baseline if h["source"] == "vector"]
+    assert a["fact_id"] in refs_baseline
+    assert b["fact_id"] in refs_baseline
+
+    # Thumbs-down on `a` should push it after `b`.
+    manager.set_feedback(f"semantic:{a['fact_id']}", "down")
+    after = manager.recall("apples", k=5)
+    vec_refs_after = [h["ref"] for h in after if h["source"] == "vector"]
+    assert vec_refs_after.index(b["fact_id"]) < vec_refs_after.index(a["fact_id"])
+
+    # The downvoted hit is annotated so the UI can mark it.
+    voted = next(h for h in after if h["ref"] == a["fact_id"])
+    assert voted.get("feedback") == "down"
+
+
 def test_parse_json_block_strips_code_fence():
     raw = "```json\n{\"facts\": []}\n```"
     assert _parse_json_block(raw) == {"facts": []}

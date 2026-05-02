@@ -127,10 +127,32 @@ class MemoryManager:
             seen.add(key)
             deduped.append(h)
 
+        # Apply feedback multipliers before ranking. Recall hit refs are not
+        # yet prefixed for non-sqlite sources (vector returns the bare
+        # fact_id, graph returns the bare node_id), so we re-derive the
+        # prefixed form to match what the user voted on through the UI.
+        try:
+            feedback = self.sqlite.get_feedback_map()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("recall: feedback lookup failed: %s", exc)
+            feedback = {}
+
+        if feedback:
+            for h in deduped:
+                lookup_ref = _hit_lookup_ref(h)
+                vote = feedback.get(lookup_ref) or feedback.get(h.get("ref", ""))
+                if vote == "up":
+                    h["feedback"] = "up"
+                    h["score"] = _multiply_score(h.get("score"), 0.5)
+                elif vote == "down":
+                    h["feedback"] = "down"
+                    h["score"] = _multiply_score(h.get("score"), 2.0)
+
         # Rank: vector hits first (lowest distance), then graph mentions,
         # then keyword matches. Vector distance ~0.2 means "very close";
         # keyword hits get a synthetic score of 0.5 so they fall below
-        # strong semantic matches but above weak ones.
+        # strong semantic matches but above weak ones. Feedback multipliers
+        # nudge a hit up or down within its tier without crossing tiers.
         def _rank_key(h: dict[str, Any]) -> tuple[int, float]:
             source_rank = {"vector": 0, "graph": 1, "sqlite": 2}.get(h["source"], 3)
             score = h.get("score")
@@ -138,6 +160,17 @@ class MemoryManager:
 
         deduped.sort(key=_rank_key)
         return deduped[: max(1, k * 2)]
+
+    # ------------------------------------------------------------------
+    # Feedback pass-through (B.4)
+    # ------------------------------------------------------------------
+
+    def set_feedback(self, ref: str, vote: str) -> dict | None:
+        """Record an up/down vote on a memory by ref."""
+        return self.sqlite.set_feedback(ref, vote)
+
+    def clear_feedback(self, ref: str) -> bool:
+        return self.sqlite.clear_feedback(ref)
 
     def _sqlite_keyword_hits(self, query: str, k: int) -> list[dict[str, Any]]:
         """Scan structured tables for rows that overlap with the query."""
@@ -450,6 +483,29 @@ class MemoryManager:
 # ----------------------------------------------------------------------
 # Helpers
 # ----------------------------------------------------------------------
+
+def _hit_lookup_ref(hit: dict[str, Any]) -> str:
+    """Build the prefixed ref the feedback table is keyed by, given a raw recall hit.
+
+    Vector and graph hits arrive with bare ids; sqlite hits arrive
+    already prefixed (``goal:...``). Mirrors graph._normalize_recall_hit.
+    """
+    source = hit.get("source")
+    raw = hit.get("ref", "") or ""
+    kind = hit.get("kind", "") or ""
+    if source == "vector":
+        return f"semantic:{raw}"
+    if source == "graph":
+        return f"edge:{raw}" if kind.startswith("edge:") else f"node:{raw}"
+    return raw
+
+
+def _multiply_score(score: Any, factor: float) -> float:
+    """Scale a recall score by a factor, treating None / non-numeric as 0."""
+    if isinstance(score, (int, float)):
+        return float(score) * factor
+    return 0.0
+
 
 def _format_node(node: dict[str, Any]) -> str:
     desc = node.get("props", {}).get("description", "")

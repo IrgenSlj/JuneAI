@@ -81,6 +81,27 @@ class MemoryUpdateRequest(BaseModel):
     )
 
 
+class MemoryFeedbackRequest(BaseModel):
+    """Body of POST /memory/{user_id}/feedback.
+
+    ``vote`` is one of:
+      - ``"up"`` — this memory was useful; rank it higher next time.
+      - ``"down"`` — this memory was wrong or irrelevant; rank it lower.
+      - ``"clear"`` — remove any prior vote on this ref.
+    """
+
+    ref: str = Field(..., description="Opaque memory identifier (same scheme as /memory).")
+    vote: str = Field(..., description='One of "up", "down", or "clear".')
+
+
+class MemoryFeedbackResponse(BaseModel):
+    """Result of POST /memory/{user_id}/feedback."""
+
+    user_id: str
+    ref: str
+    vote: str = Field(default="", description='"up", "down", or "" when cleared / unrecorded.')
+
+
 class MemoryUpdateResponse(BaseModel):
     """Result of PATCH /memory/{user_id}/fact/{ref}.
 

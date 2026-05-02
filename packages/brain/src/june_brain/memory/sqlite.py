@@ -250,6 +250,13 @@ CREATE TABLE IF NOT EXISTS semantic_facts (
     PRIMARY KEY (user_id, fact_id)
 );
 CREATE INDEX IF NOT EXISTS idx_semantic_facts_created ON semantic_facts(user_id, created_at);
+CREATE TABLE IF NOT EXISTS memory_feedback (
+    user_id     TEXT NOT NULL,
+    ref         TEXT NOT NULL,
+    vote        TEXT NOT NULL,
+    updated_at  TEXT NOT NULL,
+    PRIMARY KEY (user_id, ref)
+);
 """
 
 
@@ -1697,6 +1704,43 @@ class Memory:
         if isinstance(value, (date, datetime)):
             return value.isoformat()
         return str(value)
+
+    # ------------------------------------------------------------------
+    # Memory feedback (B.4) — thumbs up/down on recalled memories
+    # ------------------------------------------------------------------
+
+    def set_feedback(self, ref: str, vote: str) -> dict | None:
+        """Upsert a vote ('up' or 'down') for a memory ref. Returns the row."""
+        ref = ref.strip()
+        vote = vote.strip().lower()
+        if not ref or vote not in ("up", "down"):
+            return None
+        now = self._now()
+        self._conn.execute(
+            """INSERT INTO memory_feedback (user_id, ref, vote, updated_at)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(user_id, ref) DO UPDATE SET
+                 vote=excluded.vote, updated_at=excluded.updated_at""",
+            (self.user_id, ref, vote, now),
+        )
+        self._conn.commit()
+        return {"ref": ref, "vote": vote, "updated_at": now}
+
+    def clear_feedback(self, ref: str) -> bool:
+        cur = self._conn.execute(
+            "DELETE FROM memory_feedback WHERE user_id=? AND ref=?",
+            (self.user_id, ref.strip()),
+        )
+        self._conn.commit()
+        return cur.rowcount > 0
+
+    def get_feedback_map(self) -> dict[str, str]:
+        """Return ``{ref: vote}`` for every recorded vote — used during recall ranking."""
+        rows = self._conn.execute(
+            "SELECT ref, vote FROM memory_feedback WHERE user_id=?",
+            (self.user_id,),
+        ).fetchall()
+        return {row["ref"]: row["vote"] for row in rows}
 
 
 # ---------------------------------------------------------------------------
