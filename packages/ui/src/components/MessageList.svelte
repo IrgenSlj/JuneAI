@@ -47,6 +47,7 @@
       role={message.role}
       content={message.content}
       toolName={message.toolName}
+      recallHits={message.recallHits}
       pending={streaming && message.id === lastId}
     />
   {/each}

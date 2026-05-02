@@ -15,6 +15,7 @@ import type { components } from "./types.js";
 
 export type ChatRequest = components["schemas"]["ChatRequest"];
 export type ChatEvent = components["schemas"]["ChatEvent"];
+export type RecallHit = components["schemas"]["RecallHit"];
 export type MemorySnapshot = components["schemas"]["MemorySnapshot"];
 export type MemoryFact = components["schemas"]["MemoryFact"];
 export type MemoryDeleteResponse = components["schemas"]["MemoryDeleteResponse"];

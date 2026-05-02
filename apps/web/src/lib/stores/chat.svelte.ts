@@ -41,6 +41,12 @@ function appendToken(id: string, token: string) {
   );
 }
 
+function attachRecallHits(id: string, hits: ChatEvent["recall_hits"]) {
+  chat.messages = chat.messages.map((m) =>
+    m.id === id ? { ...m, recallHits: hits } : m,
+  );
+}
+
 function formatToolCall(
   name: string,
   args: Record<string, unknown> | undefined,
@@ -95,6 +101,9 @@ function handleEvent(event: ChatEvent, assistantId: string) {
   switch (event.type) {
     case "token":
       appendToken(assistantId, event.content);
+      break;
+    case "recall":
+      attachRecallHits(assistantId, event.recall_hits);
       break;
     case "tool_call":
       pushMessage({

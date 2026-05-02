@@ -4,16 +4,43 @@
    *
    * Tool bubbles collapse the raw JSON args/result into a single line
    * so the transcript stays readable; clicking expands the detail.
+   * Assistant bubbles can carry a "memories used" disclosure listing
+   * the recall hits that fed this turn.
    */
+  import type { RecallHit } from "../api/index.js";
+
   interface Props {
     role: "user" | "assistant" | "tool";
     content: string;
     toolName?: string;
     /** True for the tail of an active stream, so an empty assistant bubble can pulse. */
     pending?: boolean;
+    /** Memories June drew on to compose this message. */
+    recallHits?: RecallHit[];
+    /** Base path of the memory browser, for deep-linking recall hits. */
+    memoryHref?: string;
   }
 
-  const { role, content, toolName = "", pending = false }: Props = $props();
+  const {
+    role,
+    content,
+    toolName = "",
+    pending = false,
+    recallHits = [],
+    memoryHref = "/memory",
+  }: Props = $props();
+
+  const hasRecall = $derived(role === "assistant" && recallHits.length > 0);
+
+  const SOURCE_LABELS: Record<string, string> = {
+    vector: "fact",
+    graph: "entity",
+    sqlite: "structured",
+  };
+
+  function sourceLabel(hit: RecallHit): string {
+    return SOURCE_LABELS[hit.source] ?? hit.source ?? "memory";
+  }
   const showThinking = $derived(
     pending && role === "assistant" && content.length === 0,
   );
@@ -62,6 +89,23 @@
     >
       {copied ? "Copied" : "Copy"}
     </button>
+  {/if}
+  {#if hasRecall}
+    <details class="recall">
+      <summary>
+        {recallHits.length} memor{recallHits.length === 1 ? "y" : "ies"} used
+      </summary>
+      <ul class="recall-list">
+        {#each recallHits as hit (hit.ref || hit.text)}
+          <li class="recall-item">
+            <a class="recall-link" href={memoryHref}>
+              <span class="recall-source">{sourceLabel(hit)}</span>
+              <span class="recall-text">{hit.text}</span>
+            </a>
+          </li>
+        {/each}
+      </ul>
+    </details>
   {/if}
 </article>
 
@@ -183,5 +227,78 @@
       opacity: 1;
       transform: scale(1);
     }
+  }
+
+  .recall {
+    margin-top: var(--space-2);
+    font-size: var(--size-xs);
+  }
+
+  .recall summary {
+    cursor: pointer;
+    color: var(--color-fg-subtle);
+    font-family: var(--font-mono);
+    list-style: none;
+    padding: var(--space-1) 0;
+  }
+  .recall summary::-webkit-details-marker {
+    display: none;
+  }
+  .recall summary::before {
+    content: "▸ ";
+    font-size: 0.85em;
+  }
+  .recall[open] summary::before {
+    content: "▾ ";
+  }
+  .recall summary:hover {
+    color: var(--color-fg-muted);
+  }
+
+  .recall-list {
+    list-style: none;
+    padding: var(--space-2) 0 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .recall-item {
+    display: flex;
+  }
+
+  .recall-link {
+    display: flex;
+    gap: var(--space-2);
+    align-items: baseline;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    color: inherit;
+    text-decoration: none;
+    border: 1px solid transparent;
+    flex: 1;
+    min-width: 0;
+  }
+  .recall-link:hover {
+    background: var(--color-bg-raised);
+    border-color: var(--color-border);
+  }
+
+  .recall-source {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    color: var(--color-fg-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+    min-width: 5em;
+  }
+
+  .recall-text {
+    color: var(--color-fg-muted);
+    line-height: var(--leading-normal);
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 </style>
