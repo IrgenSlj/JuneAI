@@ -261,6 +261,267 @@ class MemoryManager:
         return "\n".join(lines)
 
     # ------------------------------------------------------------------
+    # Write — single entry point for all memory writes
+    # ------------------------------------------------------------------
+
+    def write(self, payload: dict[str, Any], source: str = "manual") -> dict[str, Any]:
+        """Persist a memory across whichever stores apply.
+
+        ``payload`` is ``{"kind": str, "fields": dict}``. ``kind`` selects
+        the handler:
+
+          - ``"fact"``        → vector store (text + metadata)
+          - ``"entity"``      → graph node
+          - ``"relation"``    → graph edge
+          - ``"goal"`` / ``"open_loop"`` / ``"calendar"`` /
+            ``"journal"`` / ``"body_metric"`` / ``"mood"`` →
+              SQLite row + paraphrase upserted to the vector store so
+              the structured row also feeds recall
+
+        ``source`` becomes the vector-store ``source`` tag, e.g.
+        ``"extraction"`` for facts pulled from chat or
+        ``"skill:daily:save_journal_entry"`` for skill writes. The tag
+        lets the UI explain where a recalled memory came from and lets
+        future feature work filter by writer.
+
+        Returns ``{"written": bool, "kind": str, "ref": str|None,
+        "stores": list[str]}``. ``ref`` uses the same prefix scheme as
+        ``/memory`` so callers can hand it to ``forget`` or render it as
+        a deep link.
+        """
+        kind = str(payload.get("kind", "")).strip()
+        fields = payload.get("fields") or {}
+        if not isinstance(fields, dict):
+            return {"written": False, "kind": kind, "ref": None, "stores": []}
+
+        handler = _WRITE_HANDLERS.get(kind)
+        if handler is None:
+            return {"written": False, "kind": kind, "ref": None, "stores": []}
+        try:
+            return handler(self, fields, source)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("memory.write: %s handler failed: %s", kind, exc)
+            return {"written": False, "kind": kind, "ref": None, "stores": [], "error": str(exc)}
+
+    # --- write handlers -------------------------------------------------
+
+    def _write_fact(self, fields: dict[str, Any], source: str) -> dict[str, Any]:
+        text = str(fields.get("text", "")).strip()
+        if not text:
+            return {"written": False, "kind": "fact", "ref": None, "stores": []}
+        metadata = dict(fields.get("metadata") or {})
+        metadata.setdefault("kind", "fact")
+        record = self.vector.upsert(text=text, source=source, metadata=metadata)
+        return {
+            "written": True,
+            "kind": "fact",
+            "ref": f"semantic:{record['fact_id']}",
+            "stores": ["vector"],
+        }
+
+    def _write_entity(self, fields: dict[str, Any], source: str) -> dict[str, Any]:
+        label = str(fields.get("label", "")).strip()
+        if not label:
+            return {"written": False, "kind": "entity", "ref": None, "stores": []}
+        kind = str(fields.get("kind", "entity")).strip() or "entity"
+        props = dict(fields.get("props") or {})
+        node_id = fields.get("node_id")
+        node = self.graph.add_node(
+            label=label,
+            kind=kind,
+            props=props,
+            **({"node_id": node_id} if node_id else {}),
+        )
+        return {
+            "written": True,
+            "kind": "entity",
+            "ref": f"node:{node['node_id']}",
+            "stores": ["graph"],
+            "node_id": node["node_id"],
+        }
+
+    def _write_relation(self, fields: dict[str, Any], source: str) -> dict[str, Any]:
+        src = str(fields.get("src", "")).strip()
+        dst = str(fields.get("dst", "")).strip()
+        kind = str(fields.get("kind", "related_to")).strip() or "related_to"
+        if not src or not dst:
+            return {"written": False, "kind": "relation", "ref": None, "stores": []}
+        props = dict(fields.get("props") or {})
+        self.graph.add_edge(src=src, dst=dst, kind=kind, props=props)
+        return {
+            "written": True,
+            "kind": "relation",
+            "ref": f"edge:{src}|{dst}|{kind}",
+            "stores": ["graph"],
+        }
+
+    def _write_structured(
+        self,
+        kind: str,
+        fields: dict[str, Any],
+        source: str,
+        *,
+        save: Callable[[], dict[str, Any]],
+        ref_for: Callable[[dict[str, Any]], str],
+        paraphrase: Callable[[dict[str, Any]], str],
+    ) -> dict[str, Any]:
+        """Common path: persist the structured row, then paraphrase to vector.
+
+        The paraphrased fact carries ``kind`` and ``ref`` in metadata so
+        recall can attribute the hit and the UI can render a back-link.
+        Vector upsert failures don't fail the write — the structured row
+        is the source of truth; the paraphrase is the recall convenience.
+        """
+        row = save()
+        ref = ref_for(row)
+        text = paraphrase(row).strip()
+        stores = ["sqlite"]
+        if text:
+            try:
+                self.vector.upsert(
+                    text=text,
+                    source=source,
+                    metadata={"kind": kind, "ref": ref},
+                )
+                stores.append("vector")
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("memory.write: vector paraphrase upsert failed for %s: %s", ref, exc)
+        return {"written": True, "kind": kind, "ref": ref, "stores": stores}
+
+    def _write_goal(self, fields: dict[str, Any], source: str) -> dict[str, Any]:
+        title = str(fields.get("title", "")).strip()
+        if not title:
+            return {"written": False, "kind": "goal", "ref": None, "stores": []}
+        return self._write_structured(
+            "goal",
+            fields,
+            source,
+            save=lambda: self.sqlite.save_goal(
+                title=title,
+                category=str(fields.get("category", "personal")),
+                target_date=str(fields.get("target_date", "")),
+                next_step=str(fields.get("next_step", "")),
+                status=str(fields.get("status", "active")),
+            ),
+            ref_for=lambda row: f"goal:{row.get('title', '')}",
+            paraphrase=lambda row: _paraphrase_goal(row),
+        )
+
+    def _write_open_loop(self, fields: dict[str, Any], source: str) -> dict[str, Any]:
+        topic = str(fields.get("topic", "")).strip()
+        if not topic:
+            return {"written": False, "kind": "open_loop", "ref": None, "stores": []}
+        return self._write_structured(
+            "open_loop",
+            fields,
+            source,
+            save=lambda: self.sqlite.save_open_loop(
+                topic=topic,
+                next_step=str(fields.get("next_step", "")),
+                due_date=str(fields.get("due_date", "")),
+                status=str(fields.get("status", "open")),
+            ),
+            ref_for=lambda row: f"open_loop:{row.get('topic', '')}",
+            paraphrase=lambda row: _paraphrase_open_loop(row),
+        )
+
+    def _write_calendar(self, fields: dict[str, Any], source: str) -> dict[str, Any]:
+        title = str(fields.get("title", "")).strip()
+        date = str(fields.get("date", "")).strip()
+        if not title:
+            return {"written": False, "kind": "calendar", "ref": None, "stores": []}
+        return self._write_structured(
+            "calendar",
+            fields,
+            source,
+            save=lambda: self.sqlite.save_calendar_item(
+                title=title,
+                date=date,
+                time=str(fields.get("time", "")),
+                details=str(fields.get("details", "")),
+                status=str(fields.get("status", "planned")),
+                source=str(fields.get("source", "conversation")),
+            ),
+            ref_for=lambda row: f"calendar:{row.get('title', '')}|{row.get('date', '')}|{row.get('time', '')}",
+            paraphrase=lambda row: _paraphrase_calendar(row),
+        )
+
+    def _write_journal(self, fields: dict[str, Any], source: str) -> dict[str, Any]:
+        entry = str(fields.get("entry", "")).strip()
+        if not entry:
+            return {"written": False, "kind": "journal", "ref": None, "stores": []}
+        # save_journal returns {entry, timestamp} but not the auto-id; fetch
+        # the most recent to get it for the ref.
+        self.sqlite.save_journal(entry)
+        latest = self.sqlite.get_journal(limit=1)
+        if not latest:
+            return {"written": False, "kind": "journal", "ref": None, "stores": ["sqlite"]}
+        row = latest[0]
+        ref = f"journal:{row.get('id', '')}"
+        text = _paraphrase_journal(row)
+        stores = ["sqlite"]
+        if text:
+            try:
+                self.vector.upsert(
+                    text=text,
+                    source=source,
+                    metadata={"kind": "journal", "ref": ref},
+                )
+                stores.append("vector")
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("memory.write: vector paraphrase upsert failed for %s: %s", ref, exc)
+        return {"written": True, "kind": "journal", "ref": ref, "stores": stores}
+
+    def _write_body_metric(self, fields: dict[str, Any], source: str) -> dict[str, Any]:
+        return self._write_structured(
+            "body_metric",
+            fields,
+            source,
+            save=lambda: self.sqlite.log_body_metrics(
+                weight_kg=float(fields.get("weight_kg") or 0),
+                sleep_hours=float(fields.get("sleep_hours") or 0),
+                sleep_quality=int(fields.get("sleep_quality") or 0),
+                energy=int(fields.get("energy") or 0),
+                stress=int(fields.get("stress") or 0),
+                soreness=int(fields.get("soreness") or 0),
+                resting_hr=int(fields.get("resting_hr") or 0),
+                steps=int(fields.get("steps") or 0),
+                notes=str(fields.get("notes", "")),
+            ),
+            ref_for=lambda row: f"body_metric:{row.get('date', '')}",
+            paraphrase=lambda row: _paraphrase_body_metric(row),
+        )
+
+    def _write_mood(self, fields: dict[str, Any], source: str) -> dict[str, Any]:
+        mood = str(fields.get("mood", "")).strip()
+        if not mood:
+            return {"written": False, "kind": "mood", "ref": None, "stores": []}
+        note = str(fields.get("note", ""))
+        # save_mood doesn't exist as a single method; use the direct INSERT
+        # via the moods table. Mood rows do not get a stable ref because the
+        # mood log is append-only; the vector paraphrase is recallable.
+        timestamp = self.sqlite._now()  # noqa: SLF001 — internal helper, fine inside same package
+        self.sqlite._conn.execute(  # noqa: SLF001
+            "INSERT INTO moods (user_id, mood, note, timestamp) VALUES (?, ?, ?, ?)",
+            (self.sqlite.user_id, mood, note, timestamp),
+        )
+        self.sqlite._conn.commit()  # noqa: SLF001
+        text = _paraphrase_mood({"mood": mood, "note": note})
+        ref = f"mood:{timestamp}"
+        stores = ["sqlite"]
+        if text:
+            try:
+                self.vector.upsert(
+                    text=text,
+                    source=source,
+                    metadata={"kind": "mood", "ref": ref},
+                )
+                stores.append("vector")
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("memory.write: vector paraphrase upsert failed for %s: %s", ref, exc)
+        return {"written": True, "kind": "mood", "ref": ref, "stores": stores}
+
+    # ------------------------------------------------------------------
     # Extract — write path
     # ------------------------------------------------------------------
 
@@ -301,27 +562,28 @@ class MemoryManager:
         for fact in facts:
             if not isinstance(fact, str):
                 continue
-            text = fact.strip()
-            if not text:
-                continue
-            try:
-                self.vector.upsert(text=text, source="extraction", metadata={"kind": "fact"})
+            result = self.write(
+                {"kind": "fact", "fields": {"text": fact}},
+                source="extraction",
+            )
+            if result.get("written"):
                 fact_count += 1
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("memory.extract: vector upsert failed: %s", exc)
 
         entity_count = 0
         name_to_node_id: dict[str, str] = {"user": f"person:{_slug(self.user_id)}"}
         # Ensure the user node exists so relations anchored on "user" resolve.
-        try:
-            self.graph.add_node(
-                label=self.user_id,
-                kind="person",
-                node_id=name_to_node_id["user"],
-                props={"is_self": True},
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("memory.extract: failed to ensure user node: %s", exc)
+        self.write(
+            {
+                "kind": "entity",
+                "fields": {
+                    "label": self.user_id,
+                    "kind": "person",
+                    "node_id": name_to_node_id["user"],
+                    "props": {"is_self": True},
+                },
+            },
+            source="extraction",
+        )
 
         for entity in entities:
             if not isinstance(entity, dict):
@@ -329,16 +591,23 @@ class MemoryManager:
             name = str(entity.get("name", "")).strip()
             if not name:
                 continue
-            kind = str(entity.get("kind", "entity")).strip() or "entity"
             props: dict[str, Any] = {}
             if entity.get("description"):
                 props["description"] = str(entity["description"])
-            try:
-                node = self.graph.add_node(label=name, kind=kind, props=props)
-                name_to_node_id[name.lower()] = node["node_id"]
+            result = self.write(
+                {
+                    "kind": "entity",
+                    "fields": {
+                        "label": name,
+                        "kind": str(entity.get("kind", "entity")).strip() or "entity",
+                        "props": props,
+                    },
+                },
+                source="extraction",
+            )
+            if result.get("written"):
+                name_to_node_id[name.lower()] = result.get("node_id", "")
                 entity_count += 1
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("memory.extract: graph add_node failed for %s: %s", name, exc)
 
         relation_count = 0
         for relation in relations:
@@ -351,11 +620,15 @@ class MemoryManager:
                 continue
             src_id = self._resolve_node_id(src_name, name_to_node_id)
             dst_id = self._resolve_node_id(dst_name, name_to_node_id)
-            try:
-                self.graph.add_edge(src=src_id, dst=dst_id, kind=kind)
+            result = self.write(
+                {
+                    "kind": "relation",
+                    "fields": {"src": src_id, "dst": dst_id, "kind": kind},
+                },
+                source="extraction",
+            )
+            if result.get("written"):
                 relation_count += 1
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("memory.extract: graph add_edge failed: %s", exc)
 
         return {
             "facts": fact_count,
@@ -483,6 +756,100 @@ class MemoryManager:
 # ----------------------------------------------------------------------
 # Helpers
 # ----------------------------------------------------------------------
+
+def _paraphrase_goal(row: dict[str, Any]) -> str:
+    title = str(row.get("title", "")).strip()
+    if not title:
+        return ""
+    next_step = str(row.get("next_step", "")).strip()
+    target = str(row.get("target_date", "")).strip()
+    parts = [f"Goal: {title}."]
+    if next_step:
+        parts.append(f"Next step: {next_step}.")
+    if target:
+        parts.append(f"Target date: {target}.")
+    return " ".join(parts)
+
+
+def _paraphrase_open_loop(row: dict[str, Any]) -> str:
+    topic = str(row.get("topic", "")).strip()
+    if not topic:
+        return ""
+    next_step = str(row.get("next_step", "")).strip()
+    due = str(row.get("due_date", "")).strip()
+    parts = [f"Open loop: {topic}."]
+    if next_step:
+        parts.append(f"Next step: {next_step}.")
+    if due:
+        parts.append(f"Due {due}.")
+    return " ".join(parts)
+
+
+def _paraphrase_calendar(row: dict[str, Any]) -> str:
+    title = str(row.get("title", "")).strip()
+    if not title:
+        return ""
+    date = str(row.get("date", "")).strip()
+    time = str(row.get("time", "")).strip()
+    details = str(row.get("details", "")).strip()
+    parts = [f"Calendar item: {title}."]
+    if date and time:
+        parts.append(f"On {date} at {time}.")
+    elif date:
+        parts.append(f"On {date}.")
+    if details:
+        parts.append(details if details.endswith(".") else f"{details}.")
+    return " ".join(parts)
+
+
+def _paraphrase_journal(row: dict[str, Any]) -> str:
+    entry = str(row.get("entry", "")).strip()
+    if not entry:
+        return ""
+    return f"Journal entry: {entry}"
+
+
+def _paraphrase_body_metric(row: dict[str, Any]) -> str:
+    date = str(row.get("date", "")).strip()
+    weight = row.get("weight_kg") or 0
+    sleep = row.get("sleep_hours") or 0
+    energy = row.get("energy") or 0
+    stress = row.get("stress") or 0
+    parts = []
+    if weight:
+        parts.append(f"weight {weight}kg")
+    if sleep:
+        parts.append(f"slept {sleep}h")
+    if energy:
+        parts.append(f"energy {energy}/5")
+    if stress:
+        parts.append(f"stress {stress}/5")
+    if not parts:
+        return ""
+    head = f"Body check on {date}" if date else "Body check"
+    return f"{head}: {', '.join(parts)}."
+
+
+def _paraphrase_mood(row: dict[str, Any]) -> str:
+    mood = str(row.get("mood", "")).strip()
+    if not mood:
+        return ""
+    note = str(row.get("note", "")).strip()
+    return f"Mood: {mood}. {note}".strip() if note else f"Mood: {mood}."
+
+
+_WRITE_HANDLERS: dict[str, Callable[..., dict[str, Any]]] = {
+    "fact": MemoryManager._write_fact,
+    "entity": MemoryManager._write_entity,
+    "relation": MemoryManager._write_relation,
+    "goal": MemoryManager._write_goal,
+    "open_loop": MemoryManager._write_open_loop,
+    "calendar": MemoryManager._write_calendar,
+    "journal": MemoryManager._write_journal,
+    "body_metric": MemoryManager._write_body_metric,
+    "mood": MemoryManager._write_mood,
+}
+
 
 def _hit_lookup_ref(hit: dict[str, Any]) -> str:
     """Build the prefixed ref the feedback table is keyed by, given a raw recall hit.

@@ -298,6 +298,118 @@ def test_feedback_rejects_invalid_vote(manager):
     assert manager.set_feedback("", "up") is None
 
 
+def test_write_unknown_kind_returns_not_written(manager):
+    result = manager.write({"kind": "spaceship", "fields": {}}, source="test")
+    assert result["written"] is False
+    assert result["ref"] is None
+
+
+def test_write_fact_lands_in_vector_only(manager):
+    result = manager.write(
+        {"kind": "fact", "fields": {"text": "user enjoys ramen"}},
+        source="manual",
+    )
+    assert result["written"] is True
+    assert result["ref"].startswith("semantic:")
+    assert result["stores"] == ["vector"]
+    fact_id = result["ref"].removeprefix("semantic:")
+    assert manager.vector.get(fact_id) is not None
+
+
+def test_write_entity_creates_graph_node(manager):
+    result = manager.write(
+        {"kind": "entity", "fields": {"label": "Ana", "kind": "person"}},
+        source="manual",
+    )
+    assert result["written"] is True
+    assert result["ref"].startswith("node:")
+    assert result["stores"] == ["graph"]
+    assert manager.graph.get_node(result["node_id"]) is not None
+
+
+def test_write_goal_writes_sqlite_and_paraphrases_to_vector(manager):
+    """A skill writing a goal should also feed the recall ranker."""
+    result = manager.write(
+        {
+            "kind": "goal",
+            "fields": {
+                "title": "learn Rust",
+                "category": "career",
+                "next_step": "install rustup",
+            },
+        },
+        source="skill:daily:track_goal",
+    )
+    assert result["written"] is True
+    assert result["ref"] == "goal:learn Rust"
+    assert "sqlite" in result["stores"]
+    assert "vector" in result["stores"]
+
+    # The structured row exists.
+    titles = [g["title"] for g in manager.sqlite.get_goals(limit=20)]
+    assert "learn Rust" in titles
+
+    # And recall finds the paraphrase even though the query never mentions
+    # the structured field — this is the whole point of C.1.
+    hits = manager.recall("rust", k=5)
+    assert any(h["source"] == "vector" and "Rust" in h["text"] for h in hits)
+
+
+def test_write_journal_attaches_id_in_ref(manager):
+    result = manager.write(
+        {"kind": "journal", "fields": {"entry": "today felt productive"}},
+        source="skill:daily:save_journal_entry",
+    )
+    assert result["written"] is True
+    assert result["ref"].startswith("journal:")
+    entry_id = int(result["ref"].removeprefix("journal:"))
+    assert entry_id > 0
+    rows = manager.sqlite.get_journal(limit=5)
+    assert any(r["id"] == entry_id for r in rows)
+
+
+def test_write_calendar_uses_composite_ref(manager):
+    result = manager.write(
+        {
+            "kind": "calendar",
+            "fields": {"title": "dentist", "date": "2026-06-01", "time": "10:00"},
+        },
+        source="skill:calendar:save_calendar_item",
+    )
+    assert result["written"] is True
+    assert result["ref"] == "calendar:dentist|2026-06-01|10:00"
+    # And forget(ref) round-trips through the same scheme.
+    assert manager.forget(result["ref"]) is True
+
+
+def test_write_validates_required_fields(manager):
+    """Each handler refuses to silently no-op on empty primary fields."""
+    assert manager.write({"kind": "goal", "fields": {}}, source="x")["written"] is False
+    assert manager.write({"kind": "journal", "fields": {"entry": ""}}, source="x")["written"] is False
+    assert manager.write({"kind": "entity", "fields": {"label": ""}}, source="x")["written"] is False
+
+
+def test_extract_now_uses_write_path(manager):
+    """The extract refactor should still write everything; behavior unchanged."""
+    def fake_llm(_prompt: str) -> str:
+        return (
+            '{"facts": ["User loves ramen"],'
+            ' "entities": [{"name": "Ana", "kind": "person"}],'
+            ' "relations": [{"src": "user", "dst": "Ana", "kind": "knows"}]}'
+        )
+
+    result = manager.extract(
+        {"user": "I told Ana I love ramen.", "assistant": "Got it."},
+        llm_call=fake_llm,
+    )
+    assert result["facts"] == 1
+    assert result["entities"] == 1
+    assert result["relations"] == 1
+    # Recalling should now surface the extracted fact.
+    hits = manager.recall("ramen", k=5)
+    assert any("ramen" in h["text"].lower() for h in hits)
+
+
 def test_feedback_down_demotes_recall(manager):
     """A thumbs-down on a vector hit should sort it after non-voted hits."""
     a = manager.vector.upsert("apples are crunchy", source="test")
