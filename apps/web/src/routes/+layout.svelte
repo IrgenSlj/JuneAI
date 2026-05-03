@@ -37,6 +37,7 @@
         <nav class="nav-links" aria-label="Primary">
           <a href="/memory" class:active={pathname.startsWith("/memory")}>Memory</a>
           <a href="/skills" class:active={pathname.startsWith("/skills")}>Skills</a>
+          <a href="/system" class:active={pathname.startsWith("/system")}>System</a>
         </nav>
       </div>
 
