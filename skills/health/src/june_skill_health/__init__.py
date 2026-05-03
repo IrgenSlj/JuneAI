@@ -1,8 +1,15 @@
-"""June health skill — body metrics, workouts, water, and habits via MCP."""
+"""June health skill — body metrics, workouts, water, and habits via MCP.
+
+``log_body_metrics`` routes through ``MemoryManager.write`` so the daily
+body check also lands as a paraphrased recall hit ("Body check on
+YYYY-MM-DD: weight Xkg, slept Yh…"). Water, workouts, and habit
+completions still go through ``Memory`` directly because their
+recall-paraphrase shape is unclear; revisit when usage shows demand.
+"""
 
 from __future__ import annotations
 
-from june_brain.memory import Memory
+from june_brain.memory import Memory, MemoryManager
 from june_brain.skills.server import MCPStdioServer
 
 server = MCPStdioServer(name="june-health", version="0.1.0")
@@ -40,17 +47,25 @@ def log_body_metrics(
     steps: int = 0,
     notes: str = "",
 ) -> str:
-    Memory(user_id).log_body_metrics(
-        weight_kg=weight_kg,
-        sleep_hours=sleep_hours,
-        sleep_quality=sleep_quality,
-        energy=energy,
-        stress=stress,
-        soreness=soreness,
-        resting_hr=resting_hr,
-        steps=steps,
-        notes=notes,
+    result = MemoryManager(user_id).write(
+        {
+            "kind": "body_metric",
+            "fields": {
+                "weight_kg": weight_kg,
+                "sleep_hours": sleep_hours,
+                "sleep_quality": sleep_quality,
+                "energy": energy,
+                "stress": stress,
+                "soreness": soreness,
+                "resting_hr": resting_hr,
+                "steps": steps,
+                "notes": notes,
+            },
+        },
+        source="skill:health:log_body_metrics",
     )
+    if not result.get("written"):
+        return "Couldn't log those body metrics."
     return "Logged today's body metrics."
 
 

@@ -1,8 +1,15 @@
-"""June daily skill — journaling, moods, goals, and open loops via MCP."""
+"""June daily skill — journaling, moods, goals, and open loops via MCP.
+
+Writes route through ``MemoryManager.write`` so each save lands in SQLite
+*and* gets paraphrased into the vector store. Recall picks up these
+paraphrases the same way it picks up extract-derived facts, so a goal
+or journal entry written by this skill surfaces in subsequent turns
+without the user's question having to overlap the structured fields.
+"""
 
 from __future__ import annotations
 
-from june_brain.memory import Memory
+from june_brain.memory import MemoryManager
 from june_brain.skills.server import MCPStdioServer
 
 server = MCPStdioServer(name="june-daily", version="0.1.0")
@@ -22,7 +29,12 @@ server = MCPStdioServer(name="june-daily", version="0.1.0")
     },
 )
 def log_mood(user_id: str, mood: str, note: str = "") -> str:
-    Memory(user_id).log_mood(mood, note)
+    result = MemoryManager(user_id).write(
+        {"kind": "mood", "fields": {"mood": mood, "note": note}},
+        source="skill:daily:log_mood",
+    )
+    if not result.get("written"):
+        return "Couldn't note that mood."
     return f"Noted your mood as '{mood}'."
 
 
@@ -39,7 +51,12 @@ def log_mood(user_id: str, mood: str, note: str = "") -> str:
     },
 )
 def save_journal_entry(user_id: str, entry: str) -> str:
-    Memory(user_id).save_journal(entry)
+    result = MemoryManager(user_id).write(
+        {"kind": "journal", "fields": {"entry": entry}},
+        source="skill:daily:save_journal_entry",
+    )
+    if not result.get("written"):
+        return "Couldn't save that journal entry."
     return "Saved to your journal."
 
 
@@ -67,14 +84,22 @@ def track_goal(
     next_step: str = "",
     status: str = "active",
 ) -> str:
-    goal = Memory(user_id).save_goal(
-        title=title,
-        category=category,
-        target_date=target_date,
-        next_step=next_step,
-        status=status,
+    result = MemoryManager(user_id).write(
+        {
+            "kind": "goal",
+            "fields": {
+                "title": title,
+                "category": category,
+                "target_date": target_date,
+                "next_step": next_step,
+                "status": status,
+            },
+        },
+        source="skill:daily:track_goal",
     )
-    return f"Added '{goal['title']}' to your goals."
+    if not result.get("written"):
+        return "Couldn't save that goal."
+    return f"Added '{title}' to your goals."
 
 
 @server.tool(
@@ -95,10 +120,21 @@ def track_goal(
 def save_open_loop(
     user_id: str, topic: str, next_step: str = "", due_date: str = "", status: str = "open"
 ) -> str:
-    item = Memory(user_id).save_open_loop(
-        topic=topic, next_step=next_step, due_date=due_date, status=status
+    result = MemoryManager(user_id).write(
+        {
+            "kind": "open_loop",
+            "fields": {
+                "topic": topic,
+                "next_step": next_step,
+                "due_date": due_date,
+                "status": status,
+            },
+        },
+        source="skill:daily:save_open_loop",
     )
-    return f"Noted '{item['topic']}' as an open loop."
+    if not result.get("written"):
+        return "Couldn't save that open loop."
+    return f"Noted '{topic}' as an open loop."
 
 
 def main() -> None:

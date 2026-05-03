@@ -1,8 +1,13 @@
-"""June calendar skill — save, list, and update calendar items via MCP."""
+"""June calendar skill — save, list, and update calendar items via MCP.
+
+Writes route through ``MemoryManager.write`` so saved items also feed
+recall via a paraphrased vector entry. List/update read paths stay on
+``Memory`` directly.
+"""
 
 from __future__ import annotations
 
-from june_brain.memory import Memory
+from june_brain.memory import Memory, MemoryManager
 from june_brain.skills.server import MCPStdioServer
 
 server = MCPStdioServer(name="june-calendar", version="0.1.0")
@@ -34,10 +39,23 @@ def save_calendar_item(
     status: str = "planned",
     source: str = "conversation",
 ) -> str:
-    item = Memory(user_id).save_calendar_item(
-        title=title, date=date, time=time, details=details, status=status, source=source
+    result = MemoryManager(user_id).write(
+        {
+            "kind": "calendar",
+            "fields": {
+                "title": title,
+                "date": date,
+                "time": time,
+                "details": details,
+                "status": status,
+                "source": source,
+            },
+        },
+        source="skill:calendar:save_calendar_item",
     )
-    return f"Saved '{item['title']}' on {item['date']}."
+    if not result.get("written"):
+        return "Couldn't save that calendar item."
+    return f"Saved '{title}' on {date}."
 
 
 @server.tool(

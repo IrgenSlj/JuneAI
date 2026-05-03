@@ -497,17 +497,11 @@ class MemoryManager:
         if not mood:
             return {"written": False, "kind": "mood", "ref": None, "stores": []}
         note = str(fields.get("note", ""))
-        # save_mood doesn't exist as a single method; use the direct INSERT
-        # via the moods table. Mood rows do not get a stable ref because the
-        # mood log is append-only; the vector paraphrase is recallable.
-        timestamp = self.sqlite._now()  # noqa: SLF001 — internal helper, fine inside same package
-        self.sqlite._conn.execute(  # noqa: SLF001
-            "INSERT INTO moods (user_id, mood, note, timestamp) VALUES (?, ?, ?, ?)",
-            (self.sqlite.user_id, mood, note, timestamp),
-        )
-        self.sqlite._conn.commit()  # noqa: SLF001
-        text = _paraphrase_mood({"mood": mood, "note": note})
-        ref = f"mood:{timestamp}"
+        # Mood rows are append-only; the timestamp returned by log_mood is
+        # the stable identifier for any future ref-based lookup.
+        row = self.sqlite.log_mood(mood, note)
+        ref = f"mood:{row.get('timestamp', '')}"
+        text = _paraphrase_mood(row)
         stores = ["sqlite"]
         if text:
             try:
