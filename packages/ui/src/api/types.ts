@@ -217,6 +217,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/skills/{key}/writes/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Skill Writes
+         * @description List paraphrased facts this skill has written for a user.
+         *
+         *     Filters the vector store's shadow table by ``source LIKE 'skill:<key>:%'``,
+         *     so it picks up writes from every tool the skill exposes. Each record
+         *     carries the prefixed memory ref so the UI can deep-link into ``/memory``
+         *     or hand the ref to ``forget``.
+         */
+        get: operations["list_skill_writes_skills__key__writes__user_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/skills/{key}/toggle": {
         parameters: {
             query?: never;
@@ -753,6 +778,56 @@ export interface components {
             description: string;
         };
         /**
+         * SkillWriteRecord
+         * @description One paraphrased fact a skill has written into the vector store.
+         */
+        SkillWriteRecord: {
+            /**
+             * Ref
+             * @description Memory ref, e.g. "semantic:abc...".
+             */
+            ref: string;
+            /**
+             * Text
+             * @description Paraphrased fact text the recall pipeline sees.
+             */
+            text: string;
+            /**
+             * Source
+             * @description Full source tag, e.g. "skill:daily:track_goal".
+             */
+            source: string;
+            /**
+             * Tool
+             * @description Tool name extracted from the source tag.
+             * @default
+             */
+            tool: string;
+            /**
+             * Created At
+             * @description ISO timestamp when the write landed.
+             * @default
+             */
+            created_at: string;
+        };
+        /**
+         * SkillWritesResponse
+         * @description GET /skills/{key}/writes payload.
+         */
+        SkillWritesResponse: {
+            /** Skill */
+            skill: string;
+            /** User Id */
+            user_id: string;
+            /** Writes */
+            writes?: components["schemas"]["SkillWriteRecord"][];
+            /**
+             * Count
+             * @default 0
+             */
+            count: number;
+        };
+        /**
          * SkillsResponse
          * @description GET /skills payload.
          */
@@ -1257,6 +1332,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SkillsResponse"];
+                };
+            };
+        };
+    };
+    list_skill_writes_skills__key__writes__user_id__get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                key: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillWritesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

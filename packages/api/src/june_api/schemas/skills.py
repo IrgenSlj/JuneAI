@@ -58,3 +58,22 @@ class SkillToggleResponse(BaseModel):
     enabled: bool
     status: str
     error: str = ""
+
+
+class SkillWriteRecord(BaseModel):
+    """One paraphrased fact a skill has written into the vector store."""
+
+    ref: str = Field(..., description='Memory ref, e.g. "semantic:abc...".')
+    text: str = Field(..., description="Paraphrased fact text the recall pipeline sees.")
+    source: str = Field(..., description='Full source tag, e.g. "skill:daily:track_goal".')
+    tool: str = Field(default="", description="Tool name extracted from the source tag.")
+    created_at: str = Field(default="", description="ISO timestamp when the write landed.")
+
+
+class SkillWritesResponse(BaseModel):
+    """GET /skills/{key}/writes payload."""
+
+    skill: str
+    user_id: str
+    writes: list[SkillWriteRecord] = Field(default_factory=list)
+    count: int = Field(default=0)

@@ -382,6 +382,68 @@
         }
       }
     },
+    "/skills/{key}/writes/{user_id}": {
+      "get": {
+        "tags": [
+          "skills"
+        ],
+        "summary": "List Skill Writes",
+        "description": "List paraphrased facts this skill has written for a user.\n\nFilters the vector store's shadow table by ``source LIKE 'skill:<key>:%'``,\nso it picks up writes from every tool the skill exposes. Each record\ncarries the prefixed memory ref so the UI can deep-link into ``/memory``\nor hand the ref to ``forget``.",
+        "operationId": "list_skill_writes_skills__key__writes__user_id__get",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 30,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillWritesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/skills/{key}/toggle": {
       "post": {
         "tags": [
@@ -1107,6 +1169,76 @@
         ],
         "title": "SkillToolInfo",
         "description": "A single tool inside a skill \u2014 shown under the skill in the UI."
+      },
+      "SkillWriteRecord": {
+        "properties": {
+          "ref": {
+            "type": "string",
+            "title": "Ref",
+            "description": "Memory ref, e.g. \"semantic:abc...\"."
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "Paraphrased fact text the recall pipeline sees."
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "description": "Full source tag, e.g. \"skill:daily:track_goal\"."
+          },
+          "tool": {
+            "type": "string",
+            "title": "Tool",
+            "description": "Tool name extracted from the source tag.",
+            "default": ""
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At",
+            "description": "ISO timestamp when the write landed.",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "ref",
+          "text",
+          "source"
+        ],
+        "title": "SkillWriteRecord",
+        "description": "One paraphrased fact a skill has written into the vector store."
+      },
+      "SkillWritesResponse": {
+        "properties": {
+          "skill": {
+            "type": "string",
+            "title": "Skill"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "writes": {
+            "items": {
+              "$ref": "#/components/schemas/SkillWriteRecord"
+            },
+            "type": "array",
+            "title": "Writes"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "skill",
+          "user_id"
+        ],
+        "title": "SkillWritesResponse",
+        "description": "GET /skills/{key}/writes payload."
       },
       "SkillsResponse": {
         "properties": {

@@ -181,13 +181,27 @@ class VectorStore:
             )
         return hits
 
-    def list_facts(self, limit: int = 50) -> list[dict[str, Any]]:
-        """List facts from the shadow table (authoritative view)."""
-        rows = _get_connection(_db_path()).execute(
-            "SELECT fact_id, text, source, metadata, created_at FROM semantic_facts "
-            "WHERE user_id=? ORDER BY created_at DESC LIMIT ?",
-            (self.user_id, limit),
-        ).fetchall()
+    def list_facts(
+        self, limit: int = 50, source_prefix: str = ""
+    ) -> list[dict[str, Any]]:
+        """List facts from the shadow table (authoritative view).
+
+        ``source_prefix`` filters by source tag — pass ``"skill:daily:"`` to
+        get only writes from the daily skill, ``"skill:"`` for any skill,
+        or empty for everything.
+        """
+        if source_prefix:
+            rows = _get_connection(_db_path()).execute(
+                "SELECT fact_id, text, source, metadata, created_at FROM semantic_facts "
+                "WHERE user_id=? AND source LIKE ? ORDER BY created_at DESC LIMIT ?",
+                (self.user_id, f"{source_prefix}%", limit),
+            ).fetchall()
+        else:
+            rows = _get_connection(_db_path()).execute(
+                "SELECT fact_id, text, source, metadata, created_at FROM semantic_facts "
+                "WHERE user_id=? ORDER BY created_at DESC LIMIT ?",
+                (self.user_id, limit),
+            ).fetchall()
         return [
             {
                 "fact_id": r["fact_id"],

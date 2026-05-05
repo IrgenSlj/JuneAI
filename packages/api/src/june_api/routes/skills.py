@@ -11,6 +11,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from june_brain import graph as brain_graph
+from june_brain.memory import VectorStore
 from june_brain.skills.loader import list_status, set_skill_enabled
 
 from ..schemas import (
@@ -19,6 +20,8 @@ from ..schemas import (
     SkillToggleRequest,
     SkillToggleResponse,
     SkillToolInfo,
+    SkillWriteRecord,
+    SkillWritesResponse,
 )
 
 router = APIRouter(tags=["skills"])
@@ -47,6 +50,44 @@ def list_skills() -> SkillsResponse:
     snapshots = list_status()
     infos = [_status_to_info(snap) for snap in snapshots]
     return SkillsResponse(skills=infos, count=len(infos))
+
+
+@router.get(
+    "/skills/{key}/writes/{user_id}",
+    response_model=SkillWritesResponse,
+)
+def list_skill_writes(key: str, user_id: str, limit: int = 30) -> SkillWritesResponse:
+    """List paraphrased facts this skill has written for a user.
+
+    Filters the vector store's shadow table by ``source LIKE 'skill:<key>:%'``,
+    so it picks up writes from every tool the skill exposes. Each record
+    carries the prefixed memory ref so the UI can deep-link into ``/memory``
+    or hand the ref to ``forget``.
+    """
+    if not any(snap.get("key") == key for snap in list_status()):
+        raise HTTPException(status_code=404, detail=f"Unknown skill: {key!r}")
+    facts = VectorStore(user_id).list_facts(
+        limit=max(1, min(limit, 200)),
+        source_prefix=f"skill:{key}:",
+    )
+    records = [
+        SkillWriteRecord(
+            ref=f"semantic:{f['fact_id']}",
+            text=str(f.get("text", "")),
+            source=str(f.get("source", "")),
+            tool=str(f.get("source", "")).split(":", 2)[2]
+            if str(f.get("source", "")).count(":") >= 2
+            else "",
+            created_at=str(f.get("created_at", "")),
+        )
+        for f in facts
+    ]
+    return SkillWritesResponse(
+        skill=key,
+        user_id=user_id,
+        writes=records,
+        count=len(records),
+    )
 
 
 @router.post("/skills/{key}/toggle", response_model=SkillToggleResponse)

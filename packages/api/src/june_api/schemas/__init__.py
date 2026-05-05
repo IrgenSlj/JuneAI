@@ -22,6 +22,8 @@ from .skills import (
     SkillToggleRequest,
     SkillToggleResponse,
     SkillToolInfo,
+    SkillWriteRecord,
+    SkillWritesResponse,
 )
 from .system import SystemStatus
 
@@ -46,5 +48,7 @@ __all__ = [
     "SkillToggleRequest",
     "SkillToggleResponse",
     "SkillToolInfo",
+    "SkillWriteRecord",
+    "SkillWritesResponse",
     "SystemStatus",
 ]

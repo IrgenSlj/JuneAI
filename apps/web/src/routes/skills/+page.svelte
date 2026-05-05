@@ -5,9 +5,11 @@
     OfflineNotice,
     type SkillInfo,
     type SkillsResponse,
+    type SkillWriteRecord,
   } from "@june/ui";
 
   const DEFAULT_API = "http://localhost:8000";
+  const USER_ID = "local";
 
   const apiUrl =
     (import.meta.env.PUBLIC_JUNE_API_URL as string | undefined) ?? DEFAULT_API;
@@ -18,6 +20,51 @@
   let loadError: string | null = $state(null);
   let actionError: string | null = $state(null);
   let pendingToggle: string | null = $state(null);
+
+  type WritesState = {
+    loading: boolean;
+    error: string | null;
+    items: SkillWriteRecord[] | null;
+  };
+  let writesByKey: Record<string, WritesState> = $state({});
+
+  async function loadWrites(skillKey: string) {
+    const current = writesByKey[skillKey];
+    if (current?.loading) return;
+    writesByKey = {
+      ...writesByKey,
+      [skillKey]: { loading: true, error: null, items: current?.items ?? null },
+    };
+    try {
+      const res = await client.getSkillWrites(skillKey, USER_ID, 30);
+      writesByKey = {
+        ...writesByKey,
+        [skillKey]: { loading: false, error: null, items: res.writes ?? [] },
+      };
+    } catch (err) {
+      writesByKey = {
+        ...writesByKey,
+        [skillKey]: {
+          loading: false,
+          error: err instanceof Error ? err.message : String(err),
+          items: current?.items ?? null,
+        },
+      };
+    }
+  }
+
+  function formatRelativeIso(iso: string): string {
+    const t = Date.parse(iso);
+    if (Number.isNaN(t)) return iso;
+    const diff = Date.now() - t;
+    const min = 60_000;
+    const hour = 3_600_000;
+    const day = 86_400_000;
+    if (Math.abs(diff) < min) return "just now";
+    if (Math.abs(diff) < hour) return `${Math.round(diff / min)}m ago`;
+    if (Math.abs(diff) < day) return `${Math.round(diff / hour)}h ago`;
+    return new Date(t).toLocaleDateString();
+  }
 
   async function refresh() {
     loading = true;
@@ -184,6 +231,52 @@
           {:else if skill.enabled}
             <p class="muted">Tools load once the skill starts.</p>
           {/if}
+
+          <details
+            class="writes-wrap"
+            ontoggle={(e) => {
+              if (
+                (e.currentTarget as HTMLDetailsElement).open &&
+                !writesByKey[skill.key]?.items
+              )
+                loadWrites(skill.key);
+            }}
+          >
+            <summary>
+              What this skill remembered
+              {#if writesByKey[skill.key]?.items}
+                <span class="count">{writesByKey[skill.key].items!.length}</span>
+              {/if}
+            </summary>
+            {#if writesByKey[skill.key]?.loading}
+              <p class="muted">Loading…</p>
+            {:else if writesByKey[skill.key]?.error}
+              <p class="error-inline">{writesByKey[skill.key].error}</p>
+            {:else if writesByKey[skill.key]?.items && writesByKey[skill.key].items!.length === 0}
+              <p class="muted">
+                Nothing yet. Once this skill writes via <code>MemoryManager.write()</code>,
+                each paraphrase shows up here and feeds recall.
+              </p>
+            {:else if writesByKey[skill.key]?.items}
+              <ul class="writes">
+                {#each writesByKey[skill.key].items! as w (w.ref)}
+                  <li class="write">
+                    <div class="write-head">
+                      {#if w.tool}
+                        <code class="write-tool">{w.tool}</code>
+                      {/if}
+                      {#if w.created_at}
+                        <time class="write-time" datetime={w.created_at}>
+                          {formatRelativeIso(w.created_at)}
+                        </time>
+                      {/if}
+                    </div>
+                    <div class="write-text">{w.text}</div>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          </details>
         </li>
       {/each}
     </ul>
@@ -420,5 +513,87 @@
     color: var(--color-fg-subtle);
     font-size: var(--size-sm);
     margin: 0;
+  }
+
+  .writes-wrap {
+    margin-top: var(--space-2);
+    border-top: 1px dashed var(--color-border);
+    padding-top: var(--space-2);
+  }
+  .writes-wrap summary {
+    cursor: pointer;
+    color: var(--color-fg-muted);
+    font-size: var(--size-sm);
+    list-style: none;
+    padding: var(--space-1) 0;
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+  .writes-wrap summary::-webkit-details-marker {
+    display: none;
+  }
+  .writes-wrap summary::before {
+    content: "▸ ";
+    font-size: 0.85em;
+    color: var(--color-fg-subtle);
+  }
+  .writes-wrap[open] summary::before {
+    content: "▾ ";
+  }
+  .writes-wrap summary:hover {
+    color: var(--color-fg-primary);
+  }
+  .writes-wrap .count {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    color: var(--color-fg-subtle);
+  }
+
+  .writes {
+    list-style: none;
+    margin: var(--space-2) 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .write {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .write-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+  .write-tool {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    color: var(--color-fg-subtle);
+  }
+  .write-time {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    color: var(--color-fg-subtle);
+    flex-shrink: 0;
+  }
+  .write-text {
+    color: var(--color-fg-primary);
+    font-size: var(--size-sm);
+    line-height: var(--leading-normal);
+  }
+
+  .error-inline {
+    color: var(--color-danger);
+    font-size: var(--size-sm);
+    margin: var(--space-2) 0 0;
   }
 </style>

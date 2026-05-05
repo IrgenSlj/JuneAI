@@ -121,3 +121,69 @@ def test_toggle_flips_state_and_reloads_agent(client, supervisor):
     after = client.get("/skills").json()
     statuses = {s["key"]: s["enabled"] for s in after["skills"]}
     assert statuses == {"calendar": True, "research": False}
+
+
+def test_skill_writes_returns_only_that_skills_facts(client, tmp_path, monkeypatch):
+    """The endpoint should filter the vector shadow table by source prefix."""
+    import hashlib
+    from chromadb.api.types import EmbeddingFunction
+
+    from june_brain.memory import vector as vector_module
+    from june_brain.memory.sqlite import Memory
+
+    class _HashEmbedder(EmbeddingFunction):
+        def __init__(self) -> None:
+            super().__init__()
+
+        def __call__(self, input):
+            texts = [input] if isinstance(input, str) else list(input)
+            vecs = []
+            for t in texts:
+                d = hashlib.sha256(t.encode("utf-8")).digest()
+                vecs.append([(d[i % len(d)] / 255.0) * 2 - 1 for i in range(64)])
+            return vecs[0] if isinstance(input, str) else vecs
+
+        @staticmethod
+        def name() -> str:
+            return "test-hash-embedder"
+
+        @staticmethod
+        def build_from_config(_):
+            return _HashEmbedder()
+
+        def get_config(self):
+            return {}
+
+    monkeypatch.setattr("june_brain.memory.MEMORY_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        vector_module, "_get_embedding_function", lambda: _HashEmbedder()
+    )
+    vector_module.reset_singletons()
+
+    Memory("alex")  # ensure schema exists in tmp_path
+    v = vector_module.VectorStore("alex", embedding_function=_HashEmbedder())
+    v.upsert("daily fact 1", source="skill:daily:track_goal")
+    v.upsert("daily fact 2", source="skill:daily:save_journal_entry")
+    v.upsert("calendar fact", source="skill:calendar:save_calendar_item")
+    v.upsert("extracted fact", source="extraction")
+
+    res = client.get("/skills/calendar/writes/alex")
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload["skill"] == "calendar"
+    assert payload["count"] == 1
+    assert payload["writes"][0]["text"] == "calendar fact"
+    assert payload["writes"][0]["tool"] == "save_calendar_item"
+    assert payload["writes"][0]["source"] == "skill:calendar:save_calendar_item"
+    assert payload["writes"][0]["ref"].startswith("semantic:")
+
+    res = client.get("/skills/research/writes/alex")
+    assert res.status_code == 200
+    assert res.json()["count"] == 0  # no writes from research
+
+    vector_module.reset_singletons()
+
+
+def test_skill_writes_unknown_skill_returns_404(client):
+    res = client.get("/skills/nonexistent/writes/alex")
+    assert res.status_code == 404

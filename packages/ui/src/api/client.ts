@@ -28,6 +28,8 @@ export type SkillToolInfo = components["schemas"]["SkillToolInfo"];
 export type SkillsResponse = components["schemas"]["SkillsResponse"];
 export type SkillToggleRequest = components["schemas"]["SkillToggleRequest"];
 export type SkillToggleResponse = components["schemas"]["SkillToggleResponse"];
+export type SkillWriteRecord = components["schemas"]["SkillWriteRecord"];
+export type SkillWritesResponse = components["schemas"]["SkillWritesResponse"];
 export type SystemStatus = components["schemas"]["SystemStatus"];
 export type SetupStatus = components["schemas"]["SetupStatus"];
 export type SetupApplyRequest = components["schemas"]["SetupApplyRequest"];
@@ -148,6 +150,22 @@ export function createJuneClient(options: JuneClientOptions) {
         throw new ApiError(response.status, response.statusText, await response.text());
       }
       return (await response.json()) as SkillToggleResponse;
+    },
+
+    /**
+     * GET /skills/{key}/writes/{user_id} — list paraphrased facts this skill
+     * has written into the vector store. Useful for showing "what each skill
+     * remembered" without scanning all of memory.
+     */
+    getSkillWrites(
+      key: string,
+      userId: string,
+      limit = 30,
+    ): Promise<SkillWritesResponse> {
+      const path =
+        `/skills/${encodeURIComponent(key)}/writes/${encodeURIComponent(userId)}` +
+        `?limit=${encodeURIComponent(String(limit))}`;
+      return getJson<SkillWritesResponse>(path);
     },
 
     /** GET /memory/{user_id} — structured highlights of what June remembers. */
