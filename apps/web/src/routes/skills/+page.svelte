@@ -1,19 +1,15 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import {
-    createJuneClient,
     OfflineNotice,
     type SkillInfo,
     type SkillsResponse,
     type SkillWriteRecord,
   } from "@june/ui";
+  import { client } from "$lib/api.js";
+  import { formatRelative } from "$lib/dates.js";
 
-  const DEFAULT_API = "http://localhost:8000";
   const USER_ID = "local";
-
-  const apiUrl =
-    (import.meta.env.PUBLIC_JUNE_API_URL as string | undefined) ?? DEFAULT_API;
-  const client = createJuneClient({ baseUrl: apiUrl });
 
   let skills: SkillInfo[] = $state([]);
   let loading = $state(true);
@@ -51,19 +47,6 @@
         },
       };
     }
-  }
-
-  function formatRelativeIso(iso: string): string {
-    const t = Date.parse(iso);
-    if (Number.isNaN(t)) return iso;
-    const diff = Date.now() - t;
-    const min = 60_000;
-    const hour = 3_600_000;
-    const day = 86_400_000;
-    if (Math.abs(diff) < min) return "just now";
-    if (Math.abs(diff) < hour) return `${Math.round(diff / min)}m ago`;
-    if (Math.abs(diff) < day) return `${Math.round(diff / hour)}h ago`;
-    return new Date(t).toLocaleDateString();
   }
 
   async function refresh() {
@@ -162,7 +145,11 @@
   {/if}
 
   {#if loading && skills.length === 0}
-    <div class="empty">Loading June's skills…</div>
+    <div class="skeleton-list" aria-label="Loading skills&hellip;">
+      {#each [1, 2, 3] as _ (_)}
+        <div class="skeleton skeleton-card"></div>
+      {/each}
+    </div>
   {:else if loadError && skills.length === 0}
     <!-- OfflineNotice above already covers this state. -->
   {:else if skills.length === 0}
@@ -267,7 +254,7 @@
                       {/if}
                       {#if w.created_at}
                         <time class="write-time" datetime={w.created_at}>
-                          {formatRelativeIso(w.created_at)}
+                          {formatRelative(w.created_at)}
                         </time>
                       {/if}
                     </div>
@@ -356,6 +343,27 @@
     color: var(--color-fg-muted);
     text-align: center;
     padding: var(--space-7) 0;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+  .skeleton-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .skeleton {
+    background: linear-gradient(90deg, var(--color-bg-raised) 25%, var(--color-border) 50%, var(--color-bg-raised) 75%);
+    background-size: 800px 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: var(--radius-sm);
+  }
+  .skeleton-card {
+    height: 100px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
   }
 
   .skills {

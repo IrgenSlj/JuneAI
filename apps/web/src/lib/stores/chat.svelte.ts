@@ -8,19 +8,10 @@
  * and when the user returns to / the chat page re-renders from the same
  * state.
  */
-import {
-  createJuneClient,
-  type ChatEvent,
-  type ChatMessage,
-} from "@june/ui";
+import { type ChatEvent, type ChatMessage } from "@june/ui";
+import { client } from "$lib/api.js";
 
-const DEFAULT_API = "http://localhost:8000";
 const USER_ID = "local";
-
-const apiUrl =
-  (import.meta.env.PUBLIC_JUNE_API_URL as string | undefined) ?? DEFAULT_API;
-
-export const client = createJuneClient({ baseUrl: apiUrl });
 
 export const chat = $state({
   messages: [] as ChatMessage[],

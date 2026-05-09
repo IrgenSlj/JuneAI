@@ -1,16 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
-  import {
-    createJuneClient,
-    type SetupApplyResponse,
-    type SetupStatus,
-  } from "@june/ui";
-
-  const DEFAULT_API = "http://localhost:8000";
-  const apiUrl =
-    (import.meta.env.PUBLIC_JUNE_API_URL as string | undefined) ?? DEFAULT_API;
-  const client = createJuneClient({ baseUrl: apiUrl });
+  import { type SetupApplyResponse, type SetupStatus } from "@june/ui";
+  import { client, apiUrl } from "$lib/api.js";
 
   type Provider = "gemma" | "gemini";
   type Step = "loading" | "choose" | "verifying" | "error" | "done";
@@ -64,7 +56,7 @@
   }
 
   function continueToChat() {
-    goto("/");
+    goto("/").catch(() => {});
   }
 </script>
 

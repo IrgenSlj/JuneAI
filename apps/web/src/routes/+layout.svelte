@@ -17,7 +17,6 @@
   onMount(async () => {
     void loadSystem();
 
-    if (typeof window === "undefined") return;
     try {
       const { registerSW } = await import("virtual:pwa-register");
       registerSW({ immediate: true });

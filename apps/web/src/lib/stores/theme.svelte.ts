@@ -12,7 +12,7 @@ const STORAGE_KEY = "june:theme";
 function readInitial(): Theme {
   if (typeof document === "undefined") return "light";
   const attr = document.documentElement.getAttribute("data-theme");
-  return attr === "light" ? "light" : "light";
+  return attr === "light" ? "light" : "dark";
 }
 
 export const theme = $state<{ value: Theme }>({ value: readInitial() });

@@ -1,21 +1,17 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import {
-    createJuneClient,
     OfflineNotice,
     type MemorySnapshot,
     type SkillInfo,
     type SkillsResponse,
     type SystemStatus,
   } from "@june/ui";
+  import { client } from "$lib/api.js";
+  import { formatRelative } from "$lib/dates.js";
 
-  const DEFAULT_API = "http://localhost:8000";
   const USER_ID = "local";
   const REFRESH_MS = 5000;
-
-  const apiUrl =
-    (import.meta.env.PUBLIC_JUNE_API_URL as string | undefined) ?? DEFAULT_API;
-  const client = createJuneClient({ baseUrl: apiUrl });
 
   let memory: MemorySnapshot | null = $state(null);
   let skills: SkillInfo[] = $state([]);
@@ -83,12 +79,6 @@
     skills.filter((s) => s.status === "running").length,
   );
 
-  function formatRelative(d: Date): string {
-    const diff = Math.round((Date.now() - d.getTime()) / 1000);
-    if (diff < 5) return "just now";
-    if (diff < 60) return `${diff}s ago`;
-    return `${Math.round(diff / 60)}m ago`;
-  }
 </script>
 
 <svelte:head>
@@ -106,7 +96,7 @@
     </div>
     <div class="controls">
       {#if lastRefresh}
-        <span class="hint">updated {formatRelative(lastRefresh)}</span>
+        <span class="hint">updated {formatRelative(lastRefresh.toISOString())}</span>
       {/if}
       <button type="button" onclick={refresh} disabled={loading}>
         {loading ? "Refreshing…" : "Refresh"}

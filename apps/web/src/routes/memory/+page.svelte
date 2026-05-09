@@ -1,18 +1,14 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import {
-    createJuneClient,
     OfflineNotice,
     type MemoryFact,
     type MemorySnapshot,
   } from "@june/ui";
+  import { client } from "$lib/api.js";
+  import { formatRelative } from "$lib/dates.js";
 
-  const DEFAULT_API = "http://localhost:8000";
   const USER_ID = "local";
-
-  const apiUrl =
-    (import.meta.env.PUBLIC_JUNE_API_URL as string | undefined) ?? DEFAULT_API;
-  const client = createJuneClient({ baseUrl: apiUrl });
 
   let snapshot: MemorySnapshot | null = $state(null);
   let loading = $state(true);
@@ -211,30 +207,6 @@
     return null;
   }
 
-  function formatRelative(iso: string): string {
-    const then = Date.parse(iso);
-    if (Number.isNaN(then)) return iso;
-    const diffMs = Date.now() - then;
-    const abs = Math.abs(diffMs);
-    const minute = 60_000;
-    const hour = 3_600_000;
-    const day = 86_400_000;
-    if (abs < minute) return "just now";
-    if (abs < hour) {
-      const m = Math.round(diffMs / minute);
-      return m > 0 ? `${m}m ago` : `in ${-m}m`;
-    }
-    if (abs < day) {
-      const h = Math.round(diffMs / hour);
-      return h > 0 ? `${h}h ago` : `in ${-h}h`;
-    }
-    if (abs < day * 30) {
-      const d = Math.round(diffMs / day);
-      return d > 0 ? `${d}d ago` : `in ${-d}d`;
-    }
-    return new Date(then).toLocaleDateString();
-  }
-
   const filteredSections = $derived.by<Section[]>(() => {
     const q = query.trim().toLowerCase();
     if (!q) return sections;
@@ -326,7 +298,16 @@
   {/if}
 
   {#if !snapshot && loading}
-    <div class="empty">Loading what June remembers…</div>
+    <div class="skeleton-list" aria-label="Loading memories&hellip;">
+      {#each [1, 2, 3, 4] as _ (_)}
+        <div class="skeleton-group">
+          <div class="skeleton skeleton-heading"></div>
+          <div class="skeleton skeleton-row"></div>
+          <div class="skeleton skeleton-row"></div>
+          <div class="skeleton skeleton-row skeleton-short"></div>
+        </div>
+      {/each}
+    </div>
   {:else if snapshot}
     <p class="summary">
       {#if query.trim()}
@@ -522,10 +503,37 @@
     font-size: var(--size-sm);
   }
 
-  .empty {
-    color: var(--color-fg-muted);
-    text-align: center;
-    padding: var(--space-7) 0;
+  @keyframes shimmer {
+    0% { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+  .skeleton-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+  .skeleton-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .skeleton {
+    background: linear-gradient(90deg, var(--color-bg-raised) 25%, var(--color-border) 50%, var(--color-bg-raised) 75%);
+    background-size: 800px 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: var(--radius-sm);
+    height: 16px;
+  }
+  .skeleton-heading {
+    width: 120px;
+    height: 12px;
+  }
+  .skeleton-row {
+    height: 48px;
+    border-radius: var(--radius-md);
+  }
+  .skeleton-short {
+    width: 60%;
   }
 
   .group {

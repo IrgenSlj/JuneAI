@@ -4,7 +4,7 @@
  * doing its own fetch.
  */
 import { type SystemStatus } from "@june/ui";
-import { client } from "./chat.svelte.js";
+import { client } from "$lib/api.js";
 
 export const system = $state({
   data: null as SystemStatus | null,
@@ -12,15 +12,25 @@ export const system = $state({
   loading: false,
 });
 
+const MAX_RETRIES = 3;
+const RETRY_BASE_MS = 1000;
+
 export async function loadSystem(): Promise<void> {
   system.loading = true;
-  try {
-    system.data = await client.getSystem();
-    system.error = null;
-  } catch (err) {
-    system.error = err instanceof Error ? err.message : String(err);
-    console.warn("June: /system unreachable", err);
-  } finally {
-    system.loading = false;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      system.data = await client.getSystem();
+      system.error = null;
+      return;
+    } catch (err) {
+      if (attempt < MAX_RETRIES) {
+        await new Promise((r) => setTimeout(r, RETRY_BASE_MS * Math.pow(2, attempt)));
+        continue;
+      }
+      system.error = err instanceof Error ? err.message : String(err);
+      console.warn("June: /system unreachable", err);
+    } finally {
+      system.loading = false;
+    }
   }
 }

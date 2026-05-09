@@ -1,16 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import {
-    createJuneClient,
-    type SettingsView,
-    type SetupApplyResponse,
-  } from "@june/ui";
+  import { type SettingsView, type SetupApplyResponse } from "@june/ui";
+  import { client, apiUrl } from "$lib/api.js";
   import { getPlatform, UnsupportedError } from "@june/ui/platform";
-
-  const DEFAULT_API = "http://localhost:8000";
-  const apiUrl =
-    (import.meta.env.PUBLIC_JUNE_API_URL as string | undefined) ?? DEFAULT_API;
-  const client = createJuneClient({ baseUrl: apiUrl });
   const platform = getPlatform();
 
   type Provider = "gemma" | "gemini";

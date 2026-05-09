@@ -1,12 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { createJuneClient, type SystemStatus } from "@june/ui";
+  import { type SystemStatus } from "@june/ui";
+  import { client } from "$lib/api.js";
   import { getPlatform, UnsupportedError } from "@june/ui/platform";
-
-  const DEFAULT_API = "http://localhost:8000";
-  const apiUrl =
-    (import.meta.env.PUBLIC_JUNE_API_URL as string | undefined) ?? DEFAULT_API;
-  const client = createJuneClient({ baseUrl: apiUrl });
   const platform = getPlatform();
   const isDesktop = platform.runtime === "tauri";
   const MODEL_TAG = "gemma4:e4b";
@@ -27,7 +23,6 @@
   });
 
   function detectOS(): OS {
-    if (typeof navigator === "undefined") return "mac";
     const ua = navigator.userAgent.toLowerCase();
     if (ua.includes("mac")) return "mac";
     if (ua.includes("win")) return "windows";
