@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from june_brain.config_store import apply_stored_config_to_env
 
-from .routes import chat, memory, settings, setup, skills, system
+from .routes import chat, demo, memory, settings, setup, skills, system
 from .schemas import ChatEvent, RecallHit
 
 apply_stored_config_to_env()
@@ -59,6 +59,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(chat.router)
+    app.include_router(demo.router)
     app.include_router(memory.router)
     app.include_router(settings.router)
     app.include_router(setup.router)

@@ -8,8 +8,7 @@
   } from "@june/ui";
   import { client } from "$lib/api.js";
   import { formatRelative } from "$lib/dates.js";
-
-  const USER_ID = "local";
+  import { profileName } from "$lib/stores/user.svelte.js";
 
   let skills: SkillInfo[] = $state([]);
   let loading = $state(true);
@@ -32,7 +31,7 @@
       [skillKey]: { loading: true, error: null, items: current?.items ?? null },
     };
     try {
-      const res = await client.getSkillWrites(skillKey, USER_ID, 30);
+      const res = await client.getSkillWrites(skillKey, profileName.value, 30);
       writesByKey = {
         ...writesByKey,
         [skillKey]: { loading: false, error: null, items: res.writes ?? [] },

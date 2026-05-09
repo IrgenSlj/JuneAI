@@ -114,3 +114,23 @@ class MemoryUpdateResponse(BaseModel):
     ref: str
     updated: bool
     fact: MemoryFact | None = None
+
+
+class MemoryWriteRequest(BaseModel):
+    """Body of POST /memory/{user_id}/fact.
+
+    ``kind`` selects the write handler and ``fields`` are passed
+    to the corresponding ``MemoryManager.write()`` handler.
+    """
+
+    kind: str = Field(..., description="Memory kind: goal, fact, entity, calendar, journal, open_loop, body_metric, mood, relation")
+    fields: dict[str, Any] = Field(default_factory=dict, description="Fields for the chosen memory kind.")
+
+
+class MemoryWriteResponse(BaseModel):
+    """Result of POST /memory/{user_id}/fact."""
+
+    written: bool
+    kind: str
+    ref: str | None = None
+    stores: list[str] = Field(default_factory=list)

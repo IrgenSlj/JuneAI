@@ -7,8 +7,7 @@
   } from "@june/ui";
   import { client } from "$lib/api.js";
   import { formatRelative } from "$lib/dates.js";
-
-  const USER_ID = "local";
+  import { profileName } from "$lib/stores/user.svelte.js";
 
   let snapshot: MemorySnapshot | null = $state(null);
   let loading = $state(true);
@@ -178,7 +177,7 @@
     pendingSave = true;
     actionError = null;
     try {
-      await client.patchMemoryFact(USER_ID, editingRef, editFields);
+      await client.patchMemoryFact(profileName.value, editingRef, editFields);
       editingRef = null;
       editFields = {};
       await refresh();
@@ -229,7 +228,7 @@
     loadError = null;
     actionError = null;
     try {
-      snapshot = await client.getMemory(USER_ID);
+      snapshot = await client.getMemory(profileName.value);
     } catch (err) {
       loadError = err instanceof Error ? err.message : String(err);
     } finally {
@@ -244,7 +243,7 @@
     pendingDelete = fact.ref;
     actionError = null;
     try {
-      await client.deleteMemoryFact(USER_ID, fact.ref);
+      await client.deleteMemoryFact(profileName.value, fact.ref);
       await refresh();
     } catch (err) {
       actionError = err instanceof Error ? err.message : String(err);

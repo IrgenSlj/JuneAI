@@ -10,8 +10,7 @@
  */
 import { type ChatEvent, type ChatMessage } from "@june/ui";
 import { client } from "$lib/api.js";
-
-const USER_ID = "local";
+import { profileName } from "$lib/stores/user.svelte.js";
 
 export const chat = $state({
   messages: [] as ChatMessage[],
@@ -68,7 +67,7 @@ export async function sendMessage(text: string): Promise<void> {
 
   try {
     for await (const event of client.streamChat({
-      user_id: USER_ID,
+      user_id: profileName.value,
       message: text,
       skill: "assistant",
       signal: chat.abortController.signal,
@@ -132,7 +131,7 @@ export async function voteRecall(
   vote: "up" | "down" | "clear",
 ): Promise<void> {
   if (!ref) return;
-  await client.postMemoryFeedback(USER_ID, ref, vote);
+  await client.postMemoryFeedback(profileName.value, ref, vote);
 }
 
 export function regenerateLast(): void {

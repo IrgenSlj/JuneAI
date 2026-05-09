@@ -3,6 +3,7 @@
   import { type SettingsView, type SetupApplyResponse } from "@june/ui";
   import { client, apiUrl } from "$lib/api.js";
   import { getPlatform, UnsupportedError } from "@june/ui/platform";
+  import { profileName, setProfileName } from "$lib/stores/user.svelte.js";
   const platform = getPlatform();
 
   type Provider = "gemma" | "gemini";
@@ -16,6 +17,7 @@
   let result: SetupApplyResponse | null = $state(null);
   let note: string | null = $state(null);
   let notifyState: "idle" | "ok" | "denied" | "unsupported" = $state("idle");
+  let profileInput = $state(profileName.value);
 
   const isDesktop = platform.runtime === "tauri";
   let autostart = $state(false);
@@ -303,6 +305,37 @@
         </div>
       </section>
     {/if}
+
+    <section class="card">
+      <h2>User profile</h2>
+      <p class="hint">
+        Each profile has its own memory store. Switch to keep work and personal
+        conversations separate, or create a demo profile to explore features.
+      </p>
+      <div class="field">
+        <label for="profile-name">Profile name</label>
+        <div class="profile-row">
+          <input
+            id="profile-name"
+            type="text"
+            bind:value={profileInput}
+            placeholder="local"
+            onkeydown={(e) => {
+              if (e.key === "Enter") {
+                setProfileName(profileInput);
+                profileInput = profileName.value;
+              }
+            }}
+          />
+          <button
+            type="button"
+            class="ghost"
+            onclick={() => { setProfileName(profileInput); profileInput = profileName.value; }}
+            disabled={profileInput === profileName.value || !profileInput.trim()}
+          >Switch</button>
+        </div>
+      </div>
+    </section>
 
     <section class="card">
       <h2>Notifications</h2>
@@ -620,6 +653,19 @@
   .switch input:disabled + .slider {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .profile-row {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+  }
+  .profile-row input {
+    flex: 1;
+  }
+  .profile-row button {
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   @media (max-width: 520px) {

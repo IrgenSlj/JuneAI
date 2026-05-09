@@ -22,6 +22,8 @@ from ..schemas import (
     MemorySnapshot,
     MemoryUpdateRequest,
     MemoryUpdateResponse,
+    MemoryWriteRequest,
+    MemoryWriteResponse,
 )
 
 router = APIRouter(tags=["memory"])
@@ -258,3 +260,26 @@ def delete_memory_fact(user_id: str, ref: str) -> MemoryDeleteResponse:
     manager = MemoryManager(user_id)
     removed = manager.forget(ref)
     return MemoryDeleteResponse(user_id=user_id, ref=ref, removed=removed)
+
+
+@router.post("/memory/{user_id}/fact", response_model=MemoryWriteResponse)
+def write_memory_fact(
+    user_id: str,
+    payload: MemoryWriteRequest,
+) -> MemoryWriteResponse:
+    """Write a fact to memory.
+
+    ``kind`` selects the store:
+
+      - ``"goal"`` / ``"open_loop"`` / ``"calendar"`` / ``"journal"`` /
+        ``"body_metric"`` / ``"mood"`` → SQLite structured row + vector paraphrase
+      - ``"fact"`` → vector store (semantic)
+      - ``"entity"`` → knowledge graph node
+      - ``"relation"`` → knowledge graph edge
+
+    ``fields`` are passed to the corresponding write handler (see
+    ``MemoryManager.write()`` for the field schema per kind).
+    """
+    manager = MemoryManager(user_id)
+    result = manager.write({"kind": payload.kind, "fields": payload.fields}, source="api")
+    return MemoryWriteResponse(**result)

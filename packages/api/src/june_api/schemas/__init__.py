@@ -13,6 +13,8 @@ from .memory import (
     MemorySnapshot,
     MemoryUpdateRequest,
     MemoryUpdateResponse,
+    MemoryWriteRequest,
+    MemoryWriteResponse,
 )
 from .settings import ForgetKeyResponse, SettingsView
 from .setup import SetupApplyRequest, SetupApplyResponse, SetupStatus
@@ -22,6 +24,8 @@ from .skills import (
     SkillToggleRequest,
     SkillToggleResponse,
     SkillToolInfo,
+    SkillToolToggleRequest,
+    SkillToolToggleResponse,
     SkillWriteRecord,
     SkillWritesResponse,
 )
@@ -38,6 +42,8 @@ __all__ = [
     "MemorySnapshot",
     "MemoryUpdateRequest",
     "MemoryUpdateResponse",
+    "MemoryWriteRequest",
+    "MemoryWriteResponse",
     "SettingsView",
     "ForgetKeyResponse",
     "SetupApplyRequest",
@@ -48,6 +54,8 @@ __all__ = [
     "SkillToggleRequest",
     "SkillToggleResponse",
     "SkillToolInfo",
+    "SkillToolToggleRequest",
+    "SkillToolToggleResponse",
     "SkillWriteRecord",
     "SkillWritesResponse",
     "SystemStatus",

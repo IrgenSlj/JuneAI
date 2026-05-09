@@ -9,8 +9,8 @@
   } from "@june/ui";
   import { client } from "$lib/api.js";
   import { formatRelative } from "$lib/dates.js";
+  import { profileName } from "$lib/stores/user.svelte.js";
 
-  const USER_ID = "local";
   const REFRESH_MS = 5000;
 
   let memory: MemorySnapshot | null = $state(null);
@@ -26,7 +26,7 @@
     loadError = null;
     try {
       const [snap, sk, sys] = await Promise.all([
-        client.getMemory(USER_ID),
+        client.getMemory(profileName.value),
         client.getSkills(),
         client.getSystem(),
       ]);
