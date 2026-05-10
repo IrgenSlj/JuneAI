@@ -29,9 +29,11 @@ from __future__ import annotations
 import json
 import logging
 import os
+import select
 import shlex
 import subprocess
 import threading
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Annotated, Any, Callable
@@ -108,15 +110,23 @@ class SkillSupervisor:
     # ------------------------------------------------------------------ lifecycle
 
     def start(self) -> None:
-        """Spawn every enabled skill. Errors on one skill never block the rest."""
+        """Spawn every enabled skill in parallel. Errors on one skill never block the rest."""
         with self._mutation_lock:
             for entry in self._manifest.entries.values():
                 self._skills.setdefault(entry.key, SkillProcess(entry=entry))
             for key, skill in self._skills.items():
                 if not skill.entry.enabled:
                     skill.status = SkillStatus.DISABLED
-                    continue
-                self._spawn_locked(skill)
+
+        threads = []
+        for skill in list(self._skills.values()):
+            if not skill.entry.enabled:
+                continue
+            t = threading.Thread(target=self._spawn_worker, args=(skill,))
+            t.start()
+            threads.append(t)
+        for t in threads:
+            t.join()
 
     def stop(self) -> None:
         """Terminate every running skill."""
@@ -143,6 +153,30 @@ class SkillSupervisor:
                     self._terminate_locked(skill)
                     skill.status = SkillStatus.DISABLED
 
+    def set_tool_enabled(
+        self, key: str, tool_name: str, enabled: bool
+    ) -> SkillProcess | None:
+        """Toggle one tool of a skill on/off; persist; no respawn.
+
+        Per-tool gates apply at agent-build time: the skill subprocess
+        keeps running and continues to advertise the tool, but the
+        supervisor filters it out of ``enabled_tools()`` so the agent
+        never binds it. The caller is responsible for rebuilding the
+        agent (e.g. ``brain_graph.reload_agent()``) after a successful
+        flip.
+        """
+        entry = self._manifest.set_tool_enabled(key, tool_name, enabled)
+        if entry is None:
+            return None
+
+        from .manifest import save_manifest
+
+        save_manifest(self._manifest)
+        with self._mutation_lock:
+            skill = self._skills.setdefault(key, SkillProcess(entry=entry))
+            skill.entry = entry
+        return self._skills[key]
+
     def set_enabled(self, key: str, enabled: bool) -> SkillProcess | None:
         """Flip a skill's enabled flag, persist to disk, and reconcile."""
         entry = self._manifest.set_enabled(key, enabled)
@@ -168,6 +202,7 @@ class SkillSupervisor:
         """Snapshot suitable for the /skills endpoint."""
         out: list[dict[str, Any]] = []
         for skill in self._skills.values():
+            disabled = set(skill.entry.disabled_tools or [])
             out.append(
                 {
                     "key": skill.key,
@@ -176,19 +211,33 @@ class SkillSupervisor:
                     "status": skill.status.value,
                     "error": skill.error,
                     "tools": [
-                        {"name": t.name, "description": t.description} for t in skill.tools
+                        {
+                            "name": t.name,
+                            "description": t.description,
+                            "enabled": t.name not in disabled,
+                        }
+                        for t in skill.tools
                     ],
                 }
             )
         return out
 
     def enabled_tools(self) -> list[StructuredTool]:
-        """Return LangChain tools for every running, enabled skill."""
+        """Return LangChain tools for every running, enabled skill.
+
+        Per-tool gates from the manifest's ``disabled_tools`` are honored
+        here: a tool whose name appears in its skill's disabled list is
+        excluded from the agent's bound tools, even if the skill itself
+        is enabled and running.
+        """
         tools: list[StructuredTool] = []
         for skill in self._skills.values():
             if not skill.entry.enabled or skill.status != SkillStatus.RUNNING:
                 continue
+            disabled = set(skill.entry.disabled_tools or [])
             for mcp_tool in skill.tools:
+                if mcp_tool.name in disabled:
+                    continue
                 tools.append(self._bridge_tool(skill, mcp_tool))
         return tools
 
@@ -234,6 +283,45 @@ class SkillSupervisor:
             skill.error = f"spawn failed: {exc}"
             logger.warning("Skill %r failed to start: %s", skill.key, exc)
             self._cleanup_proc(skill)
+
+    def _spawn_worker(self, skill: SkillProcess) -> None:
+        """Thread worker for parallel skill spawning. Errors are caught internally.
+
+        We intentionally do NOT hold ``_mutation_lock`` during spawning: the
+        subprocess handshake blocks on I/O (~2s per skill) and holding a lock
+        would serialize all skills. Per-skill ``_lock`` guards against
+        concurrent access from ``_call_tool`` during init.
+        """
+        with skill._lock:
+            skill.status = SkillStatus.STARTING
+            skill.error = ""
+            try:
+                env = os.environ.copy()
+                env.update(skill.entry.env)
+                env["JUNE_IS_SKILL_SUBPROCESS"] = "1"
+                env["JUNE_SKILLS_DISABLED"] = "1"
+                skill.proc = subprocess.Popen(
+                    [skill.entry.command, *skill.entry.args],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    bufsize=0,
+                    env=env,
+                )
+                self._handshake_locked(skill)
+                skill.tools = self._list_tools_locked(skill)
+                skill.status = SkillStatus.RUNNING
+                logger.info(
+                    "Skill %r started (%d tools): %s",
+                    skill.key,
+                    len(skill.tools),
+                    ", ".join(t.name for t in skill.tools),
+                )
+            except Exception as exc:  # noqa: BLE001
+                skill.status = SkillStatus.CRASHED
+                skill.error = f"spawn failed: {exc}"
+                logger.warning("Skill %r failed to start: %s", skill.key, exc)
+                self._cleanup_proc(skill)
 
     def _terminate_locked(self, skill: SkillProcess) -> None:
         """Stop a running skill. Caller holds the mutation lock."""
@@ -318,13 +406,27 @@ class SkillSupervisor:
             raise RuntimeError(f"skill {skill.key} closed stdin: {exc}") from exc
 
         # Read response. Ignore any notification lines while waiting for our id.
+        deadline = time.monotonic() + _RESPONSE_TIMEOUT_SECONDS
         while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                err_tail = self._drain_stderr(skill)
+                exit_code = proc.poll()
+                raise RuntimeError(
+                    f"skill {skill.key} timed out after {_RESPONSE_TIMEOUT_SECONDS}s "
+                    f"waiting for {method} response. "
+                    f"exit={exit_code} stderr tail: {err_tail[-400:]!r}"
+                )
+            r, _, _ = select.select([proc.stdout], [], [], remaining)
+            if not r:
+                continue  # spurious wakeup; re-check deadline
             raw = proc.stdout.readline()
             if not raw:
                 err_tail = self._drain_stderr(skill)
+                exit_code = proc.poll()
                 raise RuntimeError(
                     f"skill {skill.key} closed stdout before responding to {method}. "
-                    f"stderr tail: {err_tail[-400:]!r}"
+                    f"exit={exit_code} stderr tail: {err_tail[-400:]!r}"
                 )
             try:
                 response = json.loads(raw.decode("utf-8"))
@@ -360,7 +462,8 @@ class SkillSupervisor:
             return ""
         try:
             return skill.proc.stderr.read(4096).decode("utf-8", errors="replace")
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("_drain_stderr failed for skill %r: %s", skill.key, exc)
             return ""
 
     # ------------------------------------------------------------------ tool bridging
