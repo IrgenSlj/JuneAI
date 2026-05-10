@@ -12,7 +12,11 @@ from fastapi import APIRouter, HTTPException
 
 from june_brain import graph as brain_graph
 from june_brain.memory import VectorStore
-from june_brain.skills.loader import list_status, set_skill_enabled
+from june_brain.skills.loader import (
+    list_status,
+    set_skill_enabled,
+    set_skill_tool_enabled,
+)
 
 from ..schemas import (
     SkillInfo,
@@ -20,6 +24,8 @@ from ..schemas import (
     SkillToggleRequest,
     SkillToggleResponse,
     SkillToolInfo,
+    SkillToolToggleRequest,
+    SkillToolToggleResponse,
     SkillWriteRecord,
     SkillWritesResponse,
 )
@@ -38,6 +44,7 @@ def _status_to_info(payload: dict) -> SkillInfo:
             SkillToolInfo(
                 name=str(tool.get("name", "")),
                 description=str(tool.get("description", "")),
+                enabled=bool(tool.get("enabled", True)),
             )
             for tool in payload.get("tools", []) or []
         ],
@@ -87,6 +94,34 @@ def list_skill_writes(key: str, user_id: str, limit: int = 30) -> SkillWritesRes
         user_id=user_id,
         writes=records,
         count=len(records),
+    )
+
+
+@router.post(
+    "/skills/{key}/tools/{tool}/toggle",
+    response_model=SkillToolToggleResponse,
+)
+def toggle_skill_tool(
+    key: str, tool: str, body: SkillToolToggleRequest
+) -> SkillToolToggleResponse:
+    """Enable or disable a single tool inside a skill.
+
+    The skill subprocess keeps running and continues to advertise this
+    tool, but the supervisor filters it out of the agent's bound tools
+    at the next reload. Persists to ``skills.toml`` so the gate
+    survives restart.
+    """
+    skill = set_skill_tool_enabled(key, tool, body.enabled)
+    if skill is None:
+        raise HTTPException(status_code=404, detail=f"Unknown skill: {key!r}")
+
+    # Rebuild the agent so its bound tool list reflects the new state.
+    brain_graph.reload_agent()
+
+    return SkillToolToggleResponse(
+        key=skill.entry.key,
+        tool=tool,
+        enabled=tool not in (skill.entry.disabled_tools or []),
     )
 
 

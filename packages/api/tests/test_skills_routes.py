@@ -22,6 +22,7 @@ from june_brain.skills.supervisor import SkillStatus
 class _FakeEntry:
     key: str
     enabled: bool = True
+    disabled_tools: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -46,7 +47,13 @@ class _FakeSupervisor:
                 "enabled": s.entry.enabled,
                 "status": s.status.value,
                 "error": s.error,
-                "tools": [{"name": f"{s.entry.key}_tool", "description": "demo"}],
+                "tools": [
+                    {
+                        "name": f"{s.entry.key}_tool",
+                        "description": "demo",
+                        "enabled": f"{s.entry.key}_tool" not in s.entry.disabled_tools,
+                    }
+                ],
             }
             for s in self.skills.values()
         ]
@@ -57,6 +64,18 @@ class _FakeSupervisor:
             return None
         skill.entry.enabled = enabled
         skill.status = SkillStatus.RUNNING if enabled else SkillStatus.DISABLED
+        return skill
+
+    def set_tool_enabled(self, key: str, tool_name: str, enabled: bool):
+        skill = self.skills.get(key)
+        if skill is None:
+            return None
+        if enabled:
+            skill.entry.disabled_tools = [
+                t for t in skill.entry.disabled_tools if t != tool_name
+            ]
+        elif tool_name not in skill.entry.disabled_tools:
+            skill.entry.disabled_tools = [*skill.entry.disabled_tools, tool_name]
         return skill
 
 
@@ -74,6 +93,7 @@ def supervisor(monkeypatch):
 
     monkeypatch.setattr(skills_route, "list_status", fake.list_status)
     monkeypatch.setattr(skills_route, "set_skill_enabled", fake.set_enabled)
+    monkeypatch.setattr(skills_route, "set_skill_tool_enabled", fake.set_tool_enabled)
 
     # Swallow brain_graph.reload_agent() — it would rebuild the real agent.
     from june_brain import graph as brain_graph
@@ -95,7 +115,7 @@ def test_list_skills_returns_full_snapshot(client):
     keys = [s["key"] for s in payload["skills"]]
     assert keys == ["calendar", "research"]
     assert payload["skills"][0]["tools"] == [
-        {"name": "calendar_tool", "description": "demo"}
+        {"name": "calendar_tool", "description": "demo", "enabled": True}
     ]
 
 
@@ -186,4 +206,35 @@ def test_skill_writes_returns_only_that_skills_facts(client, tmp_path, monkeypat
 
 def test_skill_writes_unknown_skill_returns_404(client):
     res = client.get("/skills/nonexistent/writes/alex")
+    assert res.status_code == 404
+
+
+def test_tool_toggle_flips_state_and_reloads_agent(client, supervisor):
+    res = client.post(
+        "/skills/calendar/tools/calendar_tool/toggle",
+        json={"enabled": False},
+    )
+    assert res.status_code == 200
+    assert res.json() == {"key": "calendar", "tool": "calendar_tool", "enabled": False}
+    assert supervisor.reload_calls == 1
+
+    # Listing should now show the tool as disabled.
+    after = client.get("/skills").json()
+    cal = next(s for s in after["skills"] if s["key"] == "calendar")
+    tool = next(t for t in cal["tools"] if t["name"] == "calendar_tool")
+    assert tool["enabled"] is False
+
+    # Re-enable.
+    res2 = client.post(
+        "/skills/calendar/tools/calendar_tool/toggle",
+        json={"enabled": True},
+    )
+    assert res2.json()["enabled"] is True
+
+
+def test_tool_toggle_unknown_skill_returns_404(client):
+    res = client.post(
+        "/skills/nonexistent/tools/anything/toggle",
+        json={"enabled": False},
+    )
     assert res.status_code == 404

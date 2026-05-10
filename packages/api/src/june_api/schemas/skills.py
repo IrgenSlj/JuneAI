@@ -16,6 +16,14 @@ class SkillToolInfo(BaseModel):
 
     name: str = Field(..., description="Tool identifier the agent uses to call it.")
     description: str = Field(default="", description="Human-readable description.")
+    enabled: bool = Field(
+        default=True,
+        description=(
+            "Whether the agent currently binds this tool. A disabled tool stays "
+            "advertised by the skill subprocess but is filtered out at "
+            "agent-build time, so the model can no longer call it."
+        ),
+    )
 
 
 class SkillInfo(BaseModel):
@@ -58,6 +66,20 @@ class SkillToggleResponse(BaseModel):
     enabled: bool
     status: str
     error: str = ""
+
+
+class SkillToolToggleRequest(BaseModel):
+    """POST /skills/{key}/tools/{tool}/toggle body."""
+
+    enabled: bool = Field(..., description="New enabled state for this tool.")
+
+
+class SkillToolToggleResponse(BaseModel):
+    """Result of a per-tool toggle."""
+
+    key: str
+    tool: str
+    enabled: bool
 
 
 class SkillWriteRecord(BaseModel):

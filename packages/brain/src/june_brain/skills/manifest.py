@@ -42,6 +42,7 @@ class SkillManifestEntry:
     args: list[str] = field(default_factory=list)
     env: dict[str, str] = field(default_factory=dict)
     description: str = ""
+    disabled_tools: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -50,6 +51,7 @@ class SkillManifestEntry:
             "args": list(self.args),
             "env": dict(self.env),
             "description": self.description,
+            "disabled_tools": list(self.disabled_tools),
         }
 
 
@@ -70,6 +72,21 @@ class SkillManifest:
         if entry is None:
             return None
         entry.enabled = enabled
+        return entry
+
+    def set_tool_enabled(
+        self, key: str, tool_name: str, enabled: bool
+    ) -> SkillManifestEntry | None:
+        entry = self.entries.get(key)
+        if entry is None:
+            return None
+        tool_name = tool_name.strip()
+        if not tool_name:
+            return entry
+        if enabled:
+            entry.disabled_tools = [t for t in entry.disabled_tools if t != tool_name]
+        elif tool_name not in entry.disabled_tools:
+            entry.disabled_tools = [*entry.disabled_tools, tool_name]
         return entry
 
 
@@ -153,6 +170,9 @@ def _serialize(manifest: SkillManifest) -> str:
         if entry.env:
             env_inline = ", ".join(f'{k} = "{v}"' for k, v in entry.env.items())
             lines.append(f"env = {{ {env_inline} }}")
+        if entry.disabled_tools:
+            tools_inline = ", ".join(f'"{t}"' for t in entry.disabled_tools)
+            lines.append(f"disabled_tools = [{tools_inline}]")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
@@ -193,6 +213,7 @@ def load_manifest(path: Path | None = None) -> SkillManifest:
             args=list(raw.get("args") or (default.args if default else [])),
             env=dict(raw.get("env") or {}),
             description=str(raw.get("description") or (default.description if default else "")),
+            disabled_tools=[str(t) for t in (raw.get("disabled_tools") or [])],
         )
 
     for key, default_entry in DEFAULT_MANIFEST.entries.items():
@@ -217,4 +238,5 @@ def _copy_entry(entry: SkillManifestEntry) -> SkillManifestEntry:
         args=list(entry.args),
         env=dict(entry.env),
         description=entry.description,
+        disabled_tools=list(entry.disabled_tools),
     )

@@ -50,6 +50,13 @@ def set_skill_enabled(key: str, enabled: bool) -> SkillProcess | None:
     return get_supervisor().set_enabled(key, enabled)
 
 
+def set_skill_tool_enabled(
+    key: str, tool_name: str, enabled: bool
+) -> SkillProcess | None:
+    """Toggle one tool of a skill on/off and persist the change."""
+    return get_supervisor().set_tool_enabled(key, tool_name, enabled)
+
+
 def reload_skills() -> None:
     """Re-read the manifest from disk and reconcile running processes."""
     get_supervisor().reload()
