@@ -3,9 +3,11 @@
 #
 # Runs three checks so you know the local setup is healthy before you
 # start coding:
-#   1. Ollama is running and Gemma 4 is pulled (only when MODEL_PROVIDER=gemma).
+#   1. Ollama is running and Gemma 4 is pulled (only when MODEL_PROVIDER=gemma,
+#      unless JUNE_SKIP_MODEL_CHECK=1 is set).
 #   2. Python 3.10+ venv exists at packages/brain/.venv.
-#   3. Unit tests pass.
+#   3. Brain, API, and bundled skill packages are installed editable.
+#   4. Backend tests pass.
 #
 # Run from the repo root: ./tools/dev.sh
 
@@ -25,11 +27,14 @@ PROVIDER="${MODEL_PROVIDER:-gemma}"
 GEMMA_TAG="${GEMMA_MODEL:-gemma4:e4b}"
 OLLAMA_URL="${OLLAMA_BASE_URL:-http://localhost:11434/v1}"
 OLLAMA_HOST="${OLLAMA_URL%/v1}"
+SKIP_MODEL_CHECK="${JUNE_SKIP_MODEL_CHECK:-}"
 
 echo "==> June dev check"
 echo "    provider : $PROVIDER"
 
-if [ "$PROVIDER" = "gemma" ]; then
+if [ "$SKIP_MODEL_CHECK" = "1" ] || [ "$SKIP_MODEL_CHECK" = "true" ]; then
+  echo "    model    : skipped via JUNE_SKIP_MODEL_CHECK=$SKIP_MODEL_CHECK"
+elif [ "$PROVIDER" = "gemma" ]; then
   if ! command -v ollama >/dev/null 2>&1; then
     echo "    ollama   : NOT INSTALLED — install with 'brew install ollama' (macOS) and re-run."
     exit 1
@@ -57,7 +62,7 @@ if command -v cargo >/dev/null 2>&1; then
   echo "    rust     : $(rustc --version 2>/dev/null | awk '{print $1, $2}')"
 else
   echo "    rust     : NOT FOUND — needed for the desktop shell only."
-  echo "               Install with 'curl --proto =https --tlsv1.2 -sSf https://sh.rustup.rs | sh' when you start Phase 1."
+  echo "               Install with 'curl --proto =https --tlsv1.2 -sSf https://sh.rustup.rs | sh' before working on desktop."
   echo "               See docs/setup/desktop.md."
 fi
 
@@ -66,12 +71,21 @@ if [ ! -d "$VENV" ]; then
   echo "    venv     : creating at $VENV"
   python3 -m venv "$VENV"
   "$VENV/bin/pip" install -q --upgrade pip
-  "$VENV/bin/pip" install -q -e "packages/brain[dev]"
 else
   echo "    venv     : $VENV"
 fi
 
-echo "==> Running brain tests"
-"$VENV/bin/python" -m pytest packages/brain/tests -q
+echo "==> Installing Python workspace packages"
+"$VENV/bin/pip" install -q -e "packages/brain[dev]"
+"$VENV/bin/pip" install -q -e "packages/api[dev]"
+"$VENV/bin/pip" install -q \
+  -e "skills/calendar" \
+  -e "skills/daily" \
+  -e "skills/files" \
+  -e "skills/health" \
+  -e "skills/research"
+
+echo "==> Running backend tests"
+"$VENV/bin/python" -m pytest packages/brain/tests packages/api/tests -q
 
 echo "==> Ready"

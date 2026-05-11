@@ -8,7 +8,9 @@ the same LangChain OpenAI-compatible client under the hood.
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -16,7 +18,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-MEMORY_DIR = os.getenv("JUNE_DATA_DIR") or os.getenv("MEMORY_DIR", ".june_memory")
+def _default_data_dir() -> str:
+    """Return the platform-appropriate directory for June's user data."""
+    if sys.platform == "darwin":
+        return str(Path.home() / "Library" / "Application Support" / "June")
+    if sys.platform == "win32":
+        base = os.getenv("APPDATA") or str(Path.home() / "AppData" / "Roaming")
+        return str(Path(base) / "June")
+    base = os.getenv("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+    return str(Path(base) / "June")
+
+
+MEMORY_DIR = os.getenv("JUNE_DATA_DIR") or os.getenv("MEMORY_DIR") or _default_data_dir()
 LOCAL_LOOPBACK_HOSTNAMES = {"localhost", "127.0.0.1", "::1"}
 
 GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"

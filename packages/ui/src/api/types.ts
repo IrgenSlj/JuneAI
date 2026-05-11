@@ -24,6 +24,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/demo/seed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Seed Demo
+         * @description Populate a user profile with rich demo data across all memory stores.
+         *
+         *     Creates goals, calendar events, journal entries, open loops, body
+         *     metrics, semantic facts, and entity nodes. After seeding, switch to
+         *     this user in Settings and explore /memory, /skills, and the chat.
+         */
+        post: operations["seed_demo_demo_seed_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/memory/{user_id}": {
         parameters: {
             query?: never;
@@ -111,6 +135,37 @@ export interface paths {
          *     if the user changes their mind.
          */
         post: operations["set_memory_feedback_memory__user_id__feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/memory/{user_id}/fact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Memory Fact
+         * @description Write a fact to memory.
+         *
+         *     ``kind`` selects the store:
+         *
+         *       - ``"goal"`` / ``"open_loop"`` / ``"calendar"`` / ``"journal"`` /
+         *         ``"body_metric"`` / ``"mood"`` → SQLite structured row + vector paraphrase
+         *       - ``"fact"`` → vector store (semantic)
+         *       - ``"entity"`` → knowledge graph node
+         *       - ``"relation"`` → knowledge graph edge
+         *
+         *     ``fields`` are passed to the corresponding write handler (see
+         *     ``MemoryManager.write()`` for the field schema per kind).
+         */
+        post: operations["write_memory_fact_memory__user_id__fact_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -242,6 +297,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/skills/{key}/tools/{tool}/toggle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Toggle Skill Tool
+         * @description Enable or disable a single tool inside a skill.
+         *
+         *     The skill subprocess keeps running and continues to advertise this
+         *     tool, but the supervisor filters it out of the agent's bound tools
+         *     at the next reload. Persists to ``skills.toml`` so the gate
+         *     survives restart.
+         */
+        post: operations["toggle_skill_tool_skills__key__tools__tool__toggle_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/skills/{key}/toggle": {
         parameters: {
             query?: never;
@@ -335,6 +415,15 @@ export interface components {
              * @default assistant
              */
             skill: string;
+        };
+        /** DemoSeedRequest */
+        DemoSeedRequest: {
+            /**
+             * User Id
+             * @description User ID to seed data into.
+             * @default demo
+             */
+            user_id: string;
         };
         /**
          * ForgetKeyResponse
@@ -524,6 +613,41 @@ export interface components {
             fact?: components["schemas"]["MemoryFact"] | null;
         };
         /**
+         * MemoryWriteRequest
+         * @description Body of POST /memory/{user_id}/fact.
+         *
+         *     ``kind`` selects the write handler and ``fields`` are passed
+         *     to the corresponding ``MemoryManager.write()`` handler.
+         */
+        MemoryWriteRequest: {
+            /**
+             * Kind
+             * @description Memory kind: goal, fact, entity, calendar, journal, open_loop, body_metric, mood, relation
+             */
+            kind: string;
+            /**
+             * Fields
+             * @description Fields for the chosen memory kind.
+             */
+            fields?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * MemoryWriteResponse
+         * @description Result of POST /memory/{user_id}/fact.
+         */
+        MemoryWriteResponse: {
+            /** Written */
+            written: boolean;
+            /** Kind */
+            kind: string;
+            /** Ref */
+            ref?: string | null;
+            /** Stores */
+            stores?: string[];
+        };
+        /**
          * SettingsView
          * @description Non-secret snapshot of the active configuration.
          */
@@ -599,7 +723,7 @@ export interface components {
             provider: "gemma" | "gemini";
             /**
              * Gemini Api Key
-             * @description Required when provider is 'gemini'. Stored in config.json with mode 0600 until native credential storage lands.
+             * @description Required when provider is 'gemini'. Stored in the OS credential store when available, otherwise in config.json with mode 0600.
              */
             gemini_api_key?: string | null;
             /**
@@ -776,6 +900,35 @@ export interface components {
              * @default
              */
             description: string;
+            /**
+             * Enabled
+             * @description Whether the agent currently binds this tool. A disabled tool stays advertised by the skill subprocess but is filtered out at agent-build time, so the model can no longer call it.
+             * @default true
+             */
+            enabled: boolean;
+        };
+        /**
+         * SkillToolToggleRequest
+         * @description POST /skills/{key}/tools/{tool}/toggle body.
+         */
+        SkillToolToggleRequest: {
+            /**
+             * Enabled
+             * @description New enabled state for this tool.
+             */
+            enabled: boolean;
+        };
+        /**
+         * SkillToolToggleResponse
+         * @description Result of a per-tool toggle.
+         */
+        SkillToolToggleResponse: {
+            /** Key */
+            key: string;
+            /** Tool */
+            tool: string;
+            /** Enabled */
+            enabled: boolean;
         };
         /**
          * SkillWriteRecord
@@ -1089,6 +1242,41 @@ export interface operations {
             };
         };
     };
+    seed_demo_demo_seed_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemoSeedRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_memory_memory__user_id__get: {
         parameters: {
             query?: never;
@@ -1210,6 +1398,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemoryFeedbackResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_memory_fact_memory__user_id__fact_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemoryWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryWriteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1357,6 +1580,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SkillWritesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    toggle_skill_tool_skills__key__tools__tool__toggle_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+                tool: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillToolToggleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillToolToggleResponse"];
                 };
             };
             /** @description Validation Error */

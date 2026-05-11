@@ -42,8 +42,8 @@ class SetupApplyRequest(BaseModel):
     gemini_api_key: str | None = Field(
         default=None,
         description=(
-            "Required when provider is 'gemini'. Stored in config.json with mode 0600 "
-            "until native credential storage lands."
+            "Required when provider is 'gemini'. Stored in the OS credential "
+            "store when available, otherwise in config.json with mode 0600."
         ),
     )
     gemma_model: str | None = Field(

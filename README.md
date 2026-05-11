@@ -1,12 +1,12 @@
 # June
 
-The open personal AI that remembers you.
+An open personal AI that remembers you.
 
-June runs privately on your laptop via Gemma 4 and scales to the cloud via Gemini. It works identically in your browser, on your Mac, and on your iPhone. Everything is open source. Everything is free.
+June is a local-first assistant with long-term memory. It runs on your laptop via Ollama/Gemma 4, or can use Gemini when you choose cloud inference. Memory is stored on your machine; in Gemini mode the current prompt and relevant recalled context are sent to Google's API.
 
 ## Status
 
-The web prototype is **shipped**. The prototype checklist is complete:
+June is **alpha software**. The web PWA is the primary working surface:
 
 - **Intelligence** — `packages/brain/` runs Gemma 4 (local, via Ollama) or Gemini (cloud) behind one code path.
 - **API** — `packages/api/` exposes a FastAPI surface with SSE streaming on `POST /chat`; Pydantic schemas generate the TypeScript client.
@@ -15,7 +15,7 @@ The web prototype is **shipped**. The prototype checklist is complete:
 - **Web shell** — SvelteKit PWA at `apps/web/` with installable manifest, service worker, first-run setup, settings, memory browser, skills registry, offline states, keyboard shortcuts, and an accessibility pass.
 - **Branding** — June "J" wordmark with light mode default and dark mode toggle.
 
-The **desktop shell** is in progress. The Ollama capability gap fired the trigger on 2026-04-27. Phases 1–4 of the [desktop-shell plan](docs/product/desktop-shell-plan.md) have shipped: Tauri 2.x scaffold, typed `Platform` capability layer (`packages/ui/src/platform/`), Ollama supervision (`/help/ollama` is one click on desktop), and native affordances (tray, `Cmd+Shift+J` global hotkey, autostart, window-state persistence). Phase 5 is touch and tablet hardening, detailed in [`docs/product/responsive-plan.md`](docs/product/responsive-plan.md). The architectural decision behind in-app Ollama supervision is recorded in [ADR 0008](docs/decisions/0008-ollama-supervision.md).
+The **desktop shell** is experimental. Phases 1–4 of the [desktop-shell plan](docs/product/desktop-shell-plan.md) are implemented in source, but Rust compilation, packaging, signing, and distribution CI are still part of the hardening track. Mobile is planned, not shipped.
 
 See [`docs/product/roadmap.md`](docs/product/roadmap.md) for the item-by-item breakdown and what comes next (gated on user traction, not calendar).
 
@@ -36,7 +36,7 @@ The original v1 Streamlit prototype is preserved on the `legacy/streamlit` branc
 
 ```
 JuneAI/
-├── apps/              # end-user apps: web, desktop (Tauri), mobile (Capacitor)
+├── apps/              # end-user apps: web and desktop (Tauri); mobile is planned
 ├── packages/          # internal libraries: brain, api, ui, design
 ├── skills/            # MCP skill servers: calendar, health, research, files, daily
 ├── docs/              # vision, architecture, decisions, product plan, setup
@@ -48,18 +48,31 @@ For the rationale behind this layout see [ADR 0001](docs/decisions/0001-monorepo
 
 ## Quickstart
 
+Install prerequisites:
+
+- Node.js 20+ with `pnpm`
+- Python 3.10+
+- Ollama with `gemma4:e4b` pulled, or a Gemini API key
+
 ```bash
 cp .env.example .env
+pnpm install
 ./tools/dev.sh
 ```
 
-`dev.sh` verifies Ollama is running with Gemma 4 pulled (or that a `GEMINI_API_KEY` is set when `MODEL_PROVIDER=gemini`), creates a Python venv at `packages/brain/.venv`, and runs the brain tests.
+`dev.sh` verifies the selected model provider, creates a Python venv at `packages/brain/.venv`, installs the brain/API/skill packages editable, and runs backend tests.
+
+Contributors who only want to run tests without installing Ollama can skip provider checks:
+
+```bash
+JUNE_SKIP_MODEL_CHECK=1 ./tools/dev.sh
+```
 
 To run the full stack locally:
 
 ```bash
 # terminal 1 — API
-packages/brain/.venv/bin/uvicorn june_api.app:app --reload --port 8000
+packages/brain/.venv/bin/june-api
 
 # terminal 2 — web
 pnpm --filter @june/web dev
@@ -89,4 +102,4 @@ MIT. See [`LICENSE`](LICENSE).
 
 ## Contributing
 
-Formal contribution guidelines are not yet published — the project is still hardening its first surface. Discussion happens in GitHub issues; pull requests are welcome for bug fixes and for items listed in [`docs/product/roadmap.md`](docs/product/roadmap.md).
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`SECURITY.md`](SECURITY.md). Discussion happens in GitHub issues; pull requests are welcome for bug fixes and for items listed in [`docs/product/roadmap.md`](docs/product/roadmap.md).

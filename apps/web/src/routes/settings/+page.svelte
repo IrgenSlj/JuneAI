@@ -139,8 +139,9 @@
     <section class="card">
       <h2>Model provider</h2>
       <p class="hint">
-        Switch between local Gemma 4 and cloud Gemini. Your conversations and
-        memories stay on this machine either way.
+        Switch between local Gemma 4 and cloud Gemini. Memory is stored on this
+        machine; Gemini mode sends the current prompt and relevant recalled
+        context to Google's API for inference.
       </p>
 
       <fieldset class="providers">

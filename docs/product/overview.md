@@ -1,6 +1,6 @@
 # June 1.0
 
-June is the open personal AI that remembers you. It runs privately on your laptop via Gemma 4, reaches the cloud via Gemini when you ask it to, and works identically in your browser, on your Mac, and on your iPhone. Everything is open source. Everything is free.
+June is the open personal AI that remembers you. It runs locally via Gemma 4, reaches the cloud via Gemini when you ask it to, and is designed around one shared brain for browser, desktop, and mobile surfaces. The web PWA is the current shipped surface; desktop is experimental; mobile is planned.
 
 This document describes what June is. For why it exists, read [vision.md](../vision.md). For how it is built, read [architecture/overview.md](../architecture/overview.md). For where it is going next, read [roadmap.md](roadmap.md).
 
@@ -46,7 +46,7 @@ Model provider, active model, Ollama reachability, and a one-word privacy label 
 
 ## Model Routing
 
-Gemma 4 via Ollama is the default. It handles the daily conversational load at zero marginal cost. The user can paste a Gemini API key and switch the active provider with one setting. Both can be configured at once; only the active provider is called.
+Gemma 4 via Ollama is the default. It handles the daily conversational load at zero marginal cost. The user can paste a Gemini API key and switch the active provider with one setting. Both can be configured at once; only the active provider is called. In Gemini mode, the current prompt and relevant recalled memory context are sent to Google's API.
 
 There is no fallback chain. The active provider is the active provider. If Ollama is offline, June surfaces that in the header and the user either starts Ollama or switches to Gemini.
 

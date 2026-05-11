@@ -21,6 +21,7 @@ import json
 import logging
 import uuid
 from datetime import datetime
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -74,12 +75,13 @@ def _get_embedding_function() -> Any:
 def _collection_name(user_id: str) -> str:
     """Chroma collection names must be 3-63 chars, alnum/underscore/hyphen.
 
-    We namespace per user, slugged, with a prefix so the collection can
-    be identified in mixed environments.
+    We include a hash of the raw user_id so distinct IDs do not collide after
+    slugging or truncation.
     """
     safe = "".join(c if c.isalnum() or c in "-_" else "-" for c in user_id.strip().lower())
     safe = safe.strip("-_") or "default"
-    return f"june-{safe}"[:63]
+    digest = sha256(user_id.encode("utf-8")).hexdigest()[:12]
+    return f"june-{safe[:40]}-{digest}"[:63].rstrip("-_")
 
 
 def reset_singletons() -> None:

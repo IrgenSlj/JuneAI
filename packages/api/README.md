@@ -6,9 +6,15 @@ FastAPI boundary in front of `june-brain`. One HTTP surface that every shell (we
 
 - `POST /chat` — SSE stream. Events: `token`, `tool_call`, `tool_result`, `done`, `error`. Runs `MemoryManager.extract` as a background task after the stream closes.
 - `GET /memory/{user_id}` — snapshot across SQLite (goals, open loops, calendar), ChromaDB (semantic facts), and the knowledge graph (entities). Each fact carries a stable `ref` so the UI can target deletes.
+- `POST /memory/{user_id}/fact` — write a structured, semantic, or graph fact.
+- `PATCH /memory/{user_id}/fact/{ref}` — update supported structured facts.
 - `DELETE /memory/{user_id}/fact/{ref}` — remove a fact. Ref prefixes: `semantic:<fact_id>`, `node:<node_id>`, `edge:<src>|<dst>|<kind>`.
-- `GET /skills` — tools currently available to the agent.
+- `GET /skills` — MCP skill processes and tools currently available to the agent.
+- `POST /skills/{key}/toggle` — enable or disable a skill.
+- `POST /skills/{key}/tools/{tool}/toggle` — enable or disable one tool inside a skill.
 - `GET /system` — runtime and Ollama status.
+- `GET /setup/status`, `POST /setup/apply`, `GET /settings`, `POST /settings/forget-key` — first-run setup and non-secret runtime settings.
+- `POST /demo/seed` — seed a profile with demo memory.
 
 ## Running locally
 

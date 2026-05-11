@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "June API",
-    "description": "HTTP boundary for the June brain. The canonical client is apps/web (Next.js) but any shell speaking JSON/SSE can use it.",
+    "description": "HTTP boundary for the June brain. The canonical client is apps/web (SvelteKit) but any shell speaking JSON/SSE can use it.",
     "version": "0.2.0"
   },
   "paths": {
@@ -29,6 +29,50 @@
             "description": "Server-Sent Events stream. See ChatEvent for the frame payload schema.",
             "content": {
               "text/event-stream": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/demo/seed": {
+      "post": {
+        "tags": [
+          "demo"
+        ],
+        "summary": "Seed Demo",
+        "description": "Populate a user profile with rich demo data across all memory stores.\n\nCreates goals, calendar events, journal entries, open loops, body\nmetrics, semantic facts, and entity nodes. After seeding, switch to\nthis user in Settings and explore /memory, /skills, and the chat.",
+        "operationId": "seed_demo_demo_seed_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemoSeedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Seed Demo Demo Seed Post"
+                }
+              }
             }
           },
           "422": {
@@ -252,6 +296,59 @@
         }
       }
     },
+    "/memory/{user_id}/fact": {
+      "post": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Write Memory Fact",
+        "description": "Write a fact to memory.\n\n``kind`` selects the store:\n\n  - ``\"goal\"`` / ``\"open_loop\"`` / ``\"calendar\"`` / ``\"journal\"`` /\n    ``\"body_metric\"`` / ``\"mood\"`` \u2192 SQLite structured row + vector paraphrase\n  - ``\"fact\"`` \u2192 vector store (semantic)\n  - ``\"entity\"`` \u2192 knowledge graph node\n  - ``\"relation\"`` \u2192 knowledge graph edge\n\n``fields`` are passed to the corresponding write handler (see\n``MemoryManager.write()`` for the field schema per kind).",
+        "operationId": "write_memory_fact_memory__user_id__fact_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemoryWriteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryWriteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/settings": {
       "get": {
         "tags": [
@@ -444,6 +541,68 @@
         }
       }
     },
+    "/skills/{key}/tools/{tool}/toggle": {
+      "post": {
+        "tags": [
+          "skills"
+        ],
+        "summary": "Toggle Skill Tool",
+        "description": "Enable or disable a single tool inside a skill.\n\nThe skill subprocess keeps running and continues to advertise this\ntool, but the supervisor filters it out of the agent's bound tools\nat the next reload. Persists to ``skills.toml`` so the gate\nsurvives restart.",
+        "operationId": "toggle_skill_tool_skills__key__tools__tool__toggle_post",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          },
+          {
+            "name": "tool",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Tool"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillToolToggleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillToolToggleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/skills/{key}/toggle": {
       "post": {
         "tags": [
@@ -574,6 +733,18 @@
         ],
         "title": "ChatRequest",
         "description": "A single user turn submitted to POST /chat."
+      },
+      "DemoSeedRequest": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id",
+            "description": "User ID to seed data into.",
+            "default": "demo"
+          }
+        },
+        "type": "object",
+        "title": "DemoSeedRequest"
       },
       "ForgetKeyResponse": {
         "properties": {
@@ -839,6 +1010,64 @@
         "title": "MemoryUpdateResponse",
         "description": "Result of PATCH /memory/{user_id}/fact/{ref}.\n\n``ref`` may be a *new* opaque identifier when the primary key changed\n(e.g. a goal renamed). Clients should use the returned ref for any\nsubsequent edit/delete on this fact."
       },
+      "MemoryWriteRequest": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Memory kind: goal, fact, entity, calendar, journal, open_loop, body_metric, mood, relation"
+          },
+          "fields": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Fields",
+            "description": "Fields for the chosen memory kind."
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "MemoryWriteRequest",
+        "description": "Body of POST /memory/{user_id}/fact.\n\n``kind`` selects the write handler and ``fields`` are passed\nto the corresponding ``MemoryManager.write()`` handler."
+      },
+      "MemoryWriteResponse": {
+        "properties": {
+          "written": {
+            "type": "boolean",
+            "title": "Written"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "stores": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Stores"
+          }
+        },
+        "type": "object",
+        "required": [
+          "written",
+          "kind"
+        ],
+        "title": "MemoryWriteResponse",
+        "description": "Result of POST /memory/{user_id}/fact."
+      },
       "SettingsView": {
         "properties": {
           "provider": {
@@ -934,7 +1163,7 @@
               }
             ],
             "title": "Gemini Api Key",
-            "description": "Required when provider is 'gemini'. Stored in config.json with mode 0600 until native credential storage lands."
+            "description": "Required when provider is 'gemini'. Stored in the OS credential store when available, otherwise in config.json with mode 0600."
           },
           "gemma_model": {
             "anyOf": [
@@ -1161,6 +1390,12 @@
             "title": "Description",
             "description": "Human-readable description.",
             "default": ""
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "description": "Whether the agent currently binds this tool. A disabled tool stays advertised by the skill subprocess but is filtered out at agent-build time, so the model can no longer call it.",
+            "default": true
           }
         },
         "type": "object",
@@ -1169,6 +1404,45 @@
         ],
         "title": "SkillToolInfo",
         "description": "A single tool inside a skill \u2014 shown under the skill in the UI."
+      },
+      "SkillToolToggleRequest": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "description": "New enabled state for this tool."
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "SkillToolToggleRequest",
+        "description": "POST /skills/{key}/tools/{tool}/toggle body."
+      },
+      "SkillToolToggleResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "tool": {
+            "type": "string",
+            "title": "Tool"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "tool",
+          "enabled"
+        ],
+        "title": "SkillToolToggleResponse",
+        "description": "Result of a per-tool toggle."
       },
       "SkillWriteRecord": {
         "properties": {

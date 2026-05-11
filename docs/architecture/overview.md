@@ -38,31 +38,32 @@ The brain is the intelligence. Anything that is model-facing or memory-facing li
 
 Internal modules:
 
-- **`agent/`** — LangGraph state machine, routing, streaming orchestration.
+- **`graph.py`** — LangGraph state machine, routing, streaming orchestration.
 - **`memory/`** — three-store memory (see ADR 0004): `sqlite.py`, `vector.py`, `graph.py`, with `manager.py` as the unified facade.
-- **`runtime/`** — model provider implementations: `gemma.py`, `gemini.py`, plus `router.py` for local-first-with-cloud-escape-valve routing.
+- **`config.py` / `models.py`** — runtime resolution and OpenAI-compatible model client construction for Ollama/Gemma and Gemini.
 - **`skills/`** — MCP client that discovers and connects to skill servers.
-- **`patterns/`** — chapter and pattern detection, injected into system prompts.
-- **`telemetry/`** — structured event logging, stays local.
+- **`patterns.py` / `context_intelligence.py`** — chapter and pattern detection, injected into system prompts.
+- **`telemetry.py`** — structured event logging, stays local.
 
-The brain exposes one primary class: `JuneAgent`. Construction takes a `MemoryManager`, a `SkillRegistry`, and a `ModelProvider`. Calling `agent.stream(user_id, message)` yields streaming events (tokens, tool calls, memory saves).
+The brain exposes `create_june_agent()`, which compiles the LangGraph agent. The API streams the compiled graph and translates LangGraph events into JSON/SSE frames.
 
 ## The API
 
 `packages/api/` — Python, FastAPI.
 
-The API is the network boundary. It is deliberately thin: routes wrap `JuneAgent` methods, handle HTTP and SSE concerns, and nothing else. Business logic belongs in the Brain.
+The API is the network boundary. It is deliberately thin: routes wrap the compiled LangGraph agent, handle HTTP and SSE concerns, and nothing else. Business logic belongs in the Brain.
 
 Routes:
 
 - **`POST /chat`** — stream an agent turn over SSE. Request: user ID, message. Response: token stream, tool call events, memory events.
 - **`GET /memory/{user_id}`** — snapshot across all three stores: structured rows, semantic facts, entities.
 - **`DELETE /memory/{user_id}/fact/{ref}`** — fact removal. The `ref` carries a source prefix (`semantic:`, `node:`, `edge:`) so the handler routes to the correct store through `MemoryManager.forget`.
-- **`GET /skills`** — discovered skill servers with their tool lists. *(stub until Week 5)*
-- **`POST /skills/{name}/enable`** and **`/disable`** — runtime toggling. *(Week 5)*
+- **`GET /skills`** — discovered skill servers with their tool lists.
+- **`POST /skills/{key}/toggle`** — runtime skill toggling.
+- **`POST /skills/{key}/tools/{tool}/toggle`** — per-tool toggling inside a skill.
 - **`GET /system`** — model provider status, Ollama health, memory paths.
 
-Manual fact editing (`POST /memory/{user_id}/fact`) is deferred. The memory browser currently supports delete-and-re-learn; a `POST`/`PATCH` surface lands when the UI needs it.
+Manual fact editing exists through `POST /memory/{user_id}/fact` and `PATCH /memory/{user_id}/fact/{ref}` for the supported structured fact kinds.
 
 All request and response schemas are defined as Pydantic models in `packages/api/src/june_api/schemas/`. A codegen step (`tools/codegen.sh`) produces TypeScript types under `packages/ui/src/api/types.ts`. The UI never defines its own API types.
 
@@ -85,17 +86,17 @@ The UI is the shared frontend. Every shell serves this same build.
 - `/skills` — skill registry.
 - `/settings` — model provider, API keys, preferences.
 
-A small capability layer (`packages/ui/src/platform.ts`) exposes platform features (`showNotification`, `registerHotkey`, `readFile`) with implementations that route to Tauri commands, Capacitor plugins, or web APIs depending on the runtime.
+A small capability layer (`packages/ui/src/platform/`) exposes platform features (`notify`, `registerHotkey`, `pickFile`, Ollama supervision) with implementations that route to Tauri commands, Capacitor stubs, or web APIs depending on the runtime.
 
 ## The Shells
 
 Three thin shells wrap the UI:
 
 - **Web** — the SvelteKit PWA served directly. Installable via the browser's native install flow. Shipped.
-- **`apps/desktop/`** — Tauri 2.x. Rust commands for Ollama process supervision (see [ADR 0008](../decisions/0008-ollama-supervision.md)), system tray, global hotkey (`Cmd+Shift+J`), native notifications, filesystem access, autostart. Ships a macOS `.dmg` (universal), a Windows `.msi`, and a Linux `.AppImage` from one build pipeline. In progress per [desktop-shell-plan.md](../product/desktop-shell-plan.md).
-- **`apps/mobile/`** — Capacitor. Swift plugins for iOS push notifications, share extensions, voice input via AVFoundation. Ships an iOS `.ipa` for TestFlight and the App Store. Trigger-gated; planned after the desktop shell ships.
+- **`apps/desktop/`** — Tauri 2.x. Rust commands for Ollama process supervision (see [ADR 0008](../decisions/0008-ollama-supervision.md)), system tray, global hotkey (`Cmd+Shift+J`), native notifications, and autostart. Experimental until Rust CI, packaging, signing, and distribution are in place.
+- **`apps/mobile/`** — planned Capacitor shell. Trigger-gated; planned after the desktop shell ships.
 
-Shells do not contain business logic. If a shell needs to do something, there is a Tauri command or a Capacitor plugin, and the UI calls it through the capability layer (`packages/ui/src/platform.ts`). The capability layer has three runtime backends — Tauri, Capacitor, and Web — selected at module load via runtime detection.
+Shells do not contain business logic. If a shell needs to do something, there is a Tauri command or a Capacitor plugin, and the UI calls it through the capability layer (`packages/ui/src/platform/`). The capability layer has three runtime backends — Tauri, Capacitor, and Web — selected at module load via runtime detection.
 
 Across all three shells the same UI must look and behave correctly on every screen size and input method. Touch, tablet, and PWA-on-iOS specifics are covered in [responsive-plan.md](../product/responsive-plan.md).
 
@@ -105,7 +106,7 @@ Across all three shells the same UI must look and behave correctly on every scre
 
 Each skill is a pip-installable Python package that exposes a Model Context Protocol server. The brain's skills loader discovers skills from a manifest file, spawns each server as a child process, and multiplexes tool calls over the MCP stdio transport.
 
-Skills read and write to memory through MCP resources, which are proxied by the brain to its `MemoryManager`. Skills do not talk to SQLite or ChromaDB directly.
+Bundled skills currently call the local `MemoryManager` from their subprocess. The supervisor injects `user_id` into tool calls so writes land in the active profile.
 
 ## Data Flow: One Turn
 
@@ -116,7 +117,7 @@ user types a message in apps/web
 SvelteKit composer → POST /chat (SSE) ──── @packages/api
         │
         ▼
-api.main calls JuneAgent.stream() ──────── @packages/brain
+api route streams compiled graph ───────── @packages/brain
         │
         ├──► MemoryManager.recall(message)
         │        │
@@ -160,6 +161,6 @@ Post-turn: MemoryManager.extract(conversation)
 
 - **Database and vector index:** `~/Library/Application Support/June/` on macOS, `~/.local/share/June/` on Linux, `%APPDATA%/June/` on Windows. On iOS, the app's sandboxed container.
 - **Logs and telemetry:** `~/Library/Logs/June/` on macOS.
-- **Config:** `~/Library/Application Support/June/config.toml`.
+- **Config:** `~/Library/Application Support/June/config.json` plus OS credential storage for secrets when available.
 
 The repository never contains user data.

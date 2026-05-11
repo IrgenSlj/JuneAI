@@ -101,3 +101,14 @@ def test_delete_removes_from_both_stores(store):
 def test_upsert_requires_text(store):
     with pytest.raises(ValueError):
         store.upsert("   ")
+
+
+def test_collection_name_uses_hash_to_avoid_slug_collisions():
+    name_a = vector_module._collection_name("User@example.com")
+    name_b = vector_module._collection_name("User example com")
+
+    assert name_a != name_b
+    assert name_a.startswith("june-user-example-com-")
+    assert name_b.startswith("june-user-example-com-")
+    assert len(name_a) <= 63
+    assert len(name_b) <= 63

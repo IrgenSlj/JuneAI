@@ -4,7 +4,7 @@
 # 1. Dumps the FastAPI OpenAPI spec to packages/api/openapi.json
 # 2. Runs openapi-typescript to emit packages/ui/src/api/types.ts
 #
-# Why this exists: the Next.js app, Tauri desktop shell, and any other
+# Why this exists: the SvelteKit app, Tauri desktop shell, and any other
 # shell all call the same Python API. Rather than hand-writing TS types
 # that drift from Pydantic, we generate them on demand so a backend
 # schema change surfaces as a frontend type error on the next build.
@@ -35,9 +35,9 @@ echo "[codegen] wrote $OPENAPI_JSON"
 mkdir -p "$(dirname "$TS_OUT")"
 
 if command -v pnpm >/dev/null 2>&1; then
-  RUNNER="pnpm dlx openapi-typescript@^7"
+  RUNNER="pnpm dlx openapi-typescript@7.13.0"
 elif command -v npx >/dev/null 2>&1; then
-  RUNNER="npx --yes openapi-typescript@^7"
+  RUNNER="npx --yes openapi-typescript@7.13.0"
 else
   echo "error: neither pnpm nor npx on PATH; install Node.js to generate TS types." >&2
   exit 1

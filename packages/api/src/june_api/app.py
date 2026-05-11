@@ -46,7 +46,7 @@ def create_app() -> FastAPI:
         version="0.2.0",
         description=(
             "HTTP boundary for the June brain. The canonical client is "
-            "apps/web (Next.js) but any shell speaking JSON/SSE can use it."
+            "apps/web (SvelteKit) but any shell speaking JSON/SSE can use it."
         ),
     )
 

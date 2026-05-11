@@ -1,6 +1,6 @@
 # Vision
 
-June is the open personal AI that remembers you. It runs privately on your laptop via Gemma 4, scales to the cloud via Gemini, and works identically in your browser, on your Mac, and on your iPhone. Everything is open source. Everything is free.
+June is the open personal AI that remembers you. It is local-first through Gemma 4 on Ollama, can use Gemini when the user chooses cloud inference, and is designed to share one brain across browser, desktop, and mobile surfaces. The web PWA is the current shipped surface; desktop is experimental; mobile is planned.
 
 ## Why June Exists
 
@@ -18,7 +18,7 @@ Every conversation feeds a personal knowledge graph that is yours, editable, por
 
 ### 2. Local-first, cloud as escape valve
 
-Gemma 4 on Ollama handles the daily conversational load. Gemini Flash is the optional turbo for long-context work, vision, and reasoning-heavy asks. Users can run June fully offline. Users who prefer cloud can paste a Gemini API key and never install a local model. No third model. No fallback chain.
+Gemma 4 on Ollama handles the daily conversational load. Gemini Flash is the optional turbo for long-context work, vision, and reasoning-heavy asks. Users can run June fully offline. Users who prefer cloud can paste a Gemini API key and never install a local model; that mode sends prompt context to Gemini for inference. No third model. No fallback chain.
 
 ### 3. One codebase, every surface
 

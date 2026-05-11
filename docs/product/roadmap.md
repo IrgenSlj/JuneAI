@@ -19,7 +19,7 @@ The desktop shell (next section) does not retire the PWA. The PWA remains a firs
 Ordered by dependency, not priority.
 
 1. **First-run setup flow.** A `/setup` route that detects Ollama reachability, lets the user pick a provider, paste a Gemini key if they chose cloud, and verifies end to end before landing them on the chat screen. Until this exists, a new user has to read the README to get past the first screen. _Shipped._
-2. **API key entry UI.** A settings screen that reads and writes `GEMINI_API_KEY` through a new API surface. Keys are stored in the platform's native credential store when available and in `config.toml` otherwise. Never logged, never echoed back to the UI after save. _Shipped._
+2. **API key entry UI.** A settings screen that reads and writes `GEMINI_API_KEY` through a new API surface. Keys are stored in the platform's native credential store when available and in `config.json` with mode 0600 otherwise. Never logged, never echoed back to the UI after save. _Shipped._
 3. **Ollama detection and guidance.** When the provider is `gemma` and Ollama is not reachable, the header's warning should deep-link to a one-screen troubleshooting page with the exact commands to install, pull, and start Ollama for the user's OS. _Shipped._
 4. **PWA installability.** `manifest.webmanifest`, a service worker that caches the shell, icons at the required sizes, and a theme color. `vite-plugin-pwa` generates these. Verify install prompts on Chrome, Edge, and mobile Safari. _Shipped._
 5. **Offline fallback screen.** When the brain is unreachable, render a useful offline state instead of a fetch error. Chat history and memory browser are read-only offline because they fetch from the API; show that clearly rather than spinning. _Shipped._
@@ -49,12 +49,12 @@ The full plan is in [desktop-shell-plan.md](desktop-shell-plan.md). The architec
 
 ### What It Is
 
-A Tauri 2.x shell at `apps/desktop/` that wraps the same SvelteKit build. Rust commands expose native capabilities (Ollama supervision, system tray, global hotkey, native notifications, autostart, filesystem) to the UI through the capability layer at `packages/ui/src/platform.ts`. Ships a macOS `.dmg`, a Windows installer, and a Linux AppImage from one build pipeline.
+A Tauri 2.x shell at `apps/desktop/` that wraps the same SvelteKit build. Rust commands expose native capabilities (Ollama supervision, system tray, global hotkey, native notifications, autostart, filesystem) to the UI through the capability layer at `packages/ui/src/platform/`. Distribution packages come after Rust CI, signing, and release automation.
 
 ### The Phases (full detail in desktop-shell-plan.md)
 
 1. **Scaffold** — _Shipped (`e2639312`)._ Existing UI runs unchanged inside a Tauri window.
-2. **Capability layer** — _Shipped (`2cd0408b`)._ Typed `platform.ts` interface with Tauri, Capacitor, and Web backends.
+2. **Capability layer** — _Shipped (`2cd0408b`)._ Typed `packages/ui/src/platform/` interface with Tauri, Capacitor, and Web backends.
 3. **Ollama supervision** — _Shipped (`49400967`)._ Install (opens OS installer), start, pull with streamed progress, model check; one-click `/help/ollama` flow on desktop.
 4. **Native affordances** — _Shipped (`f5e24dfa`)._ Tray, global hotkey, notifications, autostart, window state. Hidden-inset title bar deferred to 4.5.
 5. **Touch and responsive hardening** — _Next._ See [responsive-plan.md](responsive-plan.md).
