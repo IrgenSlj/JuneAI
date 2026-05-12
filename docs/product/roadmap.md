@@ -8,9 +8,39 @@ This document describes what is left to ship for a useful first prototype, and w
 
 No parallel construction. No half-finished platforms. Each surface must reach real users before the next one gets detailed design.
 
+## Active Hardening Track: Open Source Readiness
+
+Before June is presented as broadly download-and-use software, the project is
+in a focused open-source readiness pass. The detailed execution plan lives in
+[open-source-readiness-plan.md](open-source-readiness-plan.md).
+
+The release bar is:
+
+1. Provider correctness: `/setup`, `/settings`, `/system`, and `/chat` agree on
+   the active provider, model, key state, and privacy label.
+2. Conversation continuity: recent turns are available to the chat agent, not
+   only the latest user message.
+3. Memory correctness: editing or deleting a memory updates every store that can
+   feed recall, including semantic paraphrases.
+4. Fresh-clone reliability: the documented Python version, bootstrap scripts,
+   and model-provider paths work from an empty checkout.
+5. Local safety: the API has a basic same-machine authorization boundary, demo
+   routes are opt-in, and network-fetching skills reject private targets.
+6. CI coverage: frontend checks, backend tests, lint/type policy, OpenAPI
+   codegen, and desktop compilation are all enforced or explicitly scoped.
+7. Honest release docs: the README separates working web alpha behavior from
+   experimental desktop source.
+
+This hardening track temporarily outranks new feature surfaces. Once the
+Public Alpha Gate in the readiness plan is complete, feature work returns to the
+trigger-gated roadmap below.
+
 ## Current Surface: Web PWA (Shipped)
 
 The browser application is the first surface for June 1.0. Installable through the browser's native install flow. Works offline against a local Ollama. Works online against Gemini. No account. No cloud dependency beyond the optional model call. The prototype checklist below is fully shipped as of 2026-04-20.
+
+The web PWA remains the primary surface, but the open-source readiness track
+above is the current development priority before inviting broad public usage.
 
 The desktop shell (next section) does not retire the PWA. The PWA remains a first-class surface and the same SvelteKit build serves both.
 

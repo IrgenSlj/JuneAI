@@ -75,7 +75,17 @@ A skill subprocess that re-imports the brain is a fork bomb. The supervisor sets
 
 ## Status
 
-June 1.0 ships as a web application. The brain, the API, the memory stores, and the skills system are complete. The shared UI renders the chat, memory, and skills surfaces. Light mode is the default with dark mode toggle available.
+June currently ships as a web application. The brain, the API, the memory
+stores, and the skills system are implemented, and the shared UI renders the
+chat, memory, and skills surfaces. Light mode is the default with dark mode
+toggle available.
+
+The current priority is not a new surface. June is in an open-source readiness
+hardening pass before it should be promoted as broadly download-and-use
+software. The plan is tracked in
+[open-source-readiness-plan.md](open-source-readiness-plan.md) and focuses on
+provider correctness, conversation continuity, memory delete/edit correctness,
+fresh-clone setup, local API safety, and desktop CI.
 
 The desktop shell is in progress. The Ollama capability gap fired the trigger on 2026-04-27. Phases 1–4 of the [desktop-shell-plan](desktop-shell-plan.md) have shipped: the Tauri shell scaffolds the SvelteKit UI in a native window, the `Platform` capability layer routes calls through typed Rust commands, `/help/ollama` does the install/start/pull flow without a terminal, and the shell supports tray, global hotkey, autostart, and window-state persistence. Phase 5 (touch and tablet hardening, detailed in [responsive-plan.md](responsive-plan.md)) is next.
 

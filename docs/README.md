@@ -4,12 +4,17 @@ This directory is the documentation root. Everything you need to understand, con
 
 ## What's New
 
+- **Open-source readiness track** — The current priority is hardening June for
+  a useful public alpha: provider correctness, conversation continuity, memory
+  delete/edit correctness, fresh-clone setup, local API safety, and desktop CI.
+  The detailed plan lives at [`product/open-source-readiness-plan.md`](product/open-source-readiness-plan.md).
 - **Desktop shell trigger fired** — On 2026-04-27 the Ollama capability gap fired the trigger to plan and build the desktop shell. The full plan lives at [`product/desktop-shell-plan.md`](product/desktop-shell-plan.md). Touch and tablet hardening that ships alongside the shell is at [`product/responsive-plan.md`](product/responsive-plan.md). The new ADR [0008](decisions/0008-ollama-supervision.md) records the in-app Ollama supervision decision.
 - **Light mode default** — June defaults to light theme. Click the moon icon in the header to switch to dark mode.
 - **Black J branding** — Clean black "J" on transparent for favicon and PWA icons.
 
 - [**Vision**](vision.md) — the product premise and the three non-negotiables
 - [**Product overview**](product/overview.md) — what June is
+- [**Open-source readiness plan**](product/open-source-readiness-plan.md) — the hardening plan before public alpha
 - [**Roadmap**](product/roadmap.md) — what ships next and when the next surface is worth planning
 - [**Desktop shell plan**](product/desktop-shell-plan.md) — phased plan for the Tauri desktop shell
 - [**Responsive and touch plan**](product/responsive-plan.md) — how the UI works on every screen size and input method
@@ -26,6 +31,7 @@ docs/
 ├── vision.md                      # product north star
 ├── product/
 │   ├── overview.md                # what June is
+│   ├── open-source-readiness-plan.md # hardening plan before public alpha
 │   ├── roadmap.md                 # scaling map, trigger-gated
 │   ├── desktop-shell-plan.md      # active development plan for the Tauri desktop shell
 │   └── responsive-plan.md         # touch and tablet hardening shipped alongside the shell

@@ -6,7 +6,9 @@ June is a local-first assistant with long-term memory. It runs on your laptop vi
 
 ## Status
 
-June is **alpha software**. The web PWA is the primary working surface:
+June is **alpha software**. The web PWA is the primary working surface, but
+the project is still in an open-source readiness pass before it should be
+presented as broadly download-and-use software:
 
 - **Intelligence** — `packages/brain/` runs Gemma 4 (local, via Ollama) or Gemini (cloud) behind one code path.
 - **API** — `packages/api/` exposes a FastAPI surface with SSE streaming on `POST /chat`; Pydantic schemas generate the TypeScript client.
@@ -14,6 +16,12 @@ June is **alpha software**. The web PWA is the primary working surface:
 - **Skills** — each skill is a standalone MCP server launched by a supervisor in the brain; the `/skills` page toggles them on and off at runtime.
 - **Web shell** — SvelteKit PWA at `apps/web/` with installable manifest, service worker, first-run setup, settings, memory browser, skills registry, offline states, keyboard shortcuts, and an accessibility pass.
 - **Branding** — June "J" wordmark with light mode default and dark mode toggle.
+
+The current hardening priorities are provider correctness, conversation
+continuity, memory delete/edit correctness across all stores, fresh-clone setup,
+local API safety, and desktop build CI. See the
+[open-source readiness plan](docs/product/open-source-readiness-plan.md) for
+the detailed development plan.
 
 The **desktop shell** is experimental. Phases 1–4 of the [desktop-shell plan](docs/product/desktop-shell-plan.md) are implemented in source, but Rust compilation, packaging, signing, and distribution CI are still part of the hardening track. Mobile is planned, not shipped.
 
@@ -25,12 +33,13 @@ The original v1 Streamlit prototype is preserved on the `legacy/streamlit` branc
 
 1. [Vision](docs/vision.md) — what June is and the three non-negotiables
 2. [Product overview](docs/product/overview.md) — the surfaces and the product boundary
-3. [Roadmap](docs/product/roadmap.md) — what ships next and what triggers the next surface
-4. [Desktop shell plan](docs/product/desktop-shell-plan.md) — the active development plan
-5. [Responsive and touch plan](docs/product/responsive-plan.md) — how the UI works on every screen
-6. [Architecture overview](docs/architecture/overview.md) — the layered model
-7. [Architecture decisions](docs/decisions/README.md) — the ADRs that justify the design
-8. [Environment](docs/setup/environment.md) — configuration reference
+3. [Open-source readiness plan](docs/product/open-source-readiness-plan.md) — the hardening plan before public alpha
+4. [Roadmap](docs/product/roadmap.md) — what ships next and what triggers the next surface
+5. [Desktop shell plan](docs/product/desktop-shell-plan.md) — the active development plan
+6. [Responsive and touch plan](docs/product/responsive-plan.md) — how the UI works on every screen
+7. [Architecture overview](docs/architecture/overview.md) — the layered model
+8. [Architecture decisions](docs/decisions/README.md) — the ADRs that justify the design
+9. [Environment](docs/setup/environment.md) — configuration reference
 
 ## Repository Layout
 
@@ -102,4 +111,7 @@ MIT. See [`LICENSE`](LICENSE).
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`SECURITY.md`](SECURITY.md). Discussion happens in GitHub issues; pull requests are welcome for bug fixes and for items listed in [`docs/product/roadmap.md`](docs/product/roadmap.md).
+See [`CONTRIBUTING.md`](CONTRIBUTING.md), [`SECURITY.md`](SECURITY.md), and
+the [`open-source readiness plan`](docs/product/open-source-readiness-plan.md).
+Discussion happens in GitHub issues; pull requests are welcome for bug fixes and
+for items listed in the hardening plan and [`docs/product/roadmap.md`](docs/product/roadmap.md).
