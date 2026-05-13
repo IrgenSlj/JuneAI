@@ -23,7 +23,9 @@ The release bar is:
 3. Memory correctness: editing or deleting a memory updates every store that can
    feed recall, including semantic paraphrases.
 4. Fresh-clone reliability: the documented Python version, bootstrap scripts,
-   and model-provider paths work from an empty checkout.
+   and model-provider paths work from an empty checkout. _Python 3.10 support
+   and split bootstrap/check scripts are shipped; CI now covers Python 3.10,
+   3.11, and 3.12._
 5. Local safety: the API has a basic same-machine authorization boundary, demo
    routes are opt-in, and network-fetching skills reject private targets.
 6. CI coverage: frontend checks, backend tests, lint/type policy, OpenAPI

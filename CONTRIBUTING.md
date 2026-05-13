@@ -8,26 +8,31 @@ Prerequisites:
 
 - Node.js 20+
 - `pnpm`
-- Python 3.10+
+- Python 3.10+ (CI runs 3.10, 3.11, and 3.12)
 - Ollama with `gemma4:e4b`, or a Gemini API key if you want to run the app end to end
 
 Bootstrap the repo:
 
 ```bash
 cp .env.example .env
-pnpm install
-JUNE_SKIP_MODEL_CHECK=1 ./tools/dev.sh
+./tools/bootstrap.sh
 ```
-
-`JUNE_SKIP_MODEL_CHECK=1` is useful for contributors who only need tests. Remove it when you want `dev.sh` to verify Ollama/Gemini readiness.
 
 Run the main checks:
 
 ```bash
-pnpm check
-pnpm build
-packages/brain/.venv/bin/python -m pytest packages/brain/tests packages/api/tests
+./tools/check.sh
 ```
+
+`check.sh` runs backend tests, frontend checks, and the OpenAPI codegen drift check. The broader Ruff/mypy policy is tracked in the open-source readiness plan and is not enforced yet.
+
+When you want the provider sanity checks as well, use:
+
+```bash
+./tools/dev.sh
+```
+
+`JUNE_SKIP_MODEL_CHECK=1` is useful for contributors who only need backend tests through `dev.sh`. Remove it when you want `dev.sh` to verify Ollama/Gemini readiness.
 
 Run the app:
 

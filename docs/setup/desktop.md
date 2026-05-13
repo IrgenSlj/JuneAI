@@ -9,7 +9,7 @@ The desktop shell needs the same toolchain as the web app, plus Rust.
 | Tool | Why | How |
 |---|---|---|
 | Node + pnpm | The web build the desktop shell wraps | Already required for the web app. |
-| Python 3.10+ + the brain venv | The API the desktop shell talks to | Already required for the web app. |
+| Python 3.10+ + the brain venv | The API the desktop shell talks to | Run `./tools/bootstrap.sh` from the repo root. |
 | Ollama with Gemma 4 | The local model | Already required for `MODEL_PROVIDER=gemma`. |
 | **Rust toolchain (stable)** | Compiles the Tauri shell | See below. |
 | **Platform build tools** | Native linker | See below. |

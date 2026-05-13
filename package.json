@@ -8,9 +8,11 @@
     "node": ">=20"
   },
   "scripts": {
+    "bootstrap": "./tools/bootstrap.sh",
     "dev": "pnpm --filter @june/web dev",
     "build": "pnpm -r --filter './packages/**' --filter '@june/web' build",
     "check": "pnpm -r --filter './packages/**' --filter '@june/web' check",
+    "check:all": "./tools/check.sh",
     "desktop:dev": "pnpm --filter @june/desktop dev",
     "desktop:build": "pnpm --filter @june/desktop build",
     "codegen": "./tools/codegen.sh"

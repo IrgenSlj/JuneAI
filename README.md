@@ -60,16 +60,22 @@ For the rationale behind this layout see [ADR 0001](docs/decisions/0001-monorepo
 Install prerequisites:
 
 - Node.js 20+ with `pnpm`
-- Python 3.10+
+- Python 3.10+ (CI covers 3.10, 3.11, and 3.12)
 - Ollama with `gemma4:e4b` pulled, or a Gemini API key
 
 ```bash
 cp .env.example .env
-pnpm install
-./tools/dev.sh
+./tools/bootstrap.sh
+./tools/check.sh
 ```
 
-`dev.sh` verifies the selected model provider, creates a Python venv at `packages/brain/.venv`, installs the brain/API/skill packages editable, and runs backend tests.
+`bootstrap.sh` creates a Python venv at `packages/brain/.venv`, installs the brain/API/skill packages editable, and runs `pnpm install` when needed. `check.sh` runs backend tests, frontend checks, and the OpenAPI type drift check.
+
+To also verify the selected model provider before running backend tests:
+
+```bash
+./tools/dev.sh
+```
 
 Contributors who only want to run tests without installing Ollama can skip provider checks:
 

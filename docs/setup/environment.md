@@ -16,6 +16,11 @@ This file is the canonical reference for June's runtime configuration. Per [ADR 
 | `MODEL_TEMPERATURE` | No | `0.4` | Applied to both providers |
 | `MODEL_MAX_TOKENS` | No | `4096` | Applied to both providers |
 | `JUNE_SKIP_MODEL_CHECK` | No | — | Set to `1` when running developer tests without Ollama/Gemini configured |
+| `PYTHON_BIN` | No | `python3` for bootstrap, venv Python for checks | Python executable used by developer scripts |
+| `JUNE_VENV` | No | `packages/brain/.venv` | Virtualenv path used by developer scripts |
+| `JUNE_SKIP_PNPM_INSTALL` | No | — | Set to `1` to skip `pnpm install` in `tools/bootstrap.sh` |
+| `JUNE_CHECK_FRONTEND` | No | `1` | Set to `0` to skip frontend checks in `tools/check.sh` |
+| `JUNE_CHECK_CODEGEN` | No | `1` | Set to `0` to skip OpenAPI codegen drift checks in `tools/check.sh` |
 
 ## Default Data Directory
 
@@ -75,6 +80,13 @@ Developers who only need to run the automated test suite can skip provider verif
 
 ```bash
 JUNE_SKIP_MODEL_CHECK=1 ./tools/dev.sh
+```
+
+For fresh clones, prefer the split developer commands:
+
+```bash
+./tools/bootstrap.sh  # install Python workspace and pnpm deps when needed
+./tools/check.sh      # backend tests, frontend checks, OpenAPI type drift check
 ```
 
 The desktop shell will perform steps 1 through 3 on the user's behalf with one click — see [ADR 0008](../decisions/0008-ollama-supervision.md). The web shell continues to require manual setup as documented above.

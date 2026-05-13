@@ -49,6 +49,9 @@ These stay out of the readiness sprint:
 
 Ship these before a public announcement. They protect the core promise.
 
+Status: shipped in `2a1ccc9b`. Remaining polish from this section should be
+tracked as follow-up issues rather than blocking Phase 1 work.
+
 ### 0.1 Provider and Agent Lifecycle
 
 Problem: stored config is applied after route imports, while the brain builds a
@@ -180,21 +183,25 @@ This phase makes the contributor path boring and repeatable.
 Problem: the package claims Python 3.10 support, but the TOML fallback imports
 `tomli` without declaring it.
 
-Choose one:
+Status: shipped. June continues to support Python 3.10+; `june-brain` declares
+`tomli` for Python `<3.11`, and CI runs backend checks on Python 3.10, 3.11,
+and 3.12.
 
-- Support Python 3.10: add `tomli` for Python `<3.11` and test Python 3.10 in
-  CI.
-- Require Python 3.11+: update every README, setup doc, CI job, and
-  `requires-python`.
+Decision: support Python 3.10+ rather than raising the floor to 3.11.
 
 Acceptance:
 
 - `./tools/dev.sh` works on the documented Python version from a clean venv.
-- CI runs on every supported Python version.
+- CI runs on the documented Python compatibility matrix.
 
 ### 1.2 Bootstrap Scripts
 
 Split the current all-in-one developer flow into clearer commands:
+
+Status: shipped. `tools/bootstrap.sh` installs the Python workspace and pnpm
+dependencies when needed; `tools/check.sh` runs backend tests, frontend checks,
+and OpenAPI type drift; `tools/dev.sh` now layers provider checks on top of
+those scripts.
 
 - `tools/bootstrap.sh`: create venv, install Python workspace packages, run
   `pnpm install` if needed.

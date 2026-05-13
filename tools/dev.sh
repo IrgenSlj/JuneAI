@@ -5,9 +5,8 @@
 # start coding:
 #   1. Ollama is running and Gemma 4 is pulled (only when MODEL_PROVIDER=gemma,
 #      unless JUNE_SKIP_MODEL_CHECK=1 is set).
-#   2. Python 3.10+ venv exists at packages/brain/.venv.
-#   3. Brain, API, and bundled skill packages are installed editable.
-#   4. Backend tests pass.
+#   2. tools/bootstrap.sh has installed the Python and JS workspaces.
+#   3. Backend tests pass through tools/check.sh.
 #
 # Run from the repo root: ./tools/dev.sh
 
@@ -66,26 +65,9 @@ else
   echo "               See docs/setup/desktop.md."
 fi
 
-VENV="packages/brain/.venv"
-if [ ! -d "$VENV" ]; then
-  echo "    venv     : creating at $VENV"
-  python3 -m venv "$VENV"
-  "$VENV/bin/pip" install -q --upgrade pip
-else
-  echo "    venv     : $VENV"
-fi
-
-echo "==> Installing Python workspace packages"
-"$VENV/bin/pip" install -q -e "packages/brain[dev]"
-"$VENV/bin/pip" install -q -e "packages/api[dev]"
-"$VENV/bin/pip" install -q \
-  -e "skills/calendar" \
-  -e "skills/daily" \
-  -e "skills/files" \
-  -e "skills/health" \
-  -e "skills/research"
+./tools/bootstrap.sh
 
 echo "==> Running backend tests"
-"$VENV/bin/python" -m pytest packages/brain/tests packages/api/tests -q
+JUNE_CHECK_FRONTEND=0 JUNE_CHECK_CODEGEN=0 ./tools/check.sh
 
 echo "==> Ready"
