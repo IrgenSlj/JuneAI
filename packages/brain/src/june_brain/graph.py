@@ -10,6 +10,7 @@ import re
 import threading
 import time
 from datetime import datetime
+from hashlib import sha256
 from html import unescape
 from json import JSONDecodeError
 from typing import Annotated, Any, TypedDict
@@ -31,7 +32,7 @@ from .memory import Memory, MemoryManager
 from .models import build_chat_model
 from .skills import DEFAULT_SKILL, build_system_prompt, load_skill_tools
 from .telemetry import record_route_selection, record_save_event, record_tool_call
-from .tools import JUNE_TOOLS, JUNE_TOOLS_CORE, JUNE_TOOLS_GEMMA
+from .tools import JUNE_TOOLS, JUNE_TOOLS_GEMMA
 
 _CONTEXT_CACHE: dict[str, tuple[float, str]] = {}  # user_id -> (timestamp, context)
 _CONTEXT_TTL = 30.0  # seconds
@@ -875,18 +876,69 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
 
 _agent_lock = threading.Lock()
 startup_error: str | None = None
-# When this module is imported inside a skill subprocess (set by the
-# supervisor), do NOT build an agent at import time. The skill only needs
-# memory + server helpers; constructing an agent here would pull in the
-# whole LLM stack and, worse, re-enter the skill supervisor.
-if os.environ.get("JUNE_IS_SKILL_SUBPROCESS") == "1":
-    june_agent = None
-else:
+june_agent: Any | None = None
+_agent_fingerprint: tuple[Any, ...] | None = None
+
+
+def _runtime_fingerprint(runtime: RuntimeConfig) -> tuple[Any, ...]:
+    """Return the runtime fields that require a compiled agent refresh."""
+    api_key_digest = sha256(runtime.api_key.encode("utf-8")).hexdigest() if runtime.api_key else ""
+    return (
+        runtime.preset_key,
+        runtime.provider,
+        runtime.model,
+        runtime.base_url,
+        runtime.temperature,
+        runtime.max_tokens,
+        runtime.tool_strategy,
+        runtime.prompt_style,
+        api_key_digest,
+    )
+
+
+def get_or_create_agent() -> Any:
+    """Return the cached agent, rebuilding it when runtime config changes.
+
+    Agent construction is lazy so importing ``june_brain.graph`` never locks
+    the process to a provider before stored config has been applied.
+    """
+    global june_agent, startup_error, _agent_fingerprint
+    if os.environ.get("JUNE_IS_SKILL_SUBPROCESS") == "1":
+        raise RuntimeError("June agent is unavailable inside a skill subprocess.")
+
     try:
-        june_agent = create_june_agent()
-    except Exception as exc:
+        runtime = resolve_runtime_config()
+        fingerprint = _runtime_fingerprint(runtime)
+    except Exception as exc:  # noqa: BLE001
+        with _agent_lock:
+            june_agent = None
+            _agent_fingerprint = None
+            startup_error = str(exc)
+        raise
+
+    with _agent_lock:
+        if june_agent is not None and _agent_fingerprint == fingerprint:
+            return june_agent
+        try:
+            june_agent = create_june_agent(runtime=runtime)
+            _agent_fingerprint = fingerprint
+            startup_error = None
+            return june_agent
+        except Exception as exc:  # noqa: BLE001
+            june_agent = None
+            _agent_fingerprint = None
+            startup_error = str(exc)
+            logging.warning("get_or_create_agent failed: %s", exc)
+            raise
+
+
+def invalidate_agent() -> None:
+    """Clear the cached agent so the next chat request rebuilds from env."""
+    global june_agent, startup_error, _agent_fingerprint
+    with _agent_lock:
         june_agent = None
-        startup_error = str(exc)
+        startup_error = None
+        _agent_fingerprint = None
 
 
 def reload_agent() -> None:
@@ -897,12 +949,15 @@ def reload_agent() -> None:
     that already captured a reference to the old agent keep a working copy
     until their request completes.
     """
-    global june_agent, startup_error
+    global june_agent, startup_error, _agent_fingerprint
     with _agent_lock:
         try:
-            june_agent = create_june_agent()
+            runtime = resolve_runtime_config()
+            june_agent = create_june_agent(runtime=runtime)
+            _agent_fingerprint = _runtime_fingerprint(runtime)
             startup_error = None
         except Exception as exc:  # noqa: BLE001
             june_agent = None
+            _agent_fingerprint = None
             startup_error = str(exc)
             logging.warning("reload_agent failed: %s", exc)

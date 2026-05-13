@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from hashlib import sha256
 from pathlib import Path
 from typing import Any, Callable
 
@@ -376,17 +377,51 @@ class MemoryManager:
         ref = ref_for(row)
         text = paraphrase(row).strip()
         stores = ["sqlite"]
-        if text:
-            try:
-                self.vector.upsert(
-                    text=text,
-                    source=source,
-                    metadata={"kind": kind, "ref": ref},
-                )
-                stores.append("vector")
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("memory.write: vector paraphrase upsert failed for %s: %s", ref, exc)
+        if self._sync_structured_vector(kind, ref, text, source):
+            stores.append("vector")
         return {"written": True, "kind": kind, "ref": ref, "stores": stores}
+
+    def _sync_structured_vector(
+        self,
+        kind: str,
+        ref: str,
+        text: str,
+        source: str,
+    ) -> bool:
+        """Replace the vector paraphrase for one structured memory ref."""
+        text = text.strip()
+        try:
+            self.vector.delete_by_ref(ref)
+            if not text:
+                return False
+            self.vector.upsert(
+                text=text,
+                source=source,
+                metadata={"kind": kind, "ref": ref},
+                fact_id=_vector_fact_id(ref),
+            )
+            return True
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("memory.write: vector paraphrase sync failed for %s: %s", ref, exc)
+            return False
+
+    def _delete_structured_vector(self, ref: str) -> int:
+        try:
+            return self.vector.delete_by_ref(ref)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("memory.forget: vector paraphrase delete failed for %s: %s", ref, exc)
+            return 0
+
+    def _delete_structured_vector_prefix(self, ref_prefix: str) -> int:
+        try:
+            return self.vector.delete_by_ref_prefix(ref_prefix)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "memory.forget: vector paraphrase prefix delete failed for %s: %s",
+                ref_prefix,
+                exc,
+            )
+            return 0
 
     def _write_goal(self, fields: dict[str, Any], source: str) -> dict[str, Any]:
         title = str(fields.get("title", "")).strip()
@@ -460,16 +495,8 @@ class MemoryManager:
         ref = f"journal:{row.get('id', '')}"
         text = _paraphrase_journal(row)
         stores = ["sqlite"]
-        if text:
-            try:
-                self.vector.upsert(
-                    text=text,
-                    source=source,
-                    metadata={"kind": "journal", "ref": ref},
-                )
-                stores.append("vector")
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("memory.write: vector paraphrase upsert failed for %s: %s", ref, exc)
+        if self._sync_structured_vector("journal", ref, text, source):
+            stores.append("vector")
         return {"written": True, "kind": "journal", "ref": ref, "stores": stores}
 
     def _write_body_metric(self, fields: dict[str, Any], source: str) -> dict[str, Any]:
@@ -503,16 +530,8 @@ class MemoryManager:
         ref = f"mood:{row.get('timestamp', '')}"
         text = _paraphrase_mood(row)
         stores = ["sqlite"]
-        if text:
-            try:
-                self.vector.upsert(
-                    text=text,
-                    source=source,
-                    metadata={"kind": "mood", "ref": ref},
-                )
-                stores.append("vector")
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("memory.write: vector paraphrase upsert failed for %s: %s", ref, exc)
+        if self._sync_structured_vector("mood", ref, text, source):
+            stores.append("vector")
         return {"written": True, "kind": "mood", "ref": ref, "stores": stores}
 
     # ------------------------------------------------------------------
@@ -690,26 +709,40 @@ class MemoryManager:
             return False
         if ref.startswith("goal:"):
             title = ref.removeprefix("goal:")
-            return self.sqlite.delete_goal(title)
+            removed_sqlite = self.sqlite.delete_goal(title)
+            removed_vector = self._delete_structured_vector(ref)
+            return removed_sqlite or removed_vector > 0
         if ref.startswith("open_loop:"):
             topic = ref.removeprefix("open_loop:")
-            return self.sqlite.delete_open_loop(topic)
+            removed_sqlite = self.sqlite.delete_open_loop(topic)
+            removed_vector = self._delete_structured_vector(ref)
+            return removed_sqlite or removed_vector > 0
         if ref.startswith("calendar:"):
             body = ref.removeprefix("calendar:")
             parts = body.split("|", 2)
             title = parts[0]
             date = parts[1] if len(parts) > 1 else ""
             time = parts[2] if len(parts) > 2 else ""
-            return self.sqlite.delete_calendar_item(title, date, time)
+            removed_sqlite = self.sqlite.delete_calendar_item(title, date, time)
+            if len(parts) > 1:
+                removed_vector = self._delete_structured_vector(ref)
+            else:
+                removed_vector = self._delete_structured_vector(ref)
+                removed_vector += self._delete_structured_vector_prefix(f"{ref}|")
+            return removed_sqlite or removed_vector > 0
         if ref.startswith("journal:"):
             entry_id = ref.removeprefix("journal:")
             try:
-                return self.sqlite.delete_journal_entry(int(entry_id))
+                removed_sqlite = self.sqlite.delete_journal_entry(int(entry_id))
             except ValueError:
                 return False
+            removed_vector = self._delete_structured_vector(ref)
+            return removed_sqlite or removed_vector > 0
         if ref.startswith("body_metric:"):
             date = ref.removeprefix("body_metric:")
-            return self.sqlite.delete_body_metric(date)
+            removed_sqlite = self.sqlite.delete_body_metric(date)
+            removed_vector = self._delete_structured_vector(ref)
+            return removed_sqlite or removed_vector > 0
         # Fall-through: treat as a vector fact_id.
         if self.vector.get(ref):
             self.vector.delete(ref)
@@ -720,7 +753,12 @@ class MemoryManager:
     # Update — patch a structured row by ref
     # ------------------------------------------------------------------
 
-    def update(self, ref: str, fields: dict[str, str]) -> dict | None:
+    def update(
+        self,
+        ref: str,
+        fields: dict[str, str],
+        source: str = "manual",
+    ) -> dict | None:
         """Patch a structured-row memory by ``ref``.
 
         Returns the updated row dict (with the *new* fields), or ``None`` if
@@ -733,23 +771,64 @@ class MemoryManager:
             return None
         if ref.startswith("goal:"):
             old_title = ref.removeprefix("goal:")
-            return self.sqlite.update_goal(old_title, **fields)
+            row = self.sqlite.update_goal(old_title, **fields)
+            if row is not None:
+                new_ref = f"goal:{row.get('title', '')}"
+                if new_ref != ref:
+                    self._delete_structured_vector(ref)
+                self._sync_structured_vector(
+                    "goal",
+                    new_ref,
+                    _paraphrase_goal(row),
+                    source,
+                )
+            return row
         if ref.startswith("open_loop:"):
             old_topic = ref.removeprefix("open_loop:")
-            return self.sqlite.update_open_loop(old_topic, **fields)
+            row = self.sqlite.update_open_loop(old_topic, **fields)
+            if row is not None:
+                new_ref = f"open_loop:{row.get('topic', '')}"
+                if new_ref != ref:
+                    self._delete_structured_vector(ref)
+                self._sync_structured_vector(
+                    "open_loop",
+                    new_ref,
+                    _paraphrase_open_loop(row),
+                    source,
+                )
+            return row
         if ref.startswith("calendar:"):
             body = ref.removeprefix("calendar:")
             parts = body.split("|", 2)
             old_title = parts[0]
             old_date = parts[1] if len(parts) > 1 else ""
             old_time = parts[2] if len(parts) > 2 else ""
-            return self.sqlite.update_calendar_item(old_title, old_date, old_time, **fields)
+            row = self.sqlite.update_calendar_item(old_title, old_date, old_time, **fields)
+            if row is not None:
+                new_ref = (
+                    f"calendar:{row.get('title', '')}|"
+                    f"{row.get('date', '')}|{row.get('time', '')}"
+                )
+                if new_ref != ref:
+                    self._delete_structured_vector(ref)
+                self._sync_structured_vector(
+                    "calendar",
+                    new_ref,
+                    _paraphrase_calendar(row),
+                    source,
+                )
+            return row
         return None
 
 
 # ----------------------------------------------------------------------
 # Helpers
 # ----------------------------------------------------------------------
+
+def _vector_fact_id(ref: str) -> str:
+    digest = sha256(ref.encode("utf-8")).hexdigest()[:32]
+    return f"structured-{digest}"
+
 
 def _paraphrase_goal(row: dict[str, Any]) -> str:
     title = str(row.get("title", "")).strip()
@@ -916,9 +995,10 @@ def _default_extractor_llm(prompt: str) -> str:
     resolve the runtime config (which would require an API key for the
     Gemini preset).
     """
+    from langchain_core.messages import HumanMessage
+
     from ..config import resolve_runtime_config
     from ..models import build_chat_model
-    from langchain_core.messages import HumanMessage
 
     runtime = resolve_runtime_config()
     llm = build_chat_model(runtime)

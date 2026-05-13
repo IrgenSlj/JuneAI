@@ -10,13 +10,14 @@ from __future__ import annotations
 import json
 from collections.abc import AsyncIterator
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
-from langchain_core.messages import AIMessage, ToolMessage
-
 from june_api.app import create_app
 from june_api.routes.chat import get_agent
+from june_brain.memory import vector as vector_module
+from langchain_core.messages import AIMessage, ToolMessage
 
 
 class _FakeAgent:
@@ -24,10 +25,12 @@ class _FakeAgent:
 
     def __init__(self, script: list[tuple[str, Any]]) -> None:
         self._script = script
+        self.states: list[dict[str, Any]] = []
 
     async def astream(
-        self, _state: dict, stream_mode: list[str] | None = None
+        self, state: dict, stream_mode: list[str] | None = None
     ) -> AsyncIterator[tuple[str, Any]]:
+        self.states.append(state)
         for item in self._script:
             yield item
 
@@ -43,15 +46,21 @@ def _parse_sse(body: str) -> list[dict]:
 
 
 @pytest.fixture
-def client_with_agent():
+def client_with_agent(tmp_path):
     """Build a TestClient whose /chat uses a caller-supplied fake agent."""
-    app = create_app()
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)), patch(
+        "june_api.routes.chat.MemoryManager.extract",
+        return_value={"facts": 0, "entities": 0, "relations": 0},
+    ):
+        vector_module.reset_singletons()
+        app = create_app()
 
-    def _install(agent: _FakeAgent) -> TestClient:
-        app.dependency_overrides[get_agent] = lambda: agent
-        return TestClient(app)
+        def _install(agent: Any) -> TestClient:
+            app.dependency_overrides[get_agent] = lambda: agent
+            return TestClient(app)
 
-    return _install
+        yield _install
+        vector_module.reset_singletons()
 
 
 def test_chat_streams_tokens_tool_calls_and_done(client_with_agent):
@@ -189,15 +198,42 @@ def test_chat_dedupes_tool_calls_across_message_and_update(client_with_agent):
     assert len(tool_call_events) == 1
 
 
+def test_chat_reuses_persisted_history_between_turns(client_with_agent):
+    first_agent = _FakeAgent(
+        [("messages", (AIMessage(content="I will remember green."), {}))]
+    )
+    client = client_with_agent(first_agent)
+    first = client.post(
+        "/chat",
+        json={"user_id": "context-user", "message": "My favorite color is green."},
+    )
+    assert first.status_code == 200
+
+    second_agent = _FakeAgent(
+        [("messages", (AIMessage(content="You told me it is green."), {}))]
+    )
+    client = client_with_agent(second_agent)
+    second = client.post(
+        "/chat",
+        json={"user_id": "context-user", "message": "What color do I like?"},
+    )
+    assert second.status_code == 200
+
+    contents = [message.content for message in second_agent.states[0]["messages"]]
+    assert contents[-3:] == [
+        "My favorite color is green.",
+        "I will remember green.",
+        "What color do I like?",
+    ]
+
+
 def test_chat_emits_error_frame_on_failure(client_with_agent):
     class _BrokenAgent:
         async def astream(self, _state, stream_mode=None):
             yield ("messages", (AIMessage(content="partial "), {}))
             raise RuntimeError("upstream exploded")
 
-    app = create_app()
-    app.dependency_overrides[get_agent] = lambda: _BrokenAgent()
-    client = TestClient(app)
+    client = client_with_agent(_BrokenAgent())
 
     response = client.post(
         "/chat",

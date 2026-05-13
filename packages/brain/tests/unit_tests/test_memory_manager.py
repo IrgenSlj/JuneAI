@@ -6,12 +6,13 @@ import json
 from unittest.mock import patch
 
 import pytest
-
 from june_brain.memory import (
     KnowledgeGraph,
     Memory,
     MemoryManager,
     VectorStore,
+)
+from june_brain.memory import (
     vector as vector_module,
 )
 from june_brain.memory.manager import _parse_json_block
@@ -353,6 +354,54 @@ def test_write_goal_writes_sqlite_and_paraphrases_to_vector(manager):
     # the structured field — this is the whole point of C.1.
     hits = manager.recall("rust", k=5)
     assert any(h["source"] == "vector" and "Rust" in h["text"] for h in hits)
+
+
+def test_forget_goal_removes_vector_paraphrase(manager):
+    result = manager.write(
+        {
+            "kind": "goal",
+            "fields": {
+                "title": "learn Rust",
+                "category": "career",
+                "next_step": "install rustup",
+            },
+        },
+        source="manual",
+    )
+    ref = result["ref"]
+    assert manager.vector.fact_ids_for_ref(ref)
+
+    assert manager.forget(ref) is True
+
+    assert manager.vector.fact_ids_for_ref(ref) == []
+    facts = manager.vector.list_facts(limit=20)
+    assert not any("rust" in fact["text"].lower() for fact in facts)
+
+
+def test_update_goal_refreshes_vector_paraphrase(manager):
+    result = manager.write(
+        {
+            "kind": "goal",
+            "fields": {
+                "title": "old name",
+                "category": "career",
+                "next_step": "install rustup",
+            },
+        },
+        source="manual",
+    )
+    old_ref = result["ref"]
+
+    updated = manager.update(old_ref, {"title": "new name", "next_step": "read"})
+
+    assert updated is not None
+    new_ref = "goal:new name"
+    assert manager.vector.fact_ids_for_ref(old_ref) == []
+    new_ids = manager.vector.fact_ids_for_ref(new_ref)
+    assert new_ids
+    facts = manager.vector.list_facts(limit=20)
+    assert any(fact["metadata"].get("ref") == new_ref for fact in facts)
+    assert not any("old name" in fact["text"].lower() for fact in facts)
 
 
 def test_write_journal_attaches_id_in_ref(manager):

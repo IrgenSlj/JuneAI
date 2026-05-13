@@ -231,6 +231,30 @@ class VectorStore:
             "created_at": row["created_at"],
         }
 
+    def fact_ids_for_ref(self, ref: str) -> list[str]:
+        """Return semantic fact IDs whose metadata points at a structured ref."""
+        rows = _get_connection(_db_path()).execute(
+            "SELECT fact_id, metadata FROM semantic_facts WHERE user_id=?",
+            (self.user_id,),
+        ).fetchall()
+        return [
+            r["fact_id"]
+            for r in rows
+            if str(_loads(r["metadata"]).get("ref", "")) == ref
+        ]
+
+    def fact_ids_for_ref_prefix(self, ref_prefix: str) -> list[str]:
+        """Return semantic fact IDs whose structured ref starts with a prefix."""
+        rows = _get_connection(_db_path()).execute(
+            "SELECT fact_id, metadata FROM semantic_facts WHERE user_id=?",
+            (self.user_id,),
+        ).fetchall()
+        return [
+            r["fact_id"]
+            for r in rows
+            if str(_loads(r["metadata"]).get("ref", "")).startswith(ref_prefix)
+        ]
+
     # ------------------------------------------------------------------
     # Deletes
     # ------------------------------------------------------------------
@@ -246,6 +270,20 @@ class VectorStore:
             (self.user_id, fact_id),
         )
         _get_connection(_db_path()).commit()
+
+    def delete_by_ref(self, ref: str) -> int:
+        """Remove every semantic paraphrase attached to a structured ref."""
+        fact_ids = self.fact_ids_for_ref(ref)
+        for fact_id in fact_ids:
+            self.delete(fact_id)
+        return len(fact_ids)
+
+    def delete_by_ref_prefix(self, ref_prefix: str) -> int:
+        """Remove every semantic paraphrase attached to refs with a prefix."""
+        fact_ids = self.fact_ids_for_ref_prefix(ref_prefix)
+        for fact_id in fact_ids:
+            self.delete(fact_id)
+        return len(fact_ids)
 
 
 def _flatten_for_chroma(value: Any) -> Any:

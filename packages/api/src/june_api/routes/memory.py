@@ -8,10 +8,7 @@ recall no longer surfaces it.
 
 from __future__ import annotations
 
-from fastapi import APIRouter
-
-from fastapi import HTTPException
-
+from fastapi import APIRouter, HTTPException
 from june_brain.memory import KnowledgeGraph, Memory, MemoryManager, VectorStore
 
 from ..schemas import (
@@ -197,7 +194,7 @@ def update_memory_fact(
             detail=f"PATCH not supported for ref kind '{ref_kind or '<unknown>'}'",
         )
     manager = MemoryManager(user_id)
-    row = manager.update(ref, payload.fields)
+    row = manager.update(ref, payload.fields, source="api")
     if row is None:
         raise HTTPException(status_code=404, detail=f"Fact not found: {ref}")
     fact = _row_to_memory_fact(ref_kind, row)

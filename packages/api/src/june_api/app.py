@@ -10,10 +10,8 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from june_brain.config_store import apply_stored_config_to_env
 
-from .routes import chat, demo, memory, settings, setup, skills, system
 from .schemas import ChatEvent, RecallHit
 
 apply_stored_config_to_env()
@@ -41,6 +39,8 @@ def _cors_origins() -> list[str]:
 
 def create_app() -> FastAPI:
     """Assemble the FastAPI instance."""
+    from .routes import chat, demo, memory, settings, setup, skills, system
+
     app = FastAPI(
         title="June API",
         version="0.2.0",

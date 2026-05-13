@@ -14,7 +14,6 @@ from unittest.mock import patch
 import pytest
 from chromadb.api.types import EmbeddingFunction
 from fastapi.testclient import TestClient
-
 from june_api.app import create_app
 from june_brain.memory import vector as vector_module
 
@@ -157,6 +156,38 @@ def test_delete_goal_row_removes_from_snapshot(memory_env, client):
 
     snapshot = client.get("/memory/alex").json()
     assert all(g["title"].lower() != "learn rust" for g in snapshot["goals"])
+
+
+def test_delete_goal_removes_semantic_paraphrase(memory_env, client):
+    created = client.post(
+        "/memory/alex/fact",
+        json={
+            "kind": "goal",
+            "fields": {
+                "title": "learn rust",
+                "category": "career",
+                "next_step": "install rustup",
+            },
+        },
+    )
+    assert created.status_code == 200
+    ref = created.json()["ref"]
+
+    snapshot = client.get("/memory/alex").json()
+    assert any(
+        fact["metadata"].get("ref") == ref
+        for fact in snapshot["semantic_facts"]
+    )
+
+    response = client.delete(f"/memory/alex/fact/{ref}")
+    assert response.status_code == 200
+    assert response.json()["removed"] is True
+
+    snapshot = client.get("/memory/alex").json()
+    assert not any(
+        "rust" in fact["body"].lower()
+        for fact in snapshot["semantic_facts"]
+    )
 
 
 def test_patch_goal_in_place(memory_env, client):

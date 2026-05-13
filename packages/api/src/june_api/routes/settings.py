@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 
 from fastapi import APIRouter
-
+from june_brain import graph as brain_graph
 from june_brain.config import resolve_runtime_config
 from june_brain.config_store import (
     forget_gemini_key,
@@ -82,4 +82,5 @@ def forget_key() -> ForgetKeyResponse:
     """Delete the Gemini key from the OS credential store and the JSON fallback."""
     location = forget_gemini_key()
     os.environ.pop("GEMINI_API_KEY", None)
+    brain_graph.invalidate_agent()
     return ForgetKeyResponse(cleared_from=location)

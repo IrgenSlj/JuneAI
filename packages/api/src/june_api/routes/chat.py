@@ -8,11 +8,10 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from june_brain import graph as brain_graph
+from june_brain.memory import Memory, MemoryManager
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from starlette.background import BackgroundTask
-
-from june_brain import graph as brain_graph
-from june_brain.memory import MemoryManager
 
 from ..schemas import ChatEvent, ChatRequest, RecallHit
 
@@ -27,14 +26,13 @@ def get_agent() -> Any:
     ``app.dependency_overrides[get_agent] = ...`` without touching
     process-global state.
     """
-    if brain_graph.june_agent is not None:
-        return brain_graph.june_agent
-    if brain_graph.startup_error:
+    try:
+        return brain_graph.get_or_create_agent()
+    except Exception as exc:  # noqa: BLE001
         raise HTTPException(
             status_code=503,
-            detail=f"June agent failed to start: {brain_graph.startup_error}",
-        )
-    return brain_graph.create_june_agent()
+            detail=f"June agent failed to start: {brain_graph.startup_error or exc}",
+        ) from exc
 
 
 def _event_to_sse(event: ChatEvent) -> str:
@@ -76,13 +74,26 @@ def _tool_result_event(message: ToolMessage) -> ChatEvent:
     )
 
 
+def _messages_for_turn(user_id: str, user_text: str) -> list[Any]:
+    """Persist the user turn and return the conversation context for the agent."""
+    if not user_text.strip():
+        return [HumanMessage(content=user_text)]
+    try:
+        memory = Memory(user_id)
+        memory.save_message("user", user_text)
+        return memory.load_chat_messages()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("chat history load failed for user=%s: %s", user_id, exc)
+        return [HumanMessage(content=user_text)]
+
+
 async def _iter_events(
     agent: Any,
     request: ChatRequest,
     assistant_buffer: list[str],
 ) -> AsyncIterator[str]:
     state = {
-        "messages": [HumanMessage(content=request.message)],
+        "messages": _messages_for_turn(request.user_id, request.message),
         "user_id": request.user_id,
         "skill": request.skill,
         "ui_state": _empty_ui_state(),
@@ -134,14 +145,19 @@ async def _iter_events(
         yield _event_to_sse(ChatEvent(type="error", content=str(exc)))
 
 
-def _run_extract(user_id: str, user_text: str, assistant_buffer: list[str]) -> None:
-    """Post-stream background task: extract durable memory from the exchange.
+def _run_post_chat(user_id: str, user_text: str, assistant_buffer: list[str]) -> None:
+    """Post-stream background task: persist the answer and extract memory.
 
     Runs after the SSE response is fully sent so the user never waits for
     the extractor LLM call. Any error here stays out of the user's view —
     memory extraction is best-effort; the chat already succeeded.
     """
     assistant_text = "".join(assistant_buffer).strip()
+    if assistant_text:
+        try:
+            Memory(user_id).save_message("assistant", assistant_text)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("assistant message save failed for user=%s: %s", user_id, exc)
     if not user_text.strip() and not assistant_text:
         return
     try:
@@ -175,6 +191,6 @@ async def chat(
             "X-Accel-Buffering": "no",
         },
         background=BackgroundTask(
-            _run_extract, request.user_id, request.message, assistant_buffer
+            _run_post_chat, request.user_id, request.message, assistant_buffer
         ),
     )

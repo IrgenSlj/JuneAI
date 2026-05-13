@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 
 from fastapi import APIRouter, HTTPException
-
+from june_brain import graph as brain_graph
 from june_brain.config import DEFAULT_RUNTIME_PRESET, resolve_runtime_config
 from june_brain.config_store import (
     StoredConfig,
@@ -83,6 +83,7 @@ def apply_setup(request: SetupApplyRequest) -> SetupApplyResponse:
 
     save_stored_config(stored)
     _apply_to_env(stored)
+    brain_graph.invalidate_agent()
 
     try:
         runtime = resolve_runtime_config(request.provider)
@@ -117,6 +118,17 @@ def apply_setup(request: SetupApplyRequest) -> SetupApplyResponse:
             )
 
     verified, message, hint = _verify_round_trip(runtime)
+    if verified:
+        brain_graph.reload_agent()
+        if brain_graph.startup_error:
+            return SetupApplyResponse(
+                ok=False,
+                provider=runtime.preset_key,
+                model=runtime.model,
+                verified=True,
+                message=f"Provider verified, but June failed to reload: {brain_graph.startup_error}",
+                hint="Check the runtime logs, then try applying the provider again.",
+            )
     return SetupApplyResponse(
         ok=verified,
         provider=runtime.preset_key,
