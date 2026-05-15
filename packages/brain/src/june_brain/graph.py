@@ -19,6 +19,7 @@ from uuid import uuid4
 from langchain_core.messages import AIMessage, AnyMessage, SystemMessage, ToolMessage
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.runtime import Runtime
 from langgraph.types import StreamWriter
 
 from .config import RuntimeConfig, resolve_runtime_config
@@ -829,7 +830,10 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
                 route=state.get("skill", DEFAULT_SKILL),
                 payload={"tool_call_id": call.get("id", "")},
             )
-        result = _normalize_tool_node_result(tool_node.invoke(state), state.get("ui_state") or {})
+        result = _normalize_tool_node_result(
+            tool_node._func(state, {}, Runtime(stream_writer=writer)),
+            state.get("ui_state") or {},
+        )
         tool_messages = [
             message for message in result.get("messages", []) if isinstance(message, ToolMessage)
         ]

@@ -1,10 +1,9 @@
 from unittest.mock import patch
 
 import pytest
+from june_brain.graph import create_june_agent
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.types import Command
-
-from june_brain.graph import create_june_agent
 
 pytestmark = pytest.mark.anyio
 
@@ -137,7 +136,7 @@ async def test_agent_handles_single_command_toolnode_result(tmp_path) -> None:
     )
 
     with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)), patch(
-        "june_brain.graph.ToolNode.invoke",
+        "june_brain.graph.ToolNode._func",
         return_value=command_result,
     ):
         result = await agent.ainvoke(inputs)
