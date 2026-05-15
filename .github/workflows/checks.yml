@@ -34,7 +34,7 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     env:
-      JUNE_DATA_DIR: ${{ runner.temp }}/june-data
+      JUNE_DATA_DIR: /tmp/june-data
       JUNE_SKIP_MODEL_CHECK: "1"
       JUNE_SKILLS_DISABLED: "1"
       JUNE_SKIP_PNPM_INSTALL: "1"
