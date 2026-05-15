@@ -101,6 +101,16 @@ Open http://localhost:5173 for the chat surface. The app defaults to **light mod
 - `/settings` — switch providers, update your Gemini key, or toggle theme
 - `/help/ollama` — troubleshooting for local Gemma via Ollama
 
+To inspect June's memory outside the app, export an Obsidian vault:
+
+```bash
+python tools/export_obsidian.py --user local --vault ~/JuneMemory
+```
+
+The export writes Markdown notes for memory and skills plus an Obsidian Canvas
+map of the system architecture. The same payload is available from
+`GET /obsidian/{user_id}` for custom tooling.
+
 ## Migrating from v1
 
 If you ran the v1 Streamlit app locally and want to keep your conversation history:

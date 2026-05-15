@@ -18,6 +18,8 @@
   let editingRef: string | null = $state(null);
   let editFields: Record<string, string> = $state({});
   let pendingSave = $state(false);
+  let exportingObsidian = $state(false);
+  let obsidianCount: number | null = $state(null);
 
   type SectionKind =
     | "semantic"
@@ -252,6 +254,29 @@
     }
   }
 
+  async function downloadObsidianExport() {
+    if (exportingObsidian) return;
+    exportingObsidian = true;
+    actionError = null;
+    try {
+      const payload = await client.getObsidianExport(profileName.value);
+      obsidianCount = payload.count;
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `june-obsidian-${profileName.value}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      actionError = err instanceof Error ? err.message : String(err);
+    } finally {
+      exportingObsidian = false;
+    }
+  }
+
   function metadataEntries(fact: MemoryFact): [string, string][] {
     const meta = fact.metadata ?? {};
     return Object.entries(meta)
@@ -317,6 +342,23 @@
         {snapshot.recent_messages ?? 0} message{(snapshot.recent_messages ?? 0) === 1 ? "" : "s"} in history
       {/if}
     </p>
+
+    <section class="obsidian">
+      <div>
+        <h2>Obsidian</h2>
+        <p>
+          Export this profile as a vault-shaped set of Markdown notes and an
+          Obsidian Canvas map for memory, skills, and system architecture.
+        </p>
+        <code>python tools/export_obsidian.py --user {profileName.value}</code>
+      </div>
+      <button type="button" onclick={downloadObsidianExport} disabled={exportingObsidian}>
+        {exportingObsidian ? "Exporting…" : "Download JSON"}
+      </button>
+      {#if obsidianCount !== null}
+        <span class="export-count">{obsidianCount} files</span>
+      {/if}
+    </section>
 
     {#each filteredSections as section (section.id)}
       {#if !query.trim() || section.facts.length > 0}
@@ -500,6 +542,65 @@
     border-radius: var(--radius-md);
     padding: var(--space-3);
     font-size: var(--size-sm);
+  }
+
+  .obsidian {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: var(--space-3);
+    background: var(--color-bg-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+  }
+  .obsidian h2 {
+    margin: 0 0 var(--space-1);
+    font-size: var(--size-md);
+    font-weight: 600;
+    color: var(--color-fg-primary);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .obsidian p {
+    margin: 0 0 var(--space-2);
+    color: var(--color-fg-muted);
+    font-size: var(--size-sm);
+    line-height: var(--leading-normal);
+  }
+  .obsidian code {
+    font-family: var(--font-mono);
+    color: var(--color-fg-subtle);
+    font-size: var(--size-xs);
+    overflow-wrap: anywhere;
+  }
+  .obsidian button {
+    background: var(--color-bg);
+    color: var(--color-fg-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    font: inherit;
+    font-size: var(--size-sm);
+    cursor: pointer;
+  }
+  .obsidian button:hover:not(:disabled) {
+    border-color: var(--color-accent);
+  }
+  .obsidian button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .export-count {
+    color: var(--color-fg-subtle);
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+  }
+  @media (max-width: 720px) {
+    .obsidian {
+      grid-template-columns: 1fr;
+      align-items: stretch;
+    }
   }
 
   @keyframes shimmer {

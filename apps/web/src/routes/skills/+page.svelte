@@ -15,6 +15,7 @@
   let loadError: string | null = $state(null);
   let actionError: string | null = $state(null);
   let pendingToggle: string | null = $state(null);
+  let pendingToolToggle: string | null = $state(null);
 
   type WritesState = {
     loading: boolean;
@@ -75,6 +76,21 @@
       actionError = err instanceof Error ? err.message : String(err);
     } finally {
       pendingToggle = null;
+    }
+  }
+
+  async function toggleTool(skill: SkillInfo, toolName: string, enabled: boolean) {
+    const key = `${skill.key}:${toolName}`;
+    if (pendingToolToggle) return;
+    pendingToolToggle = key;
+    actionError = null;
+    try {
+      await client.toggleSkillTool(skill.key, toolName, enabled);
+      await refresh();
+    } catch (err) {
+      actionError = err instanceof Error ? err.message : String(err);
+    } finally {
+      pendingToolToggle = null;
     }
   }
 
@@ -204,10 +220,30 @@
             <ul class="tools">
               {#each skill.tools as tool (tool.name)}
                 <li class="tool">
-                  <code>{tool.name}</code>
-                  {#if tool.description}
-                    <span class="tool-desc">{tool.description}</span>
-                  {/if}
+                  <div class="tool-main">
+                    <div class="tool-line">
+                      <code>{tool.name}</code>
+                      <span class="tool-state" class:off={!tool.enabled}>
+                        {tool.enabled ? "enabled" : "disabled"}
+                      </span>
+                    </div>
+                    {#if tool.description}
+                      <span class="tool-desc">{tool.description}</span>
+                    {/if}
+                  </div>
+                  <button
+                    type="button"
+                    class="tool-toggle"
+                    onclick={() => toggleTool(skill, tool.name, !tool.enabled)}
+                    disabled={pendingToolToggle === `${skill.key}:${tool.name}` || !skill.enabled}
+                    aria-label={tool.enabled ? "Disable tool" : "Enable tool"}
+                  >
+                    {pendingToolToggle === `${skill.key}:${tool.name}`
+                      ? "…"
+                      : tool.enabled
+                        ? "Disable"
+                        : "Enable"}
+                  </button>
                 </li>
               {/each}
             </ul>
@@ -503,8 +539,27 @@
   .tool {
     display: flex;
     gap: var(--space-2);
-    align-items: baseline;
+    align-items: flex-start;
+    justify-content: space-between;
     font-size: var(--size-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2);
+    background: var(--color-bg);
+  }
+
+  .tool-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .tool-line {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    flex-wrap: wrap;
   }
 
   .tool code {
@@ -512,8 +567,37 @@
     color: var(--color-fg-primary);
   }
 
+  .tool-state {
+    color: var(--color-accent);
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+  }
+  .tool-state.off {
+    color: var(--color-fg-subtle);
+  }
+
   .tool-desc {
     color: var(--color-fg-muted);
+  }
+
+  .tool-toggle {
+    background: transparent;
+    color: var(--color-fg-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-2);
+    font: inherit;
+    font-size: var(--size-xs);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .tool-toggle:hover:not(:disabled) {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+  .tool-toggle:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
 
   .muted {

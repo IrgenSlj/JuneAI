@@ -16,6 +16,7 @@ from .memory import (
     MemoryWriteRequest,
     MemoryWriteResponse,
 )
+from .obsidian import ObsidianExportResponse, ObsidianFile
 from .settings import ForgetKeyResponse, SettingsView
 from .setup import SetupApplyRequest, SetupApplyResponse, SetupStatus
 from .skills import (
@@ -44,6 +45,8 @@ __all__ = [
     "MemoryUpdateResponse",
     "MemoryWriteRequest",
     "MemoryWriteResponse",
+    "ObsidianExportResponse",
+    "ObsidianFile",
     "SettingsView",
     "ForgetKeyResponse",
     "SetupApplyRequest",

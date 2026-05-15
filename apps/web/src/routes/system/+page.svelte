@@ -78,6 +78,16 @@
   const runningSkillCount = $derived(
     skills.filter((s) => s.status === "running").length,
   );
+  const skillToolCounts = $derived.by(() => {
+    const tools = skills.flatMap((skill) =>
+      (skill.tools ?? []).map((tool) => ({ ...tool, skill: skill.key })),
+    );
+    return {
+      total: tools.length,
+      enabled: tools.filter((tool) => tool.enabled).length,
+      disabled: tools.filter((tool) => !tool.enabled),
+    };
+  });
 
 </script>
 
@@ -153,9 +163,10 @@
         </div>
         <ul class="endpoints">
           <li><code>POST /chat</code> — SSE stream of <code>token</code> · <code>tool_call</code> · <code>recall</code> · <code>tool_result</code> · <code>done</code></li>
-          <li><code>GET /memory/{"{user}"}</code>, <code>PATCH /memory/{"{user}"}/fact/{"{ref}"}</code>, <code>DELETE /memory/{"{user}"}/fact/{"{ref}"}</code></li>
+          <li><code>GET /memory/{"{user}"}</code>, <code>POST /memory/{"{user}"}/fact</code>, <code>PATCH /memory/{"{user}"}/fact/{"{ref}"}</code>, <code>DELETE /memory/{"{user}"}/fact/{"{ref}"}</code></li>
           <li><code>POST /memory/{"{user}"}/feedback</code> — thumbs up / down on recalled memories</li>
-          <li><code>GET /skills</code>, <code>POST /skills/{"{key}"}/toggle</code></li>
+          <li><code>GET /skills</code>, <code>POST /skills/{"{key}"}/toggle</code>, <code>POST /skills/{"{key}"}/tools/{"{tool}"}/toggle</code></li>
+          <li><code>GET /obsidian/{"{user}"}</code> — Markdown + Canvas vault export</li>
           <li><code>GET /system</code>, <code>GET /setup</code>, <code>POST /setup</code>, <code>GET /settings</code></li>
         </ul>
       </div>
@@ -246,6 +257,13 @@
           <h2>Skills</h2>
           <span class="badge ok">{runningSkillCount} of {enabledSkillCount} running</span>
         </div>
+        <div class="store">
+          <h3>Tool surface</h3>
+          <ul class="counts">
+            <li><span>tools enabled</span><b>{skillToolCounts.enabled}</b></li>
+            <li><span>tools total</span><b>{skillToolCounts.total}</b></li>
+          </ul>
+        </div>
         <ul class="skill-list">
           {#each skills as skill (skill.key)}
             <li class="skill-row">
@@ -254,12 +272,21 @@
                 <span class="skill-tag" data-status={skill.status}>{skill.status}</span>
               </div>
               <div class="skill-tools">
+                {(skill.tools ?? []).filter((tool) => tool.enabled).length} of
                 {skill.tools?.length ?? 0}
-                {(skill.tools?.length ?? 0) === 1 ? "tool" : "tools"}
+                {(skill.tools?.length ?? 0) === 1 ? "tool" : "tools"} enabled
               </div>
             </li>
           {/each}
         </ul>
+        {#if skillToolCounts.disabled.length}
+          <div class="disabled-tools">
+            <h3>Disabled tools</h3>
+            {#each skillToolCounts.disabled as tool (`${tool.skill}:${tool.name}`)}
+              <code>{tool.skill}.{tool.name}</code>
+            {/each}
+          </div>
+        {/if}
       </div>
 
       <!-- Provider -->
@@ -570,6 +597,25 @@
     font-size: var(--size-xs);
     color: var(--color-fg-subtle);
     font-family: var(--font-mono);
+  }
+
+  .disabled-tools {
+    border-top: 1px dashed var(--color-border);
+    padding-top: var(--space-2);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+  }
+  .disabled-tools h3 {
+    flex-basis: 100%;
+  }
+  .disabled-tools code {
+    font-size: var(--size-xs);
+    color: var(--color-fg-subtle);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 2px 6px;
   }
 
   .kv {

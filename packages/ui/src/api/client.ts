@@ -23,11 +23,15 @@ export type MemoryUpdateRequest = components["schemas"]["MemoryUpdateRequest"];
 export type MemoryUpdateResponse = components["schemas"]["MemoryUpdateResponse"];
 export type MemoryFeedbackRequest = components["schemas"]["MemoryFeedbackRequest"];
 export type MemoryFeedbackResponse = components["schemas"]["MemoryFeedbackResponse"];
+export type MemoryWriteRequest = components["schemas"]["MemoryWriteRequest"];
+export type MemoryWriteResponse = components["schemas"]["MemoryWriteResponse"];
+export type ObsidianExportResponse = components["schemas"]["ObsidianExportResponse"];
 export type SkillInfo = components["schemas"]["SkillInfo"];
 export type SkillToolInfo = components["schemas"]["SkillToolInfo"];
 export type SkillsResponse = components["schemas"]["SkillsResponse"];
 export type SkillToggleRequest = components["schemas"]["SkillToggleRequest"];
 export type SkillToggleResponse = components["schemas"]["SkillToggleResponse"];
+export type SkillToolToggleResponse = components["schemas"]["SkillToolToggleResponse"];
 export type SkillWriteRecord = components["schemas"]["SkillWriteRecord"];
 export type SkillWritesResponse = components["schemas"]["SkillWritesResponse"];
 export type SystemStatus = components["schemas"]["SystemStatus"];
@@ -168,9 +172,61 @@ export function createJuneClient(options: JuneClientOptions) {
       return getJson<SkillWritesResponse>(path);
     },
 
+    /** POST /skills/{key}/tools/{tool}/toggle — enable or disable a single tool. */
+    async toggleSkillTool(
+      key: string,
+      tool: string,
+      enabled: boolean,
+    ): Promise<SkillToolToggleResponse> {
+      const response = await fetchImpl(
+        `${baseUrl}/skills/${encodeURIComponent(key)}/tools/${encodeURIComponent(tool)}/toggle`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({ enabled }),
+        },
+      );
+      if (!response.ok) {
+        throw new ApiError(response.status, response.statusText, await response.text());
+      }
+      return (await response.json()) as SkillToolToggleResponse;
+    },
+
     /** GET /memory/{user_id} — structured highlights of what June remembers. */
     getMemory(userId: string): Promise<MemorySnapshot> {
       return getJson<MemorySnapshot>(`/memory/${encodeURIComponent(userId)}`);
+    },
+
+    /** GET /obsidian/{user_id} — Markdown and Canvas files for an Obsidian vault. */
+    getObsidianExport(userId: string): Promise<ObsidianExportResponse> {
+      return getJson<ObsidianExportResponse>(
+        `/obsidian/${encodeURIComponent(userId)}`,
+      );
+    },
+
+    /** POST /memory/{user_id}/fact — manually write a structured or semantic fact. */
+    async writeMemoryFact(
+      userId: string,
+      request: MemoryWriteRequest,
+    ): Promise<MemoryWriteResponse> {
+      const response = await fetchImpl(
+        `${baseUrl}/memory/${encodeURIComponent(userId)}/fact`,
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(request),
+        },
+      );
+      if (!response.ok) {
+        throw new ApiError(response.status, response.statusText, await response.text());
+      }
+      return (await response.json()) as MemoryWriteResponse;
     },
 
     /**

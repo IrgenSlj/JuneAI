@@ -39,7 +39,7 @@ def _cors_origins() -> list[str]:
 
 def create_app() -> FastAPI:
     """Assemble the FastAPI instance."""
-    from .routes import chat, demo, memory, settings, setup, skills, system
+    from .routes import chat, demo, memory, obsidian, settings, setup, skills, system
 
     app = FastAPI(
         title="June API",
@@ -54,13 +54,14 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=_cors_origins(),
         allow_credentials=False,
-        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["*"],
     )
 
     app.include_router(chat.router)
     app.include_router(demo.router)
     app.include_router(memory.router)
+    app.include_router(obsidian.router)
     app.include_router(settings.router)
     app.include_router(setup.router)
     app.include_router(skills.router)

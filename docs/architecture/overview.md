@@ -62,6 +62,7 @@ Routes:
 - **`POST /skills/{key}/toggle`** — runtime skill toggling.
 - **`POST /skills/{key}/tools/{tool}/toggle`** — per-tool toggling inside a skill.
 - **`GET /system`** — model provider status, Ollama health, memory paths.
+- **`GET /obsidian/{user_id}`** — vault-shaped Markdown and Canvas export for memory, skills, and architecture inspection.
 
 Manual fact editing exists through `POST /memory/{user_id}/fact` and `PATCH /memory/{user_id}/fact/{ref}` for the supported structured fact kinds.
 
