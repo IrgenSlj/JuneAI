@@ -160,10 +160,32 @@ def _verify_round_trip(runtime) -> tuple[bool, str, str]:
     return True, "", ""
 
 
+_GENERIC_HINT = "Check your network and credentials, then try again."
+
+# Hints for the verify round-trip, keyed by preset. Each entry is a list of
+# (substring-match, hint) pairs evaluated in order; the first match wins.
+# Centralised here so a vendor changing its error wording is a one-line edit
+# and so the set of error cases is reviewable in one place.
+_ERROR_HINTS: dict[str, list[tuple[str, str]]] = {
+    "gemini": [
+        ("401", "The Gemini API key looks invalid. Generate a new one at https://aistudio.google.com."),
+        ("api key", "The Gemini API key looks invalid. Generate a new one at https://aistudio.google.com."),
+        ("permission", "The Gemini API key looks invalid. Generate a new one at https://aistudio.google.com."),
+        ("quota", "Gemini quota exceeded for this key. Try again later or use a different key."),
+        ("rate limit", "Gemini rate-limited this key. Wait a minute and retry."),
+    ],
+    "gemma": [
+        ("connection", "Ollama isn't accepting connections. Is `ollama serve` running?"),
+        ("refused", "Ollama isn't accepting connections. Is `ollama serve` running?"),
+        ("not found", "The model tag isn't pulled. Run `ollama pull <model>` and retry."),
+        ("timeout", "Ollama took too long to respond. The model may still be loading — retry in a moment."),
+    ],
+}
+
+
 def _error_hint(runtime, exc: Exception) -> str:
     message = str(exc).lower()
-    if runtime.preset_key == "gemini" and ("401" in message or "api key" in message or "permission" in message):
-        return "The Gemini API key looks invalid. Generate a new one at https://aistudio.google.com."
-    if runtime.preset_key == "gemma" and "connection" in message:
-        return "Ollama isn't accepting connections. Is `ollama serve` running?"
-    return "Check your network and credentials, then try again."
+    for needle, hint in _ERROR_HINTS.get(runtime.preset_key, []):
+        if needle in message:
+            return hint
+    return _GENERIC_HINT
