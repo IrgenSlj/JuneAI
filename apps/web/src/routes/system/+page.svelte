@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import {
     OfflineNotice,
+    ConfirmDialog,
     type ActivityEntryView,
     type MemorySnapshot,
     type SkillInfo,
@@ -20,6 +21,7 @@
   let activity: ActivityEntryView[] = $state([]);
   let loading = $state(true);
   let clearingActivity = $state(false);
+  let confirmClearOpen = $state(false);
   let lastRefresh: Date | null = $state(null);
   let loadError: string | null = $state(null);
   let timer: ReturnType<typeof setInterval> | null = null;
@@ -79,9 +81,12 @@
       : 0,
   );
 
-  async function clearActivity() {
+  function clearActivity() {
     if (clearingActivity) return;
-    if (!confirm("Clear the entire activity log? This cannot be undone.")) return;
+    confirmClearOpen = true;
+  }
+
+  async function doClearActivity() {
     clearingActivity = true;
     try {
       await client.clearActivity();
@@ -403,6 +408,15 @@
     </div>
   </section>
 </main>
+
+<ConfirmDialog
+  bind:open={confirmClearOpen}
+  title="Clear activity log"
+  message="Clear the entire activity log? This cannot be undone."
+  confirmLabel="Clear log"
+  danger={true}
+  onConfirm={doClearActivity}
+/>
 
 <style>
   .page {

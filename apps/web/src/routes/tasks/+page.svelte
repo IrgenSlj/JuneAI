@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { OfflineNotice, type TaskView } from "@june/ui";
+  import { OfflineNotice, ConfirmDialog, type TaskView } from "@june/ui";
   import { client } from "$lib/api.js";
   import { formatRelative } from "$lib/dates.js";
   import { profileName } from "$lib/stores/user.svelte.js";
@@ -15,6 +15,9 @@
   let creating = $state(false);
 
   let expanded: Record<string, boolean> = $state({});
+
+  let confirmOpen = $state(false);
+  let confirmTask: TaskView | null = $state(null);
 
   async function refresh() {
     loading = true;
@@ -66,7 +69,13 @@
 
   async function removeTask(task: TaskView) {
     if (pendingAction) return;
-    if (!confirm(`Delete this task?\n\n"${task.goal}"`)) return;
+    confirmTask = task;
+    confirmOpen = true;
+  }
+
+  async function doRemoveTask() {
+    if (!confirmTask) return;
+    const task = confirmTask;
     pendingAction = `${task.id}:delete`;
     actionError = null;
     try {
@@ -76,6 +85,7 @@
       actionError = err instanceof Error ? err.message : String(err);
     } finally {
       pendingAction = null;
+      confirmTask = null;
     }
   }
 
@@ -188,6 +198,16 @@
     {/if}
   {/if}
 </main>
+
+<ConfirmDialog
+  bind:open={confirmOpen}
+  title="Delete task"
+  message={confirmTask ? `Delete this task?\n\n"${confirmTask.goal}"` : "Delete this task?"}
+  confirmLabel="Delete"
+  danger={true}
+  onConfirm={doRemoveTask}
+  onCancel={() => { confirmTask = null; }}
+/>
 
 {#snippet taskCard(task: TaskView)}
   <li class="task">

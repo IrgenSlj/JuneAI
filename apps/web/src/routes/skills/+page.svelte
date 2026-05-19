@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import {
     OfflineNotice,
+    ConfirmDialog,
     type RegistryEntry,
     type SkillInfo,
     type SkillsResponse,
@@ -24,6 +25,9 @@
   let registryLoading = $state(false);
   let registryError: string | null = $state(null);
   let pendingRegistryAction: string | null = $state(null);
+
+  let confirmUninstallOpen = $state(false);
+  let confirmEntry: RegistryEntry | null = $state(null);
 
   // Playground state per (skill_key + tool_name).
   let playgroundArgs: Record<string, Record<string, string>> = $state({});
@@ -162,9 +166,15 @@
     }
   }
 
-  async function uninstallRegistry(entry: RegistryEntry) {
+  function uninstallRegistry(entry: RegistryEntry) {
     if (pendingRegistryAction) return;
-    if (!confirm(`Remove ${entry.name} from your installed skills?`)) return;
+    confirmEntry = entry;
+    confirmUninstallOpen = true;
+  }
+
+  async function doUninstallRegistry() {
+    if (!confirmEntry) return;
+    const entry = confirmEntry;
     pendingRegistryAction = entry.key;
     actionError = null;
     try {
@@ -174,6 +184,7 @@
       actionError = err instanceof Error ? err.message : String(err);
     } finally {
       pendingRegistryAction = null;
+      confirmEntry = null;
     }
   }
 
@@ -589,6 +600,16 @@
     {/if}
   </section>
 </main>
+
+<ConfirmDialog
+  bind:open={confirmUninstallOpen}
+  title="Uninstall skill"
+  message={confirmEntry ? `Remove ${confirmEntry.name} from your installed skills?` : "Remove this skill?"}
+  confirmLabel="Uninstall"
+  danger={true}
+  onConfirm={doUninstallRegistry}
+  onCancel={() => { confirmEntry = null; }}
+/>
 
 <style>
   .page {

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { type PrivacyDial, type SettingsView, type SetupApplyResponse } from "@june/ui";
+  import { ConfirmDialog, type PrivacyDial, type SettingsView, type SetupApplyResponse } from "@june/ui";
   import { client, apiUrl } from "$lib/api.js";
   import { getPlatform, UnsupportedError } from "@june/ui/platform";
   import { profileName, setProfileName } from "$lib/stores/user.svelte.js";
@@ -20,6 +20,8 @@
   let note: string | null = $state(null);
   let notifyState: "idle" | "ok" | "denied" | "unsupported" = $state("idle");
   let profileInput = $state(profileName.value);
+
+  let confirmForgetOpen = $state(false);
 
   const isDesktop = platform.runtime === "tauri";
   let autostart = $state(false);
@@ -125,8 +127,11 @@
     }
   }
 
-  async function handleForgetKey() {
-    if (!confirm("Remove the saved Gemini key from this machine?")) return;
+  function handleForgetKey() {
+    confirmForgetOpen = true;
+  }
+
+  async function doForgetKey() {
     busy = true;
     note = null;
     try {
@@ -465,6 +470,15 @@
     {/if}
   {/if}
 </main>
+
+<ConfirmDialog
+  bind:open={confirmForgetOpen}
+  title="Forget Gemini key"
+  message="Remove the saved Gemini key from this machine?"
+  confirmLabel="Remove key"
+  danger={true}
+  onConfirm={doForgetKey}
+/>
 
 <style>
   .page {
