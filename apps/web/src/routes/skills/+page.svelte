@@ -571,7 +571,12 @@
                     onclick={() => installRegistry(entry)}
                     disabled={pendingRegistryAction !== null}
                   >
-                    {pendingRegistryAction === entry.key ? "Installing…" : "Install"}
+                    {#if pendingRegistryAction === entry.key}
+                      <span class="spinner" aria-hidden="true"></span>
+                      Installing…
+                    {:else}
+                      Install
+                    {/if}
                   </button>
                 {/if}
               </div>
@@ -1247,4 +1252,22 @@
     overflow-y: auto;
   }
   .play-result.bad { color: var(--color-danger); }
+
+  @keyframes registry-spin {
+    to { transform: rotate(360deg); }
+  }
+  .spinner {
+    display: inline-block;
+    width: 0.8em;
+    height: 0.8em;
+    margin-right: 0.4em;
+    vertical-align: -0.1em;
+    border: 1.5px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: registry-spin 0.8s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .spinner { animation: none; }
+  }
 </style>
