@@ -29,3 +29,5 @@ Status progression:
 | [0006](0006-desktop-and-mobile-shells.md) | Tauri for desktop, Capacitor for mobile | Accepted |
 | [0007](0007-sse-over-websockets.md) | SSE over WebSockets for chat streaming | Accepted |
 | [0008](0008-ollama-supervision.md) | In-app Ollama supervision (use, do not bundle) | Accepted |
+| [0009](0009-private-by-default-and-model-routing.md) | Private-by-default with three-tier model routing | Proposed |
+| [0010](0010-agentic-core-tasks-oauth-computer-use.md) | Agentic core: tasks, OAuth skills, browser/computer use, MCP universal compatibility | Proposed |

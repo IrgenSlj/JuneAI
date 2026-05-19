@@ -99,3 +99,64 @@ class SkillWritesResponse(BaseModel):
     user_id: str
     writes: list[SkillWriteRecord] = Field(default_factory=list)
     count: int = Field(default=0)
+
+
+# ---------------------------------------------------------------------------
+# MCP registry (Sprint 1.6) — third-party skill catalog
+# ---------------------------------------------------------------------------
+
+
+class RegistryInstallSpec(BaseModel):
+    """How a registry entry launches as a subprocess."""
+
+    kind: str = Field(..., description="Launcher kind: 'npx', 'uvx', 'python', or 'binary'.")
+    package: str = Field(..., description="Package identifier (npm name, PyPI name, etc.).")
+    command: str = Field(..., description="Executable used to launch the MCP server.")
+    args: list[str] = Field(default_factory=list, description="Args passed to the command.")
+    env_required: list[str] = Field(
+        default_factory=list,
+        description="Env vars the user must set before this skill can run.",
+    )
+
+
+class RegistryEntry(BaseModel):
+    """One installable third-party MCP server."""
+
+    key: str = Field(..., description="Stable identifier; also the manifest key after install.")
+    name: str
+    description: str = ""
+    homepage: str = ""
+    publisher: str = "unknown"
+    verified: bool = False
+    model_policy: str = Field(
+        default="cloud_allowed",
+        description="One of 'local_only', 'cloud_allowed', 'cloud_required'.",
+    )
+    install: RegistryInstallSpec
+    tools_preview: list[str] = Field(default_factory=list)
+    installed: bool = Field(default=False, description="True if this key already exists in skills.toml.")
+
+
+class RegistryResponse(BaseModel):
+    """GET /skills/registry payload."""
+
+    schema_version: int = 1
+    source: str = "first-party-curated"
+    updated_at: str = ""
+    entries: list[RegistryEntry] = Field(default_factory=list)
+    count: int = 0
+
+
+class RegistryInstallResponse(BaseModel):
+    """POST /skills/registry/{key}/install payload."""
+
+    key: str
+    installed: bool
+    requires_env: list[str] = Field(default_factory=list)
+
+
+class RegistryUninstallResponse(BaseModel):
+    """DELETE /skills/registry/{key} payload."""
+
+    key: str
+    uninstalled: bool

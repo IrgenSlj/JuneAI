@@ -1,6 +1,6 @@
 # Roadmap
 
-This document describes what is left to ship for a useful first prototype, and when each additional surface becomes worth planning in detail. It is organized by trigger, not by week number. A surface is planned when its trigger fires. A surface is implemented when the plan says it is ready.
+This document describes what is left to ship and when each additional surface becomes worth planning in detail. It is organized by trigger, not by week number. A surface is planned when its trigger fires. A surface is implemented when the plan says it is ready.
 
 ## The One Rule
 
@@ -8,99 +8,42 @@ This document describes what is left to ship for a useful first prototype, and w
 
 No parallel construction. No half-finished platforms. Each surface must reach real users before the next one gets detailed design.
 
-## Active Hardening Track: Open Source Readiness
+## Active Track: Agentic Pivot (Sprints 1-4)
 
-Before June is presented as broadly download-and-use software, the project is
-in a focused open-source readiness pass. The detailed execution plan lives in
-[open-source-readiness-plan.md](open-source-readiness-plan.md).
+The full execution plan is at [agentic-pivot-plan.md](agentic-pivot-plan.md). The strategic decisions behind it are [ADR 0009](../decisions/0009-private-by-default-and-model-routing.md) and [ADR 0010](../decisions/0010-agentic-core-tasks-oauth-computer-use.md).
 
-The release bar is:
+The twelve-week plan replaces, in priority terms, the open-source-readiness pass and the memory-skills Phase C items. Those plans remain valid as backlog and will be folded back in once the pivot's Sprint 1 has shipped.
 
-1. Provider correctness: `/setup`, `/settings`, `/system`, and `/chat` agree on
-   the active provider, model, key state, and privacy label.
-2. Conversation continuity: recent turns are available to the chat agent, not
-   only the latest user message.
-3. Memory correctness: editing or deleting a memory updates every store that can
-   feed recall, including semantic paraphrases.
-4. Fresh-clone reliability: the documented Python version, bootstrap scripts,
-   and model-provider paths work from an empty checkout. _Python 3.10 support
-   and split bootstrap/check scripts are shipped; CI now covers Python 3.10,
-   3.11, and 3.12._
-5. Local safety: the API has a basic same-machine authorization boundary, demo
-   routes are opt-in, and network-fetching skills reject private targets.
-6. CI coverage: frontend checks, backend tests, lint/type policy, OpenAPI
-   codegen, and desktop compilation are all enforced or explicitly scoped.
-7. Honest release docs: the README separates working web alpha behavior from
-   experimental desktop source.
+- **Sprint 1 (weeks 1-3) — Agentic Core.** Three-tier model router, tasks primitive, real files/gmail/gcal skills, browser skill, MCP registry connector, desktop shell first compile.
+- **Sprint 2 (weeks 4-6) — Dogfooding.** Owner uses June daily, journals failures, rewrites Sprint 3 backlog from observed pain.
+- **Sprint 3 (weeks 7-9) — Installable for humans.** Signed installers, three-question first-run flow, public landing page, README rewrite for mainstream users.
+- **Sprint 4 (weeks 10-12) — 50-user closed beta.** Discord, weekly office hours, per-week metric tracking, written go/no-go decision.
 
-This hardening track temporarily outranks new feature surfaces. Once the
-Public Alpha Gate in the readiness plan is complete, feature work returns to the
-trigger-gated roadmap below.
+## Current Surface: Web PWA (shipped, evolving with the pivot)
 
-## Current Surface: Web PWA (Shipped)
+The browser application is the first surface for June 1.0. Installable through the browser's native install flow. Works offline against a local Ollama. Works online against Gemini. No account, no cloud dependency beyond the optional model call. The first prototype checklist is fully shipped as of 2026-04-20.
 
-The browser application is the first surface for June 1.0. Installable through the browser's native install flow. Works offline against a local Ollama. Works online against Gemini. No account. No cloud dependency beyond the optional model call. The prototype checklist below is fully shipped as of 2026-04-20.
+The web PWA remains the primary surface during the pivot. The desktop shell does not retire it; the same SvelteKit build serves both.
 
-The web PWA remains the primary surface, but the open-source readiness track
-above is the current development priority before inviting broad public usage.
+The agentic capabilities being added in Sprint 1 will appear in the PWA where the browser's sandbox allows: file access via the File System Access API where supported, OAuth via same-origin popups, MCP-server installation in registry-browse-only mode. Browser-controlled automation and computer use are desktop-only by physical necessity.
 
-The desktop shell (next section) does not retire the PWA. The PWA remains a first-class surface and the same SvelteKit build serves both.
+### Done Criteria for the Prototype (achieved 2026-04-20)
 
-### Remaining Work for the First Working Prototype
-
-Ordered by dependency, not priority.
-
-1. **First-run setup flow.** A `/setup` route that detects Ollama reachability, lets the user pick a provider, paste a Gemini key if they chose cloud, and verifies end to end before landing them on the chat screen. Until this exists, a new user has to read the README to get past the first screen. _Shipped._
-2. **API key entry UI.** A settings screen that reads and writes `GEMINI_API_KEY` through a new API surface. Keys are stored in the platform's native credential store when available and in `config.json` with mode 0600 otherwise. Never logged, never echoed back to the UI after save. _Shipped._
-3. **Ollama detection and guidance.** When the provider is `gemma` and Ollama is not reachable, the header's warning should deep-link to a one-screen troubleshooting page with the exact commands to install, pull, and start Ollama for the user's OS. _Shipped._
-4. **PWA installability.** `manifest.webmanifest`, a service worker that caches the shell, icons at the required sizes, and a theme color. `vite-plugin-pwa` generates these. Verify install prompts on Chrome, Edge, and mobile Safari. _Shipped._
-5. **Offline fallback screen.** When the brain is unreachable, render a useful offline state instead of a fetch error. Chat history and memory browser are read-only offline because they fetch from the API; show that clearly rather than spinning. _Shipped._
-6. **Branding.** A wordmark, an app icon set, and a coherent visual identity. See [design/claude-design-prompt.md](../design/claude-design-prompt.md) for the design brief. _Shipped — black "J" wordmark, light mode default, dark mode toggle._
-7. **Chat polish.** Keyboard shortcuts (Cmd+Enter to send, Cmd+K to focus, Esc to cancel stream). Message selection and copy. Regenerate last response. Scroll-to-bottom pinning. _Shipped._
-8. **Memory browser polish.** Search box that filters across all three stores. Grouping by source and date. Empty states that teach the user what to expect. _Shipped._
-9. **Skills registry polish.** A tools-documentation view per skill. Per-tool enable/disable within a skill (skill-level toggle is live). Status tooltips that explain `starting`, `crashed`, `stopped`. _Shipped — skill-level toggle, status tooltips, and collapsible per-skill tool list are live; per-tool toggle deferred until a user asks._
-10. **Accessibility pass.** Keyboard navigation, focus rings, semantic landmarks, color-contrast audit. Screen-reader announcement for streaming tokens is deferred until complaints arrive. _Shipped._
-
-### Done Criteria for the Prototype
-
-A first-time user opens the URL, completes setup in under two minutes, has their first conversation with Gemma or Gemini, sees a memory land in the browser, and toggles at least one skill. The browser prompts them to install. They close the tab and tomorrow open the installed app from their dock or home screen and continue the conversation.
-
-## Current Depth Track: Memory and Skills
-
-The web prototype is shipped, but the contracts between memory, skills, and the chat UI are weaker than the product's first non-negotiable demands ("memory is the product"). This track deepens those contracts in three phases — making memory editable, making recall legible, and making skill writes feed recall. It runs parallel to the desktop-shell track because it touches separate subsystems; both can advance independently. Full plan in [memory-skills-plan.md](memory-skills-plan.md).
-
-The first slice — making goals, open loops, and calendar items deletable — is the smallest end-to-end pattern that proves the architecture move (`MemoryManager.forget` dispatches across stores). Subsequent slices repeat that pattern.
+A first-time user opens the URL, completes setup in under two minutes, has their first conversation with Gemma or Gemini, sees a memory land in the browser, and toggles at least one skill. The browser prompts them to install. They close the tab and the next day open the installed app from their dock or home screen and continue the conversation.
 
 ## Next Surface: Desktop Shell — In Progress
 
 ### Trigger Fired
 
-The Ollama process-supervision capability gap fired the trigger on 2026-04-27. The PWA can detect Ollama reachability but cannot install it, start it, or pull a model on the user's behalf, leaving non-technical users at a terminal-instructions cliff. Closing that cliff requires shell access the browser does not grant. The native shell is the way it gets closed.
+The Ollama process-supervision capability gap fired the trigger on 2026-04-27. The PWA can detect Ollama reachability but cannot install it, start it, or pull a model on the user's behalf, leaving non-technical users at a terminal-instructions cliff. The desktop shell is also the only surface where the agentic core can run at full capability: filesystem access, browser automation, OAuth via loopback redirect, system tray, background tasks, native notifications.
 
-The full plan is in [desktop-shell-plan.md](desktop-shell-plan.md). The architectural decision behind the choice of Tauri lives in [ADR 0006](../decisions/0006-desktop-and-mobile-shells.md); the architectural decision behind in-app Ollama supervision lives in [ADR 0008](../decisions/0008-ollama-supervision.md). Touch and tablet hardening that ships alongside the shell is in [responsive-plan.md](responsive-plan.md).
-
-### What It Is
-
-A Tauri 2.x shell at `apps/desktop/` that wraps the same SvelteKit build. Rust commands expose native capabilities (Ollama supervision, system tray, global hotkey, native notifications, autostart, filesystem) to the UI through the capability layer at `packages/ui/src/platform/`. Distribution packages come after Rust CI, signing, and release automation.
-
-### The Phases (full detail in desktop-shell-plan.md)
-
-1. **Scaffold** — _Shipped (`e2639312`)._ Existing UI runs unchanged inside a Tauri window.
-2. **Capability layer** — _Shipped (`2cd0408b`)._ Typed `packages/ui/src/platform/` interface with Tauri, Capacitor, and Web backends.
-3. **Ollama supervision** — _Shipped (`49400967`)._ Install (opens OS installer), start, pull with streamed progress, model check; one-click `/help/ollama` flow on desktop.
-4. **Native affordances** — _Shipped (`f5e24dfa`)._ Tray, global hotkey, notifications, autostart, window state. Hidden-inset title bar deferred to 4.5.
-5. **Touch and responsive hardening** — _Next._ See [responsive-plan.md](responsive-plan.md).
-6. **Distribution** — code signing, auto-update, GitHub Actions build pipeline.
-7. **Migration and polish** — first-run welcome, opt-in crash reporting, data-path consolidation.
-
-### Estimate
-
-Roughly nine working days plus a one-week external test period. Phases 1–4 took two implementation sessions (TypeScript verified clean; the Rust in 3 and 4 awaits its first compile on a machine with rustup).
+The full plan is in [desktop-shell-plan.md](desktop-shell-plan.md). Phases 1-4 have shipped (scaffold, capability layer, Ollama supervision, native affordances). Phase 4.5 (First Compile — install rustup and verify the Rust code in Phases 3-4 actually builds) is Sprint 1.7 of the agentic pivot. Phases 5-7 (touch hardening, distribution, polish) merge into Sprint 3 of the pivot ("installable for humans").
 
 ### What This Unblocks
 
 - The mobile-shell trigger (push, share extensions, voice) becomes the next one to watch once the desktop shell is in users' hands.
-- The proactive assistant feature plan can begin in parallel late in Phase 4 because tray and notifications are its prerequisites.
+- Background task execution (Sprint 1.2 of the pivot) becomes meaningful: tasks survive laptop sleep, native notifications surface results, the tray icon shows running work.
+- OAuth flows for service skills become reliable: a loopback redirect on `127.0.0.1` is much more robust than the popup-with-postMessage path the PWA must use.
 
 ## Later Surface: Mobile Shell
 
@@ -132,13 +75,13 @@ Features live on top of the surfaces above. Ordered by user-visible impact.
 
 Speech-to-text input and text-to-speech output. The PWA uses the Web Speech API where available. Desktop and mobile shells use native APIs. Plan when at least one user asks for it; implement when three have.
 
-### Proactive Assistant
+### Proactive Agent
 
-June surfaces its own thoughts without being prompted: reminders, gentle nudges, pattern observations. Requires the scheduler (a background loop that inspects memory and pushes messages into the next opened conversation) and a notification channel on each shell. Plan alongside the desktop shell once Phase 4 (native affordances, including notifications) lands; implement after mobile push lands.
+June surfaces its own thoughts without being prompted: reminders, gentle nudges, pattern observations, results of background tasks. Requires the tasks primitive (shipping in Sprint 1.2) plus the scheduler and a notification channel on each shell. Plan once the desktop shell's native notifications are exercised by Sprint 1 tasks; implement once mobile push lands.
 
 ### Skill Marketplace
 
-A browsable registry of community skills, installable in one click. Requires a public index, signing for safety, and a review process. Plan when three external contributors have shipped skills; implement after.
+A browsable registry of community skills, installable in one click. The Sprint 1.6 MCP registry connector ships a minimal version of this against a static, curated index. A richer marketplace with descriptions, ratings, signing, and a review process is planned when three external contributors have shipped skills.
 
 ### Multi-User
 
@@ -146,8 +89,8 @@ One installation, multiple profiles. Requires memory partitioning by user, a pro
 
 ## Things That Are Not On The Roadmap
 
-- **Cloud sync.** Memories stay local. Export and manual import are the cross-device story until a user shows the pain is bigger than the privacy cost.
-- **Team or collaboration features.** June is a personal assistant. An organization layer is a different product.
+- **Cloud sync.** Memories stay local. Export and manual import are the cross-device story until a user shows the pain is bigger than the privacy cost. Cross-device memory sync is considered for a later phase but is not on the twelve-week pivot.
+- **Team or collaboration features.** June is a personal agent. An organisation layer is a different product.
 - **A third model provider.** Gemma and Gemini. A new provider replaces one; it does not add to them.
-- **In-app payments, subscriptions, accounts.** June is free and open.
+- **Account-required modes.** June installs onto your machine. No signup, no login, no cloud dependency by default.
 - **A native app on a platform not listed above.** Android, Linux-only, watchOS, etc. are considered if a contributor ships them, not planned by us.

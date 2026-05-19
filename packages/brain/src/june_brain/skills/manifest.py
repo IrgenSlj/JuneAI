@@ -32,6 +32,10 @@ except ModuleNotFoundError:  # pragma: no cover - 3.10 fallback
 logger = logging.getLogger(__name__)
 
 
+DEFAULT_MODEL_POLICY = "cloud_allowed"
+_VALID_MODEL_POLICIES = frozenset({"local_only", "cloud_allowed", "cloud_required"})
+
+
 @dataclass
 class SkillManifestEntry:
     """One skill's configuration in the manifest."""
@@ -43,6 +47,7 @@ class SkillManifestEntry:
     env: dict[str, str] = field(default_factory=dict)
     description: str = ""
     disabled_tools: list[str] = field(default_factory=list)
+    model_policy: str = DEFAULT_MODEL_POLICY
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -52,7 +57,17 @@ class SkillManifestEntry:
             "env": dict(self.env),
             "description": self.description,
             "disabled_tools": list(self.disabled_tools),
+            "model_policy": self.model_policy,
         }
+
+    def policy_enum(self):  # type: ignore[no-untyped-def]
+        """Return the ``SkillModelPolicy`` enum equivalent of ``model_policy``."""
+        from ..routing import SkillModelPolicy
+
+        try:
+            return SkillModelPolicy(self.model_policy)
+        except ValueError:
+            return SkillModelPolicy.CLOUD_ALLOWED
 
 
 @dataclass
@@ -120,7 +135,12 @@ DEFAULT_MANIFEST: SkillManifest = SkillManifest(
             enabled=True,
             command=sys.executable,
             args=["-m", "june_skill_files"],
-            description="Read local PDFs and extract clean text from webpages.",
+            description=(
+                "Sandboxed filesystem under your HOME: list directories, read text "
+                "files and PDFs, search by filename or content. Also extracts clean "
+                "text from webpages."
+            ),
+            model_policy="local_only",
         ),
         "daily": SkillManifestEntry(
             key="daily",
@@ -173,6 +193,8 @@ def _serialize(manifest: SkillManifest) -> str:
         if entry.disabled_tools:
             tools_inline = ", ".join(f'"{t}"' for t in entry.disabled_tools)
             lines.append(f"disabled_tools = [{tools_inline}]")
+        if entry.model_policy and entry.model_policy != DEFAULT_MODEL_POLICY:
+            lines.append(f'model_policy = "{entry.model_policy}"')
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
@@ -206,6 +228,9 @@ def load_manifest(path: Path | None = None) -> SkillManifest:
         if not isinstance(raw, dict):
             continue
         default = DEFAULT_MANIFEST.entries.get(key)
+        raw_policy = str(raw.get("model_policy") or "").strip().lower()
+        if raw_policy not in _VALID_MODEL_POLICIES:
+            raw_policy = default.model_policy if default else DEFAULT_MODEL_POLICY
         manifest.entries[key] = SkillManifestEntry(
             key=key,
             enabled=bool(raw.get("enabled", True)),
@@ -214,6 +239,7 @@ def load_manifest(path: Path | None = None) -> SkillManifest:
             env=dict(raw.get("env") or {}),
             description=str(raw.get("description") or (default.description if default else "")),
             disabled_tools=[str(t) for t in (raw.get("disabled_tools") or [])],
+            model_policy=raw_policy,
         )
 
     for key, default_entry in DEFAULT_MANIFEST.entries.items():
@@ -239,4 +265,5 @@ def _copy_entry(entry: SkillManifestEntry) -> SkillManifestEntry:
         env=dict(entry.env),
         description=entry.description,
         disabled_tools=list(entry.disabled_tools),
+        model_policy=entry.model_policy,
     )

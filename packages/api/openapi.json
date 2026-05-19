@@ -436,6 +436,48 @@
         }
       }
     },
+    "/settings/privacy-dial": {
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Update Privacy Dial",
+        "description": "Persist a new privacy-dial setting (ADR 0009).",
+        "operationId": "update_privacy_dial_settings_privacy_dial_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivacyDialUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacyDialUpdateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/setup/status": {
       "get": {
         "tags": [
@@ -699,6 +741,114 @@
         }
       }
     },
+    "/skills/registry": {
+      "get": {
+        "tags": [
+          "skills"
+        ],
+        "summary": "List Registry",
+        "description": "List installable third-party MCP servers from the curated registry.",
+        "operationId": "list_registry_skills_registry_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills/registry/{key}/install": {
+      "post": {
+        "tags": [
+          "skills"
+        ],
+        "summary": "Install Registry Entry",
+        "description": "Materialize a registry entry into the user's skill manifest.",
+        "operationId": "install_registry_entry_skills_registry__key__install_post",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryInstallResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills/registry/{key}": {
+      "delete": {
+        "tags": [
+          "skills"
+        ],
+        "summary": "Uninstall Registry Entry",
+        "description": "Remove an installed registry skill from the manifest.",
+        "operationId": "uninstall_registry_entry_skills_registry__key__delete",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryUninstallResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/system": {
       "get": {
         "tags": [
@@ -714,6 +864,283 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SystemStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/{user_id}": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "List Tasks",
+        "operationId": "list_tasks_tasks__user_id__get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Create Task",
+        "operationId": "create_task_tasks__user_id__post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/{user_id}/{task_id}": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Get Task",
+        "operationId": "get_task_tasks__user_id___task_id__get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Patch Task",
+        "operationId": "patch_task_tasks__user_id___task_id__patch",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskPatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Delete Task",
+        "operationId": "delete_task_tasks__user_id___task_id__delete",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskDeleteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -1159,6 +1586,230 @@
         "title": "ObsidianFile",
         "description": "One file to write into an Obsidian vault."
       },
+      "PrivacyDialUpdateRequest": {
+        "properties": {
+          "dial": {
+            "type": "string",
+            "enum": [
+              "local_only",
+              "private_by_default",
+              "cloud_first"
+            ],
+            "title": "Dial",
+            "description": "New dial value."
+          }
+        },
+        "type": "object",
+        "required": [
+          "dial"
+        ],
+        "title": "PrivacyDialUpdateRequest",
+        "description": "Payload for PUT /settings/privacy-dial."
+      },
+      "PrivacyDialUpdateResponse": {
+        "properties": {
+          "dial": {
+            "type": "string",
+            "enum": [
+              "local_only",
+              "private_by_default",
+              "cloud_first"
+            ],
+            "title": "Dial"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dial"
+        ],
+        "title": "PrivacyDialUpdateResponse",
+        "description": "Outcome of PUT /settings/privacy-dial."
+      },
+      "RegistryEntry": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "description": "Stable identifier; also the manifest key after install."
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "homepage": {
+            "type": "string",
+            "title": "Homepage",
+            "default": ""
+          },
+          "publisher": {
+            "type": "string",
+            "title": "Publisher",
+            "default": "unknown"
+          },
+          "verified": {
+            "type": "boolean",
+            "title": "Verified",
+            "default": false
+          },
+          "model_policy": {
+            "type": "string",
+            "title": "Model Policy",
+            "description": "One of 'local_only', 'cloud_allowed', 'cloud_required'.",
+            "default": "cloud_allowed"
+          },
+          "install": {
+            "$ref": "#/components/schemas/RegistryInstallSpec"
+          },
+          "tools_preview": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tools Preview"
+          },
+          "installed": {
+            "type": "boolean",
+            "title": "Installed",
+            "description": "True if this key already exists in skills.toml.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "install"
+        ],
+        "title": "RegistryEntry",
+        "description": "One installable third-party MCP server."
+      },
+      "RegistryInstallResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "installed": {
+            "type": "boolean",
+            "title": "Installed"
+          },
+          "requires_env": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Requires Env"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "installed"
+        ],
+        "title": "RegistryInstallResponse",
+        "description": "POST /skills/registry/{key}/install payload."
+      },
+      "RegistryInstallSpec": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Launcher kind: 'npx', 'uvx', 'python', or 'binary'."
+          },
+          "package": {
+            "type": "string",
+            "title": "Package",
+            "description": "Package identifier (npm name, PyPI name, etc.)."
+          },
+          "command": {
+            "type": "string",
+            "title": "Command",
+            "description": "Executable used to launch the MCP server."
+          },
+          "args": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Args",
+            "description": "Args passed to the command."
+          },
+          "env_required": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Env Required",
+            "description": "Env vars the user must set before this skill can run."
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "package",
+          "command"
+        ],
+        "title": "RegistryInstallSpec",
+        "description": "How a registry entry launches as a subprocess."
+      },
+      "RegistryResponse": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "title": "Schema Version",
+            "default": 1
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "default": "first-party-curated"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At",
+            "default": ""
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/RegistryEntry"
+            },
+            "type": "array",
+            "title": "Entries"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "RegistryResponse",
+        "description": "GET /skills/registry payload."
+      },
+      "RegistryUninstallResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "uninstalled": {
+            "type": "boolean",
+            "title": "Uninstalled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "uninstalled"
+        ],
+        "title": "RegistryUninstallResponse",
+        "description": "DELETE /skills/registry/{key} payload."
+      },
       "SettingsView": {
         "properties": {
           "provider": {
@@ -1221,6 +1872,17 @@
             "type": "string",
             "title": "Key Storage Label",
             "description": "Human-readable storage label for the settings UI."
+          },
+          "privacy_dial": {
+            "type": "string",
+            "enum": [
+              "local_only",
+              "private_by_default",
+              "cloud_first"
+            ],
+            "title": "Privacy Dial",
+            "description": "User's privacy dial (ADR 0009). 'local_only' never calls cloud, 'private_by_default' allows cloud for agentic skills with confirmation, 'cloud_first' prefers cloud and falls back to local when offline.",
+            "default": "private_by_default"
           }
         },
         "type": "object",
@@ -1686,6 +2348,312 @@
         ],
         "title": "SystemStatus",
         "description": "What the shells need to display a honest runtime indicator."
+      },
+      "TaskCreateRequest": {
+        "properties": {
+          "goal": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Goal",
+            "description": "Free-form natural language goal."
+          },
+          "owner_skill": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Skill",
+            "description": "Optional skill key that should own execution of this task."
+          },
+          "schedule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schedule",
+            "description": "Optional schedule descriptor (cron-like) for recurring tasks."
+          }
+        },
+        "type": "object",
+        "required": [
+          "goal"
+        ],
+        "title": "TaskCreateRequest"
+      },
+      "TaskDeleteResponse": {
+        "properties": {
+          "deleted": {
+            "type": "boolean",
+            "title": "Deleted"
+          },
+          "task_id": {
+            "type": "string",
+            "title": "Task Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted",
+          "task_id"
+        ],
+        "title": "TaskDeleteResponse"
+      },
+      "TaskListResponse": {
+        "properties": {
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/TaskView"
+            },
+            "type": "array",
+            "title": "Tasks"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "TaskListResponse"
+      },
+      "TaskPatchRequest": {
+        "properties": {
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "New task status. One of planning, running, paused, awaiting_user, completed, failed, cancelled."
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error",
+            "description": "Optional error message for failed status."
+          }
+        },
+        "type": "object",
+        "title": "TaskPatchRequest"
+      },
+      "TaskStepView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "tool_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Name"
+          },
+          "tool_args": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Args"
+          },
+          "tool_result": {
+            "title": "Tool Result"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "model_provenance": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Provenance"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "index",
+          "description",
+          "status"
+        ],
+        "title": "TaskStepView",
+        "description": "One step inside a task's plan, as seen by the UI."
+      },
+      "TaskView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "goal": {
+            "type": "string",
+            "title": "Goal"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "plan": {
+            "items": {
+              "$ref": "#/components/schemas/TaskStepView"
+            },
+            "type": "array",
+            "title": "Plan"
+          },
+          "owner_skill": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Skill"
+          },
+          "schedule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schedule"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "goal",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TaskView",
+        "description": "A task as returned to the UI."
       },
       "ValidationError": {
         "properties": {

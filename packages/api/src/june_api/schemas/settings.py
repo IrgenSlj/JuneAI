@@ -13,6 +13,9 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+PrivacyDial = Literal["local_only", "private_by_default", "cloud_first"]
+
+
 class SettingsView(BaseModel):
     """Non-secret snapshot of the active configuration."""
 
@@ -35,6 +38,14 @@ class SettingsView(BaseModel):
         ...,
         description="Human-readable storage label for the settings UI.",
     )
+    privacy_dial: PrivacyDial = Field(
+        default="private_by_default",
+        description=(
+            "User's privacy dial (ADR 0009). 'local_only' never calls cloud, "
+            "'private_by_default' allows cloud for agentic skills with confirmation, "
+            "'cloud_first' prefers cloud and falls back to local when offline."
+        ),
+    )
 
 
 class ForgetKeyResponse(BaseModel):
@@ -44,3 +55,15 @@ class ForgetKeyResponse(BaseModel):
         ...,
         description="Where the key actually lived. 'none' means nothing was stored.",
     )
+
+
+class PrivacyDialUpdateRequest(BaseModel):
+    """Payload for PUT /settings/privacy-dial."""
+
+    dial: PrivacyDial = Field(..., description="New dial value.")
+
+
+class PrivacyDialUpdateResponse(BaseModel):
+    """Outcome of PUT /settings/privacy-dial."""
+
+    dial: PrivacyDial

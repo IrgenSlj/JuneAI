@@ -47,6 +47,7 @@ class StoredConfig:
     gemini_model: str | None = None
     gemini_api_key: str | None = None
     ollama_base_url: str | None = None
+    privacy_dial: str | None = None
     extras: dict[str, str] = field(default_factory=dict)
 
     def to_env_patch(self) -> dict[str, str]:
@@ -88,7 +89,14 @@ def load_stored_config() -> StoredConfig:
         if isinstance(parsed, dict):
             raw = parsed
 
-    known = {"provider", "gemma_model", "gemini_model", "gemini_api_key", "ollama_base_url"}
+    known = {
+        "provider",
+        "gemma_model",
+        "gemini_model",
+        "gemini_api_key",
+        "ollama_base_url",
+        "privacy_dial",
+    }
     extras = {
         str(k): str(v)
         for k, v in raw.items()
@@ -103,6 +111,7 @@ def load_stored_config() -> StoredConfig:
         gemini_model=_as_str(raw.get("gemini_model")),
         gemini_api_key=gemini_key,
         ollama_base_url=_as_str(raw.get("ollama_base_url")),
+        privacy_dial=_as_str(raw.get("privacy_dial")),
         extras=extras,
     )
 
@@ -135,6 +144,8 @@ def save_stored_config(config: StoredConfig) -> Path:
         payload["gemini_api_key"] = config.gemini_api_key
     if config.ollama_base_url:
         payload["ollama_base_url"] = config.ollama_base_url
+    if config.privacy_dial:
+        payload["privacy_dial"] = config.privacy_dial
     payload.update(config.extras)
 
     tmp = path.with_suffix(path.suffix + ".tmp")
@@ -210,3 +221,29 @@ def _as_str(value: object) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def get_privacy_dial():  # type: ignore[no-untyped-def]
+    """Return the user's persisted privacy dial, defaulting to PRIVATE_BY_DEFAULT.
+
+    Lazy-imports the enum from ``routing`` to avoid a module-load cycle.
+    """
+    from .routing import UserPrivacyDial
+
+    stored = load_stored_config()
+    raw = (stored.privacy_dial or "").strip().lower()
+    try:
+        return UserPrivacyDial(raw) if raw else UserPrivacyDial.PRIVATE_BY_DEFAULT
+    except ValueError:
+        return UserPrivacyDial.PRIVATE_BY_DEFAULT
+
+
+def set_privacy_dial(dial) -> Path:  # type: ignore[no-untyped-def]
+    """Persist the user's privacy dial and return the config file path."""
+    from .routing import UserPrivacyDial
+
+    if not isinstance(dial, UserPrivacyDial):
+        raise TypeError(f"Expected UserPrivacyDial, got {type(dial).__name__}")
+    stored = load_stored_config()
+    stored.privacy_dial = dial.value
+    return save_stored_config(stored)

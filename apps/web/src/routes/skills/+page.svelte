@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import {
     OfflineNotice,
+    type RegistryEntry,
     type SkillInfo,
     type SkillsResponse,
     type SkillWriteRecord,
@@ -16,6 +17,11 @@
   let actionError: string | null = $state(null);
   let pendingToggle: string | null = $state(null);
   let pendingToolToggle: string | null = $state(null);
+
+  let registry: RegistryEntry[] = $state([]);
+  let registryLoading = $state(false);
+  let registryError: string | null = $state(null);
+  let pendingRegistryAction: string | null = $state(null);
 
   type WritesState = {
     loading: boolean;
@@ -63,7 +69,63 @@
     }
   }
 
-  onMount(refresh);
+  async function refreshRegistry() {
+    registryLoading = true;
+    registryError = null;
+    try {
+      const response = await client.getSkillRegistry();
+      registry = response.entries ?? [];
+    } catch (err) {
+      registryError = err instanceof Error ? err.message : String(err);
+    } finally {
+      registryLoading = false;
+    }
+  }
+
+  async function installRegistry(entry: RegistryEntry) {
+    if (pendingRegistryAction) return;
+    pendingRegistryAction = entry.key;
+    actionError = null;
+    try {
+      await client.installRegistryEntry(entry.key);
+      await Promise.all([refresh(), refreshRegistry()]);
+    } catch (err) {
+      actionError = err instanceof Error ? err.message : String(err);
+    } finally {
+      pendingRegistryAction = null;
+    }
+  }
+
+  async function uninstallRegistry(entry: RegistryEntry) {
+    if (pendingRegistryAction) return;
+    if (!confirm(`Remove ${entry.name} from your installed skills?`)) return;
+    pendingRegistryAction = entry.key;
+    actionError = null;
+    try {
+      await client.uninstallRegistryEntry(entry.key);
+      await Promise.all([refresh(), refreshRegistry()]);
+    } catch (err) {
+      actionError = err instanceof Error ? err.message : String(err);
+    } finally {
+      pendingRegistryAction = null;
+    }
+  }
+
+  function policyLabel(policy: string): string {
+    switch (policy) {
+      case "local_only":
+        return "local-only";
+      case "cloud_required":
+        return "cloud-required";
+      default:
+        return "cloud-allowed";
+    }
+  }
+
+  onMount(async () => {
+    await refresh();
+    void refreshRegistry();
+  });
 
   async function toggle(skill: SkillInfo) {
     if (pendingToggle) return;
@@ -303,6 +365,102 @@
       {/each}
     </ul>
   {/if}
+
+  <section class="registry-section" aria-label="MCP registry">
+    <header class="registry-head">
+      <h2>Browse the MCP registry</h2>
+      <button
+        type="button"
+        class="registry-refresh"
+        onclick={refreshRegistry}
+        disabled={registryLoading}
+      >
+        {registryLoading ? "Loading…" : "Refresh"}
+      </button>
+    </header>
+    <p class="registry-lead">
+      Any third-party MCP server can run as a June skill. These are curated and shipped
+      with the app. Installed skills appear in the list above and become callable by the
+      agent on the next reload.
+    </p>
+
+    {#if registryError}
+      <div class="error" role="alert">Registry failed to load: {registryError}</div>
+    {/if}
+
+    {#if registryLoading && registry.length === 0}
+      <div class="skeleton-list" aria-label="Loading registry…">
+        {#each [1, 2, 3] as _ (_)}
+          <div class="skeleton skeleton-card"></div>
+        {/each}
+      </div>
+    {:else if registry.length === 0 && !registryError}
+      <p class="muted">No registry entries available.</p>
+    {:else}
+      <ul class="registry">
+        {#each registry as entry (entry.key)}
+          <li class="registry-entry">
+            <div class="registry-entry-head">
+              <div class="registry-ident">
+                <div class="registry-name">
+                  {entry.name}
+                  {#if entry.verified}<span class="badge verified">verified</span>{/if}
+                  <span class="badge policy">{policyLabel(entry.model_policy)}</span>
+                </div>
+                {#if entry.description}
+                  <div class="registry-desc">{entry.description}</div>
+                {/if}
+                {#if entry.homepage}
+                  <a class="registry-link" href={entry.homepage} target="_blank" rel="noopener">
+                    {entry.publisher} · source
+                  </a>
+                {/if}
+              </div>
+              <div class="registry-actions">
+                {#if entry.installed}
+                  <button
+                    type="button"
+                    class="registry-btn"
+                    onclick={() => uninstallRegistry(entry)}
+                    disabled={pendingRegistryAction !== null}
+                  >
+                    {pendingRegistryAction === entry.key ? "…" : "Uninstall"}
+                  </button>
+                {:else}
+                  <button
+                    type="button"
+                    class="registry-btn primary"
+                    onclick={() => installRegistry(entry)}
+                    disabled={pendingRegistryAction !== null}
+                  >
+                    {pendingRegistryAction === entry.key ? "Installing…" : "Install"}
+                  </button>
+                {/if}
+              </div>
+            </div>
+
+            {#if entry.install.env_required && entry.install.env_required.length > 0}
+              <div class="registry-env">
+                Requires:
+                {#each entry.install.env_required as envName (envName)}
+                  <code>{envName}</code>
+                {/each}
+              </div>
+            {/if}
+
+            {#if entry.tools_preview && entry.tools_preview.length > 0}
+              <div class="registry-tools">
+                Tools:
+                {#each entry.tools_preview as toolName (toolName)}
+                  <code>{toolName}</code>
+                {/each}
+              </div>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
 </main>
 
 <style>
@@ -686,5 +844,170 @@
     color: var(--color-danger);
     font-size: var(--size-sm);
     margin: var(--space-2) 0 0;
+  }
+
+  .registry-section {
+    margin-top: var(--space-5);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .registry-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+  .registry-head h2 {
+    margin: 0;
+    font-size: var(--size-lg);
+    font-weight: 600;
+  }
+  .registry-refresh {
+    background: var(--color-bg-raised);
+    color: var(--color-fg-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-3);
+    font: inherit;
+    font-size: var(--size-sm);
+    cursor: pointer;
+  }
+  .registry-refresh:hover:not(:disabled) {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+  .registry-lead {
+    color: var(--color-fg-muted);
+    font-size: var(--size-sm);
+    margin: 0;
+  }
+
+  .registry {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .registry-entry {
+    background: var(--color-bg-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .registry-entry-head {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    align-items: flex-start;
+  }
+
+  .registry-ident {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+    flex: 1;
+  }
+
+  .registry-name {
+    font-weight: 600;
+    color: var(--color-fg-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+
+  .registry-desc {
+    color: var(--color-fg-muted);
+    font-size: var(--size-sm);
+  }
+
+  .registry-link {
+    color: var(--color-fg-subtle);
+    font-size: var(--size-xs);
+    text-decoration: none;
+    font-family: var(--font-mono);
+  }
+  .registry-link:hover {
+    color: var(--color-accent);
+    text-decoration: underline;
+  }
+
+  .registry-actions {
+    flex-shrink: 0;
+  }
+
+  .registry-btn {
+    background: transparent;
+    color: var(--color-fg-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-3);
+    font: inherit;
+    font-size: var(--size-sm);
+    cursor: pointer;
+  }
+  .registry-btn:hover:not(:disabled) {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+  .registry-btn.primary {
+    background: var(--color-accent);
+    color: var(--color-bg);
+    border-color: var(--color-accent);
+  }
+  .registry-btn.primary:hover:not(:disabled) {
+    color: var(--color-bg);
+  }
+  .registry-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .badge {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    padding: 1px var(--space-2);
+    border-radius: var(--radius-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .badge.verified {
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  }
+  .badge.policy {
+    color: var(--color-fg-subtle);
+    border: 1px dashed var(--color-border);
+  }
+
+  .registry-env,
+  .registry-tools {
+    font-size: var(--size-xs);
+    color: var(--color-fg-subtle);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+  .registry-env code,
+  .registry-tools code {
+    font-family: var(--font-mono);
+    color: var(--color-fg-muted);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 1px var(--space-2);
   }
 </style>

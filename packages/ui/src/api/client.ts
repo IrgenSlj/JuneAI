@@ -34,12 +34,28 @@ export type SkillToggleResponse = components["schemas"]["SkillToggleResponse"];
 export type SkillToolToggleResponse = components["schemas"]["SkillToolToggleResponse"];
 export type SkillWriteRecord = components["schemas"]["SkillWriteRecord"];
 export type SkillWritesResponse = components["schemas"]["SkillWritesResponse"];
+export type RegistryEntry = components["schemas"]["RegistryEntry"];
+export type RegistryResponse = components["schemas"]["RegistryResponse"];
+export type RegistryInstallResponse = components["schemas"]["RegistryInstallResponse"];
+export type RegistryUninstallResponse = components["schemas"]["RegistryUninstallResponse"];
 export type SystemStatus = components["schemas"]["SystemStatus"];
 export type SetupStatus = components["schemas"]["SetupStatus"];
 export type SetupApplyRequest = components["schemas"]["SetupApplyRequest"];
 export type SetupApplyResponse = components["schemas"]["SetupApplyResponse"];
 export type SettingsView = components["schemas"]["SettingsView"];
 export type ForgetKeyResponse = components["schemas"]["ForgetKeyResponse"];
+// PrivacyDial is a Pydantic Literal alias, inlined by openapi-typescript rather
+// than emitted as a standalone schema entry. We re-derive the union here so
+// callers have a single source of truth for the three values.
+export type PrivacyDial = "local_only" | "private_by_default" | "cloud_first";
+export type PrivacyDialUpdateRequest = components["schemas"]["PrivacyDialUpdateRequest"];
+export type PrivacyDialUpdateResponse = components["schemas"]["PrivacyDialUpdateResponse"];
+export type TaskView = components["schemas"]["TaskView"];
+export type TaskStepView = components["schemas"]["TaskStepView"];
+export type TaskListResponse = components["schemas"]["TaskListResponse"];
+export type TaskCreateRequest = components["schemas"]["TaskCreateRequest"];
+export type TaskPatchRequest = components["schemas"]["TaskPatchRequest"];
+export type TaskDeleteResponse = components["schemas"]["TaskDeleteResponse"];
 
 export interface JuneClientOptions {
   /** Base URL for the API, e.g. "http://localhost:8000". No trailing slash. */
@@ -108,6 +124,22 @@ export function createJuneClient(options: JuneClientOptions) {
       return (await response.json()) as ForgetKeyResponse;
     },
 
+    /** PUT /settings/privacy-dial — persist the user's privacy dial (ADR 0009). */
+    async updatePrivacyDial(dial: PrivacyDial): Promise<PrivacyDialUpdateResponse> {
+      const response = await fetchImpl(`${baseUrl}/settings/privacy-dial`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ dial }),
+      });
+      if (!response.ok) {
+        throw new ApiError(response.status, response.statusText, await response.text());
+      }
+      return (await response.json()) as PrivacyDialUpdateResponse;
+    },
+
     /** POST /setup/apply — persist provider + key choice and verify with a round-trip. */
     async applySetup(request: SetupApplyRequest): Promise<SetupApplyResponse> {
       const response = await fetchImpl(`${baseUrl}/setup/apply`, {
@@ -127,6 +159,35 @@ export function createJuneClient(options: JuneClientOptions) {
     /** GET /skills — MCP skill servers and the tools they expose. */
     getSkills(): Promise<SkillsResponse> {
       return getJson<SkillsResponse>("/skills");
+    },
+
+    /** GET /skills/registry — curated list of installable MCP servers. */
+    getSkillRegistry(): Promise<RegistryResponse> {
+      return getJson<RegistryResponse>("/skills/registry");
+    },
+
+    /** POST /skills/registry/{key}/install — install a third-party MCP server. */
+    async installRegistryEntry(key: string): Promise<RegistryInstallResponse> {
+      const response = await fetchImpl(
+        `${baseUrl}/skills/registry/${encodeURIComponent(key)}/install`,
+        { method: "POST", headers: { Accept: "application/json" } },
+      );
+      if (!response.ok) {
+        throw new ApiError(response.status, response.statusText, await response.text());
+      }
+      return (await response.json()) as RegistryInstallResponse;
+    },
+
+    /** DELETE /skills/registry/{key} — remove an installed registry skill. */
+    async uninstallRegistryEntry(key: string): Promise<RegistryUninstallResponse> {
+      const response = await fetchImpl(
+        `${baseUrl}/skills/registry/${encodeURIComponent(key)}`,
+        { method: "DELETE", headers: { Accept: "application/json" } },
+      );
+      if (!response.ok) {
+        throw new ApiError(response.status, response.statusText, await response.text());
+      }
+      return (await response.json()) as RegistryUninstallResponse;
     },
 
     /**
@@ -198,6 +259,67 @@ export function createJuneClient(options: JuneClientOptions) {
     /** GET /memory/{user_id} — structured highlights of what June remembers. */
     getMemory(userId: string): Promise<MemorySnapshot> {
       return getJson<MemorySnapshot>(`/memory/${encodeURIComponent(userId)}`);
+    },
+
+    /** GET /tasks/{user_id} — list this user's tasks, newest first. */
+    getTasks(userId: string, status?: string, limit = 50): Promise<TaskListResponse> {
+      const params = new URLSearchParams();
+      if (status) params.set("status", status);
+      params.set("limit", String(limit));
+      const path = `/tasks/${encodeURIComponent(userId)}?${params.toString()}`;
+      return getJson<TaskListResponse>(path);
+    },
+
+    /** GET /tasks/{user_id}/{task_id} — one task with its full step trace. */
+    getTask(userId: string, taskId: string): Promise<TaskView> {
+      return getJson<TaskView>(
+        `/tasks/${encodeURIComponent(userId)}/${encodeURIComponent(taskId)}`,
+      );
+    },
+
+    /** POST /tasks/{user_id} — create a new task in the planning state. */
+    async createTask(userId: string, request: TaskCreateRequest): Promise<TaskView> {
+      const response = await fetchImpl(`${baseUrl}/tasks/${encodeURIComponent(userId)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(request),
+      });
+      if (!response.ok) {
+        throw new ApiError(response.status, response.statusText, await response.text());
+      }
+      return (await response.json()) as TaskView;
+    },
+
+    /** PATCH /tasks/{user_id}/{task_id} — pause, resume, cancel, complete. */
+    async patchTask(
+      userId: string,
+      taskId: string,
+      request: TaskPatchRequest,
+    ): Promise<TaskView> {
+      const response = await fetchImpl(
+        `${baseUrl}/tasks/${encodeURIComponent(userId)}/${encodeURIComponent(taskId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify(request),
+        },
+      );
+      if (!response.ok) {
+        throw new ApiError(response.status, response.statusText, await response.text());
+      }
+      return (await response.json()) as TaskView;
+    },
+
+    /** DELETE /tasks/{user_id}/{task_id} — remove a task. */
+    async deleteTask(userId: string, taskId: string): Promise<TaskDeleteResponse> {
+      const response = await fetchImpl(
+        `${baseUrl}/tasks/${encodeURIComponent(userId)}/${encodeURIComponent(taskId)}`,
+        { method: "DELETE", headers: { Accept: "application/json" } },
+      );
+      if (!response.ok) {
+        throw new ApiError(response.status, response.statusText, await response.text());
+      }
+      return (await response.json()) as TaskDeleteResponse;
     },
 
     /** GET /obsidian/{user_id} — Markdown and Canvas files for an Obsidian vault. */

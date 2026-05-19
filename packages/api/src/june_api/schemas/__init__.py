@@ -17,9 +17,20 @@ from .memory import (
     MemoryWriteResponse,
 )
 from .obsidian import ObsidianExportResponse, ObsidianFile
-from .settings import ForgetKeyResponse, SettingsView
+from .settings import (
+    ForgetKeyResponse,
+    PrivacyDial,
+    PrivacyDialUpdateRequest,
+    PrivacyDialUpdateResponse,
+    SettingsView,
+)
 from .setup import SetupApplyRequest, SetupApplyResponse, SetupStatus
 from .skills import (
+    RegistryEntry,
+    RegistryInstallResponse,
+    RegistryInstallSpec,
+    RegistryResponse,
+    RegistryUninstallResponse,
     SkillInfo,
     SkillsResponse,
     SkillToggleRequest,
@@ -31,6 +42,14 @@ from .skills import (
     SkillWritesResponse,
 )
 from .system import SystemStatus
+from .tasks import (
+    TaskCreateRequest,
+    TaskDeleteResponse,
+    TaskListResponse,
+    TaskPatchRequest,
+    TaskStepView,
+    TaskView,
+)
 
 __all__ = [
     "ChatEvent",
@@ -49,6 +68,9 @@ __all__ = [
     "ObsidianFile",
     "SettingsView",
     "ForgetKeyResponse",
+    "PrivacyDial",
+    "PrivacyDialUpdateRequest",
+    "PrivacyDialUpdateResponse",
     "SetupApplyRequest",
     "SetupApplyResponse",
     "SetupStatus",
@@ -61,5 +83,16 @@ __all__ = [
     "SkillToolToggleResponse",
     "SkillWriteRecord",
     "SkillWritesResponse",
+    "RegistryEntry",
+    "RegistryInstallResponse",
+    "RegistryInstallSpec",
+    "RegistryResponse",
+    "RegistryUninstallResponse",
     "SystemStatus",
+    "TaskCreateRequest",
+    "TaskDeleteResponse",
+    "TaskListResponse",
+    "TaskPatchRequest",
+    "TaskStepView",
+    "TaskView",
 ]

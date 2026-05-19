@@ -34,3 +34,7 @@ package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"june_brain.skills" = ["registry_index.json"]
+"june_brain.memory" = ["extractor_prompt.txt"]

@@ -232,6 +232,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings/privacy-dial": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Privacy Dial
+         * @description Persist a new privacy-dial setting (ADR 0009).
+         */
+        put: operations["update_privacy_dial_settings_privacy_dial_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/setup/status": {
         parameters: {
             query?: never;
@@ -365,6 +385,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/skills/registry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Registry
+         * @description List installable third-party MCP servers from the curated registry.
+         */
+        get: operations["list_registry_skills_registry_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/skills/registry/{key}/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Install Registry Entry
+         * @description Materialize a registry entry into the user's skill manifest.
+         */
+        post: operations["install_registry_entry_skills_registry__key__install_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/skills/registry/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Uninstall Registry Entry
+         * @description Remove an installed registry skill from the manifest.
+         */
+        delete: operations["uninstall_registry_entry_skills_registry__key__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system": {
         parameters: {
             query?: never;
@@ -388,6 +468,43 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/tasks/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Tasks */
+        get: operations["list_tasks_tasks__user_id__get"];
+        put?: never;
+        /** Create Task */
+        post: operations["create_task_tasks__user_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tasks/{user_id}/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Task */
+        get: operations["get_task_tasks__user_id___task_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Task */
+        delete: operations["delete_task_tasks__user_id___task_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Task */
+        patch: operations["patch_task_tasks__user_id___task_id__patch"];
         trace?: never;
     };
     "/healthz": {
@@ -700,6 +817,158 @@ export interface components {
             content: string;
         };
         /**
+         * PrivacyDialUpdateRequest
+         * @description Payload for PUT /settings/privacy-dial.
+         */
+        PrivacyDialUpdateRequest: {
+            /**
+             * Dial
+             * @description New dial value.
+             * @enum {string}
+             */
+            dial: "local_only" | "private_by_default" | "cloud_first";
+        };
+        /**
+         * PrivacyDialUpdateResponse
+         * @description Outcome of PUT /settings/privacy-dial.
+         */
+        PrivacyDialUpdateResponse: {
+            /**
+             * Dial
+             * @enum {string}
+             */
+            dial: "local_only" | "private_by_default" | "cloud_first";
+        };
+        /**
+         * RegistryEntry
+         * @description One installable third-party MCP server.
+         */
+        RegistryEntry: {
+            /**
+             * Key
+             * @description Stable identifier; also the manifest key after install.
+             */
+            key: string;
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Homepage
+             * @default
+             */
+            homepage: string;
+            /**
+             * Publisher
+             * @default unknown
+             */
+            publisher: string;
+            /**
+             * Verified
+             * @default false
+             */
+            verified: boolean;
+            /**
+             * Model Policy
+             * @description One of 'local_only', 'cloud_allowed', 'cloud_required'.
+             * @default cloud_allowed
+             */
+            model_policy: string;
+            install: components["schemas"]["RegistryInstallSpec"];
+            /** Tools Preview */
+            tools_preview?: string[];
+            /**
+             * Installed
+             * @description True if this key already exists in skills.toml.
+             * @default false
+             */
+            installed: boolean;
+        };
+        /**
+         * RegistryInstallResponse
+         * @description POST /skills/registry/{key}/install payload.
+         */
+        RegistryInstallResponse: {
+            /** Key */
+            key: string;
+            /** Installed */
+            installed: boolean;
+            /** Requires Env */
+            requires_env?: string[];
+        };
+        /**
+         * RegistryInstallSpec
+         * @description How a registry entry launches as a subprocess.
+         */
+        RegistryInstallSpec: {
+            /**
+             * Kind
+             * @description Launcher kind: 'npx', 'uvx', 'python', or 'binary'.
+             */
+            kind: string;
+            /**
+             * Package
+             * @description Package identifier (npm name, PyPI name, etc.).
+             */
+            package: string;
+            /**
+             * Command
+             * @description Executable used to launch the MCP server.
+             */
+            command: string;
+            /**
+             * Args
+             * @description Args passed to the command.
+             */
+            args?: string[];
+            /**
+             * Env Required
+             * @description Env vars the user must set before this skill can run.
+             */
+            env_required?: string[];
+        };
+        /**
+         * RegistryResponse
+         * @description GET /skills/registry payload.
+         */
+        RegistryResponse: {
+            /**
+             * Schema Version
+             * @default 1
+             */
+            schema_version: number;
+            /**
+             * Source
+             * @default first-party-curated
+             */
+            source: string;
+            /**
+             * Updated At
+             * @default
+             */
+            updated_at: string;
+            /** Entries */
+            entries?: components["schemas"]["RegistryEntry"][];
+            /**
+             * Count
+             * @default 0
+             */
+            count: number;
+        };
+        /**
+         * RegistryUninstallResponse
+         * @description DELETE /skills/registry/{key} payload.
+         */
+        RegistryUninstallResponse: {
+            /** Key */
+            key: string;
+            /** Uninstalled */
+            uninstalled: boolean;
+        };
+        /**
          * SettingsView
          * @description Non-secret snapshot of the active configuration.
          */
@@ -761,6 +1030,13 @@ export interface components {
              * @description Human-readable storage label for the settings UI.
              */
             key_storage_label: string;
+            /**
+             * Privacy Dial
+             * @description User's privacy dial (ADR 0009). 'local_only' never calls cloud, 'private_by_default' allows cloud for agentic skills with confirmation, 'cloud_first' prefers cloud and falls back to local when offline.
+             * @default private_by_default
+             * @enum {string}
+             */
+            privacy_dial: "local_only" | "private_by_default" | "cloud_first";
         };
         /**
          * SetupApplyRequest
@@ -1099,6 +1375,116 @@ export interface components {
              * @default false
              */
             api_key_present: boolean;
+        };
+        /** TaskCreateRequest */
+        TaskCreateRequest: {
+            /**
+             * Goal
+             * @description Free-form natural language goal.
+             */
+            goal: string;
+            /**
+             * Owner Skill
+             * @description Optional skill key that should own execution of this task.
+             */
+            owner_skill?: string | null;
+            /**
+             * Schedule
+             * @description Optional schedule descriptor (cron-like) for recurring tasks.
+             */
+            schedule?: string | null;
+        };
+        /** TaskDeleteResponse */
+        TaskDeleteResponse: {
+            /** Deleted */
+            deleted: boolean;
+            /** Task Id */
+            task_id: string;
+        };
+        /** TaskListResponse */
+        TaskListResponse: {
+            /** Tasks */
+            tasks?: components["schemas"]["TaskView"][];
+            /**
+             * Count
+             * @default 0
+             */
+            count: number;
+        };
+        /** TaskPatchRequest */
+        TaskPatchRequest: {
+            /**
+             * Status
+             * @description New task status. One of planning, running, paused, awaiting_user, completed, failed, cancelled.
+             */
+            status?: string | null;
+            /**
+             * Error
+             * @description Optional error message for failed status.
+             */
+            error?: string | null;
+        };
+        /**
+         * TaskStepView
+         * @description One step inside a task's plan, as seen by the UI.
+         */
+        TaskStepView: {
+            /** Id */
+            id: string;
+            /** Index */
+            index: number;
+            /** Description */
+            description: string;
+            /** Tool Name */
+            tool_name?: string | null;
+            /** Tool Args */
+            tool_args?: {
+                [key: string]: unknown;
+            } | null;
+            /** Tool Result */
+            tool_result?: unknown;
+            /** Status */
+            status: string;
+            /** Model Provenance */
+            model_provenance?: {
+                [key: string]: unknown;
+            } | null;
+            /** Started At */
+            started_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Error */
+            error?: string | null;
+        };
+        /**
+         * TaskView
+         * @description A task as returned to the UI.
+         */
+        TaskView: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id: string;
+            /** Goal */
+            goal: string;
+            /** Status */
+            status: string;
+            /** Plan */
+            plan?: components["schemas"]["TaskStepView"][];
+            /** Owner Skill */
+            owner_skill?: string | null;
+            /** Schedule */
+            schedule?: string | null;
+            /** Error */
+            error?: string | null;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+            /** Started At */
+            started_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -1569,6 +1955,39 @@ export interface operations {
             };
         };
     };
+    update_privacy_dial_settings_privacy_dial_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivacyDialUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivacyDialUpdateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_setup_status_setup_status_get: {
         parameters: {
             query?: never;
@@ -1747,6 +2166,88 @@ export interface operations {
             };
         };
     };
+    list_registry_skills_registry_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistryResponse"];
+                };
+            };
+        };
+    };
+    install_registry_entry_skills_registry__key__install_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistryInstallResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    uninstall_registry_entry_skills_registry__key__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistryUninstallResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_system_status_system_get: {
         parameters: {
             query?: never;
@@ -1763,6 +2264,175 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemStatus"];
+                };
+            };
+        };
+    };
+    list_tasks_tasks__user_id__get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_task_tasks__user_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_task_tasks__user_id___task_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_task_tasks__user_id___task_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskDeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_task_tasks__user_id___task_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

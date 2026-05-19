@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { type SettingsView, type SetupApplyResponse } from "@june/ui";
+  import { type PrivacyDial, type SettingsView, type SetupApplyResponse } from "@june/ui";
   import { client, apiUrl } from "$lib/api.js";
   import { getPlatform, UnsupportedError } from "@june/ui/platform";
   import { profileName, setProfileName } from "$lib/stores/user.svelte.js";
@@ -14,6 +14,8 @@
   let geminiModel = $state("");
   let newKey = $state("");
   let busy = $state(false);
+  let dialBusy = $state(false);
+  let dialNote: string | null = $state(null);
   let result: SetupApplyResponse | null = $state(null);
   let note: string | null = $state(null);
   let notifyState: "idle" | "ok" | "denied" | "unsupported" = $state("idle");
@@ -103,6 +105,23 @@
     } catch (err) {
       if (err instanceof UnsupportedError) notifyState = "unsupported";
       else notifyState = "denied";
+    }
+  }
+
+  async function handleDialChange(next: PrivacyDial) {
+    if (!settings || settings.privacy_dial === next || dialBusy) return;
+    dialBusy = true;
+    dialNote = null;
+    const previous = settings.privacy_dial;
+    settings = { ...settings, privacy_dial: next };
+    try {
+      await client.updatePrivacyDial(next);
+      dialNote = "Saved.";
+    } catch (err) {
+      settings = { ...settings, privacy_dial: previous };
+      dialNote = `Couldn't update: ${String(err)}`;
+    } finally {
+      dialBusy = false;
     }
   }
 
@@ -204,6 +223,72 @@
           />
         </div>
       </div>
+    </section>
+
+    <section class="card">
+      <h2>Privacy dial</h2>
+      <p class="hint">
+        Controls when June can call the cloud. Chat and recall always run on the model
+        you picked above; this dial decides whether agentic skills (planning,
+        long-context, browser, computer use) are allowed to reach Gemini.
+      </p>
+
+      <fieldset class="providers">
+        <label class="option" class:selected={settings.privacy_dial === "local_only"}>
+          <input
+            type="radio"
+            value="local_only"
+            checked={settings.privacy_dial === "local_only"}
+            onchange={() => handleDialChange("local_only")}
+            disabled={dialBusy}
+          />
+          <span class="label">
+            <span class="name">Local-only</span>
+            <span class="desc">
+              Never call the cloud. Skills that need cloud are disabled with a visible
+              explanation.
+            </span>
+          </span>
+        </label>
+
+        <label class="option" class:selected={settings.privacy_dial === "private_by_default"}>
+          <input
+            type="radio"
+            value="private_by_default"
+            checked={settings.privacy_dial === "private_by_default"}
+            onchange={() => handleDialChange("private_by_default")}
+            disabled={dialBusy}
+          />
+          <span class="label">
+            <span class="name">Private by default <span class="badge">recommended</span></span>
+            <span class="desc">
+              Chat and recall stay local. Agentic skills may call Gemini, with
+              confirmation on the first call of each kind per session.
+            </span>
+          </span>
+        </label>
+
+        <label class="option" class:selected={settings.privacy_dial === "cloud_first"}>
+          <input
+            type="radio"
+            value="cloud_first"
+            checked={settings.privacy_dial === "cloud_first"}
+            onchange={() => handleDialChange("cloud_first")}
+            disabled={dialBusy}
+          />
+          <span class="label">
+            <span class="name">Cloud-first</span>
+            <span class="desc">
+              Prefer Gemini for capability; fall back to Gemma only when the cloud is
+              offline.
+            </span>
+          </span>
+        </label>
+      </fieldset>
+
+      {#if dialNote}
+        <p class="hint" aria-live="polite">{dialNote}</p>
+      {/if}
     </section>
 
     <section class="card">

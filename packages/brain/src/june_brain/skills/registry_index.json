@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-05-19",
+  "source": "first-party-curated",
+  "entries": [
+    {
+      "key": "filesystem-mcp",
+      "name": "Filesystem (Anthropic)",
+      "description": "Read, write, and search files in a user-approved root directory. Maintained by Anthropic.",
+      "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
+      "publisher": "anthropic",
+      "verified": true,
+      "model_policy": "local_only",
+      "install": {
+        "kind": "npx",
+        "package": "@modelcontextprotocol/server-filesystem",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "${HOME}/Documents"]
+      },
+      "tools_preview": ["read_file", "write_file", "list_directory", "search_files"]
+    },
+    {
+      "key": "github-mcp",
+      "name": "GitHub",
+      "description": "Read issues, PRs, code, and run repository searches as your GitHub user. Requires a personal access token.",
+      "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/github",
+      "publisher": "anthropic",
+      "verified": true,
+      "model_policy": "cloud_allowed",
+      "install": {
+        "kind": "npx",
+        "package": "@modelcontextprotocol/server-github",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-github"],
+        "env_required": ["GITHUB_PERSONAL_ACCESS_TOKEN"]
+      },
+      "tools_preview": ["search_repositories", "get_file_contents", "list_issues", "create_issue"]
+    },
+    {
+      "key": "notion-mcp",
+      "name": "Notion",
+      "description": "Search, read, and update Notion pages and databases. Requires a Notion integration token.",
+      "homepage": "https://github.com/makenotion/notion-mcp-server",
+      "publisher": "notion",
+      "verified": true,
+      "model_policy": "cloud_allowed",
+      "install": {
+        "kind": "npx",
+        "package": "@notionhq/notion-mcp-server",
+        "command": "npx",
+        "args": ["-y", "@notionhq/notion-mcp-server"],
+        "env_required": ["NOTION_API_KEY"]
+      },
+      "tools_preview": ["search", "get_page", "update_page", "query_database"]
+    },
+    {
+      "key": "postgres-mcp",
+      "name": "Postgres (read-only)",
+      "description": "Run read-only SQL against a Postgres database. Useful for letting June reason over your data without write access.",
+      "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/postgres",
+      "publisher": "anthropic",
+      "verified": true,
+      "model_policy": "cloud_allowed",
+      "install": {
+        "kind": "npx",
+        "package": "@modelcontextprotocol/server-postgres",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://user:pass@host/db"]
+      },
+      "tools_preview": ["query", "list_tables", "describe_table"]
+    },
+    {
+      "key": "brave-search-mcp",
+      "name": "Brave Search",
+      "description": "Privacy-respecting web search backed by the Brave Search API. Free tier covers personal use.",
+      "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/brave-search",
+      "publisher": "anthropic",
+      "verified": true,
+      "model_policy": "cloud_allowed",
+      "install": {
+        "kind": "npx",
+        "package": "@modelcontextprotocol/server-brave-search",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+        "env_required": ["BRAVE_API_KEY"]
+      },
+      "tools_preview": ["brave_web_search", "brave_local_search"]
+    },
+    {
+      "key": "sqlite-mcp",
+      "name": "SQLite",
+      "description": "Read and write SQLite databases on this machine. Good for local-only data exploration with no cloud calls.",
+      "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/sqlite",
+      "publisher": "anthropic",
+      "verified": true,
+      "model_policy": "local_only",
+      "install": {
+        "kind": "npx",
+        "package": "@modelcontextprotocol/server-sqlite",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-sqlite", "${HOME}/data.db"]
+      },
+      "tools_preview": ["read_query", "write_query", "list_tables"]
+    }
+  ]
+}

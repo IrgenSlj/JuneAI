@@ -1,28 +1,33 @@
-# June 1.0
+# June
 
-June is the open personal AI that remembers you. It runs locally via Gemma 4, reaches the cloud via Gemini when you ask it to, and is designed around one shared brain for browser, desktop, and mobile surfaces. The web PWA is the current shipped surface; desktop is experimental; mobile is planned.
+June is the open personal agent that remembers you. It runs Gemma 4 locally for chat and recall, reaches Gemini for agentic work when you allow it, and is designed around one shared brain for browser, desktop, and mobile surfaces. The web PWA is the current shipped surface; desktop is in active development; mobile is planned.
 
-This document describes what June is. For why it exists, read [vision.md](../vision.md). For how it is built, read [architecture/overview.md](../architecture/overview.md). For where it is going next, read [roadmap.md](roadmap.md).
+This document describes what June is. For why it exists, read [vision.md](../vision.md). For how it is built, read [architecture/overview.md](../architecture/overview.md). For where it is going next, read [roadmap.md](roadmap.md) and the [agentic pivot plan](agentic-pivot-plan.md).
 
 ## What June Is
 
-A single, persistent assistant with three surfaces and one memory.
+A single, persistent agent with three surfaces, one memory, and the ability to do work for you across the apps and services you already use.
 
 - **Chat** — a fluent conversation that remembers. Every turn recalls relevant memories before responding and extracts new facts afterwards. The assistant feels like it knows you because it does.
+- **Tasks** — long-running, observable units of work that June carries out on your behalf: drafting and sending an email, finding files across folders, watching a page for a change, planning a trip across calendar and browser. Tasks are persistable, schedulable, and survive the conversation that spawned them.
 - **Memory** — an inspectable, editable, exportable record of everything June has learned. Three stores work together: structured facts in SQLite, semantic recall in ChromaDB, entities and relationships in a graph. Users see what June knows, correct mistakes, and delete anything at any time.
-- **Skills** — capabilities the assistant can call. Calendar, health, research, files, daily. Each skill is a standalone MCP server, independently enabled, versioned, and swappable. Third parties can ship skills as pip packages.
+- **Skills** — capabilities the agent can call. First-party skills (calendar, gmail, files, health, browser, research) ship in the box. Any third-party MCP server is installable from the in-app registry. Each skill is a standalone MCP server, independently enabled, versioned, and swappable. Third parties can ship skills as pip packages.
 
 ## The Product in One Turn
 
-A user opens June. The assistant greets them by name, references something real from the last conversation, and asks a specific question. The user answers in natural language. June files the answer into memory, calls a skill if needed (log the workout, draft the message, check the calendar), streams a response token by token, and updates its understanding of the user. The whole turn happens in one screen, on one device, with no login, no cloud round-trip unless the user opted into Gemini, and no data leaving the machine.
+A user opens June. The agent greets them by name, references something real from the last conversation, and asks a specific question. The user answers in natural language. June files the answer into memory, calls a skill if needed (log the workout, draft and send a message, check the calendar, fetch the flight status), streams a response token by token, and updates its understanding of the user. The whole turn happens in one screen, on one device, with the user seeing per-call which model ran where, which skills were touched, and what was written to memory.
 
-The user closes the laptop and opens their phone. Same assistant. Same memory. Same conversation if they want.
+The user closes the laptop and opens their phone. Same agent. Same memory. Same tasks running in the background.
 
 ## The Product Surface
 
 ### Primary screen: Chat
 
-One column. Message list above, composer below, model and provider status in the header. Streaming responses token by token. Tool calls render inline with their arguments and results. The composer supports cancellation mid-stream. No sidebars, no tabs, no modals that break the conversation.
+One column. Message list above, composer below, model and privacy status in the header. Streaming responses token by token. Tool calls render inline with their arguments and results. Per-message provenance shows which model handled which segment of the turn and which skills were called. The composer supports cancellation mid-stream. No sidebars, no tabs, no modals that break the conversation.
+
+### Tasks
+
+A list of active tasks (with a live step trace) and recently completed tasks. Each task shows its goal, the plan June produced, the steps taken, the model used per step, and the artifacts touched (files, services, memories). The user can pause, resume, edit, or cancel any task. Tasks can be spawned from a chat turn or directly from this screen.
 
 ### Memory browser
 
@@ -30,31 +35,35 @@ Three sections: structured facts, semantic memories, entities and relationships.
 
 ### Skills registry
 
-One card per installed skill. Each card shows the skill name, a description, a running/stopped/crashed status badge, the list of tools it exposes, and an enable/disable toggle. Toggling hot-reloads the agent so the next turn sees the new tool list.
+One card per installed skill. Each card shows the skill name, a description, a running/stopped/crashed status badge, the list of tools it exposes, the model policy (`local-only`, `cloud-allowed`, `cloud-required`), required OAuth scopes if any, and an enable/disable toggle. A separate "Browse skills" view lists installable third-party MCP servers from the registry; one-click install adds them under the same supervisor.
 
 ### System header
 
-Model provider, active model, Ollama reachability, and a one-word privacy label (`local-only` or `cloud-opt-in`). Visible on every screen so the user always knows where their turn is running.
+Active privacy tier (`local-only`, `private-by-default`, `cloud-first`), Ollama reachability, Gemini key state, and the model currently in use for the active turn. Visible on every screen so the user always knows where their data is going.
 
 ## The Product Boundary
 
-- **No account.** June is installed, not subscribed to. There is no signup, no login, no cloud sync by default.
+- **No account.** June is installed, not subscribed to. No signup, no login, no cloud sync by default.
 - **No telemetry without consent.** The brain never reports back unless the user opts in.
 - **No third model.** Gemma 4 for local, Gemini for cloud. Any new provider must replace one of these, not add to them.
 - **No shell-specific business logic.** Desktop and mobile shells are capability wrappers. The same UI runs in all three.
-- **No cloud-only features.** If a feature cannot work without an internet connection, it does not ship.
+- **No silent cloud calls.** Every cloud-routed model call and every external service call is visible in the UI before and after it happens.
 
 ## Model Routing
 
-Gemma 4 via Ollama is the default. It handles the daily conversational load at zero marginal cost. The user can paste a Gemini API key and switch the active provider with one setting. Both can be configured at once; only the active provider is called. In Gemini mode, the current prompt and relevant recalled memory context are sent to Google's API.
+Three tiers, one dial. See [ADR 0009](../decisions/0009-private-by-default-and-model-routing.md) for the decision record.
 
-There is no fallback chain. The active provider is the active provider. If Ollama is offline, June surfaces that in the header and the user either starts Ollama or switches to Gemini.
+- **Local (Gemma via Ollama)** is the default for chat tone, memory recall, classification, short summarisation, journaling, and any turn the user keeps private.
+- **Cloud-on-consent (Gemini)** handles agentic planning, long context, vision, computer use, and any skill whose policy requires it.
+- **Per-skill policy** — every skill manifest declares `local-only`, `cloud-allowed`, or `cloud-required`. The router resolves the effective tier per tool call, not per turn. A single turn can mix local recall, local planning, and one cloud-required tool call.
+
+The user holds a privacy dial in settings: `local-only` (never call cloud; agentic skills that need cloud are disabled with a visible explanation), `private-by-default` (the default — chat and recall are local, agentic skills may call cloud with confirmation on first call of each kind per session), `cloud-first` (prefer cloud for capability, fall back to local when offline).
 
 ## Memory Model
 
 Three stores, one facade. The `MemoryManager` is the only way into memory:
 
-- **SQLite** stores deterministic rows: user profile fields, preferences, habits, daily chapters, workouts.
+- **SQLite** stores deterministic rows: user profile fields, preferences, habits, daily chapters, workouts, tasks.
 - **ChromaDB** stores semantic chunks: conversational context, journal entries, arbitrary facts that need recall-by-meaning.
 - **Graph** stores entities (people, places, projects, things) and the relationships between them.
 
@@ -62,31 +71,30 @@ Before every turn, the manager recalls from all three stores based on the incomi
 
 ## Skills Model
 
-Each skill is a standalone Python package with a `python -m june_skill_<name>` entrypoint. A supervisor in the brain starts each enabled skill as a subprocess, negotiates capabilities over MCP stdio, bridges each skill's tools into LangChain `StructuredTool` instances, and restarts on crash. A manifest under the user's data directory records which skills are enabled.
+Each skill is a standalone Python package with a `python -m june_skill_<name>` entrypoint and an MCP manifest declaring its tools, required OAuth scopes (if any), and model policy. A supervisor in the brain starts each enabled skill as a subprocess, negotiates capabilities over MCP stdio, bridges each skill's tools into LangChain `StructuredTool` instances, and restarts on crash. A manifest under the user's data directory records which skills are enabled.
 
-A skill subprocess that re-imports the brain is a fork bomb. The supervisor sets `JUNE_IS_SKILL_SUBPROCESS=1` and `JUNE_SKILLS_DISABLED=1` in the child environment; the brain's graph module skips agent construction under those flags. This is documented in [ADR 0005](../decisions/0005-skills-as-mcp.md).
+A skill subprocess that re-imports the brain is a fork bomb. The supervisor sets `JUNE_IS_SKILL_SUBPROCESS=1` and `JUNE_SKILLS_DISABLED=1` in the child environment; the brain's graph module skips agent construction under those flags. See [ADR 0005](../decisions/0005-skills-as-mcp.md).
+
+Third-party MCP servers ship via the same supervisor. The user installs them from the in-app registry; they run with the same subprocess lifecycle, the same memory access proxy, and the same model-policy resolution. Unsigned third-party skills carry a visible badge and a one-time "this runs with your user privileges" warning before first use.
+
+## Tasks Model
+
+A task is a first-class, persistable, observable unit of work, separate from a chat turn. See [ADR 0010](../decisions/0010-agentic-core-tasks-oauth-computer-use.md).
+
+A task carries a goal (free-form natural language), a plan (LLM-produced, editable, JSON), a status (`planning`, `running`, `paused`, `awaiting_user`, `completed`, `failed`), a step trace with model provenance per step, an optional owner skill, and an optional schedule. Tasks live in a new SQLite table; the API surfaces them at `POST /tasks`, `GET /tasks`, `GET /tasks/{id}/events` (SSE), `PATCH /tasks/{id}`, and `DELETE /tasks/{id}`. The chat composer can spawn a task with a slash command or via an inline confirmation when the agent suggests one.
 
 ## Privacy Model
 
 - Conversations, memories, and embeddings live on the user's machine.
 - Gemini calls send only the turn's context to Google; nothing persists there on June's behalf.
+- OAuth tokens live in the OS credential store: Keychain on macOS, Credential Manager on Windows, libsecret on Linux. The brain never sees them; the skill subprocess holds and refreshes them.
 - No analytics, crash reporting, or usage metrics leave the device without an explicit opt-in.
 - Export is one command; delete is one button.
 
 ## Status
 
-June currently ships as a web application. The brain, the API, the memory
-stores, and the skills system are implemented, and the shared UI renders the
-chat, memory, and skills surfaces. Light mode is the default with dark mode
-toggle available.
+June currently ships as a web application. The brain, the API, the memory stores, and the skills system are implemented, and the shared UI renders the chat, memory, and skills surfaces. Light mode is the default with dark mode toggle available.
 
-The current priority is not a new surface. June is in an open-source readiness
-hardening pass before it should be promoted as broadly download-and-use
-software. The plan is tracked in
-[open-source-readiness-plan.md](open-source-readiness-plan.md) and focuses on
-provider correctness, conversation continuity, memory delete/edit correctness,
-fresh-clone setup, local API safety, and desktop CI.
+The current priority is the [agentic pivot](agentic-pivot-plan.md): a twelve-week, four-sprint transformation from chat-with-memory to personal-agent-with-memory. Sprint 1 builds the three-tier model router, the tasks primitive, real OAuth-backed gmail and gcal skills, a sandboxed files skill, a browser skill, an MCP registry connector, and the first compile of the Tauri desktop shell. Sprint 2 is dogfooding. Sprint 3 is installable-for-humans. Sprint 4 is a fifty-user closed beta.
 
-The desktop shell is in progress. The Ollama capability gap fired the trigger on 2026-04-27. Phases 1–4 of the [desktop-shell-plan](desktop-shell-plan.md) have shipped: the Tauri shell scaffolds the SvelteKit UI in a native window, the `Platform` capability layer routes calls through typed Rust commands, `/help/ollama` does the install/start/pull flow without a terminal, and the shell supports tray, global hotkey, autostart, and window-state persistence. Phase 5 (touch and tablet hardening, detailed in [responsive-plan.md](responsive-plan.md)) is next.
-
-See [roadmap.md](roadmap.md) for what ships next.
+See [roadmap.md](roadmap.md) for the trigger-gated surfaces beyond the pivot.

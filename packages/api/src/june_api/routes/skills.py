@@ -17,8 +17,19 @@ from june_brain.skills.loader import (
     set_skill_enabled,
     set_skill_tool_enabled,
 )
+from june_brain.skills.registry import (
+    install_from_registry,
+    installed_keys,
+    load_registry,
+    uninstall_from_manifest,
+)
 
 from ..schemas import (
+    RegistryEntry,
+    RegistryInstallResponse,
+    RegistryInstallSpec,
+    RegistryResponse,
+    RegistryUninstallResponse,
     SkillInfo,
     SkillsResponse,
     SkillToggleRequest,
@@ -146,3 +157,70 @@ def toggle_skill(key: str, body: SkillToggleRequest) -> SkillToggleResponse:
         status=skill.status.value,
         error=skill.error,
     )
+
+
+# ---------------------------------------------------------------------------
+# MCP registry (Sprint 1.6)
+# ---------------------------------------------------------------------------
+
+
+def _registry_to_response() -> RegistryResponse:
+    registry = load_registry()
+    installed = installed_keys()
+    entries = [
+        RegistryEntry(
+            key=e.key,
+            name=e.name,
+            description=e.description,
+            homepage=e.homepage,
+            publisher=e.publisher,
+            verified=e.verified,
+            model_policy=e.model_policy,
+            install=RegistryInstallSpec(**e.install.to_dict()),
+            tools_preview=list(e.tools_preview),
+            installed=e.key in installed,
+        )
+        for e in registry.entries
+    ]
+    return RegistryResponse(
+        schema_version=registry.schema_version,
+        source=registry.source,
+        updated_at=registry.updated_at,
+        entries=entries,
+        count=len(entries),
+    )
+
+
+@router.get("/skills/registry", response_model=RegistryResponse)
+def list_registry() -> RegistryResponse:
+    """List installable third-party MCP servers from the curated registry."""
+    return _registry_to_response()
+
+
+@router.post("/skills/registry/{key}/install", response_model=RegistryInstallResponse)
+def install_registry_entry(key: str) -> RegistryInstallResponse:
+    """Materialize a registry entry into the user's skill manifest."""
+    try:
+        entry = install_from_registry(key)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    brain_graph.reload_agent()
+    registry = load_registry()
+    reg_entry = registry.find(key)
+    return RegistryInstallResponse(
+        key=entry.key,
+        installed=True,
+        requires_env=list(reg_entry.install.env_required) if reg_entry else [],
+    )
+
+
+@router.delete("/skills/registry/{key}", response_model=RegistryUninstallResponse)
+def uninstall_registry_entry(key: str) -> RegistryUninstallResponse:
+    """Remove an installed registry skill from the manifest."""
+    removed = uninstall_from_manifest(key)
+    if not removed:
+        raise HTTPException(status_code=404, detail=f"Skill '{key}' is not installed.")
+    brain_graph.reload_agent()
+    return RegistryUninstallResponse(key=key, uninstalled=True)

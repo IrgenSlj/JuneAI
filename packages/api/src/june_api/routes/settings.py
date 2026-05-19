@@ -16,11 +16,19 @@ from june_brain.config import resolve_runtime_config
 from june_brain.config_store import (
     forget_gemini_key,
     gemini_key_location,
+    get_privacy_dial,
     load_stored_config,
+    set_privacy_dial,
 )
 from june_brain.ollama_manager import is_model_available, is_ollama_running
+from june_brain.routing import UserPrivacyDial
 
-from ..schemas import ForgetKeyResponse, SettingsView
+from ..schemas import (
+    ForgetKeyResponse,
+    PrivacyDialUpdateRequest,
+    PrivacyDialUpdateResponse,
+    SettingsView,
+)
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -35,6 +43,7 @@ _STORAGE_LABELS = {
 def get_settings() -> SettingsView:
     """Return the current non-secret configuration plus reachability flags."""
     stored = load_stored_config()
+    dial = get_privacy_dial().value
     try:
         runtime = resolve_runtime_config()
     except ValueError:
@@ -52,6 +61,7 @@ def get_settings() -> SettingsView:
             api_key_present=False,
             key_storage=location,
             key_storage_label=_STORAGE_LABELS[location],
+            privacy_dial=dial,
         )
 
     ollama_reachable = False
@@ -74,6 +84,7 @@ def get_settings() -> SettingsView:
         api_key_present=bool(runtime.api_key) and runtime.api_key != "ollama",
         key_storage=location,
         key_storage_label=_STORAGE_LABELS[location],
+        privacy_dial=dial,
     )
 
 
@@ -84,3 +95,11 @@ def forget_key() -> ForgetKeyResponse:
     os.environ.pop("GEMINI_API_KEY", None)
     brain_graph.invalidate_agent()
     return ForgetKeyResponse(cleared_from=location)
+
+
+@router.put("/privacy-dial", response_model=PrivacyDialUpdateResponse)
+def update_privacy_dial(payload: PrivacyDialUpdateRequest) -> PrivacyDialUpdateResponse:
+    """Persist a new privacy-dial setting (ADR 0009)."""
+    dial = UserPrivacyDial(payload.dial)
+    set_privacy_dial(dial)
+    return PrivacyDialUpdateResponse(dial=dial.value)
