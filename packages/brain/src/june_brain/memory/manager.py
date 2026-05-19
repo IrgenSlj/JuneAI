@@ -81,8 +81,8 @@ class MemoryManager:
                         "score": v.get("distance"),
                     }
                 )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("recall: vector search failed: %s", exc)
+        except Exception:  # noqa: BLE001
+            logger.exception("recall: vector search failed")
 
         # 2) Graph — entities the query mentions, plus their neighbors.
         try:
@@ -106,16 +106,16 @@ class MemoryManager:
                             "score": 0.1,
                         }
                     )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("recall: graph lookup failed: %s", exc)
+        except Exception:  # noqa: BLE001
+            logger.exception("recall: graph lookup failed")
 
         # 3) Structured (SQLite) — look for query terms across goals, open loops,
         # preferences, relationships, journal. Cheap keyword scan; the LLM gets
         # the top matches so it can notice "the user mentioned X weeks ago."
         try:
             hits.extend(self._sqlite_keyword_hits(query, k=k))
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("recall: sqlite keyword scan failed: %s", exc)
+        except Exception:  # noqa: BLE001
+            logger.exception("recall: sqlite keyword scan failed")
 
         # Dedupe by text (case-insensitive) so the same fact doesn't appear
         # three times when it landed in multiple stores.
@@ -134,8 +134,8 @@ class MemoryManager:
         # prefixed form to match what the user voted on through the UI.
         try:
             feedback = self.sqlite.get_feedback_map()
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("recall: feedback lookup failed: %s", exc)
+        except Exception:  # noqa: BLE001
+            logger.exception("recall: feedback lookup failed")
             feedback = {}
 
         if feedback:
@@ -301,7 +301,7 @@ class MemoryManager:
         try:
             return handler(self, fields, source)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("memory.write: %s handler failed: %s", kind, exc)
+            logger.exception("memory.write: %s handler failed", kind)
             return {"written": False, "kind": kind, "ref": None, "stores": [], "error": str(exc)}
 
     # --- write handlers -------------------------------------------------
@@ -401,25 +401,24 @@ class MemoryManager:
                 fact_id=_vector_fact_id(ref),
             )
             return True
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("memory.write: vector paraphrase sync failed for %s: %s", ref, exc)
+        except Exception:  # noqa: BLE001
+            logger.exception("memory.write: vector paraphrase sync failed for %s", ref)
             return False
 
     def _delete_structured_vector(self, ref: str) -> int:
         try:
             return self.vector.delete_by_ref(ref)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("memory.forget: vector paraphrase delete failed for %s: %s", ref, exc)
+        except Exception:  # noqa: BLE001
+            logger.exception("memory.forget: vector paraphrase delete failed for %s", ref)
             return 0
 
     def _delete_structured_vector_prefix(self, ref_prefix: str) -> int:
         try:
             return self.vector.delete_by_ref_prefix(ref_prefix)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "memory.forget: vector paraphrase prefix delete failed for %s: %s",
+        except Exception:  # noqa: BLE001
+            logger.exception(
+                "memory.forget: vector paraphrase prefix delete failed for %s",
                 ref_prefix,
-                exc,
             )
             return 0
 
@@ -563,7 +562,7 @@ class MemoryManager:
         try:
             raw = llm_call(prompt)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("memory.extract: llm_call failed: %s", exc)
+            logger.exception("memory.extract: llm_call failed")
             return {"facts": 0, "entities": 0, "relations": 0, "error": str(exc)}
 
         payload = _parse_json_block(raw) or {}
