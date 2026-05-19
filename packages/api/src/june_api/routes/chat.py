@@ -40,6 +40,28 @@ def _event_to_sse(event: ChatEvent) -> str:
     return f"data: {event.model_dump_json()}\n\n"
 
 
+def _safe_tool_args(call: Any) -> dict[str, Any]:
+    """Coerce a tool-call ``args`` blob into a dict, never raising.
+
+    LangChain typically yields a dict here, but a fragile local model
+    can emit ``args`` as a JSON string, a list, or ``None``. The chat
+    SSE loop must not die on one bad call — surface the best-effort
+    dict (possibly empty) so the rest of the turn still streams.
+    """
+    raw = call.get("args") if isinstance(call, dict) else getattr(call, "args", None)
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        import json
+
+        try:
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, dict) else {}
+        except (TypeError, ValueError):
+            return {}
+    return {}
+
+
 def _empty_ui_state() -> dict[str, Any]:
     return {
         "layout": "split",
@@ -56,7 +78,7 @@ def _tool_call_events(message: AIMessage) -> Iterable[ChatEvent]:
         yield ChatEvent(
             type="tool_call",
             tool_name=str(call.get("name", "")),
-            tool_args=dict(call.get("args", {})),
+            tool_args=_safe_tool_args(call),
         )
 
 
@@ -125,7 +147,7 @@ async def _iter_events(
                                     ChatEvent(
                                         type="tool_call",
                                         tool_name=str(call.get("name", "")),
-                                        tool_args=dict(call.get("args", {})),
+                                        tool_args=_safe_tool_args(call),
                                     )
                                 )
                         elif isinstance(msg, ToolMessage):
