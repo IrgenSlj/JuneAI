@@ -47,6 +47,25 @@ from ..schemas import (
 router = APIRouter(tags=["skills"])
 
 
+def _reload_agent_or_500(context: str) -> None:
+    """Reload the agent after a skills mutation and 500 if the rebuild failed.
+
+    ``reload_agent`` swallows exceptions and records them on
+    ``brain_graph.startup_error``. The mutation that caller already made
+    (toggle, install, uninstall) is persisted, but the next chat turn will
+    fail until the user fixes the underlying problem. Surfacing the error
+    here means the UI can tell them immediately rather than letting them
+    discover it from a broken chat.
+    """
+    brain_graph.reload_agent()
+    err = brain_graph.startup_error
+    if err:
+        raise HTTPException(
+            status_code=500,
+            detail=f"{context} saved, but the agent failed to reload: {err}",
+        )
+
+
 def _status_to_info(payload: dict) -> SkillInfo:
     return SkillInfo(
         key=str(payload.get("key", "")),
@@ -131,7 +150,7 @@ def toggle_skill_tool(
         raise HTTPException(status_code=404, detail=f"Unknown skill: {key!r}")
 
     # Rebuild the agent so its bound tool list reflects the new state.
-    brain_graph.reload_agent()
+    _reload_agent_or_500(f"Tool toggle for {key}/{tool}")
 
     return SkillToolToggleResponse(
         key=skill.entry.key,
@@ -153,7 +172,7 @@ def toggle_skill(key: str, body: SkillToggleRequest) -> SkillToggleResponse:
 
     # Rebuild the agent so its bound tool list reflects the new state.
     # Done after the toggle so a failed reload doesn't block the flip.
-    brain_graph.reload_agent()
+    _reload_agent_or_500(f"Skill toggle for {key}")
 
     return SkillToggleResponse(
         key=skill.entry.key,
@@ -210,7 +229,7 @@ def install_registry_entry(key: str) -> RegistryInstallResponse:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    brain_graph.reload_agent()
+    _reload_agent_or_500(f"Install of {key}")
     registry = load_registry()
     reg_entry = registry.find(key)
     return RegistryInstallResponse(
@@ -226,7 +245,7 @@ def uninstall_registry_entry(key: str) -> RegistryUninstallResponse:
     removed = uninstall_from_manifest(key)
     if not removed:
         raise HTTPException(status_code=404, detail=f"Skill '{key}' is not installed.")
-    brain_graph.reload_agent()
+    _reload_agent_or_500(f"Uninstall of {key}")
     return RegistryUninstallResponse(key=key, uninstalled=True)
 
 
