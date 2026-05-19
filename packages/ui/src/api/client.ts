@@ -36,6 +36,8 @@ export type SkillToggleResponse = components["schemas"]["SkillToggleResponse"];
 export type SkillToolToggleResponse = components["schemas"]["SkillToolToggleResponse"];
 export type SkillWriteRecord = components["schemas"]["SkillWriteRecord"];
 export type SkillWritesResponse = components["schemas"]["SkillWritesResponse"];
+export type SkillToolInvokeRequest = components["schemas"]["SkillToolInvokeRequest"];
+export type SkillToolInvokeResponse = components["schemas"]["SkillToolInvokeResponse"];
 export type RegistryEntry = components["schemas"]["RegistryEntry"];
 export type RegistryResponse = components["schemas"]["RegistryResponse"];
 export type RegistryInstallResponse = components["schemas"]["RegistryInstallResponse"];
@@ -233,6 +235,29 @@ export function createJuneClient(options: JuneClientOptions) {
         `/skills/${encodeURIComponent(key)}/writes/${encodeURIComponent(userId)}` +
         `?limit=${encodeURIComponent(String(limit))}`;
       return getJson<SkillWritesResponse>(path);
+    },
+
+    /** POST /skills/{key}/tools/{tool}/invoke — run a tool with arbitrary args (playground). */
+    async invokeSkillTool(
+      key: string,
+      tool: string,
+      args: Record<string, unknown>,
+    ): Promise<SkillToolInvokeResponse> {
+      const response = await fetchImpl(
+        `${baseUrl}/skills/${encodeURIComponent(key)}/tools/${encodeURIComponent(tool)}/invoke`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({ arguments: args }),
+        },
+      );
+      if (!response.ok) {
+        throw new ApiError(response.status, response.statusText, await response.text());
+      }
+      return (await response.json()) as SkillToolInvokeResponse;
     },
 
     /** POST /skills/{key}/tools/{tool}/toggle — enable or disable a single tool. */

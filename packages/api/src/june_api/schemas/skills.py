@@ -8,6 +8,8 @@ carries its current lifecycle status and the tools it exposes so the
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -22,6 +24,13 @@ class SkillToolInfo(BaseModel):
             "Whether the agent currently binds this tool. A disabled tool stays "
             "advertised by the skill subprocess but is filtered out at "
             "agent-build time, so the model can no longer call it."
+        ),
+    )
+    input_schema: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "JSON Schema for the tool's arguments. Used by the /skills playground "
+            "to build a form. Empty when the tool advertises no schema."
         ),
     )
 
@@ -160,3 +169,23 @@ class RegistryUninstallResponse(BaseModel):
 
     key: str
     uninstalled: bool
+
+
+class SkillToolInvokeRequest(BaseModel):
+    """Body of POST /skills/{key}/tools/{tool}/invoke."""
+
+    arguments: dict[str, Any] = Field(
+        default_factory=dict,
+        description="JSON object matching the tool's input_schema.",
+    )
+
+
+class SkillToolInvokeResponse(BaseModel):
+    """Outcome of an ad-hoc tool invocation from the /skills playground."""
+
+    skill: str
+    tool: str
+    ok: bool
+    result: str = ""
+    error: str = ""
+    latency_ms: int = 0

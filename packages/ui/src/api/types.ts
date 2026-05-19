@@ -465,6 +465,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/skills/{key}/tools/{tool}/invoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invoke Skill Tool
+         * @description Invoke a skill's tool with arbitrary args. Used by the /skills playground.
+         *
+         *     Behaves like the agent's bridged call: returns the stringified MCP result,
+         *     and surfaces subprocess crashes as readable error text rather than raising.
+         */
+        post: operations["invoke_skill_tool_skills__key__tools__tool__invoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system": {
         parameters: {
             query?: never;
@@ -1328,6 +1351,53 @@ export interface components {
              * @default true
              */
             enabled: boolean;
+            /**
+             * Input Schema
+             * @description JSON Schema for the tool's arguments. Used by the /skills playground to build a form. Empty when the tool advertises no schema.
+             */
+            input_schema?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * SkillToolInvokeRequest
+         * @description Body of POST /skills/{key}/tools/{tool}/invoke.
+         */
+        SkillToolInvokeRequest: {
+            /**
+             * Arguments
+             * @description JSON object matching the tool's input_schema.
+             */
+            arguments?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * SkillToolInvokeResponse
+         * @description Outcome of an ad-hoc tool invocation from the /skills playground.
+         */
+        SkillToolInvokeResponse: {
+            /** Skill */
+            skill: string;
+            /** Tool */
+            tool: string;
+            /** Ok */
+            ok: boolean;
+            /**
+             * Result
+             * @default
+             */
+            result: string;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /**
+             * Latency Ms
+             * @default 0
+             */
+            latency_ms: number;
         };
         /**
          * SkillToolToggleRequest
@@ -2360,6 +2430,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegistryUninstallResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    invoke_skill_tool_skills__key__tools__tool__invoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+                tool: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillToolInvokeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillToolInvokeResponse"];
                 };
             };
             /** @description Validation Error */

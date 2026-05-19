@@ -215,6 +215,7 @@ class SkillSupervisor:
                             "name": t.name,
                             "description": t.description,
                             "enabled": t.name not in disabled,
+                            "input_schema": dict(t.input_schema or {}),
                         }
                         for t in skill.tools
                     ],
@@ -467,6 +468,10 @@ class SkillSupervisor:
             return ""
 
     # ------------------------------------------------------------------ tool bridging
+
+    def call_tool(self, skill_key: str, tool_name: str, arguments: dict[str, Any]) -> str:
+        """Public-facing tool invocation used by /skills playground and tests."""
+        return self._call_tool(skill_key, tool_name, arguments)
 
     def _call_tool(self, skill_key: str, tool_name: str, arguments: dict[str, Any]) -> str:
         """Invoke a skill's tool. Restart + retry once on crash."""

@@ -65,3 +65,12 @@ def reload_skills() -> None:
 def available_tools() -> list[StructuredTool]:
     """Alias of :func:`load_skill_tools` for symmetry with ``available_*`` helpers."""
     return load_skill_tools()
+
+
+def call_skill_tool(skill_key: str, tool_name: str, arguments: dict[str, object]) -> str:
+    """Invoke a single tool on a skill subprocess and return its stringified result.
+
+    Used by the /skills playground endpoint. Crashes are caught and reported
+    via the returned string — same surface as the supervisor's bridged tool.
+    """
+    return get_supervisor().call_tool(skill_key, tool_name, dict(arguments))

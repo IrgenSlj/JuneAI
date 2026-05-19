@@ -892,6 +892,68 @@
         }
       }
     },
+    "/skills/{key}/tools/{tool}/invoke": {
+      "post": {
+        "tags": [
+          "skills"
+        ],
+        "summary": "Invoke Skill Tool",
+        "description": "Invoke a skill's tool with arbitrary args. Used by the /skills playground.\n\nBehaves like the agent's bridged call: returns the stringified MCP result,\nand surfaces subprocess crashes as readable error text rather than raising.",
+        "operationId": "invoke_skill_tool_skills__key__tools__tool__invoke_post",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          },
+          {
+            "name": "tool",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Tool"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillToolInvokeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillToolInvokeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/system": {
       "get": {
         "tags": [
@@ -2315,6 +2377,12 @@
             "title": "Enabled",
             "description": "Whether the agent currently binds this tool. A disabled tool stays advertised by the skill subprocess but is filtered out at agent-build time, so the model can no longer call it.",
             "default": true
+          },
+          "input_schema": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Input Schema",
+            "description": "JSON Schema for the tool's arguments. Used by the /skills playground to build a form. Empty when the tool advertises no schema."
           }
         },
         "type": "object",
@@ -2323,6 +2391,58 @@
         ],
         "title": "SkillToolInfo",
         "description": "A single tool inside a skill \u2014 shown under the skill in the UI."
+      },
+      "SkillToolInvokeRequest": {
+        "properties": {
+          "arguments": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Arguments",
+            "description": "JSON object matching the tool's input_schema."
+          }
+        },
+        "type": "object",
+        "title": "SkillToolInvokeRequest",
+        "description": "Body of POST /skills/{key}/tools/{tool}/invoke."
+      },
+      "SkillToolInvokeResponse": {
+        "properties": {
+          "skill": {
+            "type": "string",
+            "title": "Skill"
+          },
+          "tool": {
+            "type": "string",
+            "title": "Tool"
+          },
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "result": {
+            "type": "string",
+            "title": "Result",
+            "default": ""
+          },
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "default": ""
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "skill",
+          "tool",
+          "ok"
+        ],
+        "title": "SkillToolInvokeResponse",
+        "description": "Outcome of an ad-hoc tool invocation from the /skills playground."
       },
       "SkillToolToggleRequest": {
         "properties": {

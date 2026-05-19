@@ -5,6 +5,8 @@
     type RegistryEntry,
     type SkillInfo,
     type SkillsResponse,
+    type SkillToolInfo,
+    type SkillToolInvokeResponse,
     type SkillWriteRecord,
   } from "@june/ui";
   import { client } from "$lib/api.js";
@@ -22,6 +24,70 @@
   let registryLoading = $state(false);
   let registryError: string | null = $state(null);
   let pendingRegistryAction: string | null = $state(null);
+
+  // Playground state per (skill_key + tool_name).
+  let playgroundArgs: Record<string, Record<string, string>> = $state({});
+  let playgroundResults: Record<string, SkillToolInvokeResponse> = $state({});
+  let playgroundPending: string | null = $state(null);
+
+  function playgroundKey(skillKey: string, toolName: string): string {
+    return `${skillKey}::${toolName}`;
+  }
+
+  function schemaProperties(tool: SkillToolInfo): Array<[string, { type?: string; description?: string; default?: unknown }]> {
+    const schema = (tool.input_schema ?? {}) as { properties?: Record<string, { type?: string; description?: string; default?: unknown }> };
+    const props = schema.properties ?? {};
+    return Object.entries(props);
+  }
+
+  function requiredFields(tool: SkillToolInfo): string[] {
+    const schema = (tool.input_schema ?? {}) as { required?: string[] };
+    return Array.isArray(schema.required) ? schema.required : [];
+  }
+
+  function coerceArg(raw: string, type: string | undefined): unknown {
+    const text = raw ?? "";
+    switch (type) {
+      case "number":
+      case "integer":
+        if (text.trim() === "") return undefined;
+        return type === "integer" ? parseInt(text, 10) : parseFloat(text);
+      case "boolean":
+        return text === "true";
+      default:
+        return text;
+    }
+  }
+
+  async function runTool(skill: SkillInfo, tool: SkillToolInfo) {
+    const key = playgroundKey(skill.key, tool.name);
+    if (playgroundPending) return;
+    playgroundPending = key;
+    const inputs = playgroundArgs[key] ?? {};
+    const args: Record<string, unknown> = {};
+    for (const [name, prop] of schemaProperties(tool)) {
+      const value = coerceArg(inputs[name] ?? "", prop.type);
+      if (value !== undefined && value !== "") args[name] = value;
+    }
+    try {
+      const response = await client.invokeSkillTool(skill.key, tool.name, args);
+      playgroundResults = { ...playgroundResults, [key]: response };
+    } catch (err) {
+      playgroundResults = {
+        ...playgroundResults,
+        [key]: {
+          skill: skill.key,
+          tool: tool.name,
+          ok: false,
+          result: "",
+          error: err instanceof Error ? err.message : String(err),
+          latency_ms: 0,
+        },
+      };
+    } finally {
+      playgroundPending = null;
+    }
+  }
 
   type WritesState = {
     loading: boolean;
@@ -293,6 +359,67 @@
                       <span class="tool-desc">{tool.description}</span>
                     {/if}
                   </div>
+                  <details
+                    class="playground-wrap"
+                    aria-label="Try this tool"
+                  >
+                    <summary>Try</summary>
+                    {#each schemaProperties(tool) as [name, prop] (name)}
+                      {@const isRequired = requiredFields(tool).includes(name)}
+                      {@const pkey = playgroundKey(skill.key, tool.name)}
+                      <label class="play-field">
+                        <span class="play-label">
+                          {name}{isRequired ? " *" : ""}
+                          {#if prop.type}<span class="play-type">{prop.type}</span>{/if}
+                        </span>
+                        {#if prop.type === "boolean"}
+                          <select
+                            value={(playgroundArgs[pkey] ?? {})[name] ?? ""}
+                            onchange={(e) => {
+                              const next = { ...(playgroundArgs[pkey] ?? {}) };
+                              next[name] = (e.currentTarget as HTMLSelectElement).value;
+                              playgroundArgs = { ...playgroundArgs, [pkey]: next };
+                            }}
+                          >
+                            <option value="">—</option>
+                            <option value="true">true</option>
+                            <option value="false">false</option>
+                          </select>
+                        {:else}
+                          <input
+                            type={prop.type === "number" || prop.type === "integer" ? "number" : "text"}
+                            placeholder={prop.description ?? ""}
+                            value={(playgroundArgs[pkey] ?? {})[name] ?? ""}
+                            oninput={(e) => {
+                              const next = { ...(playgroundArgs[pkey] ?? {}) };
+                              next[name] = (e.currentTarget as HTMLInputElement).value;
+                              playgroundArgs = { ...playgroundArgs, [pkey]: next };
+                            }}
+                          />
+                        {/if}
+                      </label>
+                    {/each}
+                    <div class="play-actions">
+                      <button
+                        type="button"
+                        class="play-run"
+                        onclick={() => runTool(skill, tool)}
+                        disabled={playgroundPending === playgroundKey(skill.key, tool.name) || !skill.enabled}
+                      >
+                        {playgroundPending === playgroundKey(skill.key, tool.name) ? "Running…" : "Run"}
+                      </button>
+                      {#if playgroundResults[playgroundKey(skill.key, tool.name)]}
+                        {@const res = playgroundResults[playgroundKey(skill.key, tool.name)]}
+                        <span class="play-meta" class:bad={!res.ok}>
+                          {res.ok ? "ok" : "fail"} · {res.latency_ms}ms
+                        </span>
+                      {/if}
+                    </div>
+                    {#if playgroundResults[playgroundKey(skill.key, tool.name)]}
+                      {@const res = playgroundResults[playgroundKey(skill.key, tool.name)]}
+                      <pre class="play-result" class:bad={!res.ok}>{res.ok ? res.result : res.error}</pre>
+                    {/if}
+                  </details>
                   <button
                     type="button"
                     class="tool-toggle"
@@ -696,6 +823,7 @@
 
   .tool {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--space-2);
     align-items: flex-start;
     justify-content: space-between;
@@ -1010,4 +1138,92 @@
     border-radius: var(--radius-sm);
     padding: 1px var(--space-2);
   }
+
+  .playground-wrap {
+    order: 3;
+    flex-basis: 100%;
+    margin-top: var(--space-1);
+    border-top: 1px dashed var(--color-border);
+    padding-top: var(--space-2);
+  }
+  .playground-wrap summary {
+    cursor: pointer;
+    color: var(--color-fg-subtle);
+    font-size: var(--size-xs);
+    font-family: var(--font-mono);
+    list-style: none;
+    padding: var(--space-1) 0;
+  }
+  .playground-wrap summary::-webkit-details-marker { display: none; }
+  .playground-wrap summary::before { content: "▸ "; }
+  .playground-wrap[open] summary::before { content: "▾ "; }
+  .playground-wrap summary:hover { color: var(--color-accent); }
+
+  .play-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: var(--space-2);
+  }
+  .play-label {
+    font-size: var(--size-xs);
+    color: var(--color-fg-muted);
+    display: flex;
+    gap: var(--space-2);
+    align-items: baseline;
+  }
+  .play-type {
+    color: var(--color-fg-subtle);
+    font-family: var(--font-mono);
+  }
+  .play-field input,
+  .play-field select {
+    background: var(--color-bg-raised);
+    color: var(--color-fg-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-2);
+    font: inherit;
+    font-size: var(--size-sm);
+  }
+
+  .play-actions {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    margin-top: var(--space-2);
+  }
+  .play-run {
+    background: var(--color-accent);
+    color: var(--color-bg);
+    border: 1px solid var(--color-accent);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-3);
+    font: inherit;
+    font-size: var(--size-sm);
+    cursor: pointer;
+  }
+  .play-run:disabled { opacity: 0.5; cursor: default; }
+  .play-meta {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    color: var(--color-accent);
+  }
+  .play-meta.bad { color: var(--color-danger); }
+
+  .play-result {
+    margin-top: var(--space-2);
+    padding: var(--space-2);
+    background: var(--color-bg-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-fg-muted);
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+  .play-result.bad { color: var(--color-danger); }
 </style>

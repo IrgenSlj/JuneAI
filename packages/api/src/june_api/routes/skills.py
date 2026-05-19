@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException
 from june_brain import graph as brain_graph
 from june_brain.memory import VectorStore
 from june_brain.skills.loader import (
+    call_skill_tool,
     list_status,
     set_skill_enabled,
     set_skill_tool_enabled,
@@ -35,6 +36,8 @@ from ..schemas import (
     SkillToggleRequest,
     SkillToggleResponse,
     SkillToolInfo,
+    SkillToolInvokeRequest,
+    SkillToolInvokeResponse,
     SkillToolToggleRequest,
     SkillToolToggleResponse,
     SkillWriteRecord,
@@ -56,6 +59,7 @@ def _status_to_info(payload: dict) -> SkillInfo:
                 name=str(tool.get("name", "")),
                 description=str(tool.get("description", "")),
                 enabled=bool(tool.get("enabled", True)),
+                input_schema=dict(tool.get("input_schema") or {}),
             )
             for tool in payload.get("tools", []) or []
         ],
@@ -224,3 +228,49 @@ def uninstall_registry_entry(key: str) -> RegistryUninstallResponse:
         raise HTTPException(status_code=404, detail=f"Skill '{key}' is not installed.")
     brain_graph.reload_agent()
     return RegistryUninstallResponse(key=key, uninstalled=True)
+
+
+# ---------------------------------------------------------------------------
+# Skill playground (Batch 1)
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/skills/{key}/tools/{tool}/invoke",
+    response_model=SkillToolInvokeResponse,
+)
+def invoke_skill_tool(
+    key: str, tool: str, body: SkillToolInvokeRequest
+) -> SkillToolInvokeResponse:
+    """Invoke a skill's tool with arbitrary args. Used by the /skills playground.
+
+    Behaves like the agent's bridged call: returns the stringified MCP result,
+    and surfaces subprocess crashes as readable error text rather than raising.
+    """
+    import time
+
+    if not any(snap.get("key") == key for snap in list_status()):
+        raise HTTPException(status_code=404, detail=f"Unknown skill: {key!r}")
+
+    started = time.monotonic()
+    try:
+        result_text = call_skill_tool(key, tool, body.arguments or {})
+        latency_ms = int((time.monotonic() - started) * 1000)
+    except Exception as exc:  # noqa: BLE001
+        latency_ms = int((time.monotonic() - started) * 1000)
+        return SkillToolInvokeResponse(
+            skill=key, tool=tool, ok=False, error=str(exc), latency_ms=latency_ms,
+        )
+
+    text = result_text or ""
+    # The supervisor returns "Skill 'x' tool 'y' failed: ..." on crash; surface
+    # that as ok=False so the UI can highlight it appropriately.
+    is_failure = text.startswith(("Skill ", "Unknown skill"))
+    return SkillToolInvokeResponse(
+        skill=key,
+        tool=tool,
+        ok=not is_failure,
+        result="" if is_failure else text,
+        error=text if is_failure else "",
+        latency_ms=latency_ms,
+    )

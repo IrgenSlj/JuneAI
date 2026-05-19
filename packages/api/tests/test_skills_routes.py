@@ -115,7 +115,12 @@ def test_list_skills_returns_full_snapshot(client):
     keys = [s["key"] for s in payload["skills"]]
     assert keys == ["calendar", "research"]
     assert payload["skills"][0]["tools"] == [
-        {"name": "calendar_tool", "description": "demo", "enabled": True}
+        {
+            "name": "calendar_tool",
+            "description": "demo",
+            "enabled": True,
+            "input_schema": {},
+        }
     ]
 
 
