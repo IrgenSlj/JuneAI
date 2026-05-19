@@ -7,9 +7,9 @@ module is CRUD only. SSE live-trace is deferred until the runtime exists.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 
-from june_brain.tasks import Task, TaskStatus, TasksStore
+from june_brain.tasks import Task, TaskStatus, TasksStore, execute_task_in_background
 
 from ..schemas import (
     TaskCreateRequest,
@@ -92,7 +92,12 @@ def create_task(user_id: str, payload: TaskCreateRequest) -> TaskView:
 
 
 @router.patch("/tasks/{user_id}/{task_id}", response_model=TaskView)
-def patch_task(user_id: str, task_id: str, payload: TaskPatchRequest) -> TaskView:
+def patch_task(
+    user_id: str,
+    task_id: str,
+    payload: TaskPatchRequest,
+    background_tasks: BackgroundTasks,
+) -> TaskView:
     store = _store_for(user_id)
     task = store.get(task_id)
     if task is None:
@@ -105,6 +110,30 @@ def patch_task(user_id: str, task_id: str, payload: TaskPatchRequest) -> TaskVie
         task = store.set_status(task_id, status_enum, error=payload.error)
         if task is None:
             raise HTTPException(status_code=404, detail="task not found")
+        # When the user starts a task, kick the runtime in the background so the
+        # request returns immediately. The runtime advances the status as it
+        # progresses; the UI polls /tasks to see the trace land.
+        if status_enum == TaskStatus.RUNNING:
+            background_tasks.add_task(execute_task_in_background, store, task_id)
+    return _to_view(task)
+
+
+@router.post("/tasks/{user_id}/{task_id}/run", response_model=TaskView)
+def run_task(
+    user_id: str,
+    task_id: str,
+    background_tasks: BackgroundTasks,
+) -> TaskView:
+    """Explicitly kick the runtime for a task. Idempotent for already-finished tasks."""
+    store = _store_for(user_id)
+    task = store.get(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="task not found")
+    if task.status not in {TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED}:
+        task = store.set_status(task_id, TaskStatus.RUNNING)
+        if task is None:
+            raise HTTPException(status_code=404, detail="task not found")
+        background_tasks.add_task(execute_task_in_background, store, task_id)
     return _to_view(task)
 
 

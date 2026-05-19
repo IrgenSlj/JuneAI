@@ -12,12 +12,19 @@ from june_api.app import create_app
 
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    """A fresh app with a tmp data dir so tasks land in an isolated SQLite file."""
+    """A fresh app with a tmp data dir so tasks land in an isolated SQLite file.
+
+    Also stubs the TaskRuntime trigger so PATCH status=running does not try to
+    spin up the real LangGraph agent inside the test process. Runtime behaviour
+    has its own test module under packages/brain.
+    """
     import june_brain.memory as memory_pkg
     import june_brain.memory.sqlite as memory_sqlite
+    import june_api.routes.tasks as tasks_route
 
     monkeypatch.setattr(memory_pkg, "MEMORY_DIR", str(tmp_path), raising=False)
     monkeypatch.setattr(memory_sqlite, "_local", type(memory_sqlite._local)())
+    monkeypatch.setattr(tasks_route, "execute_task_in_background", lambda *a, **k: None)
     return TestClient(create_app())
 
 
@@ -106,6 +113,30 @@ def test_delete_removes_task(client: TestClient) -> None:
     # Subsequent delete is a 404.
     res2 = client.delete(f"/tasks/alice/{tid}")
     assert res2.status_code == 404
+
+
+def test_post_run_starts_planning_task(client: TestClient) -> None:
+    created = client.post("/tasks/alice", json={"goal": "x"}).json()
+    res = client.post(f"/tasks/alice/{created['id']}/run")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["status"] == "running"
+    assert body["started_at"] is not None
+
+
+def test_post_run_idempotent_for_completed_task(client: TestClient) -> None:
+    created = client.post("/tasks/alice", json={"goal": "x"}).json()
+    client.patch(f"/tasks/alice/{created['id']}", json={"status": "completed"})
+    res = client.post(f"/tasks/alice/{created['id']}/run")
+    assert res.status_code == 200
+    body = res.json()
+    # Stays completed; not restarted.
+    assert body["status"] == "completed"
+
+
+def test_post_run_returns_404_for_unknown(client: TestClient) -> None:
+    res = client.post("/tasks/alice/missing/run")
+    assert res.status_code == 404
 
 
 def test_users_are_scoped(client: TestClient) -> None:

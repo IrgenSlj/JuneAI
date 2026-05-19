@@ -9,6 +9,7 @@ a later slice.
 """
 
 from .models import Task, TaskStatus, TaskStep, TaskStepStatus
+from .runtime import TaskRuntime, execute_task_in_background
 from .store import TasksStore
 
 __all__ = [
@@ -17,4 +18,6 @@ __all__ = [
     "TaskStep",
     "TaskStepStatus",
     "TasksStore",
+    "TaskRuntime",
+    "execute_task_in_background",
 ]
