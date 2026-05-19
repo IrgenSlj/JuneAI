@@ -35,6 +35,11 @@ logger = logging.getLogger(__name__)
 DEFAULT_MODEL_POLICY = "cloud_allowed"
 _VALID_MODEL_POLICIES = frozenset({"local_only", "cloud_allowed", "cloud_required"})
 
+# Default per-JSON-RPC-call timeout. Skills that need longer (research,
+# browser, anything hitting slow networks) can override per-entry in
+# skills.toml via ``response_timeout_seconds``.
+DEFAULT_RESPONSE_TIMEOUT_SECONDS = 30.0
+
 
 @dataclass
 class SkillManifestEntry:
@@ -48,6 +53,7 @@ class SkillManifestEntry:
     description: str = ""
     disabled_tools: list[str] = field(default_factory=list)
     model_policy: str = DEFAULT_MODEL_POLICY
+    response_timeout_seconds: float = DEFAULT_RESPONSE_TIMEOUT_SECONDS
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -58,6 +64,7 @@ class SkillManifestEntry:
             "description": self.description,
             "disabled_tools": list(self.disabled_tools),
             "model_policy": self.model_policy,
+            "response_timeout_seconds": self.response_timeout_seconds,
         }
 
     def policy_enum(self):  # type: ignore[no-untyped-def]
@@ -129,6 +136,8 @@ DEFAULT_MANIFEST: SkillManifest = SkillManifest(
             command=sys.executable,
             args=["-m", "june_skill_research"],
             description="Web search via Brave Search or DuckDuckGo.",
+            # Network fetches can be slow; give the research skill more headroom.
+            response_timeout_seconds=60.0,
         ),
         "files": SkillManifestEntry(
             key="files",
@@ -195,6 +204,8 @@ def _serialize(manifest: SkillManifest) -> str:
             lines.append(f"disabled_tools = [{tools_inline}]")
         if entry.model_policy and entry.model_policy != DEFAULT_MODEL_POLICY:
             lines.append(f'model_policy = "{entry.model_policy}"')
+        if entry.response_timeout_seconds != DEFAULT_RESPONSE_TIMEOUT_SECONDS:
+            lines.append(f"response_timeout_seconds = {entry.response_timeout_seconds}")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
@@ -231,6 +242,17 @@ def load_manifest(path: Path | None = None) -> SkillManifest:
         raw_policy = str(raw.get("model_policy") or "").strip().lower()
         if raw_policy not in _VALID_MODEL_POLICIES:
             raw_policy = default.model_policy if default else DEFAULT_MODEL_POLICY
+        raw_timeout = raw.get("response_timeout_seconds")
+        try:
+            timeout = float(raw_timeout) if raw_timeout is not None else None
+        except (TypeError, ValueError):
+            timeout = None
+        if timeout is None or timeout <= 0:
+            timeout = (
+                default.response_timeout_seconds
+                if default
+                else DEFAULT_RESPONSE_TIMEOUT_SECONDS
+            )
         manifest.entries[key] = SkillManifestEntry(
             key=key,
             enabled=bool(raw.get("enabled", True)),
@@ -240,6 +262,7 @@ def load_manifest(path: Path | None = None) -> SkillManifest:
             description=str(raw.get("description") or (default.description if default else "")),
             disabled_tools=[str(t) for t in (raw.get("disabled_tools") or [])],
             model_policy=raw_policy,
+            response_timeout_seconds=timeout,
         )
 
     for key, default_entry in DEFAULT_MANIFEST.entries.items():
@@ -266,4 +289,5 @@ def _copy_entry(entry: SkillManifestEntry) -> SkillManifestEntry:
         description=entry.description,
         disabled_tools=list(entry.disabled_tools),
         model_policy=entry.model_policy,
+        response_timeout_seconds=entry.response_timeout_seconds,
     )

@@ -42,15 +42,20 @@ from langchain_core.tools import StructuredTool
 from langgraph.prebuilt import InjectedState
 from pydantic import BaseModel, Field, create_model
 
-from .manifest import SkillManifest, SkillManifestEntry, load_manifest
+from .manifest import (
+    DEFAULT_RESPONSE_TIMEOUT_SECONDS,
+    SkillManifest,
+    SkillManifestEntry,
+    load_manifest,
+)
 
 logger = logging.getLogger(__name__)
 
 
-# Max time we wait for a single JSON-RPC response before giving up on a call
-# and marking the skill as misbehaving. Kept generous because tool calls that
-# hit the network (research skill) can be slow.
-_RESPONSE_TIMEOUT_SECONDS = 30.0
+# Fallback response timeout for any skill that didn't declare its own. Skills
+# can override per-entry in skills.toml via ``response_timeout_seconds`` — the
+# research skill, for example, needs more headroom for network fetches.
+_RESPONSE_TIMEOUT_SECONDS = DEFAULT_RESPONSE_TIMEOUT_SECONDS
 
 
 class SkillStatus(str, Enum):
@@ -407,14 +412,19 @@ class SkillSupervisor:
             raise RuntimeError(f"skill {skill.key} closed stdin: {exc}") from exc
 
         # Read response. Ignore any notification lines while waiting for our id.
-        deadline = time.monotonic() + _RESPONSE_TIMEOUT_SECONDS
+        timeout_seconds = (
+            skill.entry.response_timeout_seconds
+            if skill.entry.response_timeout_seconds > 0
+            else _RESPONSE_TIMEOUT_SECONDS
+        )
+        deadline = time.monotonic() + timeout_seconds
         while True:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 err_tail = self._drain_stderr(skill)
                 exit_code = proc.poll()
                 raise RuntimeError(
-                    f"skill {skill.key} timed out after {_RESPONSE_TIMEOUT_SECONDS}s "
+                    f"skill {skill.key} timed out after {timeout_seconds}s "
                     f"waiting for {method} response. "
                     f"exit={exit_code} stderr tail: {err_tail[-400:]!r}"
                 )
