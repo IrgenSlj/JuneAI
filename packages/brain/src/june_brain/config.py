@@ -171,6 +171,12 @@ def _resolve_runtime_config_for_preset(preset: RuntimePreset) -> RuntimeConfig:
             "Get a key at https://aistudio.google.com and set it in your .env."
         )
 
+    if not _is_valid_http_url(base_url):
+        raise ValueError(
+            f"Invalid base_url for preset '{preset.key}': {base_url!r}. "
+            "Expected an http:// or https:// URL with a host."
+        )
+
     temperature = float(_env_text("MODEL_TEMPERATURE", str(preset.temperature)))
     max_tokens = int(_env_text("MODEL_MAX_TOKENS", str(preset.max_tokens)))
     tool_strategy = _env_text("MODEL_TOOL_STRATEGY") or preset.tool_strategy
@@ -340,3 +346,14 @@ def resolve_runtime_mode(provider: str, base_url: str) -> str:
     if normalized_provider == "openai_compatible":
         return "local" if is_loopback_base_url(base_url) else "api"
     return "api"
+
+
+def _is_valid_http_url(value: str) -> bool:
+    """Return True when ``value`` is an http(s) URL with a host."""
+    if not value or not value.strip():
+        return False
+    try:
+        parsed = urlparse(value.strip())
+    except (TypeError, ValueError):
+        return False
+    return parsed.scheme in {"http", "https"} and bool(parsed.hostname)
