@@ -139,6 +139,35 @@ def test_post_run_returns_404_for_unknown(client: TestClient) -> None:
     assert res.status_code == 404
 
 
+def test_patch_returns_404_for_unknown(client: TestClient) -> None:
+    res = client.patch("/tasks/alice/missing", json={"status": "running"})
+    assert res.status_code == 404
+
+
+def test_patch_rejects_double_start(client: TestClient) -> None:
+    """PATCH status=running must 409 when the task is already running.
+
+    Otherwise a double-click would queue two background runtimes against
+    the same row.
+    """
+    created = client.post("/tasks/alice", json={"goal": "x"}).json()
+    tid = created["id"]
+    first = client.patch(f"/tasks/alice/{tid}", json={"status": "running"})
+    assert first.status_code == 200
+    second = client.patch(f"/tasks/alice/{tid}", json={"status": "running"})
+    assert second.status_code == 409
+
+
+def test_post_run_idempotent_for_running_task(client: TestClient) -> None:
+    """POST /run on an already-running task returns the current view as-is."""
+    created = client.post("/tasks/alice", json={"goal": "x"}).json()
+    client.patch(f"/tasks/alice/{created['id']}", json={"status": "running"})
+    res = client.post(f"/tasks/alice/{created['id']}/run")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["status"] == "running"
+
+
 def test_users_are_scoped(client: TestClient) -> None:
     a = client.post("/tasks/alice", json={"goal": "alice task"}).json()
     client.post("/tasks/bob", json={"goal": "bob task"})
