@@ -107,6 +107,10 @@ def patch_task(
             status_enum = TaskStatus(payload.status.strip().lower())
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=f"unknown status: {payload.status}") from exc
+        # Idempotent on start: if the task is already running, surface that
+        # rather than queueing a second runtime against the same row.
+        if status_enum == TaskStatus.RUNNING and task.status == TaskStatus.RUNNING:
+            raise HTTPException(status_code=409, detail="task is already running")
         task = store.set_status(task_id, status_enum, error=payload.error)
         if task is None:
             raise HTTPException(status_code=404, detail="task not found")
@@ -124,11 +128,15 @@ def run_task(
     task_id: str,
     background_tasks: BackgroundTasks,
 ) -> TaskView:
-    """Explicitly kick the runtime for a task. Idempotent for already-finished tasks."""
+    """Explicitly kick the runtime for a task. Idempotent for finished or already-running tasks."""
     store = _store_for(user_id)
     task = store.get(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="task not found")
+    if task.status == TaskStatus.RUNNING:
+        # Already in flight — return the current view rather than starting a
+        # second runtime against the same row.
+        return _to_view(task)
     if task.status not in {TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED}:
         task = store.set_status(task_id, TaskStatus.RUNNING)
         if task is None:
