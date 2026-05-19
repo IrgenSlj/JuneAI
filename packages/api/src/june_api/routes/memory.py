@@ -17,6 +17,8 @@ from ..schemas import (
     MemoryFeedbackRequest,
     MemoryFeedbackResponse,
     MemorySnapshot,
+    MemoryStats,
+    MemoryStoreCount,
     MemoryUpdateRequest,
     MemoryUpdateResponse,
     MemoryWriteRequest,
@@ -156,6 +158,51 @@ def get_memory(user_id: str) -> MemorySnapshot:
         semantic_facts=[_semantic_to_fact(f) for f in vector.list_facts(limit=30)],
         entities=[_entity_to_fact(n) for n in graph.find_nodes(limit=30)],
         recent_messages=len(mem.load_chat()),
+    )
+
+
+@router.get("/memory/{user_id}/stats", response_model=MemoryStats)
+def get_memory_stats(user_id: str) -> MemoryStats:
+    """Compact per-store totals plus a 'last write' timestamp for the /memory header."""
+    mem = Memory(user_id)
+    vector = VectorStore(user_id)
+    graph = KnowledgeGraph(user_id)
+
+    goals = mem.get_goals(limit=10_000)
+    open_loops = mem.get_open_loops(status="", limit=10_000)
+    calendar = mem.get_calendar_items(limit=10_000)
+    journal = mem.get_journal(limit=10_000)
+    body_metrics = mem.get_body_metrics(days=10_000)
+    semantic = vector.list_facts(limit=10_000)
+    entities = graph.find_nodes(limit=10_000)
+
+    buckets = [
+        MemoryStoreCount(kind="goals", store="sqlite", count=len(goals)),
+        MemoryStoreCount(kind="open_loops", store="sqlite", count=len(open_loops)),
+        MemoryStoreCount(kind="calendar", store="sqlite", count=len(calendar)),
+        MemoryStoreCount(kind="journal", store="sqlite", count=len(journal)),
+        MemoryStoreCount(kind="body_metrics", store="sqlite", count=len(body_metrics)),
+        MemoryStoreCount(kind="semantic_facts", store="vector", count=len(semantic)),
+        MemoryStoreCount(kind="entities", store="graph", count=len(entities)),
+    ]
+    total = sum(b.count for b in buckets)
+
+    last_write = ""
+    for row_list in (goals, open_loops, calendar, journal, body_metrics, semantic):
+        for row in row_list:
+            ts = str(row.get("created_at") or row.get("updated_at") or row.get("date") or "")
+            if ts > last_write:
+                last_write = ts
+
+    recent_facts = [_semantic_to_fact(f) for f in semantic[:5]]
+
+    return MemoryStats(
+        user_id=user_id,
+        total=total,
+        buckets=buckets,
+        last_write=last_write,
+        recent_messages=len(mem.load_chat()),
+        recent_facts=recent_facts,
     )
 
 

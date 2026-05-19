@@ -131,6 +131,49 @@
         }
       }
     },
+    "/memory/{user_id}/stats": {
+      "get": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Get Memory Stats",
+        "description": "Compact per-store totals plus a 'last write' timestamp for the /memory header.",
+        "operationId": "get_memory_stats_memory__user_id__stats_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryStats"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/memory/{user_id}/fact/{ref}": {
       "patch": {
         "tags": [
@@ -1482,6 +1525,77 @@
         ],
         "title": "MemorySnapshot",
         "description": "Summary of what June remembers about a user.\n\nThe SQLite structured tables, the vector semantic store, and the\nknowledge graph are all represented. UI can show them grouped or\nmerged in a timeline."
+      },
+      "MemoryStats": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "default": 0
+          },
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/MemoryStoreCount"
+            },
+            "type": "array",
+            "title": "Buckets"
+          },
+          "last_write": {
+            "type": "string",
+            "title": "Last Write",
+            "description": "ISO timestamp; empty if no writes yet.",
+            "default": ""
+          },
+          "recent_messages": {
+            "type": "integer",
+            "title": "Recent Messages",
+            "default": 0
+          },
+          "recent_facts": {
+            "items": {
+              "$ref": "#/components/schemas/MemoryFact"
+            },
+            "type": "array",
+            "title": "Recent Facts",
+            "description": "Up to five most-recent semantic facts, newest first."
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id"
+        ],
+        "title": "MemoryStats",
+        "description": "GET /memory/{user_id}/stats payload.\n\nA compact at-a-glance view: per-bucket counts grouped by backing store, the\ntotal across all stores, the most recent write timestamp seen in any\nstructured table, and a small sample of the most-recent semantic facts so\nthe UI can show 'June recently learned\u2026' as proof of life."
+      },
+      "MemoryStoreCount": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Bucket name, e.g. 'goals' or 'semantic_facts'."
+          },
+          "store": {
+            "type": "string",
+            "title": "Store",
+            "description": "Backing store: 'sqlite', 'vector', or 'graph'."
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "store",
+          "count"
+        ],
+        "title": "MemoryStoreCount",
+        "description": "Counts for one logical bucket inside a memory store."
       },
       "MemoryUpdateRequest": {
         "properties": {

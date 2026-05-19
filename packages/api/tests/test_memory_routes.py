@@ -78,6 +78,53 @@ def test_memory_snapshot_empty_for_new_user(client):
     assert data["recent_messages"] == 0
 
 
+def test_memory_stats_returns_zeroed_buckets_for_new_user(client):
+    response = client.get("/memory/new_user/stats")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["user_id"] == "new_user"
+    assert data["total"] == 0
+    assert data["last_write"] == ""
+    assert data["recent_messages"] == 0
+    assert data["recent_facts"] == []
+    kinds = {b["kind"]: b["count"] for b in data["buckets"]}
+    assert kinds == {
+        "goals": 0,
+        "open_loops": 0,
+        "calendar": 0,
+        "journal": 0,
+        "body_metrics": 0,
+        "semantic_facts": 0,
+        "entities": 0,
+    }
+
+
+def test_memory_stats_counts_writes_across_stores(memory_env, client):
+    from june_brain.memory import KnowledgeGraph, Memory, VectorStore
+
+    Memory("alex")
+    vector = VectorStore("alex", embedding_function=_HashEmbedder())
+    vector.upsert("I love ramen", source="test")
+    vector.upsert("I went hiking on Sunday", source="test")
+
+    graph = KnowledgeGraph("alex")
+    graph.add_node("Ana", kind="person")
+
+    response = client.get("/memory/alex/stats")
+    assert response.status_code == 200
+    data = response.json()
+    by_kind = {b["kind"]: b["count"] for b in data["buckets"]}
+    assert by_kind["semantic_facts"] == 2
+    assert by_kind["entities"] == 1
+    assert data["total"] >= 3
+    # Two recent facts surface; entities don't go in recent_facts.
+    assert len(data["recent_facts"]) == 2
+    assert {f["body"] for f in data["recent_facts"]} == {
+        "I love ramen",
+        "I went hiking on Sunday",
+    }
+
+
 def test_memory_snapshot_includes_semantic_and_entities(memory_env, client):
     from june_brain.memory import KnowledgeGraph, Memory, VectorStore
 

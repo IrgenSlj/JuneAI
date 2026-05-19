@@ -65,6 +65,34 @@ class MemoryDeleteResponse(BaseModel):
     removed: bool
 
 
+class MemoryStoreCount(BaseModel):
+    """Counts for one logical bucket inside a memory store."""
+
+    kind: str = Field(..., description="Bucket name, e.g. 'goals' or 'semantic_facts'.")
+    store: str = Field(..., description="Backing store: 'sqlite', 'vector', or 'graph'.")
+    count: int
+
+
+class MemoryStats(BaseModel):
+    """GET /memory/{user_id}/stats payload.
+
+    A compact at-a-glance view: per-bucket counts grouped by backing store, the
+    total across all stores, the most recent write timestamp seen in any
+    structured table, and a small sample of the most-recent semantic facts so
+    the UI can show 'June recently learned…' as proof of life.
+    """
+
+    user_id: str
+    total: int = 0
+    buckets: list[MemoryStoreCount] = Field(default_factory=list)
+    last_write: str = Field(default="", description="ISO timestamp; empty if no writes yet.")
+    recent_messages: int = 0
+    recent_facts: list[MemoryFact] = Field(
+        default_factory=list,
+        description="Up to five most-recent semantic facts, newest first.",
+    )
+
+
 class MemoryUpdateRequest(BaseModel):
     """Body of PATCH /memory/{user_id}/fact/{ref}.
 

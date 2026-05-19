@@ -4,12 +4,14 @@
     OfflineNotice,
     type MemoryFact,
     type MemorySnapshot,
+    type MemoryStats,
   } from "@june/ui";
   import { client } from "$lib/api.js";
   import { formatRelative } from "$lib/dates.js";
   import { profileName } from "$lib/stores/user.svelte.js";
 
   let snapshot: MemorySnapshot | null = $state(null);
+  let stats: MemoryStats | null = $state(null);
   let loading = $state(true);
   let loadError: string | null = $state(null);
   let actionError: string | null = $state(null);
@@ -230,7 +232,12 @@
     loadError = null;
     actionError = null;
     try {
-      snapshot = await client.getMemory(profileName.value);
+      const [snap, stat] = await Promise.all([
+        client.getMemory(profileName.value),
+        client.getMemoryStats(profileName.value).catch(() => null),
+      ]);
+      snapshot = snap;
+      stats = stat;
     } catch (err) {
       loadError = err instanceof Error ? err.message : String(err);
     } finally {
@@ -319,6 +326,41 @@
     <div class="error">
       Couldn't save that change: {actionError}
     </div>
+  {/if}
+
+  {#if stats}
+    <section class="stats-card" aria-label="Memory at a glance">
+      <div class="stats-headline">
+        <span class="stats-total">{stats.total}</span>
+        <span class="stats-total-label">
+          {stats.total === 1 ? "thing" : "things"} June remembers
+        </span>
+        {#if stats.last_write}
+          <span class="stats-last">
+            last write {formatRelative(stats.last_write)}
+          </span>
+        {/if}
+      </div>
+      <ul class="stats-buckets">
+        {#each stats.buckets as bucket (bucket.kind)}
+          <li class="stats-bucket" data-store={bucket.store}>
+            <span class="stats-bucket-count">{bucket.count}</span>
+            <span class="stats-bucket-kind">{bucket.kind.replace(/_/g, " ")}</span>
+            <span class="stats-bucket-store">{bucket.store}</span>
+          </li>
+        {/each}
+      </ul>
+      {#if stats.recent_facts && stats.recent_facts.length > 0}
+        <details class="stats-recent">
+          <summary>Recently learned</summary>
+          <ul>
+            {#each stats.recent_facts as fact (fact.ref)}
+              <li>{fact.body || fact.title || fact.ref}</li>
+            {/each}
+          </ul>
+        </details>
+      {/if}
+    </section>
   {/if}
 
   {#if !snapshot && loading}
@@ -835,5 +877,117 @@
   .editor-actions button:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+
+  .stats-card {
+    background: var(--color-bg-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .stats-headline {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+
+  .stats-total {
+    font-size: var(--size-xl);
+    font-weight: 600;
+    color: var(--color-fg-primary);
+    font-family: var(--font-mono);
+  }
+
+  .stats-total-label {
+    color: var(--color-fg-muted);
+  }
+
+  .stats-last {
+    margin-left: auto;
+    color: var(--color-fg-subtle);
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+  }
+
+  .stats-buckets {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: var(--space-2);
+  }
+
+  .stats-bucket {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+  }
+
+  .stats-bucket-count {
+    font-family: var(--font-mono);
+    font-size: var(--size-lg);
+    color: var(--color-fg-primary);
+    font-weight: 600;
+  }
+
+  .stats-bucket-kind {
+    color: var(--color-fg-muted);
+    font-size: var(--size-sm);
+  }
+
+  .stats-bucket-store {
+    color: var(--color-fg-subtle);
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .stats-recent {
+    border-top: 1px dashed var(--color-border);
+    padding-top: var(--space-2);
+  }
+  .stats-recent summary {
+    cursor: pointer;
+    color: var(--color-fg-muted);
+    font-size: var(--size-sm);
+    padding: var(--space-1) 0;
+    list-style: none;
+  }
+  .stats-recent summary::-webkit-details-marker {
+    display: none;
+  }
+  .stats-recent summary::before {
+    content: "▸ ";
+    color: var(--color-fg-subtle);
+  }
+  .stats-recent[open] summary::before {
+    content: "▾ ";
+  }
+  .stats-recent ul {
+    list-style: none;
+    padding: 0;
+    margin: var(--space-2) 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    color: var(--color-fg-muted);
+    font-size: var(--size-sm);
+  }
+  .stats-recent li {
+    padding: var(--space-1) var(--space-2);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
   }
 </style>

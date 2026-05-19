@@ -68,6 +68,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/memory/{user_id}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Memory Stats
+         * @description Compact per-store totals plus a 'last write' timestamp for the /memory header.
+         */
+        get: operations["get_memory_stats_memory__user_id__stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/memory/{user_id}/fact/{ref}": {
         parameters: {
             query?: never;
@@ -732,6 +752,60 @@ export interface components {
              * @default 0
              */
             recent_messages: number;
+        };
+        /**
+         * MemoryStats
+         * @description GET /memory/{user_id}/stats payload.
+         *
+         *     A compact at-a-glance view: per-bucket counts grouped by backing store, the
+         *     total across all stores, the most recent write timestamp seen in any
+         *     structured table, and a small sample of the most-recent semantic facts so
+         *     the UI can show 'June recently learned…' as proof of life.
+         */
+        MemoryStats: {
+            /** User Id */
+            user_id: string;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /** Buckets */
+            buckets?: components["schemas"]["MemoryStoreCount"][];
+            /**
+             * Last Write
+             * @description ISO timestamp; empty if no writes yet.
+             * @default
+             */
+            last_write: string;
+            /**
+             * Recent Messages
+             * @default 0
+             */
+            recent_messages: number;
+            /**
+             * Recent Facts
+             * @description Up to five most-recent semantic facts, newest first.
+             */
+            recent_facts?: components["schemas"]["MemoryFact"][];
+        };
+        /**
+         * MemoryStoreCount
+         * @description Counts for one logical bucket inside a memory store.
+         */
+        MemoryStoreCount: {
+            /**
+             * Kind
+             * @description Bucket name, e.g. 'goals' or 'semantic_facts'.
+             */
+            kind: string;
+            /**
+             * Store
+             * @description Backing store: 'sqlite', 'vector', or 'graph'.
+             */
+            store: string;
+            /** Count */
+            count: number;
         };
         /**
          * MemoryUpdateRequest
@@ -1753,6 +1827,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemorySnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_memory_stats_memory__user_id__stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryStats"];
                 };
             };
             /** @description Validation Error */

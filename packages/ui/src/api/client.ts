@@ -18,6 +18,8 @@ export type ChatEvent = components["schemas"]["ChatEvent"];
 export type RecallHit = components["schemas"]["RecallHit"];
 export type MemorySnapshot = components["schemas"]["MemorySnapshot"];
 export type MemoryFact = components["schemas"]["MemoryFact"];
+export type MemoryStats = components["schemas"]["MemoryStats"];
+export type MemoryStoreCount = components["schemas"]["MemoryStoreCount"];
 export type MemoryDeleteResponse = components["schemas"]["MemoryDeleteResponse"];
 export type MemoryUpdateRequest = components["schemas"]["MemoryUpdateRequest"];
 export type MemoryUpdateResponse = components["schemas"]["MemoryUpdateResponse"];
@@ -259,6 +261,11 @@ export function createJuneClient(options: JuneClientOptions) {
     /** GET /memory/{user_id} — structured highlights of what June remembers. */
     getMemory(userId: string): Promise<MemorySnapshot> {
       return getJson<MemorySnapshot>(`/memory/${encodeURIComponent(userId)}`);
+    },
+
+    /** GET /memory/{user_id}/stats — per-store totals and last-write timestamp. */
+    getMemoryStats(userId: string): Promise<MemoryStats> {
+      return getJson<MemoryStats>(`/memory/${encodeURIComponent(userId)}/stats`);
     },
 
     /** GET /tasks/{user_id} — list this user's tasks, newest first. */
