@@ -28,6 +28,30 @@ from ..schemas import (
 router = APIRouter(tags=["memory"])
 
 
+# Defence-in-depth: refs flow into multiple stores and into the response body.
+# A ref with a newline or NUL injected by a misbehaving skill would corrupt
+# logs and the JSON payload; an oversized ref is never legitimate either.
+_MAX_REF_LENGTH = 512
+
+
+def _validate_ref(ref: str) -> str:
+    """Return the trimmed ref, or 400 if it's malformed."""
+    cleaned = (ref or "").strip()
+    if not cleaned:
+        raise HTTPException(status_code=400, detail="ref is required")
+    if len(cleaned) > _MAX_REF_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"ref exceeds {_MAX_REF_LENGTH} characters",
+        )
+    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in cleaned):
+        raise HTTPException(
+            status_code=400,
+            detail="ref contains control characters",
+        )
+    return cleaned
+
+
 def _goal_to_fact(row: dict) -> MemoryFact:
     return MemoryFact(
         kind="goal",
@@ -234,6 +258,7 @@ def update_memory_fact(
     Clients should use the returned ref for any subsequent edit or
     delete operation on the same fact.
     """
+    ref = _validate_ref(ref)
     ref_kind = ref.split(":", 1)[0] if ":" in ref else ""
     if ref_kind not in {"goal", "open_loop", "calendar"}:
         raise HTTPException(
@@ -270,10 +295,8 @@ def set_memory_feedback(
     keeps the API simple at the cost of orphan rows; ``clear`` always wins
     if the user changes their mind.
     """
-    ref = payload.ref.strip()
+    ref = _validate_ref(payload.ref)
     vote = payload.vote.strip().lower()
-    if not ref:
-        raise HTTPException(status_code=400, detail="ref is required")
     if vote not in {"up", "down", "clear"}:
         raise HTTPException(
             status_code=400,
@@ -301,6 +324,7 @@ def delete_memory_fact(user_id: str, ref: str) -> MemoryDeleteResponse:
       - ``journal:<id>`` removes a journal entry
       - ``body_metric:<date>`` removes a body metric row
     """
+    ref = _validate_ref(ref)
     manager = MemoryManager(user_id)
     removed = manager.forget(ref)
     return MemoryDeleteResponse(user_id=user_id, ref=ref, removed=removed)
