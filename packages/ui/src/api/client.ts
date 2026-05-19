@@ -68,6 +68,22 @@ export interface JuneClientOptions {
   baseUrl: string;
   /** Optional fetch override for testing. */
   fetchImpl?: typeof fetch;
+  /**
+   * Per-request timeout in milliseconds. Applied to every non-streaming
+   * request so the UI never hangs forever on a stuck brain. SSE
+   * (`streamChat`) is intentionally exempt.
+   */
+  requestTimeoutMs?: number;
+}
+
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+
+/** Combine an optional caller signal with a timeout signal. */
+function withTimeout(signal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  if (!signal) return timeoutSignal;
+  // AbortSignal.any short-circuits on the first signal to abort.
+  return AbortSignal.any([signal, timeoutSignal]);
 }
 
 export interface StreamChatOptions extends ChatRequest {
@@ -89,15 +105,28 @@ export class ApiError extends Error {
 export function createJuneClient(options: JuneClientOptions) {
   const baseUrl = options.baseUrl.replace(/\/+$/, "");
   const fetchImpl = options.fetchImpl ?? fetch;
+  const timeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
-  async function getJson<T>(path: string): Promise<T> {
+  /** Issue a JSON request with a default timeout; throw ApiError on non-2xx. */
+  async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+    const headers = new Headers(init?.headers);
+    headers.set("Accept", "application/json");
+    if (init?.body !== undefined && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
     const response = await fetchImpl(`${baseUrl}${path}`, {
-      headers: { Accept: "application/json" },
+      ...init,
+      headers,
+      signal: withTimeout(init?.signal ?? undefined, timeoutMs),
     });
     if (!response.ok) {
       throw new ApiError(response.status, response.statusText, await response.text());
     }
     return (await response.json()) as T;
+  }
+
+  function getJson<T>(path: string): Promise<T> {
+    return requestJson<T>(path);
   }
 
   return {
@@ -117,15 +146,8 @@ export function createJuneClient(options: JuneClientOptions) {
     },
 
     /** DELETE /system/activity — clear the activity log. */
-    async clearActivity(): Promise<ActivityResponse> {
-      const response = await fetchImpl(`${baseUrl}/system/activity`, {
-        method: "DELETE",
-        headers: { Accept: "application/json" },
-      });
-      if (!response.ok) {
-        throw new ApiError(response.status, response.statusText, await response.text());
-      }
-      return (await response.json()) as ActivityResponse;
+    clearActivity(): Promise<ActivityResponse> {
+      return requestJson<ActivityResponse>("/system/activity", { method: "DELETE" });
     },
 
     /** GET /setup/status — whether the active provider is usable end to end. */
@@ -139,47 +161,27 @@ export function createJuneClient(options: JuneClientOptions) {
     },
 
     /** POST /settings/forget-key — delete the Gemini key from the credential store. */
-    async forgetGeminiKey(): Promise<ForgetKeyResponse> {
-      const response = await fetchImpl(`${baseUrl}/settings/forget-key`, {
-        method: "POST",
-        headers: { Accept: "application/json" },
-      });
-      if (!response.ok) {
-        throw new ApiError(response.status, response.statusText, await response.text());
-      }
-      return (await response.json()) as ForgetKeyResponse;
+    forgetGeminiKey(): Promise<ForgetKeyResponse> {
+      return requestJson<ForgetKeyResponse>("/settings/forget-key", { method: "POST" });
     },
 
     /** PUT /settings/privacy-dial — persist the user's privacy dial (ADR 0009). */
-    async updatePrivacyDial(dial: PrivacyDial): Promise<PrivacyDialUpdateResponse> {
-      const response = await fetchImpl(`${baseUrl}/settings/privacy-dial`, {
+    updatePrivacyDial(dial: PrivacyDial): Promise<PrivacyDialUpdateResponse> {
+      return requestJson<PrivacyDialUpdateResponse>("/settings/privacy-dial", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
         body: JSON.stringify({ dial }),
       });
-      if (!response.ok) {
-        throw new ApiError(response.status, response.statusText, await response.text());
-      }
-      return (await response.json()) as PrivacyDialUpdateResponse;
     },
 
     /** POST /setup/apply — persist provider + key choice and verify with a round-trip. */
-    async applySetup(request: SetupApplyRequest): Promise<SetupApplyResponse> {
-      const response = await fetchImpl(`${baseUrl}/setup/apply`, {
+    applySetup(request: SetupApplyRequest): Promise<SetupApplyResponse> {
+      // Setup apply hits a real model round-trip; give it a longer budget than
+      // the default so a cold Ollama start or slow Gemini ping doesn't time out.
+      return requestJson<SetupApplyResponse>("/setup/apply", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
         body: JSON.stringify(request),
+        signal: AbortSignal.timeout(60_000),
       });
-      if (!response.ok) {
-        throw new ApiError(response.status, response.statusText, await response.text());
-      }
-      return (await response.json()) as SetupApplyResponse;
     },
 
     /** GET /skills — MCP skill servers and the tools they expose. */
@@ -193,27 +195,20 @@ export function createJuneClient(options: JuneClientOptions) {
     },
 
     /** POST /skills/registry/{key}/install — install a third-party MCP server. */
-    async installRegistryEntry(key: string): Promise<RegistryInstallResponse> {
-      const response = await fetchImpl(
-        `${baseUrl}/skills/registry/${encodeURIComponent(key)}/install`,
-        { method: "POST", headers: { Accept: "application/json" } },
+    installRegistryEntry(key: string): Promise<RegistryInstallResponse> {
+      // Spawning a new MCP subprocess and reloading the agent can take a while.
+      return requestJson<RegistryInstallResponse>(
+        `/skills/registry/${encodeURIComponent(key)}/install`,
+        { method: "POST", signal: AbortSignal.timeout(60_000) },
       );
-      if (!response.ok) {
-        throw new ApiError(response.status, response.statusText, await response.text());
-      }
-      return (await response.json()) as RegistryInstallResponse;
     },
 
     /** DELETE /skills/registry/{key} — remove an installed registry skill. */
-    async uninstallRegistryEntry(key: string): Promise<RegistryUninstallResponse> {
-      const response = await fetchImpl(
-        `${baseUrl}/skills/registry/${encodeURIComponent(key)}`,
-        { method: "DELETE", headers: { Accept: "application/json" } },
+    uninstallRegistryEntry(key: string): Promise<RegistryUninstallResponse> {
+      return requestJson<RegistryUninstallResponse>(
+        `/skills/registry/${encodeURIComponent(key)}`,
+        { method: "DELETE" },
       );
-      if (!response.ok) {
-        throw new ApiError(response.status, response.statusText, await response.text());
-      }
-      return (await response.json()) as RegistryUninstallResponse;
     },
 
     /**
@@ -222,25 +217,14 @@ export function createJuneClient(options: JuneClientOptions) {
      * The API persists the flip to the on-disk manifest and rebuilds the
      * agent so the next chat turn sees the updated tool surface.
      */
-    async toggleSkill(
+    toggleSkill(
       key: string,
       enabled: boolean,
     ): Promise<SkillToggleResponse> {
-      const response = await fetchImpl(
-        `${baseUrl}/skills/${encodeURIComponent(key)}/toggle`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({ enabled }),
-        },
+      return requestJson<SkillToggleResponse>(
+        `/skills/${encodeURIComponent(key)}/toggle`,
+        { method: "POST", body: JSON.stringify({ enabled }) },
       );
-      if (!response.ok) {
-        throw new ApiError(response.status, response.statusText, await response.text());
-      }
-      return (await response.json()) as SkillToggleResponse;
     },
 
     /**
@@ -260,49 +244,33 @@ export function createJuneClient(options: JuneClientOptions) {
     },
 
     /** POST /skills/{key}/tools/{tool}/invoke — run a tool with arbitrary args (playground). */
-    async invokeSkillTool(
+    invokeSkillTool(
       key: string,
       tool: string,
       args: Record<string, unknown>,
     ): Promise<SkillToolInvokeResponse> {
-      const response = await fetchImpl(
-        `${baseUrl}/skills/${encodeURIComponent(key)}/tools/${encodeURIComponent(tool)}/invoke`,
+      // Skill tools can do real work (HTTP, file I/O, model calls); give them
+      // a generous window before timing out.
+      return requestJson<SkillToolInvokeResponse>(
+        `/skills/${encodeURIComponent(key)}/tools/${encodeURIComponent(tool)}/invoke`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
           body: JSON.stringify({ arguments: args }),
+          signal: AbortSignal.timeout(60_000),
         },
       );
-      if (!response.ok) {
-        throw new ApiError(response.status, response.statusText, await response.text());
-      }
-      return (await response.json()) as SkillToolInvokeResponse;
     },
 
     /** POST /skills/{key}/tools/{tool}/toggle — enable or disable a single tool. */
-    async toggleSkillTool(
+    toggleSkillTool(
       key: string,
       tool: string,
       enabled: boolean,
     ): Promise<SkillToolToggleResponse> {
-      const response = await fetchImpl(
-        `${baseUrl}/skills/${encodeURIComponent(key)}/tools/${encodeURIComponent(tool)}/toggle`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({ enabled }),
-        },
+      return requestJson<SkillToolToggleResponse>(
+        `/skills/${encodeURIComponent(key)}/tools/${encodeURIComponent(tool)}/toggle`,
+        { method: "POST", body: JSON.stringify({ enabled }) },
       );
-      if (!response.ok) {
-        throw new ApiError(response.status, response.statusText, await response.text());
-      }
-      return (await response.json()) as SkillToolToggleResponse;
     },
 
     /** GET /memory/{user_id} — structured highlights of what June remembers. */
@@ -332,48 +300,31 @@ export function createJuneClient(options: JuneClientOptions) {
     },
 
     /** POST /tasks/{user_id} — create a new task in the planning state. */
-    async createTask(userId: string, request: TaskCreateRequest): Promise<TaskView> {
-      const response = await fetchImpl(`${baseUrl}/tasks/${encodeURIComponent(userId)}`, {
+    createTask(userId: string, request: TaskCreateRequest): Promise<TaskView> {
+      return requestJson<TaskView>(`/tasks/${encodeURIComponent(userId)}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify(request),
       });
-      if (!response.ok) {
-        throw new ApiError(response.status, response.statusText, await response.text());
-      }
-      return (await response.json()) as TaskView;
     },
 
     /** PATCH /tasks/{user_id}/{task_id} — pause, resume, cancel, complete. */
-    async patchTask(
+    patchTask(
       userId: string,
       taskId: string,
       request: TaskPatchRequest,
     ): Promise<TaskView> {
-      const response = await fetchImpl(
-        `${baseUrl}/tasks/${encodeURIComponent(userId)}/${encodeURIComponent(taskId)}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify(request),
-        },
+      return requestJson<TaskView>(
+        `/tasks/${encodeURIComponent(userId)}/${encodeURIComponent(taskId)}`,
+        { method: "PATCH", body: JSON.stringify(request) },
       );
-      if (!response.ok) {
-        throw new ApiError(response.status, response.statusText, await response.text());
-      }
-      return (await response.json()) as TaskView;
     },
 
     /** DELETE /tasks/{user_id}/{task_id} — remove a task. */
-    async deleteTask(userId: string, taskId: string): Promise<TaskDeleteResponse> {
-      const response = await fetchImpl(
-        `${baseUrl}/tasks/${encodeURIComponent(userId)}/${encodeURIComponent(taskId)}`,
-        { method: "DELETE", headers: { Accept: "application/json" } },
+    deleteTask(userId: string, taskId: string): Promise<TaskDeleteResponse> {
+      return requestJson<TaskDeleteResponse>(
+        `/tasks/${encodeURIComponent(userId)}/${encodeURIComponent(taskId)}`,
+        { method: "DELETE" },
       );
-      if (!response.ok) {
-        throw new ApiError(response.status, response.statusText, await response.text());
-      }
-      return (await response.json()) as TaskDeleteResponse;
     },
 
     /** GET /obsidian/{user_id} — Markdown and Canvas files for an Obsidian vault. */
@@ -384,25 +335,14 @@ export function createJuneClient(options: JuneClientOptions) {
     },
 
     /** POST /memory/{user_id}/fact — manually write a structured or semantic fact. */
-    async writeMemoryFact(
+    writeMemoryFact(
       userId: string,
       request: MemoryWriteRequest,
     ): Promise<MemoryWriteResponse> {
-      const response = await fetchImpl(
-        `${baseUrl}/memory/${encodeURIComponent(userId)}/fact`,
-        {
-          method: "POST",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(request),
-        },
+      return requestJson<MemoryWriteResponse>(
+        `/memory/${encodeURIComponent(userId)}/fact`,
+        { method: "POST", body: JSON.stringify(request) },
       );
-      if (!response.ok) {
-        throw new ApiError(response.status, response.statusText, await response.text());
-      }
-      return (await response.json()) as MemoryWriteResponse;
     },
 
     /**
@@ -413,17 +353,10 @@ export function createJuneClient(options: JuneClientOptions) {
      * declared with `{ref:path}` on the server.
      */
     deleteMemoryFact(userId: string, ref: string): Promise<MemoryDeleteResponse> {
-      const url = `${baseUrl}/memory/${encodeURIComponent(userId)}/fact/${encodeURI(ref)}`;
-      return (async () => {
-        const response = await fetchImpl(url, {
-          method: "DELETE",
-          headers: { Accept: "application/json" },
-        });
-        if (!response.ok) {
-          throw new ApiError(response.status, response.statusText, await response.text());
-        }
-        return (await response.json()) as MemoryDeleteResponse;
-      })();
+      return requestJson<MemoryDeleteResponse>(
+        `/memory/${encodeURIComponent(userId)}/fact/${encodeURI(ref)}`,
+        { method: "DELETE" },
+      );
     },
 
     /**
@@ -438,21 +371,10 @@ export function createJuneClient(options: JuneClientOptions) {
       ref: string,
       fields: Record<string, string>,
     ): Promise<MemoryUpdateResponse> {
-      const url = `${baseUrl}/memory/${encodeURIComponent(userId)}/fact/${encodeURI(ref)}`;
-      return (async () => {
-        const response = await fetchImpl(url, {
-          method: "PATCH",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ fields }),
-        });
-        if (!response.ok) {
-          throw new ApiError(response.status, response.statusText, await response.text());
-        }
-        return (await response.json()) as MemoryUpdateResponse;
-      })();
+      return requestJson<MemoryUpdateResponse>(
+        `/memory/${encodeURIComponent(userId)}/fact/${encodeURI(ref)}`,
+        { method: "PATCH", body: JSON.stringify({ fields }) },
+      );
     },
 
     /**
@@ -467,21 +389,10 @@ export function createJuneClient(options: JuneClientOptions) {
       ref: string,
       vote: "up" | "down" | "clear",
     ): Promise<MemoryFeedbackResponse> {
-      const url = `${baseUrl}/memory/${encodeURIComponent(userId)}/feedback`;
-      return (async () => {
-        const response = await fetchImpl(url, {
-          method: "POST",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ ref, vote }),
-        });
-        if (!response.ok) {
-          throw new ApiError(response.status, response.statusText, await response.text());
-        }
-        return (await response.json()) as MemoryFeedbackResponse;
-      })();
+      return requestJson<MemoryFeedbackResponse>(
+        `/memory/${encodeURIComponent(userId)}/feedback`,
+        { method: "POST", body: JSON.stringify({ ref, vote }) },
+      );
     },
 
     /**
