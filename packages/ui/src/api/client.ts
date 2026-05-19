@@ -43,6 +43,8 @@ export type RegistryResponse = components["schemas"]["RegistryResponse"];
 export type RegistryInstallResponse = components["schemas"]["RegistryInstallResponse"];
 export type RegistryUninstallResponse = components["schemas"]["RegistryUninstallResponse"];
 export type SystemStatus = components["schemas"]["SystemStatus"];
+export type ActivityEntryView = components["schemas"]["ActivityEntryView"];
+export type ActivityResponse = components["schemas"]["ActivityResponse"];
 export type SetupStatus = components["schemas"]["SetupStatus"];
 export type SetupApplyRequest = components["schemas"]["SetupApplyRequest"];
 export type SetupApplyResponse = components["schemas"]["SetupApplyResponse"];
@@ -104,6 +106,26 @@ export function createJuneClient(options: JuneClientOptions) {
     /** GET /system — runtime indicator (provider, model, mode). */
     getSystem(): Promise<SystemStatus> {
       return getJson<SystemStatus>("/system");
+    },
+
+    /** GET /system/activity — reverse-chronological log of recent API requests and tool calls. */
+    getActivity(limit = 100, kind?: string): Promise<ActivityResponse> {
+      const params = new URLSearchParams();
+      params.set("limit", String(limit));
+      if (kind) params.set("kind", kind);
+      return getJson<ActivityResponse>(`/system/activity?${params.toString()}`);
+    },
+
+    /** DELETE /system/activity — clear the activity log. */
+    async clearActivity(): Promise<ActivityResponse> {
+      const response = await fetchImpl(`${baseUrl}/system/activity`, {
+        method: "DELETE",
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) {
+        throw new ApiError(response.status, response.statusText, await response.text());
+      }
+      return (await response.json()) as ActivityResponse;
     },
 
     /** GET /setup/status — whether the active provider is usable end to end. */

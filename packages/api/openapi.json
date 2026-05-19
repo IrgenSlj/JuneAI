@@ -976,6 +976,86 @@
         }
       }
     },
+    "/system/activity": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Get Activity",
+        "description": "Reverse-chronological activity log: every recorded API request and tool call.",
+        "operationId": "get_activity_system_activity_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Clear Activity",
+        "description": "Clear the activity log. Returns an empty response shape.",
+        "operationId": "clear_activity_system_activity_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/tasks/{user_id}": {
       "get": {
         "tags": [
@@ -1334,6 +1414,92 @@
   },
   "components": {
     "schemas": {
+      "ActivityEntryView": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "'request', 'tool', 'task', or 'skill'."
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "Short summary, e.g. 'GET /skills'."
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "HTTP status for requests."
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail",
+            "description": "Optional structured context (tool args, error message, etc.)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "timestamp",
+          "kind",
+          "label"
+        ],
+        "title": "ActivityEntryView",
+        "description": "One row in the activity log, returned by GET /system/activity."
+      },
+      "ActivityResponse": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityEntryView"
+            },
+            "type": "array",
+            "title": "Entries"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "ActivityResponse",
+        "description": "GET /system/activity payload."
+      },
       "ChatRequest": {
         "properties": {
           "user_id": {

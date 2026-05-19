@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import {
     OfflineNotice,
+    type ActivityEntryView,
     type MemorySnapshot,
     type SkillInfo,
     type SkillsResponse,
@@ -16,7 +17,9 @@
   let memory: MemorySnapshot | null = $state(null);
   let skills: SkillInfo[] = $state([]);
   let system: SystemStatus | null = $state(null);
+  let activity: ActivityEntryView[] = $state([]);
   let loading = $state(true);
+  let clearingActivity = $state(false);
   let lastRefresh: Date | null = $state(null);
   let loadError: string | null = $state(null);
   let timer: ReturnType<typeof setInterval> | null = null;
@@ -25,14 +28,16 @@
     loading = true;
     loadError = null;
     try {
-      const [snap, sk, sys] = await Promise.all([
+      const [snap, sk, sys, act] = await Promise.all([
         client.getMemory(profileName.value),
         client.getSkills(),
         client.getSystem(),
+        client.getActivity(50).catch(() => ({ entries: [], count: 0 })),
       ]);
       memory = snap;
       skills = (sk as SkillsResponse).skills ?? [];
       system = sys;
+      activity = act.entries ?? [];
       lastRefresh = new Date();
     } catch (err) {
       loadError = err instanceof Error ? err.message : String(err);
@@ -73,6 +78,28 @@
           memoryCounts.body_metrics
       : 0,
   );
+
+  async function clearActivity() {
+    if (clearingActivity) return;
+    if (!confirm("Clear the entire activity log? This cannot be undone.")) return;
+    clearingActivity = true;
+    try {
+      await client.clearActivity();
+      activity = [];
+    } catch (err) {
+      loadError = err instanceof Error ? err.message : String(err);
+    } finally {
+      clearingActivity = false;
+    }
+  }
+
+  function statusKind(status: number | null | undefined): "ok" | "warn" | "bad" | "muted" {
+    if (!status) return "muted";
+    if (status >= 500) return "bad";
+    if (status >= 400) return "warn";
+    if (status >= 200) return "ok";
+    return "muted";
+  }
 
   const enabledSkillCount = $derived(skills.filter((s) => s.enabled).length);
   const runningSkillCount = $derived(
@@ -326,6 +353,53 @@
           </dl>
         {/if}
       </div>
+    </div>
+  </section>
+
+  <section class="layer">
+    <div class="layer-label">Activity</div>
+    <div class="card activity-card">
+      <div class="card-head">
+        <h2>Recent activity</h2>
+        <div class="activity-actions">
+          <span class="badge muted">{activity.length} entr{activity.length === 1 ? "y" : "ies"}</span>
+          <button
+            type="button"
+            class="activity-clear"
+            onclick={clearActivity}
+            disabled={clearingActivity || activity.length === 0}
+          >
+            {clearingActivity ? "Clearing…" : "Clear log"}
+          </button>
+        </div>
+      </div>
+      <p class="card-body">
+        Every API request June handled this session. The trust primitive — if June
+        did something, it's here.
+      </p>
+      {#if activity.length === 0}
+        <p class="hint">No activity recorded yet. Open the chat or click around to populate.</p>
+      {:else}
+        <ul class="activity-list">
+          {#each activity as entry (entry.id)}
+            <li class="activity-row">
+              <span class="activity-kind">{entry.kind}</span>
+              <span class="activity-label">{entry.label}</span>
+              {#if entry.status !== null && entry.status !== undefined}
+                <span class="activity-status activity-status-{statusKind(entry.status)}">
+                  {entry.status}
+                </span>
+              {/if}
+              {#if entry.latency_ms !== null && entry.latency_ms !== undefined}
+                <span class="activity-latency">{entry.latency_ms}ms</span>
+              {/if}
+              <time class="activity-time" datetime={entry.timestamp}>
+                {formatRelative(entry.timestamp)}
+              </time>
+            </li>
+          {/each}
+        </ul>
+      {/if}
     </div>
   </section>
 </main>
@@ -645,5 +719,103 @@
 
   code {
     font-family: var(--font-mono);
+  }
+
+  .activity-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .activity-actions {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+  }
+  .activity-clear {
+    background: transparent;
+    color: var(--color-fg-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-3);
+    font: inherit;
+    font-size: var(--size-sm);
+    cursor: pointer;
+  }
+  .activity-clear:hover:not(:disabled) {
+    color: var(--color-danger);
+    border-color: var(--color-danger);
+  }
+  .activity-clear:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .activity-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  .activity-row {
+    display: grid;
+    grid-template-columns: 70px 1fr auto auto auto;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    align-items: center;
+    font-size: var(--size-sm);
+  }
+  .activity-kind {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    color: var(--color-fg-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .activity-label {
+    font-family: var(--font-mono);
+    color: var(--color-fg-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .activity-status {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    padding: 1px var(--space-2);
+    border-radius: var(--radius-sm);
+  }
+  .activity-status-ok {
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  }
+  .activity-status-warn {
+    color: var(--color-fg-primary);
+    background: color-mix(in srgb, var(--color-fg-muted) 20%, transparent);
+  }
+  .activity-status-bad {
+    color: var(--color-danger);
+    background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+  }
+  .activity-status-muted {
+    color: var(--color-fg-subtle);
+    border: 1px dashed var(--color-border);
+  }
+  .activity-latency {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    color: var(--color-fg-subtle);
+  }
+  .activity-time {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    color: var(--color-fg-subtle);
+    text-align: right;
   }
 </style>
