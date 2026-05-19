@@ -19,7 +19,7 @@ What's shipped on `main`:
 - **Web shell** — SvelteKit PWA at `apps/web/` with installable manifest, service worker, first-run setup, settings, memory browser, skills registry, tasks page, system dashboard, offline states, keyboard shortcuts, light/dark, and an accessibility pass.
 - **Branding** — June "J" wordmark with light mode default and dark mode toggle.
 
-What's still pending in Sprint 1: chat-event provenance through the LangGraph stream (slice 1.1b), Gmail/Calendar OAuth skills (gated on Google verified-app review), Playwright browser skill, and the desktop-shell first compile (needs `rustup`).
+What's still pending in Sprint 1: Gmail/Calendar OAuth skills (gated on Google verified-app review), Playwright browser skill, and the desktop-shell first compile (needs `rustup`). Chat-event provenance (slice 1.1b) is now live — each assistant turn carries a tier/model/latency chip.
 
 The **desktop shell** is experimental. Phases 1–4 of the [desktop-shell plan](docs/product/desktop-shell-plan.md) are implemented in source; Phase 4.5 (first compile) is Sprint 1.7 of the pivot. Mobile is planned, not shipped.
 
