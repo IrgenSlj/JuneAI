@@ -54,3 +54,41 @@ def get_system_status() -> SystemStatus:
         ollama_has_model=ollama_has_model,
         api_key_present=bool(runtime.api_key) and runtime.api_key != "ollama",
     )
+
+
+# ---------------------------------------------------------------------------
+# Activity log (Batch 1 — trust primitive)
+# ---------------------------------------------------------------------------
+
+from typing import Optional
+
+from june_brain.activity import ActivityLog
+
+from ..schemas import ActivityEntryView, ActivityResponse
+
+
+def _entry_to_view(entry):
+    return ActivityEntryView(
+        id=entry.id,
+        timestamp=entry.timestamp,
+        kind=entry.kind,
+        label=entry.label,
+        status=entry.status,
+        latency_ms=entry.latency_ms,
+        detail=entry.detail,
+    )
+
+
+@router.get("/system/activity", response_model=ActivityResponse)
+def get_activity(limit: int = 100, kind: Optional[str] = None) -> ActivityResponse:
+    """Reverse-chronological activity log: every recorded API request and tool call."""
+    entries = ActivityLog().list(kind=kind, limit=max(1, min(int(limit), 500)))
+    views = [_entry_to_view(e) for e in entries]
+    return ActivityResponse(entries=views, count=len(views))
+
+
+@router.delete("/system/activity", response_model=ActivityResponse)
+def clear_activity() -> ActivityResponse:
+    """Clear the activity log. Returns an empty response shape."""
+    ActivityLog().clear()
+    return ActivityResponse(entries=[], count=0)

@@ -1,6 +1,8 @@
-"""System-status schema (runtime and Ollama)."""
+"""System-status and activity-log schemas."""
 
 from __future__ import annotations
+
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -26,3 +28,25 @@ class SystemStatus(BaseModel):
         default=False,
         description="True when the active runtime has the credentials it needs. Only meaningful for the gemini preset.",
     )
+
+
+class ActivityEntryView(BaseModel):
+    """One row in the activity log, returned by GET /system/activity."""
+
+    id: int
+    timestamp: str
+    kind: str = Field(..., description="'request', 'tool', 'task', or 'skill'.")
+    label: str = Field(..., description="Short summary, e.g. 'GET /skills'.")
+    status: Optional[int] = Field(default=None, description="HTTP status for requests.")
+    latency_ms: Optional[int] = None
+    detail: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="Optional structured context (tool args, error message, etc.).",
+    )
+
+
+class ActivityResponse(BaseModel):
+    """GET /system/activity payload."""
+
+    entries: list[ActivityEntryView] = Field(default_factory=list)
+    count: int = 0

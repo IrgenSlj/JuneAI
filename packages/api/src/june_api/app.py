@@ -6,13 +6,21 @@ Routes live in ``june_api.routes``; schemas live in ``june_api.schemas``.
 
 from __future__ import annotations
 
+import logging
 import os
+import time
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from june_brain.activity import ActivityLog
 from june_brain.config_store import apply_stored_config_to_env
 
 from .schemas import ChatEvent, RecallHit
+
+logger = logging.getLogger(__name__)
+
+# Paths that produce noise rather than signal — skip them in the activity log.
+_ACTIVITY_SKIP_PREFIXES = ("/healthz", "/system/activity", "/openapi.json", "/docs", "/redoc")
 
 apply_stored_config_to_env()
 
@@ -57,9 +65,30 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=_cors_origins(),
         allow_credentials=False,
-        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
     )
+
+    @app.middleware("http")
+    async def _record_activity(request: Request, call_next):
+        """Log every request to the activity_log table so /system/activity shows it."""
+        started = time.monotonic()
+        response = await call_next(request)
+        latency_ms = int((time.monotonic() - started) * 1000)
+        path = request.url.path
+        if request.method != "OPTIONS" and not any(
+            path.startswith(prefix) for prefix in _ACTIVITY_SKIP_PREFIXES
+        ):
+            try:
+                ActivityLog().record(
+                    kind="request",
+                    label=f"{request.method} {path}",
+                    status=response.status_code,
+                    latency_ms=latency_ms,
+                )
+            except Exception:  # noqa: BLE001
+                logger.exception("activity log write failed")
+        return response
 
     app.include_router(chat.router)
     app.include_router(demo.router)
