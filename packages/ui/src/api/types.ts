@@ -585,7 +585,7 @@ export interface paths {
         put?: never;
         /**
          * Run Task
-         * @description Explicitly kick the runtime for a task. Idempotent for already-finished tasks.
+         * @description Explicitly kick the runtime for a task. Idempotent for finished or already-running tasks.
          */
         post: operations["run_task_tasks__user_id___task_id__run_post"];
         delete?: never;
@@ -1793,7 +1793,7 @@ export interface components {
              * @description Discriminator that determines the meaning of the payload.
              * @enum {string}
              */
-            type: "token" | "tool_call" | "tool_result" | "recall" | "done" | "error";
+            type: "token" | "tool_call" | "tool_result" | "recall" | "provenance" | "done" | "error";
             /**
              * Content
              * @description Textual content for token and error events; empty otherwise.
@@ -1824,6 +1824,14 @@ export interface components {
              * @description Memories June drew on this turn. Emitted once, before the first token, so the UI can render a 'memories used' affordance per assistant message.
              */
             recall_hits?: components["schemas"]["RecallHit"][];
+            /**
+             * Provenance
+             * @description Per-turn model provenance. Carries provider/model/tier/latency_ms when type == 'provenance'.
+             * @default null
+             */
+            provenance: {
+                [key: string]: unknown;
+            } | null;
             $defs: {
                 /**
                  * RecallHit

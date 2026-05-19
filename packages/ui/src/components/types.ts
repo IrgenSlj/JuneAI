@@ -7,4 +7,6 @@ export interface ChatMessage {
   toolName?: string;
   /** Memories June drew on to compose this message. Only set on assistant messages. */
   recallHits?: RecallHit[];
+  /** Model provenance for this assistant turn. */
+  provenance?: { provider?: string; model?: string; tier?: string; latency_ms?: number };
 }

@@ -37,6 +37,12 @@ function attachRecallHits(id: string, hits: ChatEvent["recall_hits"]) {
   );
 }
 
+function attachProvenance(id: string, provenance: ChatEvent["provenance"]) {
+  chat.messages = chat.messages.map((m) =>
+    m.id === id ? { ...m, provenance: provenance ?? undefined } : m,
+  );
+}
+
 function formatToolCall(
   name: string,
   args: Record<string, unknown> | undefined,
@@ -94,6 +100,9 @@ function handleEvent(event: ChatEvent, assistantId: string) {
       break;
     case "recall":
       attachRecallHits(assistantId, event.recall_hits);
+      break;
+    case "provenance":
+      attachProvenance(assistantId, event.provenance);
       break;
     case "tool_call":
       pushMessage({

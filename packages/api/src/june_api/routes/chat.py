@@ -160,6 +160,18 @@ async def _iter_events(
                         yield _event_to_sse(
                             ChatEvent(type="recall", recall_hits=hits)
                         )
+                elif isinstance(chunk, dict) and chunk.get("event") == "provenance":
+                    yield _event_to_sse(
+                        ChatEvent(
+                            type="provenance",
+                            provenance={
+                                "provider": chunk.get("provider", ""),
+                                "model": chunk.get("model", ""),
+                                "tier": chunk.get("tier", ""),
+                                "latency_ms": chunk.get("latency_ms", 0),
+                            },
+                        )
+                    )
 
         yield _event_to_sse(ChatEvent(type="done"))
     except Exception as exc:  # noqa: BLE001

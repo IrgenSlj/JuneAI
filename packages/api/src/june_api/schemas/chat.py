@@ -51,7 +51,7 @@ class ChatEvent(BaseModel):
     """
 
     type: Literal[
-        "token", "tool_call", "tool_result", "recall", "done", "error"
+        "token", "tool_call", "tool_result", "recall", "provenance", "done", "error"
     ] = Field(..., description="Discriminator that determines the meaning of the payload.")
     content: str = Field(
         default="",
@@ -75,4 +75,8 @@ class ChatEvent(BaseModel):
             "Memories June drew on this turn. Emitted once, before the first token, "
             "so the UI can render a 'memories used' affordance per assistant message."
         ),
+    )
+    provenance: dict[str, Any] | None = Field(
+        default=None,
+        description="Per-turn model provenance. Carries provider/model/tier/latency_ms when type == 'provenance'.",
     )

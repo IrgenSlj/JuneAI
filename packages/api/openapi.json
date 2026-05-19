@@ -1339,7 +1339,7 @@
           "tasks"
         ],
         "summary": "Run Task",
-        "description": "Explicitly kick the runtime for a task. Idempotent for already-finished tasks.",
+        "description": "Explicitly kick the runtime for a task. Idempotent for finished or already-running tasks.",
         "operationId": "run_task_tasks__user_id___task_id__run_post",
         "parameters": [
           {
@@ -3259,6 +3259,7 @@
               "tool_call",
               "tool_result",
               "recall",
+              "provenance",
               "done",
               "error"
             ],
@@ -3296,6 +3297,20 @@
             },
             "title": "Recall Hits",
             "type": "array"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Per-turn model provenance. Carries provider/model/tier/latency_ms when type == 'provenance'.",
+            "title": "Provenance"
           }
         },
         "required": [

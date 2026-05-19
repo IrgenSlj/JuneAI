@@ -26,6 +26,8 @@
      * through to the server and is responsible for any error UI.
      */
     onVote?: (ref: string, vote: "up" | "down" | "clear") => void | Promise<void>;
+    /** Model provenance for this assistant turn. */
+    provenance?: { provider?: string; model?: string; tier?: string; latency_ms?: number };
   }
 
   const {
@@ -36,6 +38,7 @@
     recallHits = [],
     memoryHref = "/memory",
     onVote,
+    provenance,
   }: Props = $props();
 
   /** Per-bubble vote overrides applied locally so the button reflects the user's
@@ -81,6 +84,8 @@
   const showCopy = $derived(
     role === "assistant" && !pending && content.length > 0,
   );
+
+  const hasProvenance = $derived(role === "assistant" && !!provenance?.model);
 
   let copied = $state(false);
   async function copy() {
@@ -167,6 +172,17 @@
         {/each}
       </ul>
     </details>
+  {/if}
+  {#if hasProvenance}
+    <div class="provenance-chip">
+      <span class="provenance-tier">{provenance!.tier}</span>
+      <span class="provenance-sep">·</span>
+      <span class="provenance-model">{provenance!.model}</span>
+      {#if provenance!.latency_ms}
+        <span class="provenance-sep">·</span>
+        <span class="provenance-latency">{provenance!.latency_ms}ms</span>
+      {/if}
+    </div>
   {/if}
 </article>
 
@@ -394,5 +410,25 @@
     line-height: var(--leading-normal);
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .provenance-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.3em;
+    margin-top: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    color: var(--color-fg-subtle);
+  }
+
+  .provenance-sep {
+    opacity: 0.4;
+  }
+
+  .provenance-tier,
+  .provenance-model,
+  .provenance-latency {
+    color: var(--color-fg-subtle);
   }
 </style>

@@ -49,6 +49,7 @@
       content={message.content}
       toolName={message.toolName}
       recallHits={message.recallHits}
+      provenance={message.provenance}
       pending={streaming && message.id === lastId}
       {onVote}
     />

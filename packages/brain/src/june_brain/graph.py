@@ -801,7 +801,18 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
         if recall_block:
             system_messages.append(SystemMessage(content=recall_block))
         messages = system_messages + _trim_messages(state["messages"])
+        _invoke_started_at = time.monotonic()
         raw_response = llm.invoke(messages)
+        _invoke_latency_ms = max(0, int((time.monotonic() - _invoke_started_at) * 1000))
+        writer(
+            {
+                "event": "provenance",
+                "provider": runtime.preset_key,
+                "model": runtime.model,
+                "tier": runtime.preset_key,
+                "latency_ms": _invoke_latency_ms,
+            }
+        )
         if isinstance(getattr(raw_response, "content", None), str):
             raw_response.content = _strip_internal_thoughts(str(raw_response.content))
         # "native" and "balanced_reasoning" (Claude) both emit proper tool_calls —
