@@ -219,7 +219,9 @@
             {statusLabel(task.status)}
           </span>
           {#if task.owner_skill}
-            <span class="meta-chip">via {task.owner_skill}</span>
+            <a class="meta-chip skill-link" href="/skills#skill-{task.owner_skill}">
+              via {task.owner_skill}
+            </a>
           {/if}
           <time class="meta-time" datetime={task.updated_at}>
             {formatRelative(task.updated_at)}
@@ -551,6 +553,15 @@
 
   .meta-chip {
     font-family: var(--font-mono);
+  }
+  .meta-chip.skill-link {
+    color: var(--color-fg-subtle);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--color-border);
+  }
+  .meta-chip.skill-link:hover {
+    color: var(--color-accent);
+    border-bottom-color: var(--color-accent);
   }
   .meta-time {
     font-family: var(--font-mono);

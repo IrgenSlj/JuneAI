@@ -315,7 +315,7 @@
 
     <ul class="skills">
       {#each skills as skill (skill.key)}
-        <li class="skill">
+        <li class="skill" id="skill-{skill.key}">
           <div class="skill-head">
             <div class="skill-ident">
               <div class="skill-name">{skill.key}</div>
