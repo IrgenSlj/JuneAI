@@ -29,17 +29,28 @@ Each sprint is three weeks. Each ends with a public-ish artifact (a video, a blo
 
 The architectural pivot. Detailed task list: Task #3 through #9 in the task tracker.
 
+**Status as of 2026-05-19:** five of the seven planned modules have shipped to `main`, plus a four-module "Batch 1" of cross-department UX adds. Two modules remain (OAuth skills, browser skill) plus the desktop first-compile gate.
+
 Outcomes:
 
-- Three-tier model router shipped (Task #3) — `local`, `cloud-on-consent`, `per-skill policy`. UI shows per-message and per-tool-call provenance. Privacy dial in settings.
-- `task` primitive shipped (Task #4) — new SQLite table, API endpoints, `/tasks` UI route with live step trace.
-- Real **files** skill (Task #5) — sandboxed filesystem access through Tauri on desktop, File System Access API on web.
-- Real **gmail** and **gcal** skills (Task #6) — OAuth via loopback on desktop, popup on web; tokens in Keychain.
-- **browser** skill (Task #7) — Playwright-driven Chromium with persistent profile.
-- **MCP registry connector** (Task #8) — install any third-party MCP server in one click.
-- **Desktop Phase 4.5 First Compile** (Task #9) — rustup installed, Tauri shell compiled for the first time, OS-access features actually usable.
+- **SHIPPED — Three-tier model router** (Task #3, commit `017cca8b`). `routing.py` with `SkillModelPolicy` / `UserPrivacyDial` / `ResolvedTier` / `ModelRouter` / `ModelProvenance`. Privacy dial wired through `/settings` (commit `017cca8b`). Per-message provenance in chat (slice 1.1b) is the remaining piece.
+- **SHIPPED — Tasks primitive** (Task #4, commits `017cca8b` + `04a1e432`). New `tasks` SQLite table sharing `june.db`, `tasks/{models,store,runtime}.py`, REST API at `/tasks/{user_id}`, `/tasks` SvelteKit page. `TaskRuntime` pipes the goal through the existing LangGraph agent and records every tool call as a step. SSE live-trace deferred until the runtime has more to stream.
+- **PARTIAL — Real files skill** (Task #5, commit `017cca8b`). Tools `list_directory`, `read_file`, `search_files` added alongside `read_pdf`/`read_webpage`, all sandboxed to `$HOME` with symlink containment. Tauri-backed per-folder permission grants (1.3b) and Web File System Access path (1.3c) still pending.
+- **PENDING — Real gmail and gcal skills** (Task #6). OAuth setup blocks on the Google verified-app review (1-2 week lead time).
+- **PENDING — Browser skill** (Task #7).
+- **SHIPPED — MCP registry connector** (Task #8, commit `017cca8b`). Curated catalog of six entries (filesystem, github, notion, postgres, brave-search, sqlite). `GET /skills/registry`, install, uninstall. "Browse the MCP registry" panel at the bottom of `/skills`.
+- **PENDING — Desktop Phase 4.5 First Compile** (Task #9). Requires installing rustup on the dev machine, which is user-interactive.
 
-Artifact at end of sprint: a three-minute screen recording of "June plans a weekend trip" — uses gmail, gcal, browser, and files together.
+#### Batch 1 — one module per department (2026-05-19)
+
+Added on top of Sprint 1 to give each surface a tangible new capability:
+
+- **TaskRuntime** (Tasks) — see above.
+- **MemoryStats** (Memory, commit `e0c866c1`). `GET /memory/{user_id}/stats` returns per-store counts, last-write timestamp, and most-recent semantic facts. Card at the top of `/memory`.
+- **SkillPlayground** (Skills, commit `05c45345`). Per-tool form generated from each tool's `input_schema`. `POST /skills/{key}/tools/{tool}/invoke` runs it; the panel shows the raw result plus an ok/latency chip.
+- **SystemActivity** (System, commits `12db625e` + `68246709`). Rolling 1000-row sqlite log written by a FastAPI middleware; `GET /system/activity` reads it; "Recent activity" card at the bottom of `/system` with status chips, latency, and a Clear button.
+
+Artifact at end of sprint: a three-minute screen recording of "June plans a weekend trip" — uses gmail, gcal, browser, and files together. (Will be possible once 1.4 + 1.5 ship.)
 
 ### Sprint 2 — Dogfooding (weeks 4-6)
 
