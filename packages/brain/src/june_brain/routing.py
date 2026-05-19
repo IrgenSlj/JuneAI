@@ -15,6 +15,7 @@ call by the caller and emitted on the chat-event stream in a separate slice.
 
 from __future__ import annotations
 
+import os
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -186,9 +187,9 @@ class ModelRouter:
 
 def _detect_cloud_available() -> bool:
     """The cloud tier is available if a Gemini key is configured anywhere."""
-    # Local import to avoid a config_store -> routing cycle at module load.
+    # config_store is imported lazily to avoid a routing <-> config_store
+    # cycle at module load. ``os`` is at module top — no cycle risk.
     from .config_store import load_stored_config
-    import os
 
     if os.getenv("GEMINI_API_KEY"):
         return True
