@@ -636,6 +636,11 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
+    /* A runaway plan can have dozens of steps; keep the card a sane height. */
+    max-height: 60vh;
+    overflow-y: auto;
+    /* Reserve scrollbar gutter so steps don't reflow when the list grows. */
+    scrollbar-gutter: stable;
   }
 
   .step {
