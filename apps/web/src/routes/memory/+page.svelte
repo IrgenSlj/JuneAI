@@ -261,6 +261,25 @@
     }
   }
 
+  let copiedRef: string | null = $state(null);
+
+  async function handleCopy(fact: MemoryFact) {
+    if (!fact.ref) return;
+    if (typeof navigator === "undefined" || !navigator.clipboard) return;
+    // Prefer body; fall back to title when body is empty or identical.
+    const text = fact.body && fact.body !== fact.title ? fact.body : (fact.title ?? "");
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      copiedRef = fact.ref;
+      setTimeout(() => {
+        if (copiedRef === fact.ref) copiedRef = null;
+      }, 1500);
+    } catch {
+      // Clipboard write fails silently in insecure contexts; stay quiet.
+    }
+  }
+
   async function downloadObsidianExport() {
     if (exportingObsidian) return;
     exportingObsidian = true;
@@ -470,6 +489,18 @@
                       {/if}
                     </div>
                     <div class="fact-actions">
+                      {#if fact.ref && (fact.body || fact.title)}
+                        <button
+                          type="button"
+                          class="copy"
+                          onclick={() => handleCopy(fact)}
+                          disabled={editingRef !== null}
+                          aria-label={copiedRef === fact.ref ? "Copied" : "Copy text"}
+                          title={copiedRef === fact.ref ? "Copied" : "Copy"}
+                        >
+                          {copiedRef === fact.ref ? "Copied" : "Copy"}
+                        </button>
+                      {/if}
                       {#if section.editable && fact.ref}
                         <button
                           type="button"
@@ -793,7 +824,8 @@
   }
 
   .edit,
-  .delete {
+  .delete,
+  .copy {
     background: transparent;
     color: var(--color-fg-muted);
     border: 1px solid var(--color-border);
@@ -802,7 +834,8 @@
     font-size: var(--size-xs);
     cursor: pointer;
   }
-  .edit:hover:not(:disabled) {
+  .edit:hover:not(:disabled),
+  .copy:hover:not(:disabled) {
     color: var(--color-accent);
     border-color: var(--color-accent);
   }
@@ -811,7 +844,8 @@
     border-color: var(--color-danger);
   }
   .edit:disabled,
-  .delete:disabled {
+  .delete:disabled,
+  .copy:disabled {
     opacity: 0.5;
     cursor: default;
   }
