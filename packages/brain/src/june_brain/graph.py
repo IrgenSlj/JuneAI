@@ -37,6 +37,7 @@ from .tools import JUNE_TOOLS, JUNE_TOOLS_GEMMA
 
 _CONTEXT_CACHE: dict[str, tuple[float, str]] = {}  # user_id -> (timestamp, context)
 _CONTEXT_TTL = 30.0  # seconds
+_CONTEXT_CACHE_MAX = 256  # FIFO cap so the dict can't grow unbounded
 
 
 class AgentState(TypedDict):
@@ -606,6 +607,10 @@ def _build_memory_context(user_id: str) -> str:
         return cached[1]
     memory = Memory(user_id)
     result = _compute_memory_context(memory)
+    if len(_CONTEXT_CACHE) >= _CONTEXT_CACHE_MAX and user_id not in _CONTEXT_CACHE:
+        # FIFO eviction: drop the oldest entry to keep the cache bounded.
+        oldest = min(_CONTEXT_CACHE.items(), key=lambda kv: kv[1][0])[0]
+        _CONTEXT_CACHE.pop(oldest, None)
     _CONTEXT_CACHE[user_id] = (now, result)
     return result
 
