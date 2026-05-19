@@ -6,6 +6,7 @@ Routes live in ``june_api.routes``; schemas live in ``june_api.schemas``.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import time
@@ -79,16 +80,33 @@ def create_app() -> FastAPI:
         if request.method != "OPTIONS" and not any(
             path.startswith(prefix) for prefix in _ACTIVITY_SKIP_PREFIXES
         ):
-            try:
-                ActivityLog().record(
-                    kind="request",
-                    label=f"{request.method} {path}",
-                    status=response.status_code,
+            # Offload the SQLite INSERT + prune to a worker thread so the
+            # response can return without waiting on a disk write + commit.
+            # Fire-and-forget is safe: the activity log is best-effort and
+            # any failure is logged inside _record_request_async.
+            asyncio.create_task(
+                _record_request_async(
+                    method=request.method,
+                    path=path,
+                    status_code=response.status_code,
                     latency_ms=latency_ms,
                 )
-            except Exception:  # noqa: BLE001
-                logger.exception("activity log write failed")
+            )
         return response
+
+    async def _record_request_async(
+        *, method: str, path: str, status_code: int, latency_ms: int
+    ) -> None:
+        try:
+            await asyncio.to_thread(
+                ActivityLog().record,
+                kind="request",
+                label=f"{method} {path}",
+                status=status_code,
+                latency_ms=latency_ms,
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("activity log write failed")
 
     app.include_router(chat.router)
     app.include_router(demo.router)
