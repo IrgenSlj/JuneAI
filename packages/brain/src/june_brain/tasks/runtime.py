@@ -64,13 +64,27 @@ class TaskRuntime:
             input_state = {"messages": [HumanMessage(content=task.goal)]}
             result = await self._invoke(agent, input_state)
         except Exception as exc:  # noqa: BLE001
+            # Honour a cancel even when the agent invoke raised — a cancelled
+            # task that errored after the cancel is still cancelled, not failed.
+            if self._was_cancelled(task_id):
+                logger.info("task %s ended in cancelled state after invoke error", task_id)
+                refreshed = self.store.get(task_id)
+                assert refreshed is not None
+                return refreshed
             self.store.set_status(task_id, TaskStatus.FAILED, error=str(exc))
             logger.exception("task %s failed during agent invoke", task_id)
             raise
 
         try:
             self._record_trace(task_id, result)
-            self.store.set_status(task_id, TaskStatus.COMPLETED)
+            # Cooperative cancel: if the user PATCHed status=cancelled while
+            # the agent was running, preserve that state instead of forcing
+            # the row to COMPLETED. The trace we just recorded still lands so
+            # the user can see how far the task got before being stopped.
+            if self._was_cancelled(task_id):
+                logger.info("task %s cancelled mid-run; preserving cancelled state", task_id)
+            else:
+                self.store.set_status(task_id, TaskStatus.COMPLETED)
         except Exception as exc:  # noqa: BLE001
             self.store.set_status(task_id, TaskStatus.FAILED, error=str(exc))
             logger.exception("task %s failed during trace recording", task_id)
@@ -79,6 +93,11 @@ class TaskRuntime:
         refreshed = self.store.get(task_id)
         assert refreshed is not None
         return refreshed
+
+    def _was_cancelled(self, task_id: str) -> bool:
+        """Re-read the task to see whether the user cancelled it during invoke."""
+        current = self.store.get(task_id)
+        return current is not None and current.status == TaskStatus.CANCELLED
 
     # ------------------------------------------------------------------
     # Internals

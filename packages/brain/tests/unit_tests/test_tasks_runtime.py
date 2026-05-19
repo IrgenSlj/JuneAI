@@ -189,6 +189,60 @@ def test_missing_task_raises(store: TasksStore) -> None:
         asyncio.run(runtime.execute("does-not-exist"))
 
 
+def test_cancel_during_invoke_preserves_cancelled_state(store: TasksStore) -> None:
+    """If the user PATCHes status=cancelled mid-invoke, the runtime must not
+    overwrite the row with COMPLETED when the agent eventually returns.
+
+    Simulates the race by flipping the row to CANCELLED from inside the
+    agent's ainvoke; the runtime's trace step still runs, but the final
+    status set should be skipped.
+    """
+    task = store.create(goal="cancel me")
+    store_ref = store
+
+    class _CancelMidwayAgent:
+        async def ainvoke(self, state: dict[str, Any]) -> dict[str, Any]:
+            # The PATCH endpoint would do this from another request; we
+            # simulate the effect by writing the row directly.
+            store_ref.set_status(task.id, TaskStatus.CANCELLED)
+            return {"messages": [*state["messages"], _FakeAIMessage(content="too late")]}
+
+    runtime = TaskRuntime(
+        store,
+        agent_factory=_CancelMidwayAgent,
+        message_factory=_FakeHumanMessage,
+    )
+
+    import asyncio
+    result = asyncio.run(runtime.execute(task.id))
+
+    assert result.status == TaskStatus.CANCELLED
+    # Trace still landed so the user can see what happened.
+    assert any(step.description == "Final response" for step in result.plan)
+
+
+def test_cancel_during_invoke_error_still_preserves_cancelled(store: TasksStore) -> None:
+    """Cancel + agent crash should leave the task cancelled, not failed."""
+    task = store.create(goal="cancel and crash")
+    store_ref = store
+
+    class _CancelThenCrashAgent:
+        async def ainvoke(self, state: dict[str, Any]) -> dict[str, Any]:
+            store_ref.set_status(task.id, TaskStatus.CANCELLED)
+            raise RuntimeError("model died after cancel")
+
+    runtime = TaskRuntime(
+        store,
+        agent_factory=_CancelThenCrashAgent,
+        message_factory=_FakeHumanMessage,
+    )
+
+    import asyncio
+    # No raise: the cancel-preservation branch swallows the agent error.
+    result = asyncio.run(runtime.execute(task.id))
+    assert result.status == TaskStatus.CANCELLED
+
+
 def test_runtime_caps_steps_at_max(store: TasksStore) -> None:
     """A runaway agent must stop at _MAX_STEPS."""
     from june_brain.tasks import runtime as runtime_module
