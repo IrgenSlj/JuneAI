@@ -178,3 +178,109 @@ def test_users_are_scoped(client: TestClient) -> None:
 
     # Bob cannot see Alice's task directly.
     assert client.get(f"/tasks/bob/{a['id']}").status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# SSE event-stream route tests
+# ---------------------------------------------------------------------------
+
+
+def test_task_events_404_for_unknown(client: TestClient) -> None:
+    """GET /tasks/{user_id}/{task_id}/events on a non-existent task returns 404."""
+    res = client.get("/tasks/alice/no-such-task/events")
+    assert res.status_code == 404
+
+
+def test_task_events_content_type(client: TestClient) -> None:
+    """GET /tasks/{user_id}/{task_id}/events returns text/event-stream content-type.
+
+    The task is completed first so the poll generator emits status + done and
+    returns promptly; otherwise a non-terminal task would keep the stream open
+    for the full 30-minute ceiling and the TestClient read would block.
+    """
+    created = client.post("/tasks/alice", json={"goal": "watch me"}).json()
+    tid = created["id"]
+    client.patch(f"/tasks/alice/{tid}", json={"status": "completed"})
+    with client.stream("GET", f"/tasks/alice/{tid}/events") as res:
+        assert res.status_code == 200
+        assert "text/event-stream" in res.headers.get("content-type", "")
+        # Drain so the server-side generator runs to its `done` frame and
+        # returns, rather than being left dangling at context exit.
+        body = "".join(res.iter_text())
+    assert "done" in body
+
+
+def test_task_events_yields_initial_status_and_done(client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The poll generator emits at least a status frame and a done frame for a terminal task.
+
+    Strategy: create a task, immediately mark it completed so the first poll
+    sees a terminal status, then read the SSE stream until we hit 'done'.
+    We unit-test the async generator directly to avoid asyncio complications
+    with TestClient's sync wrapper.
+    """
+    import asyncio
+    import json as _json
+    import june_brain.memory as memory_pkg
+    import june_brain.memory.sqlite as memory_sqlite
+    import june_api.routes.tasks as tasks_route
+    from june_brain.tasks import TasksStore, TaskStatus
+    from june_api.routes.tasks import _poll_task_events
+
+    monkeypatch.setattr(memory_pkg, "MEMORY_DIR", str(tmp_path), raising=False)
+    monkeypatch.setattr(memory_sqlite, "_local", type(memory_sqlite._local)())
+
+    store = TasksStore(user_id="eve")
+    task = store.create(goal="unit poll test")
+    store.set_status(task.id, TaskStatus.COMPLETED)
+
+    async def collect() -> list[dict]:
+        frames = []
+        async for raw in _poll_task_events(store, task.id):
+            # raw is "data: {...}\n\n" — strip prefix
+            payload = raw.removeprefix("data: ").strip()
+            frames.append(_json.loads(payload))
+            if frames[-1]["type"] == "done":
+                break
+        return frames
+
+    frames = asyncio.run(collect())
+    types = [f["type"] for f in frames]
+    assert "status" in types
+    assert "done" in types
+    # Ensure the status frame carries the right value.
+    status_frames = [f for f in frames if f["type"] == "status"]
+    assert any(f["status"] == "completed" for f in status_frames)
+
+
+def test_task_events_emits_step_frame(client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The poll generator emits a step frame when a step exists at poll time."""
+    import asyncio
+    import json as _json
+    import june_brain.memory as memory_pkg
+    import june_brain.memory.sqlite as memory_sqlite
+    from june_brain.tasks import TasksStore, TaskStatus, TaskStep, TaskStepStatus
+    from june_api.routes.tasks import _poll_task_events
+
+    monkeypatch.setattr(memory_pkg, "MEMORY_DIR", str(tmp_path), raising=False)
+    monkeypatch.setattr(memory_sqlite, "_local", type(memory_sqlite._local)())
+
+    store = TasksStore(user_id="frank")
+    task = store.create(goal="step emission test")
+    # Append a step before moving to terminal so the first poll sees it.
+    step = TaskStep(description="do something", status=TaskStepStatus.COMPLETED)
+    store.append_step(task.id, step)
+    store.set_status(task.id, TaskStatus.COMPLETED)
+
+    async def collect() -> list[dict]:
+        frames = []
+        async for raw in _poll_task_events(store, task.id):
+            payload = raw.removeprefix("data: ").strip()
+            frames.append(_json.loads(payload))
+            if frames[-1]["type"] == "done":
+                break
+        return frames
+
+    frames = asyncio.run(collect())
+    step_frames = [f for f in frames if f["type"] == "step"]
+    assert len(step_frames) >= 1
+    assert step_frames[0]["step"]["description"] == "do something"

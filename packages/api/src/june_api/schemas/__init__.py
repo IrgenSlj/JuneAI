@@ -49,6 +49,7 @@ from .system import ActivityEntryView, ActivityResponse, SystemStatus
 from .tasks import (
     TaskCreateRequest,
     TaskDeleteResponse,
+    TaskEventFrame,
     TaskListResponse,
     TaskPatchRequest,
     TaskStepView,
@@ -101,6 +102,7 @@ __all__ = [
     "ActivityResponse",
     "TaskCreateRequest",
     "TaskDeleteResponse",
+    "TaskEventFrame",
     "TaskListResponse",
     "TaskPatchRequest",
     "TaskStepView",

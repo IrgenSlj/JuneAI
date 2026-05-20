@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { OfflineNotice, ConfirmDialog, type TaskView } from "@june/ui";
+  import { onMount, onDestroy } from "svelte";
+  import { OfflineNotice, ConfirmDialog, type TaskView, type TaskStepView } from "@june/ui";
   import { client } from "$lib/api.js";
   import { formatRelative } from "$lib/dates.js";
   import { profileName } from "$lib/stores/user.svelte.js";
@@ -19,6 +19,64 @@
   let confirmOpen = $state(false);
   let confirmTask: TaskView | null = $state(null);
 
+  // Live event stream tracking.
+  // Maps task_id -> AbortController for the open SSE stream.
+  let liveStreams: Map<string, AbortController> = new Map();
+  // Set of task IDs for which a live stream is open (used for pulsing dot).
+  let streamingTaskIds: Set<string> = $state(new Set());
+
+  function openStream(task: TaskView): void {
+    if (liveStreams.has(task.id)) return;
+    const ac = new AbortController();
+    liveStreams.set(task.id, ac);
+    streamingTaskIds = new Set([...streamingTaskIds, task.id]);
+
+    (async () => {
+      try {
+        for await (const frame of client.streamTaskEvents(
+          profileName.value,
+          task.id,
+          ac.signal,
+        )) {
+          if (frame.type === "step" && frame.step) {
+            const incoming = frame.step as TaskStepView;
+            tasks = tasks.map((t) => {
+              if (t.id !== task.id) return t;
+              const plan = t.plan ?? [];
+              const already = plan.some((s) => s.id === incoming.id);
+              if (already) return t;
+              return { ...t, plan: [...plan, incoming] };
+            });
+          } else if (frame.type === "status" && frame.status) {
+            tasks = tasks.map((t) =>
+              t.id === task.id ? { ...t, status: frame.status! } : t,
+            );
+          } else if (frame.type === "done") {
+            break;
+          }
+        }
+      } catch {
+        // AbortError on navigate-away or explicit close — suppress.
+      } finally {
+        liveStreams.delete(task.id);
+        streamingTaskIds = new Set(
+          [...streamingTaskIds].filter((id) => id !== task.id),
+        );
+      }
+    })();
+  }
+
+  function closeStream(taskId: string): void {
+    const ac = liveStreams.get(taskId);
+    if (ac) {
+      ac.abort();
+      liveStreams.delete(taskId);
+      streamingTaskIds = new Set(
+        [...streamingTaskIds].filter((id) => id !== taskId),
+      );
+    }
+  }
+
   async function refresh() {
     loading = true;
     loadError = null;
@@ -26,6 +84,12 @@
     try {
       const response = await client.getTasks(profileName.value);
       tasks = response.tasks ?? [];
+      // Re-open streams for tasks that are still running after a refresh.
+      for (const t of tasks) {
+        if (t.status === "running" && !liveStreams.has(t.id)) {
+          openStream(t);
+        }
+      }
     } catch (err) {
       loadError = err instanceof Error ? err.message : String(err);
     } finally {
@@ -34,6 +98,11 @@
   }
 
   onMount(refresh);
+
+  onDestroy(() => {
+    for (const ac of liveStreams.values()) ac.abort();
+    liveStreams.clear();
+  });
 
   async function createTask(event: SubmitEvent) {
     event.preventDefault();
@@ -58,8 +127,14 @@
     pendingAction = key;
     actionError = null;
     try {
-      await client.patchTask(profileName.value, task.id, { status });
-      await refresh();
+      const updated = await client.patchTask(profileName.value, task.id, { status });
+      tasks = tasks.map((t) => (t.id === updated.id ? updated : t));
+      if (status === "running") {
+        openStream(updated);
+      } else {
+        closeStream(task.id);
+        await refresh();
+      }
     } catch (err) {
       actionError = err instanceof Error ? err.message : String(err);
     } finally {
@@ -218,6 +293,9 @@
           <span class="status status-{statusKind(task.status)}">
             {statusLabel(task.status)}
           </span>
+          {#if streamingTaskIds.has(task.id)}
+            <span class="live-dot" title="Live"></span>
+          {/if}
           {#if task.owner_skill}
             <a class="meta-chip skill-link" href="/skills#skill-{task.owner_skill}">
               via {task.owner_skill}
@@ -733,5 +811,19 @@
     color: var(--color-danger);
     font-size: var(--size-xs);
     font-family: var(--font-mono);
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.75); }
+  }
+  .live-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    animation: pulse-dot 1.2s ease-in-out infinite;
+    flex-shrink: 0;
   }
 </style>

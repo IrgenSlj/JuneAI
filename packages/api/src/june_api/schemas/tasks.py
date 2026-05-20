@@ -71,3 +71,17 @@ class TaskPatchRequest(BaseModel):
 class TaskDeleteResponse(BaseModel):
     deleted: bool
     task_id: str
+
+
+class TaskEventFrame(BaseModel):
+    """One SSE frame emitted by GET /tasks/{user_id}/{task_id}/events.
+
+    ``type`` is one of:
+    - ``"step"``   — a new step appeared in the plan; ``step`` is populated.
+    - ``"status"`` — the task's top-level status changed; ``status`` is populated.
+    - ``"done"``   — the task reached a terminal state; the stream will close.
+    """
+
+    type: str
+    step: Optional[TaskStepView] = None
+    status: Optional[str] = None

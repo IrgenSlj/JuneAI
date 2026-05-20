@@ -58,6 +58,7 @@ export type PrivacyDialUpdateRequest = components["schemas"]["PrivacyDialUpdateR
 export type PrivacyDialUpdateResponse = components["schemas"]["PrivacyDialUpdateResponse"];
 export type TaskView = components["schemas"]["TaskView"];
 export type TaskStepView = components["schemas"]["TaskStepView"];
+export type TaskEventFrame = components["schemas"]["TaskEventFrame"];
 export type TaskListResponse = components["schemas"]["TaskListResponse"];
 export type TaskCreateRequest = components["schemas"]["TaskCreateRequest"];
 export type TaskPatchRequest = components["schemas"]["TaskPatchRequest"];
@@ -327,6 +328,57 @@ export function createJuneClient(options: JuneClientOptions) {
       );
     },
 
+    /**
+     * GET /tasks/{user_id}/{task_id}/events as an async iterator of TaskEventFrame objects.
+     *
+     * Yields each parsed SSE frame. Terminates naturally on a `done`
+     * frame, or when the signal aborts. Mirrors the streamChat pattern.
+     */
+    async *streamTaskEvents(
+      userId: string,
+      taskId: string,
+      signal?: AbortSignal,
+    ): AsyncGenerator<TaskEventFrame, void, void> {
+      const response = await fetchImpl(
+        `${baseUrl}/tasks/${encodeURIComponent(userId)}/${encodeURIComponent(taskId)}/events`,
+        {
+          headers: { Accept: "text/event-stream" },
+          signal,
+        },
+      );
+
+      if (!response.ok || !response.body) {
+        const text = response.body ? await response.text() : "";
+        throw new ApiError(response.status, response.statusText, text);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          let frameEnd = buffer.indexOf("\n\n");
+          while (frameEnd !== -1) {
+            const frame = buffer.slice(0, frameEnd);
+            buffer = buffer.slice(frameEnd + 2);
+            const event = parseTaskSseFrame(frame);
+            if (event) {
+              yield event;
+              if (event.type === "done") return;
+            }
+            frameEnd = buffer.indexOf("\n\n");
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    },
+
     /** GET /obsidian/{user_id} — Markdown and Canvas files for an Obsidian vault. */
     getObsidianExport(userId: string): Promise<ObsidianExportResponse> {
       return getJson<ObsidianExportResponse>(
@@ -466,6 +518,21 @@ function parseSseFrame(frame: string): ChatEvent | null {
   if (dataLines.length === 0) return null;
   try {
     return JSON.parse(dataLines.join("\n")) as ChatEvent;
+  } catch {
+    return null;
+  }
+}
+
+function parseTaskSseFrame(frame: string): TaskEventFrame | null {
+  const dataLines: string[] = [];
+  for (const line of frame.split("\n")) {
+    if (line.startsWith("data:")) {
+      dataLines.push(line.slice(5).trimStart());
+    }
+  }
+  if (dataLines.length === 0) return null;
+  try {
+    return JSON.parse(dataLines.join("\n")) as TaskEventFrame;
   } catch {
     return null;
   }

@@ -537,6 +537,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tasks/{user_id}/{task_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Task Events
+         * @description Subscribe to live step-trace events for a running task.
+         *
+         *     Streams TaskEventFrame JSON objects as SSE data frames at ~500 ms
+         *     resolution. Terminates when the task reaches a terminal status or after
+         *     30 minutes of inactivity to prevent resource leaks.
+         */
+        get: operations["task_events_tasks__user_id___task_id__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tasks/{user_id}": {
         parameters: {
             query?: never;
@@ -1881,6 +1905,81 @@ export interface components {
                 };
             };
         };
+        /**
+         * TaskEventFrame
+         * @description One SSE frame emitted by GET /tasks/{user_id}/{task_id}/events.
+         *
+         *     ``type`` is one of:
+         *     - ``"step"``   — a new step appeared in the plan; ``step`` is populated.
+         *     - ``"status"`` — the task's top-level status changed; ``status`` is populated.
+         *     - ``"done"``   — the task reached a terminal state; the stream will close.
+         */
+        TaskEventFrame: {
+            /** Type */
+            type: string;
+            /** @default null */
+            step: components["schemas"]["TaskStepView"] | null;
+            /**
+             * Status
+             * @default null
+             */
+            status: string | null;
+            $defs: {
+                /**
+                 * TaskStepView
+                 * @description One step inside a task's plan, as seen by the UI.
+                 */
+                TaskStepView: {
+                    /** Id */
+                    id: string;
+                    /** Index */
+                    index: number;
+                    /** Description */
+                    description: string;
+                    /**
+                     * Tool Name
+                     * @default null
+                     */
+                    tool_name: string | null;
+                    /**
+                     * Tool Args
+                     * @default null
+                     */
+                    tool_args: {
+                        [key: string]: unknown;
+                    } | null;
+                    /**
+                     * Tool Result
+                     * @default null
+                     */
+                    tool_result: unknown;
+                    /** Status */
+                    status: string;
+                    /**
+                     * Model Provenance
+                     * @default null
+                     */
+                    model_provenance: {
+                        [key: string]: unknown;
+                    } | null;
+                    /**
+                     * Started At
+                     * @default null
+                     */
+                    started_at: string | null;
+                    /**
+                     * Finished At
+                     * @default null
+                     */
+                    finished_at: string | null;
+                    /**
+                     * Error
+                     * @default null
+                     */
+                    error: string | null;
+                };
+            };
+        };
     };
     responses: never;
     parameters: never;
@@ -2626,6 +2725,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActivityResponse"];
+                };
+            };
+        };
+    };
+    task_events_tasks__user_id___task_id__events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description SSE stream of task step and status events. See TaskEventFrame. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

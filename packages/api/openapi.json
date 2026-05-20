@@ -1056,6 +1056,54 @@
         }
       }
     },
+    "/tasks/{user_id}/{task_id}/events": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Task Events",
+        "description": "Subscribe to live step-trace events for a running task.\n\nStreams TaskEventFrame JSON objects as SSE data frames at ~500 ms\nresolution. Terminates when the task reaches a terminal status or after\n30 minutes of inactivity to prevent resource leaks.",
+        "operationId": "task_events_tasks__user_id___task_id__events_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE stream of task step and status events. See TaskEventFrame.",
+            "content": {
+              "text/event-stream": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/tasks/{user_id}": {
       "get": {
         "tags": [
@@ -3317,6 +3365,152 @@
           "type"
         ],
         "title": "ChatEvent",
+        "type": "object"
+      },
+      "TaskEventFrame": {
+        "$defs": {
+          "TaskStepView": {
+            "description": "One step inside a task's plan, as seen by the UI.",
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "index": {
+                "title": "Index",
+                "type": "integer"
+              },
+              "description": {
+                "title": "Description",
+                "type": "string"
+              },
+              "tool_name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Tool Name"
+              },
+              "tool_args": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Tool Args"
+              },
+              "tool_result": {
+                "default": null,
+                "title": "Tool Result"
+              },
+              "status": {
+                "title": "Status",
+                "type": "string"
+              },
+              "model_provenance": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Model Provenance"
+              },
+              "started_at": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Started At"
+              },
+              "finished_at": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Finished At"
+              },
+              "error": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Error"
+              }
+            },
+            "required": [
+              "id",
+              "index",
+              "description",
+              "status"
+            ],
+            "title": "TaskStepView",
+            "type": "object"
+          }
+        },
+        "description": "One SSE frame emitted by GET /tasks/{user_id}/{task_id}/events.\n\n``type`` is one of:\n- ``\"step\"``   \u2014 a new step appeared in the plan; ``step`` is populated.\n- ``\"status\"`` \u2014 the task's top-level status changed; ``status`` is populated.\n- ``\"done\"``   \u2014 the task reached a terminal state; the stream will close.",
+        "properties": {
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskStepView"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "TaskEventFrame",
         "type": "object"
       }
     }

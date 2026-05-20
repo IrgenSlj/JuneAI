@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from june_brain.activity import ActivityLog
 from june_brain.config_store import apply_stored_config_to_env
 
-from .schemas import ChatEvent, RecallHit
+from .schemas import ChatEvent, RecallHit, TaskEventFrame, TaskStepView
 
 logger = logging.getLogger(__name__)
 
@@ -151,6 +151,14 @@ def _register_streaming_schemas(app: FastAPI) -> None:
         components.setdefault(
             "ChatEvent",
             ChatEvent.model_json_schema(ref_template=ref_template),
+        )
+        components.setdefault(
+            "TaskStepView",
+            TaskStepView.model_json_schema(ref_template=ref_template),
+        )
+        components.setdefault(
+            "TaskEventFrame",
+            TaskEventFrame.model_json_schema(ref_template=ref_template),
         )
         return schema
 
