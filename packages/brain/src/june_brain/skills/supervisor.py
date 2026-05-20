@@ -36,7 +36,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Annotated, Any, Callable
+from typing import Annotated, Any
 
 from langchain_core.tools import StructuredTool
 from langgraph.prebuilt import InjectedState

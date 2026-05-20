@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-
 from june_brain.skills.server import MCPStdioServer
 
 server = MCPStdioServer(name="june-files", version="0.1.0")

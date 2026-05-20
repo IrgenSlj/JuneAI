@@ -1,13 +1,15 @@
-"""GET /system — honest runtime indicator for the shells."""
+"""GET /system — honest runtime indicator for the shells, plus the activity log."""
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from typing import Optional
 
+from fastapi import APIRouter
+from june_brain.activity import ActivityLog
 from june_brain.config import resolve_runtime_config
 from june_brain.ollama_manager import is_model_available, is_ollama_running
 
-from ..schemas import SystemStatus
+from ..schemas import ActivityEntryView, ActivityResponse, SystemStatus
 
 router = APIRouter(tags=["system"])
 
@@ -59,12 +61,6 @@ def get_system_status() -> SystemStatus:
 # ---------------------------------------------------------------------------
 # Activity log (Batch 1 — trust primitive)
 # ---------------------------------------------------------------------------
-
-from typing import Optional
-
-from june_brain.activity import ActivityLog
-
-from ..schemas import ActivityEntryView, ActivityResponse
 
 
 def _entry_to_view(entry):

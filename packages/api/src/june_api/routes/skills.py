@@ -9,7 +9,6 @@ actually sees the updated tool surface.
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
-
 from june_brain import graph as brain_graph
 from june_brain.memory import VectorStore
 from june_brain.skills.loader import (

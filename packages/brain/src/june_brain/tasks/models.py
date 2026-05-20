@@ -76,7 +76,7 @@ class TaskStep:
         }
 
     @classmethod
-    def from_dict(cls, raw: dict[str, Any]) -> "TaskStep":
+    def from_dict(cls, raw: dict[str, Any]) -> TaskStep:
         return cls(
             id=str(raw.get("id") or _new_id()),
             index=int(raw.get("index", 0)),
@@ -126,7 +126,7 @@ class Task:
         }
 
     @classmethod
-    def from_dict(cls, raw: dict[str, Any]) -> "Task":
+    def from_dict(cls, raw: dict[str, Any]) -> Task:
         return cls(
             id=str(raw.get("id") or _new_id()),
             user_id=str(raw.get("user_id") or "default"),

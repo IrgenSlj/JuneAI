@@ -8,13 +8,11 @@ module covers CRUD plus a poll-based SSE live-trace endpoint.
 from __future__ import annotations
 
 import asyncio
-import json
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import StreamingResponse
-
-from june_brain.tasks import Task, TaskStatus, TasksStore, execute_task_in_background
+from june_brain.tasks import Task, TasksStore, TaskStatus, execute_task_in_background
 
 from ..schemas import (
     TaskCreateRequest,

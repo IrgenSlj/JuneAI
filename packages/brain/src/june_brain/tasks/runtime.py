@@ -17,7 +17,6 @@ result.
 from __future__ import annotations
 
 import asyncio
-import dataclasses
 import json
 import logging
 from typing import Any, Optional

@@ -18,7 +18,7 @@ import re
 from datetime import datetime
 from typing import Any
 
-from .sqlite import _get_connection, _current_memory_dir
+from .sqlite import _current_memory_dir, _get_connection
 
 
 def _slug(value: str) -> str:

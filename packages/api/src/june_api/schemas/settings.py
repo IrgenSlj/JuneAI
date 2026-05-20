@@ -12,7 +12,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-
 PrivacyDial = Literal["local_only", "private_by_default", "cloud_first"]
 
 

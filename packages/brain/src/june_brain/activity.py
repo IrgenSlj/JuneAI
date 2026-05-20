@@ -69,10 +69,10 @@ class ActivityEntry:
 class ActivityLog:
     """Singleton write/read interface to the activity_log table."""
 
-    _instance: Optional["ActivityLog"] = None
+    _instance: Optional[ActivityLog] = None
     _lock = threading.Lock()
 
-    def __new__(cls) -> "ActivityLog":
+    def __new__(cls) -> ActivityLog:
         # One instance per process. The connection pool below is shared with
         # memory, so this is just a tidy entry point.
         with cls._lock:

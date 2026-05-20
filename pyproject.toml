@@ -14,7 +14,11 @@ members = [
 [tool.ruff]
 line-length = 100
 lint.select = ["E", "F", "I", "UP", "T201"]
-lint.ignore = ["E501", "UP006", "UP007", "UP035"]
+# UP006/UP007/UP035/UP045 defer the typing-module → builtin/PEP-604 rewrites
+# (Dict→dict, Optional[X]→X | None, etc.). The codebase targets 3.10 and uses
+# explicit Optional/typing forms deliberately; modernizing them is a separate,
+# repo-wide pass, not a per-PR lint failure.
+lint.ignore = ["E501", "UP006", "UP007", "UP035", "UP045"]
 
 [tool.ruff.lint.per-file-ignores]
 "**/tests/*" = ["D", "UP"]

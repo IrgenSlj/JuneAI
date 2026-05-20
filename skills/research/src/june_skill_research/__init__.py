@@ -15,7 +15,6 @@ from html import unescape
 from typing import Any
 
 import httpx
-
 from june_brain.skills.server import MCPStdioServer
 
 server = MCPStdioServer(name="june-research", version="0.1.0")

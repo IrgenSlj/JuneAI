@@ -10,9 +10,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter
-from pydantic import BaseModel, Field
-
 from june_brain.memory import MemoryManager
+from pydantic import BaseModel, Field
 
 router = APIRouter(tags=["demo"])
 

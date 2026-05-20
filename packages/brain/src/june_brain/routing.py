@@ -101,7 +101,7 @@ class ModelProvenance:
         started_at: float,
         prompt_tokens: Optional[int] = None,
         completion_tokens: Optional[int] = None,
-    ) -> "ModelProvenance":
+    ) -> ModelProvenance:
         """Stamp latency and token counts after a model call returns."""
         self.latency_ms = max(0, int((time.monotonic() - started_at) * 1000))
         self.prompt_tokens = prompt_tokens
