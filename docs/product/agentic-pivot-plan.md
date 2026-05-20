@@ -29,12 +29,12 @@ Each sprint is three weeks. Each ends with a public-ish artifact (a video, a blo
 
 The architectural pivot. Detailed task list: Task #3 through #9 in the task tracker.
 
-**Status as of 2026-05-19:** five of the seven planned modules have shipped to `main`, plus a four-module "Batch 1" of cross-department UX adds. Two modules remain (OAuth skills, browser skill) plus the desktop first-compile gate.
+**Status as of 2026-05-20:** five of the seven planned modules have shipped to `main`, plus a four-module "Batch 1" of cross-department UX adds and a hardening/polish pass. Two modules remain (OAuth skills, browser skill) plus the desktop first-compile gate.
 
 Outcomes:
 
-- **SHIPPED — Three-tier model router** (Task #3, commit `017cca8b`). `routing.py` with `SkillModelPolicy` / `UserPrivacyDial` / `ResolvedTier` / `ModelRouter` / `ModelProvenance`. Privacy dial wired through `/settings` (commit `017cca8b`). Per-message provenance in chat (slice 1.1b) is the remaining piece.
-- **SHIPPED — Tasks primitive** (Task #4, commits `017cca8b` + `04a1e432`). New `tasks` SQLite table sharing `june.db`, `tasks/{models,store,runtime}.py`, REST API at `/tasks/{user_id}`, `/tasks` SvelteKit page. `TaskRuntime` pipes the goal through the existing LangGraph agent and records every tool call as a step. SSE live-trace deferred until the runtime has more to stream.
+- **SHIPPED — Three-tier model router** (Task #3, commit `017cca8b`). `routing.py` with `SkillModelPolicy` / `UserPrivacyDial` / `ResolvedTier` / `ModelRouter` / `ModelProvenance`. Privacy dial wired through `/settings` (commit `017cca8b`). Per-message provenance (slice 1.1b) now ships: the chat node emits a provenance event on the LangGraph custom stream and each assistant turn renders a tier/model/latency chip.
+- **SHIPPED — Tasks primitive** (Task #4, commits `017cca8b` + `04a1e432`). New `tasks` SQLite table sharing `june.db`, `tasks/{models,store,runtime}.py`, REST API at `/tasks/{user_id}`, `/tasks` SvelteKit page. `TaskRuntime` pipes the goal through the existing LangGraph agent and records every tool call as a step. SSE live-trace now ships via `GET /tasks/{user_id}/{task_id}/events` (poll-based; the `/tasks` page merges steps live with a running indicator). Double-start is rejected (409) and cooperative cancel is honoured — a PATCH `cancelled` mid-run survives the agent invoke instead of being overwritten with `completed`.
 - **PARTIAL — Real files skill** (Task #5, commit `017cca8b`). Tools `list_directory`, `read_file`, `search_files` added alongside `read_pdf`/`read_webpage`, all sandboxed to `$HOME` with symlink containment. Tauri-backed per-folder permission grants (1.3b) and Web File System Access path (1.3c) still pending.
 - **PENDING — Real gmail and gcal skills** (Task #6). OAuth setup blocks on the Google verified-app review (1-2 week lead time).
 - **PENDING — Browser skill** (Task #7).
@@ -49,6 +49,14 @@ Added on top of Sprint 1 to give each surface a tangible new capability:
 - **MemoryStats** (Memory, commit `e0c866c1`). `GET /memory/{user_id}/stats` returns per-store counts, last-write timestamp, and most-recent semantic facts. Card at the top of `/memory`.
 - **SkillPlayground** (Skills, commit `05c45345`). Per-tool form generated from each tool's `input_schema`. `POST /skills/{key}/tools/{tool}/invoke` runs it; the panel shows the raw result plus an ok/latency chip.
 - **SystemActivity** (System, commits `12db625e` + `68246709`). Rolling 1000-row sqlite log written by a FastAPI middleware; `GET /system/activity` reads it; "Recent activity" card at the bottom of `/system` with status chips, latency, and a Clear button.
+
+#### Hardening + polish pass (2026-05-20)
+
+A sweep of bug fixes, robustness work, and small UX upgrades layered on top of Sprint 1, all on `main`:
+
+- **Robustness** — MemoryManager logs full tracebacks instead of swallowing them; `_CONTEXT_CACHE` is FIFO-capped; activity-log writes run off the request path; a failed agent reload after a skills mutation surfaces as 500 instead of a silent broken state; chat `tool_args` are coerced defensively so one malformed local-model call can't kill the SSE stream; `config`/`build_chat_model` validate base_url + api_key up front; memory `ref` is validated at the route boundary; per-skill `response_timeout_seconds` is configurable in the manifest.
+- **UX** — a shared `ConfirmDialog` replaces `window.confirm()` across four destructive actions; the API client has a 30s fetch timeout; registry install shows a spinner; the task trace scrolls; owner_skill deep-links to `/skills`; memory facts have a copy button.
+- **Tests + hygiene** — added coverage for tasks routes (404/409/idempotent/cancel), `/system` + activity, graph tool-call normalization, and the SSE generator; pinned chromadb `<2.0` and fastapi `<1.0`; `ruff check` now passes clean. Full suite: 330 passing.
 
 Artifact at end of sprint: a three-minute screen recording of "June plans a weekend trip" — uses gmail, gcal, browser, and files together. (Will be possible once 1.4 + 1.5 ship.)
 

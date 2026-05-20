@@ -6,12 +6,12 @@ June is a private-by-default personal agent with long-term memory. Chat and reca
 
 ## Status
 
-June is **alpha software** in active development. As of 2026-05-19 the project is mid-way through the [agentic pivot](docs/product/agentic-pivot-plan.md) — a twelve-week reframing from "chat-with-memory" to "personal agent with memory" anchored by [ADR 0009](docs/decisions/0009-private-by-default-and-model-routing.md) and [ADR 0010](docs/decisions/0010-agentic-core-tasks-oauth-computer-use.md).
+June is **alpha software** in active development. As of 2026-05-20 the project is mid-way through the [agentic pivot](docs/product/agentic-pivot-plan.md) — a twelve-week reframing from "chat-with-memory" to "personal agent with memory" anchored by [ADR 0009](docs/decisions/0009-private-by-default-and-model-routing.md) and [ADR 0010](docs/decisions/0010-agentic-core-tasks-oauth-computer-use.md).
 
 What's shipped on `main`:
 
-- **Intelligence** — `packages/brain/` runs Gemma 4 (local) or Gemini (cloud) behind one code path. A three-tier model router resolves `SkillModelPolicy × UserPrivacyDial → ResolvedTier` per call (ADR 0009), and the user holds a `/settings` dial that controls cloud access (local-only, private-by-default, cloud-first).
-- **Tasks** — first-class long-running units of work in their own sqlite table. `TaskRuntime` pipes a goal through the existing LangGraph agent and records every tool call as a step. `/tasks` page shows active and recent tasks with full traces; Start/Pause/Cancel controls work end-to-end.
+- **Intelligence** — `packages/brain/` runs Gemma 4 (local) or Gemini (cloud) behind one code path. A three-tier model router resolves `SkillModelPolicy × UserPrivacyDial → ResolvedTier` per call (ADR 0009), and the user holds a `/settings` dial that controls cloud access (local-only, private-by-default, cloud-first). Each assistant turn carries a provenance chip showing which tier and model produced it.
+- **Tasks** — first-class long-running units of work in their own sqlite table. `TaskRuntime` pipes a goal through the existing LangGraph agent and records every tool call as a step. `/tasks` shows active and recent tasks; the step trace streams live over SSE (`GET /tasks/{user_id}/{task_id}/events`) as the task runs. Start/Cancel work end-to-end (cancel is honoured even mid-run); Pause/resume awaits a scheduler.
 - **Memory** — three stores behind one `MemoryManager`: SQLite for structured facts, ChromaDB for semantic recall, a graph for entities. `/memory` now opens with a stats card (per-store totals, last write, recent learnings) above the editable browser.
 - **Skills** — each skill is a standalone MCP server launched by a supervisor. The `/skills` page toggles them, runs them in a per-tool playground (form-generated from input_schema), and browses a curated MCP registry of third-party servers (filesystem, github, notion, postgres, brave-search, sqlite).
 - **System** — `/system` shows an at-a-glance architecture overview plus a rolling activity log of every API request and tool call (status, latency, label). The trust primitive: "what did June just do?"
@@ -19,7 +19,7 @@ What's shipped on `main`:
 - **Web shell** — SvelteKit PWA at `apps/web/` with installable manifest, service worker, first-run setup, settings, memory browser, skills registry, tasks page, system dashboard, offline states, keyboard shortcuts, light/dark, and an accessibility pass.
 - **Branding** — June "J" wordmark with light mode default and dark mode toggle.
 
-What's still pending in Sprint 1: Gmail/Calendar OAuth skills (gated on Google verified-app review), Playwright browser skill, and the desktop-shell first compile (needs `rustup`). Chat-event provenance (slice 1.1b) is now live — each assistant turn carries a tier/model/latency chip.
+What's still pending in Sprint 1: Gmail/Calendar OAuth skills (gated on Google verified-app review), the Playwright browser skill, and the desktop-shell first compile (needs `rustup`). Everything else in the Agentic Core — router with per-message provenance, tasks with live SSE trace and cancel, files, MCP registry — is on `main`.
 
 The **desktop shell** is experimental. Phases 1–4 of the [desktop-shell plan](docs/product/desktop-shell-plan.md) are implemented in source; Phase 4.5 (first compile) is Sprint 1.7 of the pivot. Mobile is planned, not shipped.
 
