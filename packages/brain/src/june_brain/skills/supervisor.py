@@ -88,10 +88,15 @@ class SkillProcess:
     error: str = ""
     _next_id: int = 1
     _lock: threading.Lock = field(default_factory=threading.Lock)
+    _event_thread: threading.Thread | None = None
 
     @property
     def key(self) -> str:
         return self.entry.key
+
+    @property
+    def is_daemon(self) -> bool:
+        return self.entry.daemon
 
     @property
     def is_alive(self) -> bool:

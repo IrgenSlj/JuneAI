@@ -47,6 +47,7 @@ class SkillManifestEntry:
 
     key: str
     enabled: bool = True
+    daemon: bool = False
     command: str = sys.executable
     args: list[str] = field(default_factory=list)
     env: dict[str, str] = field(default_factory=dict)
@@ -58,6 +59,7 @@ class SkillManifestEntry:
     def to_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
+            "daemon": self.daemon,
             "command": self.command,
             "args": list(self.args),
             "env": dict(self.env),

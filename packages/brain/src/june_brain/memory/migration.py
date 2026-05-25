@@ -122,6 +122,63 @@ def _migration_002(conn: Any) -> None:
     """)
 
 
+@MIGRATIONS.register(3, "Add shopping + chores tables")
+def _migration_003(conn: Any) -> None:
+    """Create tables for shopping and chores domain memory."""
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            category TEXT NOT NULL DEFAULT 'general',
+            preferred_price REAL,
+            preferred_store TEXT DEFAULT '',
+            notes TEXT DEFAULT '',
+            url TEXT DEFAULT '',
+            date_added TEXT NOT NULL,
+            active INTEGER DEFAULT 1
+        );
+        CREATE TABLE IF NOT EXISTS purchase_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            product_id INTEGER NOT NULL REFERENCES products(id),
+            price REAL,
+            store TEXT DEFAULT '',
+            date TEXT NOT NULL,
+            notes TEXT DEFAULT ''
+        );
+        CREATE TABLE IF NOT EXISTS price_alerts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            product_id INTEGER NOT NULL REFERENCES products(id),
+            target_price REAL NOT NULL,
+            active INTEGER DEFAULT 1,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS chores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            category TEXT NOT NULL DEFAULT 'general',
+            interval_days INTEGER NOT NULL DEFAULT 7,
+            last_done TEXT,
+            next_due TEXT,
+            notes TEXT DEFAULT '',
+            estimated_minutes INTEGER DEFAULT 0,
+            active INTEGER DEFAULT 1,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS chore_completions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            chore_id INTEGER NOT NULL REFERENCES chores(id),
+            completed_at TEXT NOT NULL,
+            note TEXT DEFAULT '',
+            skipped INTEGER DEFAULT 0
+        );
+    """)
+
+
 def ensure_schema(conn: Any) -> None:
     """Idempotent: create tables + apply pending migrations."""
     MIGRATIONS.ensure(conn)

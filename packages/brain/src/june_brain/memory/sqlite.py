@@ -285,6 +285,56 @@ CREATE TABLE IF NOT EXISTS skill_inbound_events (
     processed INTEGER DEFAULT 0,
     agent_invoked INTEGER DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'general',
+    preferred_price REAL,
+    preferred_store TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    url TEXT DEFAULT '',
+    date_added TEXT NOT NULL,
+    active INTEGER DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS purchase_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    product_id INTEGER NOT NULL REFERENCES products(id),
+    price REAL,
+    store TEXT DEFAULT '',
+    date TEXT NOT NULL,
+    notes TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS price_alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    product_id INTEGER NOT NULL REFERENCES products(id),
+    target_price REAL NOT NULL,
+    active INTEGER DEFAULT 1,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS chores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'general',
+    interval_days INTEGER NOT NULL DEFAULT 7,
+    last_done TEXT,
+    next_due TEXT,
+    notes TEXT DEFAULT '',
+    estimated_minutes INTEGER DEFAULT 0,
+    active INTEGER DEFAULT 1,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS chore_completions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    chore_id INTEGER NOT NULL REFERENCES chores(id),
+    completed_at TEXT NOT NULL,
+    note TEXT DEFAULT '',
+    skipped INTEGER DEFAULT 0
+);
 """
 
 
@@ -1735,6 +1785,122 @@ class Memory:
         if isinstance(value, (date, datetime)):
             return value.isoformat()
         return str(value)
+
+    # ------------------------------------------------------------------
+    # Shopping assistant — products, purchases, price alerts
+    # ------------------------------------------------------------------
+
+    def save_product(
+        self,
+        name: str,
+        category: str = "general",
+        preferred_price: float | None = None,
+        preferred_store: str = "",
+        notes: str = "",
+        url: str = "",
+    ) -> dict:
+        now = self._now()
+        cur = self._conn.execute(
+            "INSERT INTO products (user_id, name, category, preferred_price, preferred_store, notes, url, date_added, active) "
+            "VALUES (?,?,?,?,?,?,?,?,1)",
+            (self.user_id, name.strip(), category.strip(), preferred_price, preferred_store.strip(), notes.strip(), url.strip(), now),
+        )
+        self._conn.commit()
+        return {"id": cur.lastrowid, "name": name.strip(), "category": category.strip(), "date_added": now}
+
+    def list_products(self, category: str = "", active_only: bool = True) -> list[dict]:
+        if category:
+            rows = self._conn.execute(
+                "SELECT * FROM products WHERE user_id=? AND category=? AND (active=1 OR ?=0) ORDER BY name",
+                (self.user_id, category, int(active_only)),
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT * FROM products WHERE user_id=? AND (active=1 OR ?=0) ORDER BY name",
+                (self.user_id, int(active_only)),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def delete_product(self, product_id: int) -> bool:
+        cur = self._conn.execute(
+            "DELETE FROM products WHERE user_id=? AND id=?",
+            (self.user_id, product_id),
+        )
+        self._conn.commit()
+        return cur.rowcount > 0
+
+    def record_purchase(self, product_id: int, price: float | None = None, store: str = "", notes: str = "") -> dict:
+        now = self._now()
+        cur = self._conn.execute(
+            "INSERT INTO purchase_history (user_id, product_id, price, store, date, notes) VALUES (?,?,?,?,?,?)",
+            (self.user_id, product_id, price, store.strip(), now, notes.strip()),
+        )
+        self._conn.commit()
+        return {"id": cur.lastrowid, "product_id": product_id, "date": now}
+
+    def get_purchase_history(self, product_id: int, limit: int = 20) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM purchase_history WHERE user_id=? AND product_id=? ORDER BY date DESC LIMIT ?",
+            (self.user_id, product_id, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    # ------------------------------------------------------------------
+    # Chores helper
+    # ------------------------------------------------------------------
+
+    def save_chore(self, name: str, category: str = "general", interval_days: int = 7, notes: str = "", estimated_minutes: int = 0) -> dict:
+        now = self._now()
+        cur = self._conn.execute(
+            "INSERT INTO chores (user_id, name, category, interval_days, notes, estimated_minutes, active, created_at) "
+            "VALUES (?,?,?,?,?,?,1,?)",
+            (self.user_id, name.strip(), category.strip(), interval_days, notes.strip(), estimated_minutes, now),
+        )
+        self._conn.commit()
+        return {"id": cur.lastrowid, "name": name.strip(), "category": category.strip()}
+
+    def list_chores(self, category: str = "", active_only: bool = True) -> list[dict]:
+        if category:
+            rows = self._conn.execute(
+                "SELECT * FROM chores WHERE user_id=? AND category=? AND (active=1 OR ?=0) ORDER BY name",
+                (self.user_id, category, int(active_only)),
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT * FROM chores WHERE user_id=? AND (active=1 OR ?=0) ORDER BY name",
+                (self.user_id, int(active_only)),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def complete_chore(self, chore_id: int, note: str = "", skipped: bool = False) -> dict:
+        now = self._now()
+        from datetime import datetime, timezone, timedelta
+
+        self._conn.execute(
+            "INSERT INTO chore_completions (user_id, chore_id, completed_at, note, skipped) VALUES (?,?,?,?,?)",
+            (self.user_id, chore_id, now, note.strip(), int(skipped)),
+        )
+        # Update last_done and next_due
+        row = self._conn.execute("SELECT interval_days FROM chores WHERE user_id=? AND id=?", (self.user_id, chore_id)).fetchone()
+        next_due = ""
+        if row:
+            interval = row["interval_days"]
+            dt = datetime.now(timezone.utc) + timedelta(days=interval)
+            next_due = dt.isoformat()
+        self._conn.execute(
+            "UPDATE chores SET last_done=?, next_due=? WHERE user_id=? AND id=?",
+            (now, next_due, self.user_id, chore_id),
+        )
+        self._conn.commit()
+        return {"chore_id": chore_id, "completed_at": now, "next_due": next_due}
+
+    def delete_chore(self, chore_id: int) -> bool:
+        cur = self._conn.execute(
+            "DELETE FROM chores WHERE user_id=? AND id=?",
+            (self.user_id, chore_id),
+        )
+        self._conn.commit()
+        return cur.rowcount > 0
 
     # ------------------------------------------------------------------
     # Memory feedback (B.4) — thumbs up/down on recalled memories

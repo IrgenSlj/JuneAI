@@ -1421,6 +1421,125 @@ JUNE_TOOLS_GEMMA = [
     set_ui_layout,
 ]
 
+
+# ---------------------------------------------------------------------------
+# Shopping assistant tools
+# ---------------------------------------------------------------------------
+
+
+@tool
+def save_product(
+    name: str,
+    category: str = "general",
+    preferred_price: float | None = None,
+    preferred_store: str = "",
+    notes: str = "",
+    url: str = "",
+    state: InjectedAgentState = None,
+) -> str:
+    """Add a product to the shopping list with optional details like price, store, and notes."""
+    memory = _memory_for_state(state)
+    product = memory.save_product(name=name, category=category, preferred_price=preferred_price, preferred_store=preferred_store, notes=notes, url=url)
+    return f"Added '{name}' to {category} shopping list."
+
+
+@tool
+def list_products(
+    category: str = "",
+    state: InjectedAgentState = None,
+) -> str:
+    """List products in the shopping list, optionally filtered by category."""
+    memory = _memory_for_state(state)
+    products = memory.list_products(category=category)
+    if not products:
+        return "No products found." if not category else f"No products found in '{category}'."
+    lines = []
+    for p in products:
+        line = f"- {p['name']} [{p['category']}]"
+        if p.get("preferred_store"):
+            line += f" @ {p['preferred_store']}"
+        if p.get("preferred_price"):
+            line += f" (${p['preferred_price']:.2f})"
+        lines.append(line)
+    return f"{'All' if not category else category.title()} products:\n" + "\n".join(lines)
+
+
+@tool
+def record_purchase(
+    product_id: int,
+    price: float | None = None,
+    store: str = "",
+    notes: str = "",
+    state: InjectedAgentState = None,
+) -> str:
+    """Record that you bought a product (from the shopping list)."""
+    memory = _memory_for_state(state)
+    purchase = memory.record_purchase(product_id=product_id, price=price, store=store, notes=notes)
+    return f"Purchase recorded."
+
+
+# ---------------------------------------------------------------------------
+# Chores helper tools
+# ---------------------------------------------------------------------------
+
+
+@tool
+def save_chore(
+    name: str,
+    category: str = "general",
+    interval_days: int = 7,
+    notes: str = "",
+    estimated_minutes: int = 0,
+    state: InjectedAgentState = None,
+) -> str:
+    """Add a recurring chore with its interval and category (cleaning, maintenance, errand, admin)."""
+    memory = _memory_for_state(state)
+    chore = memory.save_chore(name=name, category=category, interval_days=interval_days, notes=notes, estimated_minutes=estimated_minutes)
+    return f"Added chore '{name}' (every {interval_days} days) to {category}."
+
+
+@tool
+def list_chores(
+    category: str = "",
+    state: InjectedAgentState = None,
+) -> str:
+    """List chores, optionally filtered by category."""
+    memory = _memory_for_state(state)
+    chores = memory.list_chores(category=category)
+    if not chores:
+        return "No chores found." if not category else f"No chores found in '{category}'."
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    lines = []
+    for c in chores:
+        due_str = ""
+        if c.get("next_due"):
+            try:
+                due = datetime.fromisoformat(c["next_due"])
+                if due <= now:
+                    due_str = " 🔔 OVERDUE"
+                else:
+                    days = (due - now).days
+                    due_str = f" (due in {days}d)" if days <= 7 else ""
+            except (ValueError, TypeError):
+                pass
+        lines.append(f"- {c['name']} [{c['category']}]{due_str}")
+    return f"{'All' if not category else category.title()} chores:\n" + "\n".join(lines)
+
+
+@tool
+def complete_chore(
+    chore_id: int,
+    note: str = "",
+    skipped: bool = False,
+    state: InjectedAgentState = None,
+) -> str:
+    """Mark a chore as done (or skipped). Sets next due date based on interval."""
+    memory = _memory_for_state(state)
+    result = memory.complete_chore(chore_id=chore_id, note=note, skipped=skipped)
+    return f"Chore marked as {'skipped' if skipped else 'done'}."
+
+
 JUNE_TOOLS = [
     log_mood,
     get_mood_history,
@@ -1472,4 +1591,10 @@ JUNE_TOOLS = [
     ask_about_chapter,
     get_personal_context,
     generate_weekly_summary,
+    save_product,
+    list_products,
+    record_purchase,
+    save_chore,
+    list_chores,
+    complete_chore,
 ]
