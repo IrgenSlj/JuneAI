@@ -14,6 +14,18 @@ from datetime import date, datetime
 from pathlib import Path
 from uuid import uuid4
 
+from .daos import (
+    CalendarDAO,
+    ChatDAO,
+    FeedbackDAO,
+    FitnessDAO,
+    GoalDAO,
+    HabitDAO,
+    JournalDAO,
+    PreferenceDAO,
+    RelationshipDAO,
+    TelemetryDAO,
+)
 from .migration import ensure_schema
 
 
@@ -363,6 +375,17 @@ class Memory:
         conn = _get_connection(self._db_path)
         _init_schema(conn)
         self._migrate_from_json(db_dir)
+        # DAO layer — new code should prefer these over Memory methods
+        self._chat_dao = ChatDAO(conn, user_id)
+        self._journal_dao = JournalDAO(conn, user_id)
+        self._relationship_dao = RelationshipDAO(conn, user_id)
+        self._goal_dao = GoalDAO(conn, user_id)
+        self._preference_dao = PreferenceDAO(conn, user_id)
+        self._calendar_dao = CalendarDAO(conn, user_id)
+        self._fitness_dao = FitnessDAO(conn, user_id)
+        self._habit_dao = HabitDAO(conn, user_id)
+        self._telemetry_dao = TelemetryDAO(conn, user_id)
+        self._feedback_dao = FeedbackDAO(conn, user_id)
 
     @property
     def _conn(self) -> sqlite3.Connection:
@@ -373,38 +396,13 @@ class Memory:
     # ------------------------------------------------------------------
 
     def save_message(self, role: str, content: str) -> None:
-        conn = self._conn
-        conn.execute(
-            "INSERT INTO chat_messages (user_id, role, content, timestamp) VALUES (?,?,?,?)",
-            (self.user_id, role, content, self._now()),
-        )
-        # Keep latest 50 — delete older ones
-        conn.execute(
-            """DELETE FROM chat_messages WHERE user_id=? AND id NOT IN (
-                SELECT id FROM chat_messages WHERE user_id=? ORDER BY id DESC LIMIT 50
-            )""",
-            (self.user_id, self.user_id),
-        )
-        conn.commit()
+        return self._chat_dao.save_message(role, content)
 
     def load_chat(self) -> list:
-        rows = self._conn.execute(
-            "SELECT role, content, timestamp FROM chat_messages WHERE user_id=? ORDER BY id",
-            (self.user_id,),
-        ).fetchall()
-        return [dict(r) for r in rows]
+        return self._chat_dao.load_chat()
 
     def load_chat_messages(self) -> list:
-        from langchain_core.messages import AIMessage, HumanMessage
-        messages = []
-        for item in self.load_chat():
-            role = item.get("role")
-            content = item.get("content", "")
-            if role == "user":
-                messages.append(HumanMessage(content=content))
-            elif role == "assistant":
-                messages.append(AIMessage(content=content))
-        return messages
+        return self._chat_dao.load_chat_messages()
 
     # ------------------------------------------------------------------
     # Mood
