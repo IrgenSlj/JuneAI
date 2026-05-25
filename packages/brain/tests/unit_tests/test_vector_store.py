@@ -13,11 +13,9 @@ import hashlib
 from unittest.mock import patch
 
 import pytest
-
-from june_brain.memory import VectorStore, vector as vector_module
-
-
 from chromadb.api.types import EmbeddingFunction
+from june_brain.memory import VectorStore
+from june_brain.memory import vector as vector_module
 
 
 class _HashEmbedder(EmbeddingFunction):

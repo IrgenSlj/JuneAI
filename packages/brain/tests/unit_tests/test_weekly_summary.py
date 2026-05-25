@@ -1,7 +1,6 @@
 """Tests for generate_weekly_summary tool."""
 from __future__ import annotations
 
-import pytest
 from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 

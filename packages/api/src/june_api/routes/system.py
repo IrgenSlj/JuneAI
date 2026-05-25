@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from fastapi import APIRouter
 from june_brain.activity import ActivityLog
 from june_brain.config import resolve_runtime_config
@@ -76,7 +74,7 @@ def _entry_to_view(entry):
 
 
 @router.get("/system/activity", response_model=ActivityResponse)
-def get_activity(limit: int = 100, kind: Optional[str] = None) -> ActivityResponse:
+def get_activity(limit: int = 100, kind: str | None = None) -> ActivityResponse:
     """Reverse-chronological activity log: every recorded API request and tool call."""
     entries = ActivityLog().list(kind=kind, limit=max(1, min(int(limit), 500)))
     views = [_entry_to_view(e) for e in entries]

@@ -21,7 +21,7 @@ import os
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from .manifest import (
     DEFAULT_MODEL_POLICY,
@@ -89,7 +89,7 @@ class Registry:
     updated_at: str = ""
     entries: list[RegistryEntry] = field(default_factory=list)
 
-    def find(self, key: str) -> Optional[RegistryEntry]:
+    def find(self, key: str) -> RegistryEntry | None:
         for entry in self.entries:
             if entry.key == key:
                 return entry
@@ -149,8 +149,8 @@ def _parse_registry(text: str) -> Registry:
 def install_from_registry(
     key: str,
     *,
-    registry: Optional[Registry] = None,
-    manifest_path: Optional[Path] = None,
+    registry: Registry | None = None,
+    manifest_path: Path | None = None,
 ) -> SkillManifestEntry:
     """Materialize a registry entry into the on-disk skill manifest.
 
@@ -183,7 +183,7 @@ def install_from_registry(
 def uninstall_from_manifest(
     key: str,
     *,
-    manifest_path: Optional[Path] = None,
+    manifest_path: Path | None = None,
 ) -> bool:
     """Remove an installed registry skill from the manifest."""
     manifest = load_manifest(manifest_path)
@@ -194,7 +194,7 @@ def uninstall_from_manifest(
     return True
 
 
-def installed_keys(manifest: Optional[SkillManifest] = None) -> set[str]:
+def installed_keys(manifest: SkillManifest | None = None) -> set[str]:
     """Set of skill keys currently in the manifest (first-party + registry)."""
     manifest = manifest or load_manifest()
     return set(manifest.entries.keys())

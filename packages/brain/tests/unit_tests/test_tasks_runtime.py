@@ -7,13 +7,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 from june_brain.tasks import (
-    Task,
     TaskRuntime,
+    TasksStore,
     TaskStatus,
     TaskStepStatus,
-    TasksStore,
 )
 
 

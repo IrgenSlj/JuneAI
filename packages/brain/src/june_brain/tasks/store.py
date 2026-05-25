@@ -9,9 +9,9 @@ memory module to keep there to one connection per (thread, db_path).
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from ..memory.sqlite import _current_memory_dir, _get_connection
 from .models import Task, TaskStatus, TaskStep, TaskStepStatus
@@ -39,7 +39,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_user_updated ON tasks(user_id, updated_at);
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class TasksStore:
@@ -66,9 +66,9 @@ class TasksStore:
         self,
         *,
         goal: str,
-        owner_skill: Optional[str] = None,
-        schedule: Optional[str] = None,
-        plan: Optional[list[TaskStep]] = None,
+        owner_skill: str | None = None,
+        schedule: str | None = None,
+        plan: list[TaskStep] | None = None,
         status: TaskStatus = TaskStatus.PLANNING,
     ) -> Task:
         task = Task(
@@ -82,7 +82,7 @@ class TasksStore:
         self._insert(task)
         return task
 
-    def get(self, task_id: str) -> Optional[Task]:
+    def get(self, task_id: str) -> Task | None:
         row = self._conn.execute(
             "SELECT * FROM tasks WHERE id=? AND user_id=?",
             (task_id, self.user_id),
@@ -92,7 +92,7 @@ class TasksStore:
     def list(
         self,
         *,
-        status: Optional[TaskStatus] = None,
+        status: TaskStatus | None = None,
         limit: int = 50,
     ) -> list[Task]:
         if status is None:
@@ -128,7 +128,7 @@ class TasksStore:
     # Update
     # ------------------------------------------------------------------
 
-    def set_plan(self, task_id: str, plan: list[TaskStep]) -> Optional[Task]:
+    def set_plan(self, task_id: str, plan: list[TaskStep]) -> Task | None:
         task = self.get(task_id)
         if task is None:
             return None
@@ -137,7 +137,7 @@ class TasksStore:
         self._update(task)
         return task
 
-    def append_step(self, task_id: str, step: TaskStep) -> Optional[Task]:
+    def append_step(self, task_id: str, step: TaskStep) -> Task | None:
         task = self.get(task_id)
         if task is None:
             return None
@@ -152,12 +152,12 @@ class TasksStore:
         task_id: str,
         step_id: str,
         *,
-        status: Optional[TaskStepStatus] = None,
+        status: TaskStepStatus | None = None,
         tool_result: Any = _UNSET,
-        error: Optional[str] = None,
-        model_provenance: Optional[dict[str, Any]] = None,
+        error: str | None = None,
+        model_provenance: dict[str, Any] | None = None,
         finished: bool = False,
-    ) -> Optional[Task]:
+    ) -> Task | None:
         task = self.get(task_id)
         if task is None:
             return None
@@ -186,8 +186,8 @@ class TasksStore:
         task_id: str,
         status: TaskStatus,
         *,
-        error: Optional[str] = None,
-    ) -> Optional[Task]:
+        error: str | None = None,
+    ) -> Task | None:
         task = self.get(task_id)
         if task is None:
             return None

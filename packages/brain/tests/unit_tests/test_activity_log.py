@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from june_brain.activity import ActivityLog, reset_for_tests
 
 

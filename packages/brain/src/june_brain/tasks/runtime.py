@@ -19,7 +19,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, Optional
+from datetime import UTC
+from typing import Any
 
 from .models import Task, TaskStatus, TaskStep, TaskStepStatus
 from .store import TasksStore
@@ -36,8 +37,8 @@ class TaskRuntime:
         self,
         store: TasksStore,
         *,
-        agent_factory: Optional[Any] = None,
-        message_factory: Optional[Any] = None,
+        agent_factory: Any | None = None,
+        message_factory: Any | None = None,
     ) -> None:
         self.store = store
         self._agent_factory = agent_factory
@@ -219,7 +220,7 @@ class TaskRuntime:
         return []
 
     @staticmethod
-    def _extract_tool_result(message: Any) -> Optional[dict[str, Any]]:
+    def _extract_tool_result(message: Any) -> dict[str, Any] | None:
         msg_type = getattr(message, "type", None) or message.__class__.__name__
         if msg_type not in ("tool", "ToolMessage"):
             return None
@@ -257,9 +258,9 @@ class TaskRuntime:
 
     @staticmethod
     def _now() -> str:
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        return datetime.now(timezone.utc).isoformat()
+        return datetime.now(UTC).isoformat()
 
 
 def execute_task_in_background(store: TasksStore, task_id: str) -> None:

@@ -227,8 +227,8 @@ def load_manifest(path: Path | None = None) -> SkillManifest:
     try:
         with target.open("rb") as fh:
             data = tomllib.load(fh)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("Failed to parse %s (%s); falling back to default manifest.", target, exc)
+    except Exception:
+        logger.exception("Failed to parse %s; falling back to default manifest.", target)
         return SkillManifest(
             entries={k: _copy_entry(v) for k, v in DEFAULT_MANIFEST.entries.items()}
         )

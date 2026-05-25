@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Optional
+import logging
+from typing import Annotated, Any
 
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
 from langchain_core.tools.base import InjectedToolCallId
 from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
-from typing_extensions import TypeAlias
 
 from .config import apply_runtime_preset_switch
 from .context_intelligence import (
@@ -26,10 +26,12 @@ from .runtime_privacy import (
     format_runtime_privacy_status,
 )
 
-AgentPayload: TypeAlias = dict[str, Any]
-AgentState: TypeAlias = Optional[dict[str, Any]]
+logger = logging.getLogger(__name__)
+
+type AgentPayload = dict[str, Any]
+type AgentState = dict[str, Any] | None
 InjectedAgentState = Annotated[AgentState, InjectedState]
-ToolCommand: TypeAlias = Command[str]
+type ToolCommand = Command[str]
 
 DEFAULT_UI_STATE: dict[str, Any] = {
     "layout": "split",
@@ -1361,7 +1363,7 @@ def generate_weekly_summary(
     try:
         memory.save_journal(f"[Weekly Review]\n{summary_text}")
     except Exception:
-        pass
+        logger.exception("weekly summary journal save failed")
 
     return summary_text
 

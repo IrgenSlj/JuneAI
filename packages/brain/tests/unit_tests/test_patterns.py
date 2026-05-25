@@ -4,17 +4,16 @@ from datetime import date, timedelta
 from unittest.mock import patch
 
 import pytest
-
 from june_brain.memory import Memory
 from june_brain.patterns import (
     PatternInsight,
-    detect_patterns,
-    format_patterns_for_prompt,
-    _workout_gap,
     _low_energy_streak,
     _stale_goals,
-    _upcoming_birthdays,
     _tomorrows_calendar,
+    _upcoming_birthdays,
+    _workout_gap,
+    detect_patterns,
+    format_patterns_for_prompt,
 )
 
 

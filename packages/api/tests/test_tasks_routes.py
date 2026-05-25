@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-
 from june_api.app import create_app
 
 
@@ -18,9 +17,9 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     spin up the real LangGraph agent inside the test process. Runtime behaviour
     has its own test module under packages/brain.
     """
+    import june_api.routes.tasks as tasks_route
     import june_brain.memory as memory_pkg
     import june_brain.memory.sqlite as memory_sqlite
-    import june_api.routes.tasks as tasks_route
 
     monkeypatch.setattr(memory_pkg, "MEMORY_DIR", str(tmp_path), raising=False)
     monkeypatch.setattr(memory_sqlite, "_local", type(memory_sqlite._local)())
@@ -220,11 +219,11 @@ def test_task_events_yields_initial_status_and_done(client: TestClient, tmp_path
     """
     import asyncio
     import json as _json
+
     import june_brain.memory as memory_pkg
     import june_brain.memory.sqlite as memory_sqlite
-    import june_api.routes.tasks as tasks_route
-    from june_brain.tasks import TasksStore, TaskStatus
     from june_api.routes.tasks import _poll_task_events
+    from june_brain.tasks import TasksStore, TaskStatus
 
     monkeypatch.setattr(memory_pkg, "MEMORY_DIR", str(tmp_path), raising=False)
     monkeypatch.setattr(memory_sqlite, "_local", type(memory_sqlite._local)())
@@ -256,10 +255,11 @@ def test_task_events_emits_step_frame(client: TestClient, tmp_path: Path, monkey
     """The poll generator emits a step frame when a step exists at poll time."""
     import asyncio
     import json as _json
+
     import june_brain.memory as memory_pkg
     import june_brain.memory.sqlite as memory_sqlite
-    from june_brain.tasks import TasksStore, TaskStatus, TaskStep, TaskStepStatus
     from june_api.routes.tasks import _poll_task_events
+    from june_brain.tasks import TasksStore, TaskStatus, TaskStep, TaskStepStatus
 
     monkeypatch.setattr(memory_pkg, "MEMORY_DIR", str(tmp_path), raising=False)
     monkeypatch.setattr(memory_sqlite, "_local", type(memory_sqlite._local)())

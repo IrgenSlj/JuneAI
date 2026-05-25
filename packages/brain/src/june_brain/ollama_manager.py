@@ -20,7 +20,7 @@ import subprocess
 import tempfile
 import threading
 import urllib.request
-from typing import Generator
+from collections.abc import Generator
 
 # Approximate compressed download sizes in GB for the Gemma 4 family.
 MODEL_SIZE_GB: dict[str, float] = {
@@ -301,7 +301,7 @@ def model_size_label(model_name: str) -> str:
 def pull_model_stream(
     model_name: str,
     base_url: str,
-) -> Generator[dict[str, object], None, None]:
+) -> Generator[dict[str, object]]:
     """Stream pull progress via the Ollama REST API.
 
     WARNING: this generator blocks the calling thread for the entire

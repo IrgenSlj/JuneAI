@@ -9,10 +9,10 @@ from unittest.mock import patch
 
 from june_brain.config import resolve_runtime_config
 from june_brain.runtime_privacy import (
-    build_runtime_privacy_status,
     build_runtime_preset_switch_preview,
-    format_runtime_privacy_status,
+    build_runtime_privacy_status,
     format_runtime_preset_switch_plan,
+    format_runtime_privacy_status,
 )
 from june_brain.tools import (
     get_runtime_privacy_status,

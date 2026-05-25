@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from june_brain.skills.manifest import load_manifest
 from june_brain.skills.registry import (
     install_from_registry,

@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import os
 import re
 from pathlib import Path
 
 import pytest
-
 from june_brain.routing import (
     ModelProvenance,
     ModelRouter,
@@ -16,7 +14,6 @@ from june_brain.routing import (
     SkillModelPolicy,
     UserPrivacyDial,
 )
-
 
 # --- Resolution matrix (ADR 0009) ----------------------------------------- #
 

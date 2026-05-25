@@ -21,9 +21,9 @@ fi
 
 "$PYTHON_BIN" - <<'PY'
 import sys
-if sys.version_info < (3, 10):
+if sys.version_info < (3, 13):
     raise SystemExit(
-        f"error: Python 3.10+ is required; found {sys.version.split()[0]}"
+        f"error: Python 3.13+ is required; found {sys.version.split()[0]}"
     )
 PY
 

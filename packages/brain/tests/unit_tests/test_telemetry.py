@@ -4,7 +4,6 @@ from datetime import date
 from unittest.mock import patch
 
 import pytest
-
 from june_brain.memory import Memory
 from june_brain.telemetry import (
     append_event,

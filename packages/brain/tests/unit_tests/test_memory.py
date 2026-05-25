@@ -1,11 +1,9 @@
 """Unit tests for the Memory class and tool functions."""
 
 from datetime import date, timedelta
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
 from june_brain.memory import Memory
 from june_brain.tools import (
     clear_ui_workspace,

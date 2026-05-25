@@ -5,8 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
-from june_brain.tasks import Task, TaskStatus, TaskStep, TaskStepStatus, TasksStore
+from june_brain.tasks import TasksStore, TaskStatus, TaskStep, TaskStepStatus
 
 
 @pytest.fixture

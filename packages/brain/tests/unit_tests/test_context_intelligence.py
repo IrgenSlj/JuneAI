@@ -4,7 +4,6 @@ from datetime import date, timedelta
 from unittest.mock import patch
 
 import pytest
-
 from june_brain.context_intelligence import (
     build_active_commitments_summary,
     build_recovery_readiness_summary,

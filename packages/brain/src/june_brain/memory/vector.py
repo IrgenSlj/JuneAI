@@ -263,8 +263,8 @@ class VectorStore:
         """Remove a fact from both Chroma and the shadow table."""
         try:
             self._collection.delete(ids=[fact_id])
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("vector delete failed for user=%s id=%s: %s", self.user_id, fact_id, exc)
+        except Exception:
+            logger.exception("vector delete failed for user=%s id=%s", self.user_id, fact_id)
         _get_connection(_db_path()).execute(
             "DELETE FROM semantic_facts WHERE user_id=? AND fact_id=?",
             (self.user_id, fact_id),

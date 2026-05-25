@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from june_brain.graph import _coerce_tool_calls, _normalize_tool_call
 
-
 # ---------------------------------------------------------------------- coerce
 
 

@@ -104,8 +104,8 @@ def _messages_for_turn(user_id: str, user_text: str) -> list[Any]:
         memory = Memory(user_id)
         memory.save_message("user", user_text)
         return memory.load_chat_messages()
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("chat history load failed for user=%s: %s", user_id, exc)
+    except Exception:
+        logger.exception("chat history load failed for user=%s", user_id)
         return [HumanMessage(content=user_text)]
 
 
@@ -174,7 +174,7 @@ async def _iter_events(
                     )
 
         yield _event_to_sse(ChatEvent(type="done"))
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception("chat stream failed for user=%s", request.user_id)
         yield _event_to_sse(ChatEvent(type="error", content=str(exc)))
 
@@ -190,15 +190,15 @@ def _run_post_chat(user_id: str, user_text: str, assistant_buffer: list[str]) ->
     if assistant_text:
         try:
             Memory(user_id).save_message("assistant", assistant_text)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("assistant message save failed for user=%s: %s", user_id, exc)
+        except Exception:
+            logger.exception("assistant message save failed for user=%s", user_id)
     if not user_text.strip() and not assistant_text:
         return
     try:
         manager = MemoryManager(user_id)
         manager.extract({"user": user_text, "assistant": assistant_text})
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("post-chat extract failed for user=%s: %s", user_id, exc)
+    except Exception:
+        logger.exception("post-chat extract failed for user=%s", user_id)
 
 
 @router.post(

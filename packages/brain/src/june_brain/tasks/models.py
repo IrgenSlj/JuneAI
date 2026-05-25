@@ -4,20 +4,20 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Optional
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _new_id() -> str:
     return uuid.uuid4().hex
 
 
-class TaskStatus(str, Enum):
+class TaskStatus(StrEnum):
     """Lifecycle states for a task. See ADR 0010."""
 
     PLANNING = "planning"
@@ -29,7 +29,7 @@ class TaskStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class TaskStepStatus(str, Enum):
+class TaskStepStatus(StrEnum):
     """Lifecycle states for one step inside a task's trace."""
 
     PENDING = "pending"
@@ -51,14 +51,14 @@ class TaskStep:
     id: str = field(default_factory=_new_id)
     index: int = 0
     description: str = ""
-    tool_name: Optional[str] = None
-    tool_args: Optional[dict[str, Any]] = None
+    tool_name: str | None = None
+    tool_args: dict[str, Any] | None = None
     tool_result: Any = None
     status: TaskStepStatus = TaskStepStatus.PENDING
-    model_provenance: Optional[dict[str, Any]] = None
-    started_at: Optional[str] = None
-    finished_at: Optional[str] = None
-    error: Optional[str] = None
+    model_provenance: dict[str, Any] | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+    error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -101,13 +101,13 @@ class Task:
     goal: str = ""
     status: TaskStatus = TaskStatus.PLANNING
     plan: list[TaskStep] = field(default_factory=list)
-    owner_skill: Optional[str] = None
-    schedule: Optional[str] = None
-    error: Optional[str] = None
+    owner_skill: str | None = None
+    schedule: str | None = None
+    error: str | None = None
     created_at: str = field(default_factory=_now)
     updated_at: str = field(default_factory=_now)
-    started_at: Optional[str] = None
-    finished_at: Optional[str] = None
+    started_at: str | None = None
+    finished_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {

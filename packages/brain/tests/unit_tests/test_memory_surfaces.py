@@ -10,7 +10,6 @@ from datetime import date, timedelta
 from unittest.mock import patch
 
 import pytest
-
 from june_brain.memory import Memory
 
 

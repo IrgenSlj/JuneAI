@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 
 import pytest
-
 from june_api.routes import settings as settings_route
 from june_api.schemas import PrivacyDialUpdateRequest
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -37,9 +37,9 @@ class ActivityEntryView(BaseModel):
     timestamp: str
     kind: str = Field(..., description="'request', 'tool', 'task', or 'skill'.")
     label: str = Field(..., description="Short summary, e.g. 'GET /skills'.")
-    status: Optional[int] = Field(default=None, description="HTTP status for requests.")
-    latency_ms: Optional[int] = None
-    detail: Optional[dict[str, Any]] = Field(
+    status: int | None = Field(default=None, description="HTTP status for requests.")
+    latency_ms: int | None = None
+    detail: dict[str, Any] | None = Field(
         default=None,
         description="Optional structured context (tool args, error message, etc.).",
     )

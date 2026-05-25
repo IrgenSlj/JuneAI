@@ -1,12 +1,10 @@
 """Tests for memory migration: JSON → SQLite and app-state persistence."""
 
-from datetime import date
 import json
-from pathlib import Path
+from datetime import date
 from unittest.mock import patch
 
 import pytest
-
 from june_brain.memory import Memory
 
 

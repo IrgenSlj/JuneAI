@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
 
 from ..config import RuntimeConfig
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ..memory import Memory
@@ -297,7 +300,7 @@ def build_system_prompt(
             insights = detect_patterns(memory)
             patterns_context = format_patterns_for_prompt(insights)
         except Exception:
-            pass
+            logger.exception("detect_patterns failed")
 
     suggestion_context = ""
     if memory is not None:
@@ -310,7 +313,7 @@ def build_system_prompt(
                     "(Offer this naturally once if the conversation allows — do not force it.)\n"
                 )
         except Exception:
-            pass
+            logger.exception("get_daily_suggestion failed")
 
     _compact = runtime is not None and runtime.prompt_style == "gemma"
     base = _BASE_INSTRUCTIONS_COMPACT if _compact else _BASE_INSTRUCTIONS

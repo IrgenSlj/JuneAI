@@ -35,7 +35,7 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Annotated, Any
 
 from langchain_core.tools import StructuredTool
@@ -58,7 +58,7 @@ logger = logging.getLogger(__name__)
 _RESPONSE_TIMEOUT_SECONDS = DEFAULT_RESPONSE_TIMEOUT_SECONDS
 
 
-class SkillStatus(str, Enum):
+class SkillStatus(StrEnum):
     """Lifecycle state reported to the /skills endpoint."""
 
     STOPPED = "stopped"

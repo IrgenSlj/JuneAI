@@ -661,8 +661,8 @@ def _recall_with_hits(
     try:
         manager = MemoryManager(user_id)
         hits = manager.recall(query, k=k)
-    except Exception as exc:  # noqa: BLE001
-        logging.warning("recall block failed for user=%s: %s", user_id, exc)
+    except Exception:
+        logging.exception("recall block failed for user=%s", user_id)
         return "", []
     return manager.format_for_prompt(hits), [_normalize_recall_hit(h) for h in hits]
 
@@ -696,8 +696,8 @@ def _select_tools_for_runtime(runtime: RuntimeConfig) -> list[Any]:
     native_names = {getattr(t, "name", "") for t in native}
     try:
         skill_tools = [t for t in load_skill_tools() if t.name not in native_names]
-    except Exception as exc:  # noqa: BLE001
-        logging.warning("Failed to load skill tools: %s", exc)
+    except Exception:
+        logging.exception("Failed to load skill tools")
         skill_tools = []
 
     return list(native) + skill_tools
@@ -929,11 +929,12 @@ def get_or_create_agent() -> Any:
     try:
         runtime = resolve_runtime_config()
         fingerprint = _runtime_fingerprint(runtime)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         with _agent_lock:
             june_agent = None
             _agent_fingerprint = None
             startup_error = str(exc)
+        logging.exception("get_or_create_agent config resolution failed")
         raise
 
     with _agent_lock:
@@ -944,11 +945,11 @@ def get_or_create_agent() -> Any:
             _agent_fingerprint = fingerprint
             startup_error = None
             return june_agent
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             june_agent = None
             _agent_fingerprint = None
             startup_error = str(exc)
-            logging.warning("get_or_create_agent failed: %s", exc)
+            logging.exception("get_or_create_agent build failed")
             raise
 
 
@@ -976,8 +977,8 @@ def reload_agent() -> None:
             june_agent = create_june_agent(runtime=runtime)
             _agent_fingerprint = _runtime_fingerprint(runtime)
             startup_error = None
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             june_agent = None
             _agent_fingerprint = None
             startup_error = str(exc)
-            logging.warning("reload_agent failed: %s", exc)
+            logging.exception("reload_agent failed")

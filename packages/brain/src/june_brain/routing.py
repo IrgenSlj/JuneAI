@@ -19,8 +19,7 @@ import os
 import time
 import uuid
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 from .config import (
     DEFAULT_RUNTIME_PRESET,
@@ -30,7 +29,7 @@ from .config import (
 )
 
 
-class SkillModelPolicy(str, Enum):
+class SkillModelPolicy(StrEnum):
     """A skill's declared model requirement.
 
     Skills that touch private memory and need no remote intelligence should
@@ -45,7 +44,7 @@ class SkillModelPolicy(str, Enum):
     CLOUD_REQUIRED = "cloud_required"
 
 
-class UserPrivacyDial(str, Enum):
+class UserPrivacyDial(StrEnum):
     """The user's persistent privacy preference."""
 
     LOCAL_ONLY = "local_only"
@@ -53,7 +52,7 @@ class UserPrivacyDial(str, Enum):
     CLOUD_FIRST = "cloud_first"
 
 
-class ResolvedTier(str, Enum):
+class ResolvedTier(StrEnum):
     """The tier the router picked for one call.
 
     ``UNAVAILABLE`` means the request cannot be satisfied under the active
@@ -92,15 +91,15 @@ class ModelProvenance:
     tier: ResolvedTier
     call_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     latency_ms: int = 0
-    prompt_tokens: Optional[int] = None
-    completion_tokens: Optional[int] = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
 
     def record(
         self,
         *,
         started_at: float,
-        prompt_tokens: Optional[int] = None,
-        completion_tokens: Optional[int] = None,
+        prompt_tokens: int | None = None,
+        completion_tokens: int | None = None,
     ) -> ModelProvenance:
         """Stamp latency and token counts after a model call returns."""
         self.latency_ms = max(0, int((time.monotonic() - started_at) * 1000))
@@ -122,7 +121,7 @@ class ModelRouter:
     matrix itself is pure.
     """
 
-    def __init__(self, *, cloud_available: Optional[bool] = None) -> None:
+    def __init__(self, *, cloud_available: bool | None = None) -> None:
         self._cloud_available_override = cloud_available
 
     def resolve(

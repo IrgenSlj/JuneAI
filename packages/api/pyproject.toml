@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "June's HTTP API: FastAPI with SSE streaming on top of june-brain"
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 dependencies = [
     "june-brain",
     # Cap at <1 — FastAPI is still pre-1.0 and reserves the right to break

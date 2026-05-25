@@ -40,7 +40,7 @@ def test_daily_suggestion_habit_low_completion():
     from june_brain.patterns import get_daily_suggestion
 
     # Habit with only 1 completion this week (14%)
-    week_ago = (date.today() - timedelta(days=7)).isoformat()
+    (date.today() - timedelta(days=7)).isoformat()
     one_day = (date.today() - timedelta(days=1)).isoformat()
     memory = _make_memory(
         goals=[],

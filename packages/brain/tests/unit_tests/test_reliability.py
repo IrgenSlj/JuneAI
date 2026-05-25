@@ -1,5 +1,4 @@
 """Tests for Session 1 reliability fixes."""
-import logging
 from unittest.mock import patch
 
 import pytest
@@ -60,8 +59,8 @@ def test_extract_json_payload_handles_embedded_json():
 def test_memory_context_cache_returns_same_value_within_ttl(tmp_path):
     """Second call within TTL must not re-read memory files."""
     with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
-        from june_brain.memory import Memory
         from june_brain.graph import _build_memory_context, invalidate_context_cache
+        from june_brain.memory import Memory
 
         invalidate_context_cache("cache_test_user")
         mem = Memory("cache_test_user")
@@ -144,6 +143,7 @@ def test_empty_mood_history_returns_empty_list(tmp_path):
 def test_config_gemini_raises_without_api_key():
     """_resolve_runtime_config_for_preset raises ValueError when gemini preset has no key."""
     import os
+
     from june_brain.config import RUNTIME_PRESETS, _resolve_runtime_config_for_preset
 
     preset = RUNTIME_PRESETS["gemini"]

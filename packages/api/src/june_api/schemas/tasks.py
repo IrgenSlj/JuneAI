@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -13,14 +13,14 @@ class TaskStepView(BaseModel):
     id: str
     index: int
     description: str
-    tool_name: Optional[str] = None
-    tool_args: Optional[dict[str, Any]] = None
+    tool_name: str | None = None
+    tool_args: dict[str, Any] | None = None
     tool_result: Any = None
     status: str
-    model_provenance: Optional[dict[str, Any]] = None
-    started_at: Optional[str] = None
-    finished_at: Optional[str] = None
-    error: Optional[str] = None
+    model_provenance: dict[str, Any] | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+    error: str | None = None
 
 
 class TaskView(BaseModel):
@@ -31,13 +31,13 @@ class TaskView(BaseModel):
     goal: str
     status: str
     plan: list[TaskStepView] = Field(default_factory=list)
-    owner_skill: Optional[str] = None
-    schedule: Optional[str] = None
-    error: Optional[str] = None
+    owner_skill: str | None = None
+    schedule: str | None = None
+    error: str | None = None
     created_at: str
     updated_at: str
-    started_at: Optional[str] = None
-    finished_at: Optional[str] = None
+    started_at: str | None = None
+    finished_at: str | None = None
 
 
 class TaskListResponse(BaseModel):
@@ -47,25 +47,25 @@ class TaskListResponse(BaseModel):
 
 class TaskCreateRequest(BaseModel):
     goal: str = Field(..., min_length=1, description="Free-form natural language goal.")
-    owner_skill: Optional[str] = Field(
+    owner_skill: str | None = Field(
         default=None,
         description="Optional skill key that should own execution of this task.",
     )
-    schedule: Optional[str] = Field(
+    schedule: str | None = Field(
         default=None,
         description="Optional schedule descriptor (cron-like) for recurring tasks.",
     )
 
 
 class TaskPatchRequest(BaseModel):
-    status: Optional[str] = Field(
+    status: str | None = Field(
         default=None,
         description=(
             "New task status. One of planning, running, paused, awaiting_user, "
             "completed, failed, cancelled."
         ),
     )
-    error: Optional[str] = Field(default=None, description="Optional error message for failed status.")
+    error: str | None = Field(default=None, description="Optional error message for failed status.")
 
 
 class TaskDeleteResponse(BaseModel):
@@ -83,5 +83,5 @@ class TaskEventFrame(BaseModel):
     """
 
     type: str
-    step: Optional[TaskStepView] = None
-    status: Optional[str] = None
+    step: TaskStepView | None = None
+    status: str | None = None

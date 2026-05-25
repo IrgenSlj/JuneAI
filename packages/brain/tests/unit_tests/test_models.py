@@ -1,12 +1,11 @@
 from unittest.mock import patch
 
-from langchain_core.messages import AIMessage, HumanMessage
-from pydantic import SecretStr
-
 from june_brain.config import resolve_runtime_config, runtime_preset_options
 from june_brain.graph import _build_memory_context, create_june_agent
 from june_brain.memory import Memory
 from june_brain.models import build_chat_model
+from langchain_core.messages import AIMessage, HumanMessage
+from pydantic import SecretStr
 
 
 class FakeLLM:

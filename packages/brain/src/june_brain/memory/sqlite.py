@@ -1484,6 +1484,7 @@ class Memory:
                 raw = path.read_text(encoding="utf-8")
                 data = json.loads(raw) if raw.strip() else None
             except Exception:
+                logging.exception("migration: failed to read %s", path)
                 data = None
             if data is not None:
                 try:

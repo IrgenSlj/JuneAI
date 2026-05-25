@@ -7,14 +7,12 @@ tool_calls payload.  After the turn we read back from a fresh Memory instance
 
 from __future__ import annotations
 
-from datetime import date
 from unittest.mock import patch
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage
-
 from june_brain.graph import create_june_agent
 from june_brain.memory import Memory
+from langchain_core.messages import AIMessage, HumanMessage
 
 pytestmark = pytest.mark.anyio
 

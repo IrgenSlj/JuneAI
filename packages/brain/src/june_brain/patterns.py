@@ -14,11 +14,14 @@ June notices:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
 
 from .memory import Memory
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -234,6 +237,9 @@ def get_daily_suggestion(memory: Any) -> str | None:
     today = date.today()
     tomorrow = today + timedelta(days=1)
 
+    cal_items: list[dict[str, Any]] = []
+    goals: list[dict[str, Any]] = []
+
     # Condition 1: empty tomorrow + stalled goal
     try:
         cal_items = memory.get_calendar_items(limit=50)
@@ -247,7 +253,7 @@ def get_daily_suggestion(memory: Any) -> str | None:
             title = stalled[0].get("title", "your goal")
             return f"Your calendar is clear tomorrow — good slot to move '{title}' forward."
     except Exception:
-        pass
+        logger.exception("get_daily_suggestion: condition 1 failed")
 
     # Condition 2: low energy 3 days + no wind-down reminder
     try:
@@ -260,7 +266,7 @@ def get_daily_suggestion(memory: Any) -> str | None:
             if not wind_down:
                 return "You have had low energy for 3 days — want to add a wind-down reminder tonight?"
     except Exception:
-        pass
+        logger.exception("get_daily_suggestion: condition 2 failed")
 
     # Condition 3: goal open 14+ days with no next_step
     try:
@@ -271,7 +277,7 @@ def get_daily_suggestion(memory: Any) -> str | None:
                 days_open = (today - date.fromisoformat(created[:10])).days
                 return f"'{title}' has been open for {days_open} days with no next step — want to break it down?"
     except Exception:
-        pass
+        logger.exception("get_daily_suggestion: condition 3 failed")
 
     # Condition 4: habit under 50% this week
     try:
@@ -284,6 +290,6 @@ def get_daily_suggestion(memory: Any) -> str | None:
                 rate = int(len(week_completions) / 7 * 100)
                 return f"'{h['name']}' is only {rate}% this week — what is getting in the way?"
     except Exception:
-        pass
+        logger.exception("get_daily_suggestion: condition 4 failed")
 
     return None

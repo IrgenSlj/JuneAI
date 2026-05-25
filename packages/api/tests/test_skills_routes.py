@@ -13,7 +13,6 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-
 from june_api.app import create_app
 from june_brain.skills.supervisor import SkillStatus
 
@@ -151,8 +150,8 @@ def test_toggle_flips_state_and_reloads_agent(client, supervisor):
 def test_skill_writes_returns_only_that_skills_facts(client, tmp_path, monkeypatch):
     """The endpoint should filter the vector shadow table by source prefix."""
     import hashlib
-    from chromadb.api.types import EmbeddingFunction
 
+    from chromadb.api.types import EmbeddingFunction
     from june_brain.memory import vector as vector_module
     from june_brain.memory.sqlite import Memory
 

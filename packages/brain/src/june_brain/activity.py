@@ -16,9 +16,9 @@ from __future__ import annotations
 import json
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from .memory.sqlite import _current_memory_dir, _get_connection
 
@@ -39,7 +39,7 @@ CREATE INDEX IF NOT EXISTS idx_activity_kind ON activity_log(kind, timestamp DES
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 @dataclass
@@ -50,9 +50,9 @@ class ActivityEntry:
     timestamp: str = field(default_factory=_now)
     kind: str = "request"  # "request" | "tool" | "task" | "skill"
     label: str = ""
-    status: Optional[int] = None
-    latency_ms: Optional[int] = None
-    detail: Optional[dict[str, Any]] = None
+    status: int | None = None
+    latency_ms: int | None = None
+    detail: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -69,28 +69,32 @@ class ActivityEntry:
 class ActivityLog:
     """Singleton write/read interface to the activity_log table."""
 
-    _instance: Optional[ActivityLog] = None
+    _instance: ActivityLog | None = None
     _lock = threading.Lock()
 
     def __new__(cls) -> ActivityLog:
         # One instance per process. The connection pool below is shared with
         # memory, so this is just a tidy entry point.
+        #
+        # All initialization happens inside __new__ under the lock so that
+        # concurrent threads never race on the schema DDL. __init__ is a
+        # no-op because everything is already set up by the time the lock
+        # is released.
         with cls._lock:
             if cls._instance is None:
-                cls._instance = super().__new__(cls)
-                cls._instance._initialised = False  # type: ignore[attr-defined]
+                instance = super().__new__(cls)
+                db_dir = Path(_current_memory_dir())
+                db_dir.mkdir(parents=True, exist_ok=True)
+                instance._db_path = str(db_dir / "june.db")
+                conn = _get_connection(instance._db_path)
+                conn.executescript(_SCHEMA_SQL)
+                conn.commit()
+                instance._initialised = True
+                cls._instance = instance
             return cls._instance
 
     def __init__(self) -> None:
-        if getattr(self, "_initialised", False):
-            return
-        db_dir = Path(_current_memory_dir())
-        db_dir.mkdir(parents=True, exist_ok=True)
-        self._db_path = str(db_dir / "june.db")
-        conn = _get_connection(self._db_path)
-        conn.executescript(_SCHEMA_SQL)
-        conn.commit()
-        self._initialised = True
+        pass
 
     @property
     def _conn(self):  # type: ignore[no-untyped-def]
@@ -101,9 +105,9 @@ class ActivityLog:
         *,
         kind: str,
         label: str,
-        status: Optional[int] = None,
-        latency_ms: Optional[int] = None,
-        detail: Optional[dict[str, Any]] = None,
+        status: int | None = None,
+        latency_ms: int | None = None,
+        detail: dict[str, Any] | None = None,
     ) -> ActivityEntry:
         timestamp = _now()
         detail_json = json.dumps(detail) if detail else None
@@ -133,7 +137,7 @@ class ActivityLog:
     def list(
         self,
         *,
-        kind: Optional[str] = None,
+        kind: str | None = None,
         limit: int = 100,
     ) -> list[ActivityEntry]:
         limit = max(1, min(int(limit), _MAX_ROWS))

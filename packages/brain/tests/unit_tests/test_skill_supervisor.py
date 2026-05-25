@@ -8,13 +8,11 @@ the real stdio handshake + tools/list + tools/call paths.
 
 from __future__ import annotations
 
-import os
 import sys
 import textwrap
 from pathlib import Path
 
 import pytest
-
 from june_brain.skills.manifest import SkillManifest, SkillManifestEntry
 from june_brain.skills.supervisor import SkillStatus, SkillSupervisor
 
