@@ -18,8 +18,12 @@ def test_load_creates_default_manifest_when_missing(tmp_path: Path) -> None:
     manifest = load_manifest(target)
     assert target.exists(), "missing manifest should be materialized"
     assert set(manifest.entries.keys()) == set(DEFAULT_MANIFEST.entries.keys())
-    # Defaults ship enabled so a fresh user sees all five skills.
-    assert all(entry.enabled for entry in manifest.entries.values())
+    # Defaults ship enabled so a fresh user sees all skills.
+    # Daemon skills (e.g. telegram) are disabled by default until configured.
+    for entry in manifest.entries.values():
+        if entry.daemon:
+            continue
+        assert entry.enabled, f"non-daemon skill {entry.key} should be enabled"
 
 
 def test_save_then_load_round_trips_toggle(tmp_path: Path) -> None:

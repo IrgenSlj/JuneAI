@@ -160,6 +160,14 @@ DEFAULT_MANIFEST: SkillManifest = SkillManifest(
             args=["-m", "june_skill_daily"],
             description="Journaling, moods, goals, and chapter intake.",
         ),
+        "telegram": SkillManifestEntry(
+            key="telegram",
+            enabled=False,
+            daemon=True,
+            command=sys.executable,
+            args=["-m", "june_skill_telegram"],
+            description="Telegram bridge — send/receive messages from your bot. Requires JUNE_TELEGRAM_BOT_TOKEN.",
+        ),
     }
 )
 
@@ -198,6 +206,8 @@ def _serialize(manifest: SkillManifest) -> str:
         lines.append(f"args = [{args}]")
         if entry.description:
             lines.append(f'description = "{entry.description}"')
+        if entry.daemon:
+            lines.append("daemon = true")
         if entry.env:
             env_inline = ", ".join(f'{k} = "{v}"' for k, v in entry.env.items())
             lines.append(f"env = {{ {env_inline} }}")
@@ -258,6 +268,7 @@ def load_manifest(path: Path | None = None) -> SkillManifest:
         manifest.entries[key] = SkillManifestEntry(
             key=key,
             enabled=bool(raw.get("enabled", True)),
+            daemon=bool(raw.get("daemon", default.daemon if default else False)),
             command=str(raw.get("command") or (default.command if default else sys.executable)),
             args=list(raw.get("args") or (default.args if default else [])),
             env=dict(raw.get("env") or {}),
@@ -285,6 +296,7 @@ def _copy_entry(entry: SkillManifestEntry) -> SkillManifestEntry:
     return SkillManifestEntry(
         key=entry.key,
         enabled=entry.enabled,
+        daemon=entry.daemon,
         command=entry.command,
         args=list(entry.args),
         env=dict(entry.env),
