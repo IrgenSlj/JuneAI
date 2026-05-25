@@ -1423,6 +1423,97 @@ JUNE_TOOLS_GEMMA = [
 
 
 # ---------------------------------------------------------------------------
+# Scheduler tools
+# ---------------------------------------------------------------------------
+
+
+@tool
+def create_schedule(
+    name: str,
+    description: str = "",
+    cron_expression: str = "",
+    interval_seconds: int = 0,
+    action_type: str = "agent_invoke",
+    action_prompt: str = "",
+    state: InjectedAgentState = None,
+) -> str:
+    """Create a recurring or one-shot schedule. Use cron (e.g., '0 8 * * *') or interval_seconds for recurring schedules."""
+    from june_brain.config import MEMORY_DIR
+    from june_brain.memory.sqlite import _get_connection
+    from june_brain.scheduler.models import Schedule as _Schedule
+    from june_brain.scheduler.store import ScheduleStore
+
+    user_id = (state or {}).get("user_id", "default")
+    db_dir = MEMORY_DIR
+    db_path = str(db_dir / "june.db")
+    conn = _get_connection(db_path)
+    from june_brain.scheduler.models import _SCHEDULES_TABLE_SQL
+
+    conn.executescript(_SCHEDULES_TABLE_SQL)
+    conn.commit()
+    store = ScheduleStore(conn)
+
+    from datetime import datetime, timezone
+
+    sched = _Schedule(
+        user_id=user_id,
+        name=name,
+        description=description,
+        cron_expression=cron_expression,
+        interval_seconds=interval_seconds,
+        scheduled_at=datetime.now(timezone.utc).isoformat(),
+        action_type=action_type,
+        action_config={"prompt": action_prompt} if action_prompt else {},
+    )
+    store.create(sched)
+    return f"Scheduled '{name}' to run every {interval_seconds}s." if interval_seconds else f"Scheduled '{name}' with cron '{cron_expression}'."
+
+
+@tool
+def list_schedules(
+    state: InjectedAgentState = None,
+) -> str:
+    """List all active schedules."""
+    from june_brain.config import MEMORY_DIR
+    from june_brain.memory.sqlite import _get_connection
+    from june_brain.scheduler.models import _SCHEDULES_TABLE_SQL
+    from june_brain.scheduler.store import ScheduleStore
+
+    user_id = (state or {}).get("user_id", "default")
+    conn = _get_connection(str(MEMORY_DIR / "june.db"))
+    conn.executescript(_SCHEDULES_TABLE_SQL)
+    conn.commit()
+    store = ScheduleStore(conn)
+    schedules = store.list(user_id)
+    if not schedules:
+        return "No schedules."
+    lines = []
+    for s in schedules:
+        lines.append(f"- {s.name} ({'enabled' if s.enabled else 'disabled'}) next: {s.scheduled_at[:10]}")
+    return "Schedules:\n" + "\n".join(lines)
+
+
+@tool
+def delete_schedule(
+    schedule_id: str,
+    state: InjectedAgentState = None,
+) -> str:
+    """Delete a schedule by its ID."""
+    from june_brain.config import MEMORY_DIR
+    from june_brain.memory.sqlite import _get_connection
+    from june_brain.scheduler.models import _SCHEDULES_TABLE_SQL
+    from june_brain.scheduler.store import ScheduleStore
+
+    conn = _get_connection(str(MEMORY_DIR / "june.db"))
+    conn.executescript(_SCHEDULES_TABLE_SQL)
+    conn.commit()
+    store = ScheduleStore(conn)
+    if store.delete(schedule_id):
+        return f"Schedule {schedule_id} deleted."
+    return f"Schedule {schedule_id} not found."
+
+
+# ---------------------------------------------------------------------------
 # Shopping assistant tools
 # ---------------------------------------------------------------------------
 
@@ -1591,6 +1682,9 @@ JUNE_TOOLS = [
     ask_about_chapter,
     get_personal_context,
     generate_weekly_summary,
+    create_schedule,
+    list_schedules,
+    delete_schedule,
     save_product,
     list_products,
     record_purchase,
