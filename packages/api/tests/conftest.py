@@ -1,10 +1,8 @@
 """Test configuration for API tests.
 
-Disables API key auth so tests don't need to send ``X-June-Api-Key`` headers.
+API key auth is opt-in (off unless ``JUNE_API_AUTH_ENABLED`` is set), so the
+default test environment needs no ``X-June-Api-Key`` header. Tests that
+exercise auth set the flag explicitly via ``monkeypatch``.
 """
 
 from __future__ import annotations
-
-import os
-
-os.environ.setdefault("JUNE_API_AUTH_DISABLED", "1")

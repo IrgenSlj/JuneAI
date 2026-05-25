@@ -1,12 +1,15 @@
 """FastAPI middleware that validates ``X-June-Api-Key`` on every request.
 
-Exempted paths (no auth required):
+Auth is **opt-in**. June runs locally on the loopback interface as a
+single-user app, where an API key adds breakage but no security. The
+middleware therefore only enforces a key when ``JUNE_API_AUTH_ENABLED`` is
+set (``1``/``true``/``yes``) — intended for deployments that expose the API
+beyond ``127.0.0.1``. Off by default.
+
+When enabled, these paths remain exempt (no auth required):
 - ``/healthz``
 - ``/openapi.json``, ``/docs``, ``/redoc``
 - ``/setup/status``, ``/setup/apply``
-
-Middleware is disabled entirely when ``JUNE_API_AUTH_DISABLED=1`` is set
-(for local development convenience).
 """
 
 from __future__ import annotations
@@ -32,8 +35,8 @@ _EXEMPT_PREFIXES = (
 async def api_key_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
     """Validate ``X-June-Api-Key`` header, or skip for exempt/excluded paths."""
 
-    # Allow opt-out for local development
-    if os.getenv("JUNE_API_AUTH_DISABLED", "").strip() in ("1", "true", "yes"):
+    # Auth is opt-in. Skip entirely unless explicitly enabled.
+    if os.getenv("JUNE_API_AUTH_ENABLED", "").strip().lower() not in ("1", "true", "yes"):
         return await call_next(request)
 
     path = request.url.path
