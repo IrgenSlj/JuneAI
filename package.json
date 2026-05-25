@@ -1,6 +1,6 @@
 {
   "name": "june",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "June AI — the open personal AI that remembers you. JS workspace root.",
   "packageManager": "pnpm@10.33.0",
