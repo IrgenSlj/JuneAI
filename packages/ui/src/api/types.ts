@@ -192,6 +192,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notifications/dispatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dispatch Notification
+         * @description Dispatch a notification through the notification bus.
+         *
+         *     The desktop shell (Tauri) calls this when the user triggers a local
+         *     notification. The bus delivers it to all registered channels (log,
+         *     desktop, Telegram, etc.).
+         */
+        post: operations["dispatch_notification_notifications_dispatch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/obsidian/{user_id}": {
         parameters: {
             query?: never;
@@ -210,6 +234,58 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/schedules/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Schedules
+         * @description List all schedules for a user.
+         */
+        get: operations["list_schedules_schedules__user_id__get"];
+        put?: never;
+        /**
+         * Create Schedule
+         * @description Create a new schedule.
+         */
+        post: operations["create_schedule_schedules__user_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/schedules/{user_id}/{schedule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Schedule
+         * @description Get a single schedule by ID.
+         */
+        get: operations["get_schedule_schedules__user_id___schedule_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Schedule
+         * @description Delete a schedule.
+         */
+        delete: operations["delete_schedule_schedules__user_id___schedule_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Schedule
+         * @description Update a schedule (partial).
+         */
+        patch: operations["update_schedule_schedules__user_id___schedule_id__patch"];
         trace?: never;
     };
     "/settings": {
@@ -1262,6 +1338,16 @@ export interface components {
              */
             provider: "gemma" | "gemini";
             /**
+             * User Name
+             * @description User's preferred name. Stored alongside the provider choice.
+             */
+            user_name?: string | null;
+            /**
+             * Privacy Dial
+             * @description Privacy preference: 'private_by_default', 'cloud_for_smart', etc.
+             */
+            privacy_dial?: string | null;
+            /**
              * Gemini Api Key
              * @description Required when provider is 'gemini'. Stored in the OS credential store when available, otherwise in config.json with mode 0600.
              */
@@ -1355,6 +1441,12 @@ export interface components {
              * @default false
              */
             api_key_present: boolean;
+            /**
+             * User Name
+             * @description User's name, if set.
+             * @default
+             */
+            user_name: string;
         };
         /**
          * SkillInfo
@@ -2257,6 +2349,43 @@ export interface operations {
             };
         };
     };
+    dispatch_notification_notifications_dispatch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     export_obsidian_obsidian__user_id__get: {
         parameters: {
             query?: never;
@@ -2275,6 +2404,186 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ObsidianExportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_schedules_schedules__user_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_schedule_schedules__user_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_schedule_schedules__user_id___schedule_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                schedule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_schedule_schedules__user_id___schedule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                schedule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_schedule_schedules__user_id___schedule_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                schedule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
