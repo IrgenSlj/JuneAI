@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>June — The personal AI that remembers you</title>
+  <meta name="description" content="June is the open personal AI that remembers you. Runs locally via Gemma 4, reaches the cloud via Gemini. One persistent memory across every conversation.">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0d0d0d;
+      --surface:#1a1a1a;
+      --border:#2a2a2a;
+      --fg:#e0e0e0;
+      --fg-muted:#888;
+      --accent:#7c5cfc;
+      --accent-hover:#6a4ae0;
+      --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen,Ubuntu,sans-serif;
+    }
+    html{font-size:16px;scroll-behavior:smooth}
+    body{
+      font-family:var(--font);
+      background:var(--bg);
+      color:var(--fg);
+      line-height:1.6;
+      -webkit-font-smoothing:antialiased;
+    }
+    a{color:var(--accent);text-decoration:none}
+    a:hover{color:var(--accent-hover)}
+    img{max-width:100%;height:auto}
+    .container{max-width:800px;margin:0 auto;padding:0 24px}
+
+    /* Header */
+    header{
+      display:flex;justify-content:space-between;align-items:center;
+      padding:20px 24px;max-width:800px;margin:0 auto;
+    }
+    header .logo{font-weight:700;font-size:1.25rem;color:var(--fg)}
+    header nav{display:flex;gap:20px}
+    header nav a{font-size:.875rem;color:var(--fg-muted);transition:color .2s}
+    header nav a:hover{color:var(--fg)}
+
+    /* Hero */
+    .hero{text-align:center;padding:100px 0 80px}
+    .hero h1{font-size:3rem;font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:16px}
+    .hero h1 span{background:linear-gradient(135deg,var(--accent),#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .hero p{font-size:1.125rem;color:var(--fg-muted);max-width:560px;margin:0 auto 32px}
+    .hero .btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+    .btn{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:12px 28px;border-radius:8px;font-weight:600;font-size:.9375rem;
+      transition:all .2s;cursor:pointer;border:none;
+    }
+    .btn-primary{background:var(--accent);color:#fff}
+    .btn-primary:hover{background:var(--accent-hover);transform:translateY(-1px)}
+    .btn-secondary{background:var(--surface);color:var(--fg);border:1px solid var(--border)}
+    .btn-secondary:hover{background:var(--border)}
+
+    /* Features */
+    .features{padding:80px 0}
+    .features h2{text-align:center;font-size:1.75rem;font-weight:700;margin-bottom:48px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px}
+    .card{
+      background:var(--surface);border:1px solid var(--border);border-radius:12px;
+      padding:24px;transition:border-color .2s;
+    }
+    .card:hover{border-color:var(--accent)}
+    .card h3{font-size:1rem;font-weight:600;margin-bottom:8px}
+    .card p{font-size:.875rem;color:var(--fg-muted);line-height:1.5}
+
+    /* Privacy */
+    .privacy{padding:80px 0;border-top:1px solid var(--border)}
+    .privacy h2{font-size:1.75rem;font-weight:700;margin-bottom:24px}
+    .privacy p{color:var(--fg-muted);margin-bottom:16px}
+    .privacy ul{list-style:none;padding:0}
+    .privacy ul li{padding:8px 0 8px 24px;position:relative;color:var(--fg-muted)}
+    .privacy ul li::before{content:"✓";position:absolute;left:0;color:var(--accent);font-weight:700}
+
+    /* Footer */
+    footer{text-align:center;padding:40px 0;color:var(--fg-muted);font-size:.8125rem;border-top:1px solid var(--border)}
+    footer a{color:var(--fg-muted)}
+    footer a:hover{color:var(--fg)}
+
+    @media(max-width:640px){
+      .hero h1{font-size:2rem}
+      .hero{padding:60px 0 40px}
+      header nav{display:none}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="logo">June</span>
+    <nav>
+      <a href="#features">Features</a>
+      <a href="#privacy">Privacy</a>
+      <a href="https://github.com/IrgenSlj/JuneAI">GitHub</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <div class="container">
+      <h1>The personal AI<br>that <span>remembers</span> you.</h1>
+      <p>
+        June is an open personal assistant that runs locally via Gemma 4
+        and optionally reaches the cloud via Gemini. One persistent memory
+        across every conversation — your data stays yours.
+      </p>
+      <div class="btns">
+        <a class="btn btn-primary" href="https://github.com/IrgenSlj/JuneAI/releases">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download
+        </a>
+        <a class="btn btn-secondary" href="https://github.com/IrgenSlj/JuneAI">View on GitHub</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="container">
+      <h2>Why June?</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Persistent memory</h3>
+          <p>Every conversation feeds a shared memory. June remembers your preferences, goals, and context across sessions — no more starting from scratch.</p>
+        </div>
+        <div class="card">
+          <h3>Local-first</h3>
+          <p>Runs on your machine via Ollama + Gemma 4. No cloud dependency, no data leaving your computer unless you choose to use Gemini.</p>
+        </div>
+        <div class="card">
+          <h3>Proactive assistant</h3>
+          <p>Morning briefings, evening reviews, chore reminders, shopping lists, and recurring tasks — June keeps you on track without you asking.</p>
+        </div>
+        <div class="card">
+          <h3>Extensible skills</h3>
+          <p>Calendar, health tracking, filesystem access, web research, and Telegram integration. Each skill is an MCP server — add or remove at will.</p>
+        </div>
+        <div class="card">
+          <h3>Privacy dial</h3>
+          <p>Choose which conversations stay fully local and which can use cloud models. Your data, your rules.</p>
+        </div>
+        <div class="card">
+          <h3>Open source</h3>
+          <p>MIT-licensed. No accounts, no surveillance, no vendor lock-in. June is built for you, not for a SaaS pipeline.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="privacy" id="privacy">
+    <div class="container">
+      <h2>Your privacy, designed in</h2>
+      <p>
+        June was built from the ground up around a simple principle: your personal
+        data belongs to you. The default configuration runs everything locally —
+        no data ever leaves your machine.
+      </p>
+      <ul>
+        <li><strong>Local by default</strong> — Gemma 4 runs on your machine via Ollama. No external API calls.</li>
+        <li><strong>Cloud when you choose</strong> — Switch to Gemini for tasks that need more capability. The privacy dial lets you control which conversations go to the cloud.</li>
+        <li><strong>No telemetry</strong> — June doesn't phone home. No analytics, no crash reporting, no user tracking.</li>
+        <li><strong>Your data stays yours</strong> — Conversations, memory, and configuration live in a local SQLite database. Export or delete it anytime.</li>
+        <li><strong>API key auth</strong> — The local HTTP API requires a key. No open ports, no accidental exposure.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <p>June is <a href="https://github.com/IrgenSlj/JuneAI">open source</a> under MIT. No ads, no accounts, no surveillance.</p>
+    </div>
+  </footer>
+</body>
+</html>
