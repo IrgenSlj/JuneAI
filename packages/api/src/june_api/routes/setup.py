@@ -37,6 +37,7 @@ def get_setup_status() -> SetupStatus:
             is_configured=False,
             provider=stored.provider or "",
             model="",
+            user_name=stored.user_name or "",
         )
 
     ollama_reachable = False
@@ -60,6 +61,7 @@ def get_setup_status() -> SetupStatus:
         ollama_reachable=ollama_reachable,
         ollama_has_model=ollama_has_model,
         api_key_present=api_key_present,
+        user_name=stored.user_name or "",
     )
 
 
@@ -74,6 +76,10 @@ def apply_setup(request: SetupApplyRequest) -> SetupApplyResponse:
 
     stored = load_stored_config()
     stored.provider = request.provider
+    if request.user_name:
+        stored.user_name = request.user_name
+    if request.privacy_dial:
+        stored.privacy_dial = request.privacy_dial
     if request.gemma_model:
         stored.gemma_model = request.gemma_model
     if request.gemini_model:
@@ -129,6 +135,13 @@ def apply_setup(request: SetupApplyRequest) -> SetupApplyResponse:
                 message=f"Provider verified, but June failed to reload: {brain_graph.startup_error}",
                 hint="Check the runtime logs, then try applying the provider again.",
             )
+        # Seed default orchestration schedules on first successful setup
+        try:
+            from june_brain.orchestration import create_default_schedules
+
+            create_default_schedules("default")
+        except Exception:  # noqa: BLE001
+            pass
     return SetupApplyResponse(
         ok=verified,
         provider=runtime.preset_key,

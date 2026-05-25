@@ -43,6 +43,7 @@ class StoredConfig:
     """User-facing settings that survive restarts."""
 
     provider: str | None = None
+    user_name: str | None = None
     gemma_model: str | None = None
     gemini_model: str | None = None
     gemini_api_key: str | None = None
@@ -91,6 +92,7 @@ def load_stored_config() -> StoredConfig:
 
     known = {
         "provider",
+        "user_name",
         "gemma_model",
         "gemini_model",
         "gemini_api_key",
@@ -107,6 +109,7 @@ def load_stored_config() -> StoredConfig:
 
     return StoredConfig(
         provider=_as_str(raw.get("provider")),
+        user_name=_as_str(raw.get("user_name")),
         gemma_model=_as_str(raw.get("gemma_model")),
         gemini_model=_as_str(raw.get("gemini_model")),
         gemini_api_key=gemini_key,
@@ -136,6 +139,8 @@ def save_stored_config(config: StoredConfig) -> Path:
     payload: dict[str, str] = {}
     if config.provider:
         payload["provider"] = config.provider
+    if config.user_name:
+        payload["user_name"] = config.user_name
     if config.gemma_model:
         payload["gemma_model"] = config.gemma_model
     if config.gemini_model:

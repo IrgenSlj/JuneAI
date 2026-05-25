@@ -58,7 +58,9 @@ pub fn install_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 }
 
 pub fn register_hotkey<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
-    app.global_shortcut().register(build_hotkey())?;
+    if let Err(e) = app.global_shortcut().register(build_hotkey()) {
+        eprintln!("Hotkey registration failed (non-fatal): {e}");
+    }
     Ok(())
 }
 

@@ -30,6 +30,7 @@ class SetupStatus(BaseModel):
     ollama_reachable: bool = Field(default=False, description="Gemma preset only.")
     ollama_has_model: bool = Field(default=False, description="Gemma preset only.")
     api_key_present: bool = Field(default=False, description="Gemini preset only.")
+    user_name: str = Field(default="", description="User's name, if set.")
 
 
 class SetupApplyRequest(BaseModel):
@@ -38,6 +39,14 @@ class SetupApplyRequest(BaseModel):
     provider: Literal["gemma", "gemini"] = Field(
         ...,
         description="Which runtime to activate.",
+    )
+    user_name: str | None = Field(
+        default=None,
+        description="User's preferred name. Stored alongside the provider choice.",
+    )
+    privacy_dial: str | None = Field(
+        default=None,
+        description="Privacy preference: 'private_by_default', 'cloud_for_smart', etc.",
     )
     gemini_api_key: str | None = Field(
         default=None,
