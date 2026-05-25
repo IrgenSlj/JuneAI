@@ -108,6 +108,9 @@ class Task:
     updated_at: str = field(default_factory=_now)
     started_at: str | None = None
     finished_at: str | None = None
+    is_recurring: bool = False
+    recurrence_rule: str = ""
+    parent_task_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -123,6 +126,9 @@ class Task:
             "updated_at": self.updated_at,
             "started_at": self.started_at,
             "finished_at": self.finished_at,
+            "is_recurring": self.is_recurring,
+            "recurrence_rule": self.recurrence_rule,
+            "parent_task_id": self.parent_task_id,
         }
 
     @classmethod
@@ -140,6 +146,9 @@ class Task:
             updated_at=str(raw.get("updated_at") or _now()),
             started_at=raw.get("started_at"),
             finished_at=raw.get("finished_at"),
+            is_recurring=bool(raw.get("is_recurring", False)),
+            recurrence_rule=str(raw.get("recurrence_rule", "")),
+            parent_task_id=raw.get("parent_task_id"),
         )
 
 

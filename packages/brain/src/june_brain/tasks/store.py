@@ -9,11 +9,13 @@ memory module to keep there to one connection per (thread, db_path).
 from __future__ import annotations
 
 import json
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from ..memory.sqlite import _current_memory_dir, _get_connection
+from .migration import ensure_tasks_migration
 from .models import Task, TaskStatus, TaskStep, TaskStepStatus
 
 _UNSET = object()
@@ -31,11 +33,16 @@ CREATE TABLE IF NOT EXISTS tasks (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     started_at TEXT,
-    finished_at TEXT
+    finished_at TEXT,
+    is_recurring INTEGER DEFAULT 0,
+    recurrence_rule TEXT DEFAULT '',
+    parent_task_id TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_user_status ON tasks(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_tasks_user_updated ON tasks(user_id, updated_at);
 """
+
+logger = logging.getLogger(__name__)
 
 
 def _now() -> str:
@@ -52,6 +59,7 @@ class TasksStore:
         self._db_path = str(db_dir / "june.db")
         conn = _get_connection(self._db_path)
         conn.executescript(_SCHEMA_SQL)
+        ensure_tasks_migration(conn)
         conn.commit()
 
     @property
@@ -70,6 +78,9 @@ class TasksStore:
         schedule: str | None = None,
         plan: list[TaskStep] | None = None,
         status: TaskStatus = TaskStatus.PLANNING,
+        is_recurring: bool = False,
+        recurrence_rule: str = "",
+        parent_task_id: str | None = None,
     ) -> Task:
         task = Task(
             user_id=self.user_id,
@@ -78,6 +89,9 @@ class TasksStore:
             plan=list(plan or []),
             owner_skill=owner_skill,
             schedule=schedule,
+            is_recurring=is_recurring,
+            recurrence_rule=recurrence_rule,
+            parent_task_id=parent_task_id,
         )
         self._insert(task)
         return task
@@ -201,6 +215,9 @@ class TasksStore:
         if error is not None:
             task.error = error
         self._update(task)
+        # Spawn a child task if this is a recurring task that just completed
+        if status == TaskStatus.COMPLETED and task.is_recurring:
+            self._spawn_recurring_child(task)
         return task
 
     def delete(self, task_id: str) -> bool:
@@ -212,6 +229,84 @@ class TasksStore:
         return cur.rowcount > 0
 
     # ------------------------------------------------------------------
+    # Recurring tasks
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _next_recurrence(rule: str) -> str | None:
+        """Compute the next ISO datetime from a recurrence rule.
+
+        Supports: ``daily``, ``N days``, ``weekly``, ``N weeks``,
+        ``mon,wed,fri`` (comma-separated weekday abbreviations).
+        Returns ``None`` if the rule isn't recognised.
+        """
+        from datetime import timedelta, timezone
+
+        now = datetime.now(timezone.utc)
+        rule = rule.strip().lower()
+
+        if rule == "daily":
+            return (now + timedelta(days=1)).isoformat()
+
+        if rule == "weekly":
+            return (now + timedelta(weeks=1)).isoformat()
+
+        if rule in ("monthly", "every month"):
+            # Approximate: add 30 days
+            return (now + timedelta(days=30)).isoformat()
+
+        if rule.startswith("every "):
+            rest = rule.removeprefix("every ").strip()
+            parts = rest.split()
+            if len(parts) >= 2 and parts[1].startswith(("day", "week", "month")):
+                try:
+                    n = int(parts[0])
+                    if "day" in parts[1]:
+                        return (now + timedelta(days=n)).isoformat()
+                    if "week" in parts[1]:
+                        return (now + timedelta(weeks=n)).isoformat()
+                    if "month" in parts[1]:
+                        return (now + timedelta(days=n * 30)).isoformat()
+                except (ValueError, IndexError):
+                    pass
+
+        # Weekday abbreviations: mon,wed,fri
+        weekday_map = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
+        days = [weekday_map.get(d.strip()) for d in rule.split(",")]
+        if all(d is not None for d in days):
+            current_weekday = now.weekday()
+            for offset in range(1, 8):
+                candidate = (current_weekday + offset) % 7
+                if candidate in days:
+                    return (now + timedelta(days=offset)).isoformat()
+
+        return None
+
+    def _spawn_recurring_child(self, completed_task: Task) -> Task | None:
+        """When a recurring task completes, create the next instance."""
+        if not completed_task.is_recurring or not completed_task.recurrence_rule:
+            return None
+        next_due = self._next_recurrence(completed_task.recurrence_rule)
+        if next_due is None:
+            return None
+        child = Task(
+            user_id=completed_task.user_id,
+            goal=completed_task.goal,
+            status=TaskStatus.PLANNING,
+            owner_skill=completed_task.owner_skill,
+            schedule=completed_task.schedule,
+            is_recurring=True,
+            recurrence_rule=completed_task.recurrence_rule,
+            parent_task_id=completed_task.id,
+        )
+        self._insert(child)
+        logger.info(
+            "Recurring task %s spawned child %s (next due: %s)",
+            completed_task.id, child.id, next_due,
+        )
+        return child
+
+    # ------------------------------------------------------------------
     # internals
     # ------------------------------------------------------------------
 
@@ -219,8 +314,9 @@ class TasksStore:
         self._conn.execute(
             """INSERT INTO tasks
                 (id, user_id, goal, status, plan, owner_skill, schedule, error,
-                 created_at, updated_at, started_at, finished_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                 created_at, updated_at, started_at, finished_at,
+                 is_recurring, recurrence_rule, parent_task_id)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 task.id,
                 task.user_id,
@@ -234,6 +330,9 @@ class TasksStore:
                 task.updated_at,
                 task.started_at,
                 task.finished_at,
+                int(task.is_recurring),
+                task.recurrence_rule,
+                task.parent_task_id,
             ),
         )
         self._conn.commit()
@@ -242,7 +341,8 @@ class TasksStore:
         self._conn.execute(
             """UPDATE tasks SET
                 goal=?, status=?, plan=?, owner_skill=?, schedule=?, error=?,
-                updated_at=?, started_at=?, finished_at=?
+                updated_at=?, started_at=?, finished_at=?,
+                is_recurring=?, recurrence_rule=?, parent_task_id=?
                 WHERE id=? AND user_id=?""",
             (
                 task.goal,
@@ -254,6 +354,9 @@ class TasksStore:
                 task.updated_at,
                 task.started_at,
                 task.finished_at,
+                int(task.is_recurring),
+                task.recurrence_rule,
+                task.parent_task_id,
                 task.id,
                 task.user_id,
             ),
@@ -267,17 +370,21 @@ def _row_to_task(row) -> Task:  # type: ignore[no-untyped-def]
         plan_data = json.loads(plan_raw)
     except (TypeError, ValueError):
         plan_data = []
+    d = dict(row)  # convert sqlite3.Row for safe access
     return Task(
-        id=row["id"],
-        user_id=row["user_id"],
-        goal=row["goal"],
-        status=TaskStatus(row["status"]),
+        id=d["id"],
+        user_id=d["user_id"],
+        goal=d["goal"],
+        status=TaskStatus(d["status"]),
         plan=[TaskStep.from_dict(step) for step in plan_data],
-        owner_skill=row["owner_skill"],
-        schedule=row["schedule"],
-        error=row["error"],
-        created_at=row["created_at"],
-        updated_at=row["updated_at"],
-        started_at=row["started_at"],
-        finished_at=row["finished_at"],
+        owner_skill=d.get("owner_skill"),
+        schedule=d.get("schedule"),
+        error=d.get("error"),
+        created_at=d["created_at"],
+        updated_at=d["updated_at"],
+        started_at=d.get("started_at"),
+        finished_at=d.get("finished_at"),
+        is_recurring=bool(d.get("is_recurring", False)),
+        recurrence_rule=str(d.get("recurrence_rule", "")),
+        parent_task_id=d.get("parent_task_id"),
     )
