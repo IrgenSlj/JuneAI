@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -68,7 +68,7 @@ def export_memory(user_id: str, output_path: str | Path | None = None) -> dict[s
 
     archive: dict[str, Any] = {
         "version": 1,
-        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "exported_at": datetime.now(UTC).isoformat(),
         "user_id": user_id,
         "stores": {
             "sqlite": _export_sqlite(db_path, user_id),
@@ -89,4 +89,3 @@ if __name__ == "__main__":
     parser.add_argument("--output", required=True, help="Output JSON file path")
     args = parser.parse_args()
     export_memory(args.user, args.output)
-    print(f"Exported to {args.output}")

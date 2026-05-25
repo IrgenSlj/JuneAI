@@ -1,9 +1,12 @@
 """Habits DAO — habits, habit_completions, nutrition_logs, water_logs tables."""
 
-from datetime import date, datetime, timezone, timedelta
+from datetime import UTC, date, datetime, timedelta
 
-_now = lambda: datetime.now(timezone.utc).isoformat()
-_today = lambda: date.today()
+
+def _now():
+    return datetime.now(UTC).isoformat()
+def _today():
+    return date.today()
 
 
 def _habit_streak(completions: set[str], start_date: date | None = None) -> int:

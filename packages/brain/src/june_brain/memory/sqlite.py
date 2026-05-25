@@ -10,7 +10,7 @@ import logging
 import sqlite3
 import threading
 from collections.abc import Mapping
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -1872,7 +1872,7 @@ class Memory:
 
     def complete_chore(self, chore_id: int, note: str = "", skipped: bool = False) -> dict:
         now = self._now()
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta
 
         self._conn.execute(
             "INSERT INTO chore_completions (user_id, chore_id, completed_at, note, skipped) VALUES (?,?,?,?,?)",
@@ -1883,7 +1883,7 @@ class Memory:
         next_due = ""
         if row:
             interval = row["interval_days"]
-            dt = datetime.now(timezone.utc) + timedelta(days=interval)
+            dt = datetime.now(UTC) + timedelta(days=interval)
             next_due = dt.isoformat()
         self._conn.execute(
             "UPDATE chores SET last_done=?, next_due=? WHERE user_id=? AND id=?",

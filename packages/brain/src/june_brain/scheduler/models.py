@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -33,7 +33,7 @@ class Schedule:
             return False
         if not self.scheduled_at:
             return False
-        reference = now or datetime.now(timezone.utc)
+        reference = now or datetime.now(UTC)
         scheduled = datetime.fromisoformat(self.scheduled_at)
         return scheduled <= reference
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -70,7 +70,7 @@ def create_schedule(user_id: str, body: dict[str, Any]) -> dict[str, Any]:
         description=body.get("description", ""),
         cron_expression=body.get("cron_expression", ""),
         interval_seconds=body.get("interval_seconds", 0),
-        scheduled_at=body.get("scheduled_at", datetime.now(timezone.utc).isoformat()),
+        scheduled_at=body.get("scheduled_at", datetime.now(UTC).isoformat()),
         action_type=body.get("action_type", "agent_invoke"),
         action_config=body.get("action_config", {}),
         max_runs=body.get("max_runs", 0),

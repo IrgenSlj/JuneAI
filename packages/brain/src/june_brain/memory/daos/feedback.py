@@ -1,8 +1,10 @@
 """Feedback DAO — memory_feedback table."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-_now = lambda: datetime.now(timezone.utc).isoformat()
+
+def _now():
+    return datetime.now(UTC).isoformat()
 
 _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS memory_feedback (

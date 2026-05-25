@@ -25,7 +25,6 @@ import os
 import sqlite3
 import threading
 import time
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -101,9 +100,9 @@ def _api_request(
     method: str,
     params: dict[str, Any] | None = None,
 ) -> dict[str, Any] | list[Any]:
-    import urllib.request
     import urllib.error
     import urllib.parse
+    import urllib.request
 
     token = _bot_token()
     url = f"https://api.telegram.org/bot{token}/{method}"

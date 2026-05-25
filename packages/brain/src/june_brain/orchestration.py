@@ -8,7 +8,7 @@ first use.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ def create_default_schedules(user_id: str) -> list[dict[str, Any]]:
     """
     from june_brain.config import MEMORY_DIR
     from june_brain.memory.sqlite import _get_connection
-    from june_brain.scheduler.models import Schedule, _SCHEDULES_TABLE_SQL
+    from june_brain.scheduler.models import _SCHEDULES_TABLE_SQL, Schedule
     from june_brain.scheduler.store import ScheduleStore
 
     db_path = str(MEMORY_DIR / "june.db")
@@ -80,7 +80,7 @@ def create_default_schedules(user_id: str) -> list[dict[str, Any]]:
             name="Morning briefing",
             description=MORNING_BRIEFING_PROMPT,
             cron_expression="0 8 * * *",
-            scheduled_at=datetime.now(timezone.utc).isoformat(),
+            scheduled_at=datetime.now(UTC).isoformat(),
             action_type="agent_invoke",
             action_config={"prompt": MORNING_BRIEFING_PROMPT},
         ),
@@ -89,7 +89,7 @@ def create_default_schedules(user_id: str) -> list[dict[str, Any]]:
             name="Evening review",
             description=EVENING_REVIEW_PROMPT,
             cron_expression="0 21 * * *",
-            scheduled_at=datetime.now(timezone.utc).isoformat(),
+            scheduled_at=datetime.now(UTC).isoformat(),
             action_type="agent_invoke",
             action_config={"prompt": EVENING_REVIEW_PROMPT},
         ),
@@ -98,7 +98,7 @@ def create_default_schedules(user_id: str) -> list[dict[str, Any]]:
             name="Weekly review",
             description=WEEKLY_REVIEW_PROMPT,
             cron_expression="0 10 * * 0",
-            scheduled_at=datetime.now(timezone.utc).isoformat(),
+            scheduled_at=datetime.now(UTC).isoformat(),
             action_type="agent_invoke",
             action_config={"prompt": WEEKLY_REVIEW_PROMPT},
         ),
@@ -129,13 +129,12 @@ def get_carried_tasks(user_id: str) -> list[dict[str, Any]]:
     Tasks with status PLANNING, RUNNING, PAUSED, or AWAITING_USER that were
     created or updated before today are considered 'carried forward'.
     """
-    from datetime import timedelta
 
     from june_brain.tasks.store import TasksStore
 
     store = TasksStore(user_id)
     active = store.active()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
     carried: list[dict[str, Any]] = []

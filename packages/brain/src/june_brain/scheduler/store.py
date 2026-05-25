@@ -5,8 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 
 from .models import Schedule
 
@@ -47,7 +46,7 @@ class ScheduleStore:
         self._conn = conn
 
     def _now(self) -> str:
-        return datetime.now(timezone.utc).isoformat()
+        return datetime.now(UTC).isoformat()
 
     def create(self, schedule: Schedule) -> Schedule:
         """Insert a new schedule (auto-generates id and timestamps if missing)."""
@@ -95,7 +94,6 @@ class ScheduleStore:
 
     def list_due(self, user_id: str | None = None) -> list[Schedule]:
         """Return schedules that are enabled and past their ``scheduled_at``."""
-        from .models import Schedule as _S
 
         all_schedules = self.list(user_id)
         return [s for s in all_schedules if s.is_due()]

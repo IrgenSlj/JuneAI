@@ -52,7 +52,19 @@ def _cors_origins() -> list[str]:
 
 def create_app() -> FastAPI:
     """Assemble the FastAPI instance."""
-    from .routes import chat, demo, memory, notifications, obsidian, schedules, settings, setup, skills, system, tasks
+    from .routes import (
+        chat,
+        demo,
+        memory,
+        notifications,
+        obsidian,
+        schedules,
+        settings,
+        setup,
+        skills,
+        system,
+        tasks,
+    )
 
     app = FastAPI(
         title="June API",

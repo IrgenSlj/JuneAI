@@ -10,7 +10,8 @@ This replaces the 200-line if/elif chain in ``graph.py:_normalize_tool_call``.
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 Normalizer = Callable[[dict[str, Any]], dict[str, Any]]
 
@@ -223,7 +224,6 @@ def _normalize_set_ui_chapter(args: dict[str, Any]) -> dict[str, Any]:
 def _extract_json_payload(text: str) -> dict[str, Any] | None:
     """Heuristic: extract first JSON-like object from ``text``."""
     import json
-    import re
 
     idx = text.find("{")
     if idx == -1:

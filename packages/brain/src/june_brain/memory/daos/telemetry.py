@@ -3,12 +3,15 @@
 import json
 import logging
 from collections.abc import Mapping
-from datetime import date, datetime, timezone, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
-_now = lambda: datetime.now(timezone.utc).isoformat()
-_today = lambda: date.today()
+
+def _now():
+    return datetime.now(UTC).isoformat()
+def _today():
+    return date.today()
 
 
 def _parse_date(value: str) -> date | None:

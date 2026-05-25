@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
-import time
-from datetime import datetime, timezone, timedelta
-from typing import Any
+from datetime import UTC, datetime, timedelta
 
 from .models import Schedule
 from .store import ScheduleStore
@@ -54,7 +52,7 @@ def compute_next_run(schedule: Schedule) -> str | None:
     if schedule.max_runs > 0 and schedule.run_count >= schedule.max_runs:
         return None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     if schedule.cron_expression:
         minutes = _parse_cron(schedule.cron_expression)

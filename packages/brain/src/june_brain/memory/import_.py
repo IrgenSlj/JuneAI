@@ -93,4 +93,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
     counts = import_memory(args.input, args.user)
     total = sum(counts.values())
-    print(f"Imported {total} rows across {len(counts)} tables: {counts}")

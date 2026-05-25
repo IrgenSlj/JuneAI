@@ -1,9 +1,12 @@
 """Fitness DAO — gym_plans, food_programs, workout_sessions, body_metrics tables."""
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
-_now = lambda: datetime.now(timezone.utc).isoformat()
-_today = lambda: date.today()
+
+def _now():
+    return datetime.now(UTC).isoformat()
+def _today():
+    return date.today()
 
 _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS gym_plans (

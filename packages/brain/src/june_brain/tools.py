@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC
 from typing import Annotated, Any
 
 from langchain_core.messages import ToolMessage
@@ -1453,7 +1454,7 @@ def create_schedule(
     conn.commit()
     store = ScheduleStore(conn)
 
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     sched = _Schedule(
         user_id=user_id,
@@ -1461,7 +1462,7 @@ def create_schedule(
         description=description,
         cron_expression=cron_expression,
         interval_seconds=interval_seconds,
-        scheduled_at=datetime.now(timezone.utc).isoformat(),
+        scheduled_at=datetime.now(UTC).isoformat(),
         action_type=action_type,
         action_config={"prompt": action_prompt} if action_prompt else {},
     )
@@ -1530,7 +1531,7 @@ def save_product(
 ) -> str:
     """Add a product to the shopping list with optional details like price, store, and notes."""
     memory = _memory_for_state(state)
-    product = memory.save_product(name=name, category=category, preferred_price=preferred_price, preferred_store=preferred_store, notes=notes, url=url)
+    memory.save_product(name=name, category=category, preferred_price=preferred_price, preferred_store=preferred_store, notes=notes, url=url)
     return f"Added '{name}' to {category} shopping list."
 
 
@@ -1565,8 +1566,8 @@ def record_purchase(
 ) -> str:
     """Record that you bought a product (from the shopping list)."""
     memory = _memory_for_state(state)
-    purchase = memory.record_purchase(product_id=product_id, price=price, store=store, notes=notes)
-    return f"Purchase recorded."
+    memory.record_purchase(product_id=product_id, price=price, store=store, notes=notes)
+    return "Purchase recorded."
 
 
 # ---------------------------------------------------------------------------
@@ -1585,7 +1586,7 @@ def save_chore(
 ) -> str:
     """Add a recurring chore with its interval and category (cleaning, maintenance, errand, admin)."""
     memory = _memory_for_state(state)
-    chore = memory.save_chore(name=name, category=category, interval_days=interval_days, notes=notes, estimated_minutes=estimated_minutes)
+    memory.save_chore(name=name, category=category, interval_days=interval_days, notes=notes, estimated_minutes=estimated_minutes)
     return f"Added chore '{name}' (every {interval_days} days) to {category}."
 
 
@@ -1599,8 +1600,8 @@ def list_chores(
     chores = memory.list_chores(category=category)
     if not chores:
         return "No chores found." if not category else f"No chores found in '{category}'."
-    from datetime import datetime, timezone
-    now = datetime.now(timezone.utc)
+    from datetime import datetime
+    now = datetime.now(UTC)
     lines = []
     for c in chores:
         due_str = ""
@@ -1627,7 +1628,7 @@ def complete_chore(
 ) -> str:
     """Mark a chore as done (or skipped). Sets next due date based on interval."""
     memory = _memory_for_state(state)
-    result = memory.complete_chore(chore_id=chore_id, note=note, skipped=skipped)
+    memory.complete_chore(chore_id=chore_id, note=note, skipped=skipped)
     return f"Chore marked as {'skipped' if skipped else 'done'}."
 
 

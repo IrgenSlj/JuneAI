@@ -775,9 +775,10 @@ def run_agent_sync(prompt: str, user_id: str) -> str:
     scheduled invocations are informational (briefings, reminders, etc.)
     and shouldn't trigger side effects.
     """
+    from langchain_core.messages import HumanMessage, SystemMessage
+
     from june_brain.memory import Memory
     from june_brain.prompts import build_system_prompt
-    from langchain_core.messages import HumanMessage, SystemMessage
 
     agent = get_or_create_agent()
     if agent is None:

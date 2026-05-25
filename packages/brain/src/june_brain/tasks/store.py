@@ -240,9 +240,9 @@ class TasksStore:
         ``mon,wed,fri`` (comma-separated weekday abbreviations).
         Returns ``None`` if the rule isn't recognised.
         """
-        from datetime import timedelta, timezone
+        from datetime import timedelta
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         rule = rule.strip().lower()
 
         if rule == "daily":

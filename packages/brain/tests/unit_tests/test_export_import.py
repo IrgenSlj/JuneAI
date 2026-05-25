@@ -1,14 +1,10 @@
 """Tests for data portability — export and import."""
 from __future__ import annotations
 
-import json
-import os
-import tempfile
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from june_brain.memory import Memory, MEMORY_DIR
+from june_brain.memory import Memory
 from june_brain.memory.export import export_memory
 from june_brain.memory.import_ import import_memory
 

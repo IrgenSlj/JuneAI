@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import secrets
 import logging
+import secrets
 
 from .config_store import load_stored_config, save_stored_config
 

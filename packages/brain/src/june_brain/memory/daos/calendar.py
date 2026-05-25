@@ -1,9 +1,12 @@
 """Calendar DAO — calendar_items table."""
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
-_now = lambda: datetime.now(timezone.utc).isoformat()
-_today = lambda: date.today()
+
+def _now():
+    return datetime.now(UTC).isoformat()
+def _today():
+    return date.today()
 
 
 def _parse_date(value: str) -> date | None:

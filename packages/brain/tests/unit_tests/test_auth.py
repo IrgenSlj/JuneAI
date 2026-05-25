@@ -1,11 +1,8 @@
 """Tests for API key authentication."""
 from __future__ import annotations
 
-import os
-from unittest.mock import patch
-
 import pytest
-from june_brain.auth import get_api_key, validate_api_key, get_api_key_hash
+from june_brain.auth import get_api_key, get_api_key_hash, validate_api_key
 
 
 @pytest.fixture(autouse=True)
