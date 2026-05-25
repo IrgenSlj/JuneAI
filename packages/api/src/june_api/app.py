@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from june_brain.activity import ActivityLog
 from june_brain.config_store import apply_stored_config_to_env
 
+from .middleware.auth import api_key_middleware
 from .schemas import ChatEvent, RecallHit, TaskEventFrame, TaskStepView
 
 logger = logging.getLogger(__name__)
@@ -69,6 +70,10 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
     )
+
+    @app.middleware("http")
+    async def _api_key_check(request: Request, call_next):
+        return await api_key_middleware(request, call_next)
 
     @app.middleware("http")
     async def _record_activity(request: Request, call_next):

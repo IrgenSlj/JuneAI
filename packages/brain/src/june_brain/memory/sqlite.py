@@ -14,6 +14,8 @@ from datetime import date, datetime
 from pathlib import Path
 from uuid import uuid4
 
+from .migration import ensure_schema
+
 
 def _current_memory_dir() -> str:
     """Resolve MEMORY_DIR lazily so tests that patch june_brain.memory.MEMORY_DIR win."""
@@ -257,6 +259,32 @@ CREATE TABLE IF NOT EXISTS memory_feedback (
     updated_at  TEXT NOT NULL,
     PRIMARY KEY (user_id, ref)
 );
+CREATE TABLE IF NOT EXISTS schedules (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    cron_expression TEXT DEFAULT '',
+    interval_seconds INTEGER DEFAULT 0,
+    scheduled_at TEXT NOT NULL,
+    last_run_at TEXT,
+    action_type TEXT NOT NULL DEFAULT 'agent_invoke',
+    action_config TEXT NOT NULL DEFAULT '{}',
+    max_runs INTEGER DEFAULT 0,
+    run_count INTEGER DEFAULT 0,
+    enabled INTEGER DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS skill_inbound_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    skill_key TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    received_at TEXT NOT NULL,
+    processed INTEGER DEFAULT 0,
+    agent_invoked INTEGER DEFAULT 0
+);
 """
 
 
@@ -266,6 +294,8 @@ def _init_schema(conn: sqlite3.Connection) -> None:
         if stmt:
             conn.execute(stmt)
     conn.commit()
+    # Apply any pending schema migrations (versioned, idempotent).
+    ensure_schema(conn)
 
 
 # ---------------------------------------------------------------------------
