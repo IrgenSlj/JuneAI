@@ -5,6 +5,22 @@ All notable changes to June are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Personal operating layer plan for v0.1.1: quick capture, Daily Home, durable
+  event ledger, action intents, approvals, promises, agenda suggestions, and
+  Telegram quick capture.
+- ADR 0014 and a research memo comparing the relevant open-source and
+  closed-source patterns.
+
+### Changed
+
+- Roadmap and docs now treat v0.1.1 as the active development track.
+- Documentation now reflects Python 3.13 and the shipped v0.1.0 Apple Silicon
+  DMG.
+
 ## [0.1.0] - 2026-05-25
 
 First tagged release of the June v2 monorepo. June is the open personal AI that
@@ -33,6 +49,8 @@ cloud intelligence via Gemini on consent.
 - **Data portability**: export and import of all local data.
 - **Desktop shell** (Tauri 2): Ollama process supervision, native affordances
   (tray, window state, autostart, global shortcut), and a first compile.
+- **macOS release asset**: Apple Silicon DMG published on GitHub Releases. The
+  artifact is ad-hoc signed and not notarized.
 - **First-run flow** and a static landing page for june.ai.
 
 ### Changed

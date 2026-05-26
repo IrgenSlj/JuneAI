@@ -30,4 +30,8 @@ Status progression:
 | [0007](0007-sse-over-websockets.md) | SSE over WebSockets for chat streaming | Accepted |
 | [0008](0008-ollama-supervision.md) | In-app Ollama supervision (use, do not bundle) | Accepted |
 | [0009](0009-private-by-default-and-model-routing.md) | Private-by-default with three-tier model routing | Proposed |
-| [0010](0010-agentic-core-tasks-oauth-computer-use.md) | Agentic core: tasks, OAuth skills, browser/computer use, MCP universal compatibility | Proposed |
+| [0010](0010-agentic-core-tasks-oauth-computer-use.md) | Agentic core: tasks, OAuth skills, browser/computer use, MCP universal compatibility | Proposed; near-term sequencing superseded by ADR 0014 |
+| [0011](0011-python-version-upgrade.md) | Python 3.13 baseline | Accepted |
+| [0012](0012-api-key-auth.md) | Local API key auth | Accepted |
+| [0013](0013-personal-assistant-framework.md) | Personal assistant framework: scheduler, notifications, daemon skills, daily orchestration | Accepted |
+| [0014](0014-personal-operating-layer.md) | Personal operating layer: capture, events, approvals, memory provenance, scheduled work | Accepted |

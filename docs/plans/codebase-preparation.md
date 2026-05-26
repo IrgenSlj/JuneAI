@@ -1,5 +1,9 @@
 # Codebase Preparation Plan
 
+> **Status:** Historical/code-health backlog. Python 3.13 is now the runtime
+> baseline. Active feature preparation is tracked in
+> [v0.1.1 Scheduled Development](v0.1.1-scheduled-development.md).
+
 Before any feature work begins, fix the architectural debt that blocks safe, rapid development.
 
 ## Session P1.1 — Python 3.13 Upgrade

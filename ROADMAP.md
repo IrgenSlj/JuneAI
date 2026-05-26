@@ -1,87 +1,113 @@
 # June AI — Roadmap
 
-> **Status:** Refocusing on the personal assistant vision. Supersedes `docs/product/roadmap.md` and `docs/product/agentic-pivot-plan.md`.
+## Current Direction
 
-## Mission
+June is becoming a **local-first personal operating layer**:
 
-June is the open personal assistant that *remembers you* and *acts on your behalf*. It runs locally, is private by default, and spans every surface you use. Not a smarter chatbot — an assistant that knows you and does work for you.
+> You talk naturally. June captures what matters, remembers it, proposes safe
+> actions, schedules what needs time, and returns at the right moment.
+
+The interface should stay calm and simple. The technical system underneath must
+be durable, inspectable, and privacy-preserving.
 
 ## Principles
 
-1. **Memory is the product** — every interaction feeds a personal knowledge graph that is yours, editable, portable, and local-first.
-2. **Private by default, intelligence on tap** — local Gemma for chat/recall, cloud models for agentic work, with a three-position privacy dial.
-3. **Personal assistant, not chatbot** — June acts: communicates via Telegram, manages shopping/chores/tasks, runs daily routines, reaches external services through MCP skills.
+1. **Memory is the product.** Memories are local, editable, source-linked,
+   portable, and scoped to the right life area.
+2. **Agency needs consent.** June can act in the background, but external
+   writes, sensitive actions, cloud calls, and deletions have visible approval
+   boundaries.
+3. **One quiet surface, serious backend.** The user gets Daily Home and quick
+   capture. The backend keeps the event ledger, tasks, schedules, skills,
+   approvals, and memory provenance.
+4. **Private by default.** Local Gemma/Ollama remains the default path. Gemini
+   is an optional capability with visible provenance and privacy-dial control.
+5. **No paid complexity before users.** Use the existing local stack until real
+   usage proves the need for paid infrastructure, app-store signing, or a
+   dedicated workflow engine.
 
-## Phases
+## Shipped
 
-### Phase 0 — Codebase Stabilisation (current)
+- Web PWA with chat, memory, settings, skills, tasks, and system activity.
+- Tauri desktop shell with Ollama supervision, tray, hotkey, autostart, and
+  native notification capability.
+- Three-tier model routing with per-message provenance.
+- Tasks runtime with live SSE trace and cancel.
+- SQLite + Chroma + graph memory architecture.
+- MCP skill supervisor and bundled skills.
+- Scheduler, notification bus, daily orchestration, and Telegram foundation.
+- v0.1.0 GitHub release with Apple Silicon macOS DMG.
 
-Fix the architectural debt that blocks safe feature work:
+## Active Track: v0.1.1
 
-- Bump Python to 3.13, modernise syntax
-- Add API key auth
-- Fix ActivityLog singleton race
-- Replace broad `except Exception` with targeted catches
-- Add schema migration system (Alembic)
-- Split `sqlite.py` into per-domain DAOs
-- Replace tool alias if/elif chain with data-driven table
-- Add data portability (bulk export/import)
-- Reactive agent rebuild on skill toggle (no manual reload)
+Theme: **Quick Capture + Daily Home + Durable Intent Ledger**
 
-### Phase 1 — Personal Assistant Framework
+Detailed execution plan:
 
-The architectural layer that all personal-assistant features build on:
+- [ADR 0014 — Personal Operating Layer](docs/decisions/0014-personal-operating-layer.md)
+- [v0.1.1 Scheduled Development Plan](docs/plans/v0.1.1-scheduled-development.md)
+- [Personal Operating Layer Research](docs/product/personal-operating-layer-research.md)
 
-- **Scheduler service** — cron-like background trigger for daily tasks, routines, proactive nudges
-- **Push notification bus** — abstract notification channel (desktop, Telegram, future mobile)
-- **Background daemon support in MCP supervisor** — skills that push events, not just respond to tool calls
-- **Domain memory expansion** — shopping products, chores, recurring tasks schemas
-- **Daily orchestration engine** — morning briefing, evening review, task dispatch
+### v0.1.1 Work Packages
 
-### Phase 2 — Personal Assistant Features
+1. **Repo truth and planning**
+   - Align README, docs, setup, roadmap, and release docs with the current
+     product state.
 
-Built on the Phase 1 framework, shipped incrementally:
+2. **Shared operating-layer models**
+   - Add typed models for capture items, action intents, approval status, risk,
+     and event kinds.
 
-- **Telegram communication** — bidirectional chat with June via Telegram, notifications, proactive messages
-- **Shopping assistant** — track products you want, price preferences, purchase history, get notified on deals
-- **Chores helper** — recurring chore schedules, completion tracking, reminders
-- **Daily tasks orchestrator** — morning routine, daily goals, end-of-day review, weekly planning
+3. **Event ledger**
+   - Add durable SQLite tables for events, captures, action intents, approvals,
+     and memory sources.
 
-### Phase 3 — Polish & Release
+4. **Quick capture backend**
+   - Add an endpoint and classifier that turns messy input into tasks, events,
+     memories, decisions, promises, feelings, ideas, questions, and notes.
 
-- Signed desktop installers (macOS .dmg, Windows .msi)
-- Three-question first-run flow
-- Public landing page
-- Closed beta (50 users)
-- Bug bash and hardening
+5. **Action preview and approval**
+   - Gate calendar writes, notifications, messages, deletion, and cloud-required
+     actions behind visible approval rules.
 
-### Phase 4 — Expansion (post-v0.1.0, trigger-gated)
+6. **Daily Home**
+   - Make the first screen a simple personal command center: quick capture,
+     today, open loops, promises, important memories, next action, and emotional
+     check-in.
 
-- Mobile shell (Capacitor/iOS/Android)
-- Multi-device memory sync
-- Voice input/output
-- Skill marketplace
-- Multi-user profiles
+7. **Promise and agenda engine**
+   - Track commitments and suggest when dated work should happen.
 
-## Current Surface: Web PWA + Desktop Shell (Tauri)
+8. **Telegram quick capture**
+   - Use Telegram as the cheap mobile input and notification surface before
+     building a native mobile app.
 
-The web PWA is the primary shipped surface. The desktop shell adds Ollama supervision, native notifications, system tray, and background tasks. Both share the same SvelteKit build.
+9. **Release hardening**
+   - Golden workflow tests, docs, DMG build, and v0.1.1 release notes.
 
-## Feature Surface Ordering
+## Next Tracks
 
-Each feature is built directly into the personal assistant framework rather than as a standalone module:
+These are trigger-gated. They are not started until v0.1.1 is useful in daily
+dogfooding.
 
-1. **Scheduler + notification bus** — foundation (Phase 1)
-2. **Daily task orchestrator** — morning briefing, daily goals, evening review (Phase 2)
-3. **Shopping assistant** — preference tracking, price watching, deal alerts (Phase 2)
-4. **Chores helper** — recurring chore engine with completion streaks (Phase 2)
-5. **Telegram integration** — bidirectional chat, notifications, quick-capture (Phase 2)
-6. **Chores + shopping merge into daily briefing** — unified morning/evening experience (Phase 2)
+- **Signed and notarized desktop distribution.** Start when external users are
+  blocked by macOS warnings enough to justify the Apple Developer Program cost.
+- **Voice input/output.** Start when quick capture is useful and voice becomes
+  the main friction. Likely path: local desktop speech-to-text first.
+- **OAuth-backed Gmail/Calendar.** Start after the approval system is solid.
+- **Browser/computer use.** Keep as an escape hatch, not the front door.
+- **Mobile shell.** Start when Telegram and PWA are insufficient for capture,
+  share extensions, or push.
+- **Skill marketplace.** Start when external contributors have shipped useful
+  skills.
+- **Sync.** Start only when export/import is not enough for real users.
 
-## Things Explicitly Not On This Roadmap
+## Explicit Non-Goals
 
-- Cloud sync (memories stay local; export/import is the cross-device story)
-- Team or collaboration features
-- Third model provider (Gemma + Gemini, period)
-- Account-required modes
-- Native mobile apps (Capacitor planned, trigger-gated)
+- No cloud account requirement.
+- No cloud memory service.
+- No team/collaboration layer.
+- No third model provider.
+- No paid hosting dependency.
+- No always-on audio.
+- No mobile app until usage proves the need.

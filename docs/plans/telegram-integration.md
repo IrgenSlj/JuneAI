@@ -1,5 +1,9 @@
 # Telegram Integration Plan
 
+> **Status:** Telegram is the preferred cheap mobile surface for v0.1.1, but it
+> should route through the same quick-capture and approval pipeline as the main
+> app. Do not add Telegram-only behavior that bypasses the event ledger.
+
 ## Overview
 
 A bidirectional Telegram bot that lets the user chat with June through Telegram, receive notifications, and quickly capture information on the go.

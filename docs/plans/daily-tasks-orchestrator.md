@@ -1,5 +1,9 @@
 # Daily Tasks Orchestrator Plan
 
+> **Status:** Active concept, staged through v0.1.1. Daily Home, promises,
+> agenda suggestions, morning briefing, and evening review should all use the
+> capture, intent, approval, and event-ledger foundation from ADR 0014.
+
 ## Overview
 
 An intelligent daily planner that runs a morning briefing, manages the day's tasks, tracks progress, and conducts an evening review. This is the most visible "personal assistant" feature — it gives June a daily rhythm and makes the assistant feel proactive rather than purely reactive.

@@ -9,7 +9,7 @@ The desktop shell needs the same toolchain as the web app, plus Rust.
 | Tool | Why | How |
 |---|---|---|
 | Node + pnpm | The web build the desktop shell wraps | Already required for the web app. |
-| Python 3.10+ + the brain venv | The API the desktop shell talks to | Run `./tools/bootstrap.sh` from the repo root. |
+| Python 3.13 + the brain venv | The API the desktop shell talks to | Run `./tools/bootstrap.sh` from the repo root. |
 | Ollama with Gemma 4 | The local model | Already required for `MODEL_PROVIDER=gemma`. |
 | **Rust toolchain (stable)** | Compiles the Tauri shell | See below. |
 | **Platform build tools** | Native linker | See below. |
@@ -60,7 +60,10 @@ Output paths by platform:
 - **Windows:** `bundle/msi/June_<version>_<arch>_en-US.msi` and `bundle/nsis/June_<version>_<arch>-setup.exe`.
 - **Linux:** `bundle/appimage/June_<version>_<arch>.AppImage` and `bundle/deb/june_<version>_<arch>.deb`.
 
-The build is unsigned in Phase 1. Code signing for macOS lands in Phase 6 (see the desktop-shell plan).
+The current macOS build is ad-hoc signed and not notarized. It is acceptable for
+alpha testing but macOS may show a first-launch warning. Developer ID signing
+and notarization are deferred until external testers justify the Apple Developer
+Program cost.
 
 ## Generating Icons
 
@@ -115,6 +118,6 @@ If any of the above doesn't work on your machine, the most likely cause is a mis
 | 2. Capability layer | Shipped |
 | 3. Ollama supervision | Shipped (bootstrap opens OS installer URL; in-process download deferred to 3.5) |
 | 4. Native affordances | Shipped (hidden-inset title bar deferred to 4.5) |
-| 5. Touch + responsive hardening | Next — see [responsive-plan.md](../product/responsive-plan.md) |
-| 6. Distribution | Pending — code signing, notarization, GitHub Actions |
-| 7. Migration + polish | Pending |
+| 5. Touch + responsive hardening | Backlog — see [responsive-plan.md](../product/responsive-plan.md) |
+| 6. Distribution | Partial — v0.1.0 Apple Silicon DMG published; signing/notarization pending |
+| 7. Migration + polish | Backlog |

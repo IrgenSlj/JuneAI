@@ -4,6 +4,8 @@
 
 Accepted
 
+Implemented. The workspace packages now require Python 3.13.
+
 ## Context
 
 The project currently targets Python 3.10. This means:

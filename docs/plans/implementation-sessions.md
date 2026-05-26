@@ -1,6 +1,8 @@
 # Multi-Session Implementation Plan
 
-This document breaks the entire v0.1.0 work into discrete implementation sessions. Each session is designed to be completed in one coding session, produces a working artifact, and can be committed independently.
+This historical document breaks the original v0.1.0 work into discrete
+implementation sessions. v0.1.0 has shipped. The active plan is
+[v0.1.1 Scheduled Development](v0.1.1-scheduled-development.md).
 
 Sessions within a phase are ordered by dependency. Sessions across phases can be parallelized.
 

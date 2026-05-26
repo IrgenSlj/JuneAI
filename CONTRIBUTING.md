@@ -8,7 +8,7 @@ Prerequisites:
 
 - Node.js 20+
 - `pnpm`
-- Python 3.10+ (CI runs 3.10, 3.11, and 3.12)
+- Python 3.13
 - Ollama with `gemma4:e4b`, or a Gemini API key if you want to run the app end to end
 
 Bootstrap the repo:
@@ -56,9 +56,11 @@ Open http://localhost:5173.
 
 ## Project Priorities
 
-Current hardening priorities:
+Current v0.1.1 priorities:
 
-- Reliable fresh-clone setup.
-- Honest privacy and security boundaries.
-- Memory correctness and user control.
-- Desktop shell compilation, packaging, and release automation.
+- Quick capture: turn messy input into structured candidates.
+- Durable event ledger: record what June saw, proposed, and did.
+- Action preview and approvals: protect calendar writes, notifications,
+  messages, deletions, and cloud-required actions.
+- Daily Home: simple first screen over the serious backend.
+- Memory correctness and user control remain non-negotiable.

@@ -12,9 +12,10 @@ Building the desktop shell now also unlocks four other capabilities the roadmap 
 
 A Tauri 2.x application at `apps/desktop/` that wraps the existing `apps/web/` SvelteKit build inside a native window. The same UI runs in the PWA, in the desktop shell, and (later) in the mobile shell. The desktop shell adds Rust commands for capabilities the browser cannot provide. It does not introduce a parallel UI.
 
-The shell ships three platform installers from one build pipeline:
+The intended distribution target is three platform installers from one build pipeline:
 
-- **macOS** — universal `.dmg` (Apple Silicon + Intel), code-signed, notarized.
+- **macOS** — `.dmg`; Apple Silicon is published for v0.1.0, universal signing
+  and notarization are deferred.
 - **Windows** — `.msi` installer, signed with an EV certificate when one is available.
 - **Linux** — `.AppImage` and `.deb`, unsigned for now.
 
@@ -35,11 +36,13 @@ The macOS build is the one we polish first. Windows and Linux come for free from
 | 2. Capability layer | Shipped | `2cd0408b` |
 | 3. Ollama supervision | Shipped (with bootstrap caveat — see below) | `49400967` |
 | 4. Native affordances | Shipped (title-bar overlay deferred to 4.5) | `f5e24dfa` |
-| 5. Touch + responsive hardening | Next |  |
-| 6. Distribution | Pending |  |
-| 7. Migration + polish | Pending |  |
+| 5. Touch + responsive hardening | Backlog |  |
+| 6. Distribution | Partial — v0.1.0 Apple Silicon DMG published; signing/notarization pending | `419db391` |
+| 7. Migration + polish | Backlog |  |
 
-The Rust code in Phases 3 and 4 has not been compiled locally (no rustup on the dev machine yet). The TypeScript side of every phase is clean (`pnpm check` 0/0). The first `pnpm desktop:dev` run by anyone with Rust installed is also the first compile of `apps/desktop/src-tauri/src/ollama.rs` and `native.rs`; expect minor fix-ups.
+The Rust code now compiles and `pnpm desktop:build` has produced a macOS DMG.
+The current artifact is ad-hoc signed and not notarized because no Developer ID
+certificate is available on the build machine.
 
 ## The Phases
 
@@ -152,7 +155,9 @@ The plan is divided into seven phases. Each phase ends in a working artifact you
 
 ### Phase 6: Distribution
 
-**Goal:** a user clicks a link on the website and ends up with a running, signed June.
+**Goal:** a user clicks a link on the website and ends up with a running June.
+The long-term goal is a signed and notarized build; the v0.1.0 alpha artifact is
+an ad-hoc signed Apple Silicon DMG.
 
 **Work:**
 
@@ -162,7 +167,12 @@ The plan is divided into seven phases. Each phase ends in a working artifact you
 - **Build pipeline.** GitHub Actions workflow that builds macOS (universal), Windows, and Linux artifacts on tag push, signs the macOS build, and attaches binaries to a GitHub Release.
 - **Install page.** A `/download` route or a section of the project README pointing at the latest `.dmg`, `.msi`, and `.AppImage`. Detect OS in the browser and highlight the right one.
 
-**Done when:** a user with no developer tools, no Rust, no Python, and no Ollama can install June on a fresh Mac in under five minutes from a public download link.
+**Alpha status:** v0.1.0 has a GitHub Release with `June_0.1.0_aarch64.dmg`.
+The artifact mounts cleanly and contains a valid ad-hoc signed `June.app`.
+Gatekeeper warnings remain expected until Developer ID signing and notarization
+are funded and configured.
+
+**Done when:** a user with no developer tools, no Rust, no Python, and no Ollama can install June on a fresh Mac in under five minutes from a public download link without Gatekeeper workarounds.
 
 **Estimate:** 2 days (excluding the Apple notarization wait, which is asynchronous).
 

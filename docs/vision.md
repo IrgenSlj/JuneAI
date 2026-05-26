@@ -1,6 +1,10 @@
 # Vision
 
-June is the open personal agent that remembers you. It is private by default — chat and recall stay on your machine; agentic capability reaches Gemini when you ask June to do real work, with the call visible before and after it happens. One brain across browser, desktop, and mobile surfaces. The web PWA is the current shipped surface; desktop is in active development; mobile is planned.
+June is the open personal agent that remembers you. It is private by default —
+chat and recall stay on your machine; agentic capability reaches Gemini when
+you ask June to do real work, with the call visible before and after it
+happens. One brain spans browser, desktop, and future mobile surfaces. The web
+PWA is usable today, and the desktop shell has produced the v0.1.0 macOS DMG.
 
 ## Why June Exists
 
@@ -10,9 +14,10 @@ And even when an assistant remembers, it cannot act. It can describe what to do;
 
 June is built on a different premise: an assistant that *remembers* you and can *do work for you* across the apps you already use is the product. The model is infrastructure. Memory is the moat. Agency is the unlock.
 
-## The Three Non-Negotiables
+## The Non-Negotiables
 
-Every feature, decision, and dependency is measured against these three principles. If a request cannot be justified by at least one of them, the answer is no.
+Every feature, decision, and dependency is measured against these principles. If
+a request cannot be justified by at least one of them, the answer is no.
 
 ### 1. Memory is the product
 
@@ -22,7 +27,14 @@ Every conversation feeds a personal knowledge graph that is yours, editable, por
 
 June runs Gemma 4 locally for chat, recall, and any turn the user keeps private. June reaches Gemini for agentic capability — multi-step planning, long context, vision, computer use — only when the user's policy allows it, and every cloud call is visible in the UI before and after it happens. The user holds the dial: `local-only`, `private-by-default`, or `cloud-first`. Memory never leaves the machine. Cloud calls send only the turn's context and are not used for training. See [ADR 0009](decisions/0009-private-by-default-and-model-routing.md).
 
-### 3. One codebase, every surface
+### 3. Personal assistant, not chatbot
+
+June listens, understands, proposes, acts, and returns later. The user can dump
+plans, promises, anxiety, decisions, and ideas in natural language; June turns
+them into memory, tasks, agenda suggestions, reminders, and reviews with clear
+approval boundaries.
+
+### 4. One codebase, every surface
 
 Browser, desktop, and mobile share the same frontend code. The same brain, the same memory, the same API. New features land in one place and appear everywhere. This is how a small team ships a multi-platform product.
 
@@ -31,6 +43,9 @@ Browser, desktop, and mobile share the same frontend code. The same brain, the s
 - **Not a chatbot.** June is a personal agent. It does work for you across files, apps, and services — drafting and sending emails in your Gmail, scheduling in your Calendar, watching a page, finding a file, summarising a thread, running multi-step tasks in the background.
 - **Not a wrapper around a single model.** The model layer is swappable; the memory and skills layer is the moat.
 - **Not an account-required service.** June installs onto your machine. No signup. No login. No cloud dependency by default. Telemetry never leaves the device without consent.
+- **Not a therapist.** June can support, ground, reflect, and help the user pick
+  one practical next action. It does not make clinical claims and should
+  encourage real-world help when the situation is severe or unsafe.
 - **Not a research project.** June ships. Each week produces something a user can actually use.
 
 ## North Star User Experience
@@ -47,4 +62,10 @@ Nothing in that experience requires an internet connection except the cloud call
 
 ## How This Document Is Used
 
-This vision governs architecture decisions and product scope. When in doubt, open this file. When the answer is still unclear, write an Architecture Decision Record under `docs/decisions/`. The current strategic direction is anchored by [ADR 0009](decisions/0009-private-by-default-and-model-routing.md), [ADR 0010](decisions/0010-agentic-core-tasks-oauth-computer-use.md), and the twelve-week [agentic pivot plan](product/agentic-pivot-plan.md).
+This vision governs architecture decisions and product scope. When in doubt,
+open this file. When the answer is still unclear, write an Architecture Decision
+Record under `docs/decisions/`. The current strategic direction is anchored by
+[ADR 0009](decisions/0009-private-by-default-and-model-routing.md),
+[ADR 0013](decisions/0013-personal-assistant-framework.md),
+[ADR 0014](decisions/0014-personal-operating-layer.md), and the
+[v0.1.1 scheduled development plan](plans/v0.1.1-scheduled-development.md).

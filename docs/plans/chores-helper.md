@@ -1,5 +1,9 @@
 # Chores Helper Plan
 
+> **Status:** Backlog feature plan. Chores should build on the v0.1.1 personal
+> operating layer so reminders, completions, skips, and recurring schedules are
+> captured in the same event ledger and approval model as every other action.
+
 ## Overview
 
 A structured chore management system that tracks recurring household tasks, reminds the user when chores are due, and builds streaks for consistent completion.

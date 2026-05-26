@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/IrgenSlj/JuneAI/actions/workflows/checks.yml"><img src="https://github.com/IrgenSlj/JuneAI/actions/workflows/checks.yml/badge.svg" alt="CI status" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license" /></a>
-  <img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg" alt="Python 3.10-3.12" />
+  <img src="https://img.shields.io/badge/python-3.13-3776AB.svg" alt="Python 3.13" />
   <img src="https://img.shields.io/badge/node-20%2B-339933.svg" alt="Node 20+" />
   <img src="https://img.shields.io/badge/status-alpha-orange.svg" alt="Alpha" />
   <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs welcome" />
@@ -30,9 +30,11 @@ visible in the UI before and after it happens. Your conversations, memories, and
 embeddings live in a local SQLite database and an on-disk vector store. There is
 no signup, no telemetry without consent, and one button to export everything.
 
-> **Status:** June is alpha software under active development. It is usable today
-> as a web app; the desktop shell and OAuth-backed service skills are in flight.
-> See the [roadmap](docs/product/roadmap.md) for what ships next.
+> **Status:** June is alpha software under active development. It is usable as a
+> web app and has a v0.1.0 Apple Silicon macOS DMG on GitHub Releases. The DMG
+> is ad-hoc signed and not notarized, so macOS may show a first-launch warning.
+> The active v0.1.1 track is the personal operating layer: quick capture, daily
+> home, durable events, action approvals, promises, and agenda suggestions.
 
 ## Why June
 
@@ -113,7 +115,7 @@ picture and [docs/decisions/](docs/decisions/) for the ADRs behind each choice.
 **Prerequisites**
 
 - Node.js 20+ with [`pnpm`](https://pnpm.io)
-- Python 3.10+ (CI covers 3.10, 3.11, and 3.12)
+- Python 3.13
 - One model provider:
   - [Ollama](https://ollama.com) with `gemma4:e4b` pulled (fully local), **or**
   - a [Gemini API key](https://aistudio.google.com) (cloud)
@@ -196,7 +198,7 @@ The project gate is one command and is exactly what CI runs:
 It runs the backend test suite (`pytest`), the frontend type/lint checks
 (`svelte-check`), and an OpenAPI codegen drift check that fails if the generated
 TypeScript client is out of sync with the Pydantic schemas. CI runs the same gate
-across Python 3.10/3.11/3.12 plus a frontend build.
+on Python 3.13 plus a frontend build.
 
 When you change a Pydantic schema or an API route, regenerate the client:
 
@@ -213,13 +215,12 @@ python tools/export_obsidian.py --user local --vault ~/JuneMemory
 
 ## Roadmap
 
-June is mid-way through an [agentic pivot](docs/product/agentic-pivot-plan.md) —
-a transformation from "chat with memory" to "personal agent with memory." The
-agentic core (router, tasks, files skill, MCP registry, live trace, provenance)
-is shipped. Next up are OAuth-backed Gmail and Calendar skills, a browser
-automation skill, and signed desktop installers. The plan is trigger-gated, not
-date-driven — read [docs/product/roadmap.md](docs/product/roadmap.md) for what
-unlocks each surface.
+June has completed the first agentic core: router, tasks, files skill, MCP
+registry, live trace, scheduler, notifications, daily orchestration, Telegram
+foundation, and a first desktop DMG. The active track is v0.1.1: **Quick Capture
++ Daily Home + Durable Intent Ledger**. Read the [roadmap](docs/product/roadmap.md),
+[ADR 0014](docs/decisions/0014-personal-operating-layer.md), and the
+[v0.1.1 plan](docs/plans/v0.1.1-scheduled-development.md).
 
 ## Contributing
 
@@ -229,8 +230,9 @@ for a newcomer.
 
 - Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup and the PR checklist, and
   [SECURITY.md](SECURITY.md) for responsible disclosure.
-- Good first contributions: a new MCP skill, a memory-browser improvement, a
-  provider edge case, or anything on the [roadmap](docs/product/roadmap.md).
+- Good first contributions: a quick-capture workflow test, a memory-browser
+  improvement, a provider edge case, a small MCP skill, or anything on the
+  [roadmap](docs/product/roadmap.md).
 - Keep PRs focused; add or update tests for behavior changes in `packages/brain`
   or `packages/api`; run `./tools/check.sh` before pushing.
 - Any change that touches the privacy boundary must make cloud-mode behavior
@@ -244,7 +246,8 @@ Discussion happens in [GitHub issues](https://github.com/IrgenSlj/JuneAI/issues)
 - [Product overview](docs/product/overview.md) — the surfaces and the boundary
 - [Architecture overview](docs/architecture/overview.md) — the layered model
 - [Architecture Decision Records](docs/decisions/) — why the design is the way it is
-- [Agentic pivot plan](docs/product/agentic-pivot-plan.md) — the active execution plan
+- [v0.1.1 Scheduled Development Plan](docs/plans/v0.1.1-scheduled-development.md) — the active execution plan
+- [Personal operating layer research](docs/product/personal-operating-layer-research.md) — research and technical selection memo
 - [Roadmap](docs/product/roadmap.md) — what ships next
 - [Environment reference](docs/setup/environment.md) — configuration options
 

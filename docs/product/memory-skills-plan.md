@@ -1,5 +1,10 @@
 # Memory and Skills Depth Plan
 
+> **Status:** Backlog and design reference. Its trust goals are still valid, but
+> active sequencing now flows through ADR 0014 and the v0.1.1 event-ledger,
+> capture, approval, and Daily Home plan. Memory edits, recall provenance, and
+> skill writes should use the durable source/event model when implemented.
+
 This document is the plan for deepening June's two load-bearing systems — memory and skills — across all shells. It is parallel to the desktop-shell track in [desktop-shell-plan.md](desktop-shell-plan.md): the desktop shell is how June reaches users, this plan is what June actually does for them once they arrive. Both can advance independently because they touch separate subsystems.
 
 The trigger that justifies this plan is non-negotiable #1 of the project: **memory is the product**. The web prototype shipped a working memory subsystem, but the contracts between memory, skills, and the chat UI are weaker than they need to be for June to feel like a confidant rather than a chat box that occasionally remembers.

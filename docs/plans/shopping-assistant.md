@@ -1,5 +1,10 @@
 # Shopping Assistant Plan
 
+> **Status:** Backlog feature plan. Shopping should not ship as a standalone
+> vertical before the v0.1.1 capture, intent, approval, event-ledger, and Daily
+> Home foundation is in place. When revived, shopping inputs enter through the
+> same quick-capture pipeline as every other domain.
+
 ## Overview
 
 A personal shopping assistant that tracks products the user wants, remembers their preferences and budget, monitors prices, and provides proactive deal alerts.

@@ -14,7 +14,7 @@ June is organized in four horizontal layers, each with a single responsibility:
 ├───────────────────────────────────────────────────────────────┤
 │  API          FastAPI · REST + SSE streaming                  │
 ├───────────────────────────────────────────────────────────────┤
-│  BRAIN        LangGraph agent · memory · skills loader        │
+│  BRAIN        LangGraph · operating layer · memory · skills   │
 ├───────────────────────────────────────────────────────────────┤
 │  PROVIDERS    Ollama/Gemma 4   Gemini API                     │
 └───────────────────────────────────────────────────────────────┘
@@ -40,6 +40,8 @@ Internal modules:
 
 - **`graph.py`** — LangGraph state machine, routing, streaming orchestration.
 - **`memory/`** — three-store memory (see ADR 0004): `sqlite.py`, `vector.py`, `graph.py`, with `manager.py` as the unified facade.
+- **`operating_layer.py`** — v0.1.1 shared models for capture, action intents,
+  risk, approvals, and event kinds.
 - **`config.py` / `models.py`** — runtime resolution and OpenAI-compatible model client construction for Ollama/Gemma and Gemini.
 - **`skills/`** — MCP client that discovers and connects to skill servers.
 - **`patterns.py` / `context_intelligence.py`** — chapter and pattern detection, injected into system prompts.
@@ -82,7 +84,8 @@ The UI is the shared frontend. Every shell serves this same build.
 
 `apps/web/` holds routes and app-specific layout:
 
-- `/` — main chat surface.
+- `/` — current chat surface; becoming Daily Home in v0.1.1: quick capture, today, promises, open
+  loops, and next action.
 - `/memory` — memory browser and editor.
 - `/skills` — skill registry.
 - `/settings` — model provider, API keys, preferences.
@@ -94,7 +97,11 @@ A small capability layer (`packages/ui/src/platform/`) exposes platform features
 Three thin shells wrap the UI:
 
 - **Web** — the SvelteKit PWA served directly. Installable via the browser's native install flow. Shipped.
-- **`apps/desktop/`** — Tauri 2.x. Rust commands for Ollama process supervision (see [ADR 0008](../decisions/0008-ollama-supervision.md)), system tray, global hotkey (`Cmd+Shift+J`), native notifications, and autostart. Experimental until Rust CI, packaging, signing, and distribution are in place.
+- **`apps/desktop/`** — Tauri 2.x. Rust commands for Ollama process supervision
+  (see [ADR 0008](../decisions/0008-ollama-supervision.md)), system tray,
+  global hotkey (`Cmd+Shift+J`), native notifications, and autostart. It builds
+  and has produced the v0.1.0 Apple Silicon DMG; Developer ID signing and
+  notarization remain pending.
 - **`apps/mobile/`** — planned Capacitor shell. Trigger-gated; planned after the desktop shell ships.
 
 Shells do not contain business logic. If a shell needs to do something, there is a Tauri command or a Capacitor plugin, and the UI calls it through the capability layer (`packages/ui/src/platform/`). The capability layer has three runtime backends — Tauri, Capacitor, and Web — selected at module load via runtime detection.

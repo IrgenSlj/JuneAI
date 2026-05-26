@@ -1,5 +1,10 @@
 # Agentic Pivot Plan
 
+> **Status:** Historical plan. The shipped agentic core from this plan remains
+> part of June, but active development has moved to
+> [ADR 0014](../decisions/0014-personal-operating-layer.md) and the
+> [v0.1.1 scheduled development plan](../plans/v0.1.1-scheduled-development.md).
+
 This document is the execution plan for the May 2026 reframing of June from "chat-with-memory" to "personal agent with memory." It runs for twelve weeks and replaces, in priority terms, the [open-source readiness plan](open-source-readiness-plan.md) and the [memory-skills plan](memory-skills-plan.md) Phase C items. Those plans remain valid as backlog and will be folded back in once the pivot's Sprint 1 is shipped.
 
 The strategic decisions behind this plan are recorded in [ADR 0009](../decisions/0009-private-by-default-and-model-routing.md) and [ADR 0010](../decisions/0010-agentic-core-tasks-oauth-computer-use.md).

@@ -1,96 +1,205 @@
-# Roadmap
+# Product Roadmap
 
-This document describes what is left to ship and when each additional surface becomes worth planning in detail. It is organized by trigger, not by week number. A surface is planned when its trigger fires. A surface is implemented when the plan says it is ready.
+This is the detailed product roadmap. The short public summary lives at
+[`../../ROADMAP.md`](../../ROADMAP.md).
 
-## The One Rule
+## Direction
 
-> Implement what the current users need. Plan the next surface when the current one has users.
+June is becoming a local-first personal operating layer:
 
-No parallel construction. No half-finished platforms. Each surface must reach real users before the next one gets detailed design.
+- capture natural input
+- classify it into useful categories
+- propose safe actions
+- ask approval when risk requires it
+- commit to memory, tasks, schedules, notifications, or skills
+- record the event
+- bring it back in daily use
 
-## Active Track: Agentic Pivot (Sprints 1-4)
+The UI should feel simple. The system should be technically rigorous.
 
-The full execution plan is at [agentic-pivot-plan.md](agentic-pivot-plan.md). The strategic decisions behind it are [ADR 0009](../decisions/0009-private-by-default-and-model-routing.md) and [ADR 0010](../decisions/0010-agentic-core-tasks-oauth-computer-use.md).
+## Current Shipped Surface
 
-The twelve-week plan replaces, in priority terms, the open-source-readiness pass and the memory-skills Phase C items. Those plans remain valid as backlog and will be folded back in once the pivot's Sprint 1 has shipped.
+### Web PWA
 
-- **Sprint 1 (weeks 1-3) — Agentic Core.** Three-tier model router, tasks primitive, real files/gmail/gcal skills, browser skill, MCP registry connector, desktop shell first compile. **Status as of 2026-05-20:** router (with per-message chat provenance), tasks (runtime + live SSE trace + cancel), files (expanded), MCP registry connector, a Batch 1 of cross-department UX adds (TaskRuntime / MemoryStats / SkillPlayground / SystemActivity), and a hardening/polish pass are shipped. Gmail/Calendar OAuth (gated on Google verified-app review), the browser skill, and the desktop first-compile (needs `rustup`) remain.
-- **Sprint 2 (weeks 4-6) — Dogfooding.** Owner uses June daily, journals failures, rewrites Sprint 3 backlog from observed pain.
-- **Sprint 3 (weeks 7-9) — Installable for humans.** Signed installers, three-question first-run flow, public landing page, README rewrite for mainstream users.
-- **Sprint 4 (weeks 10-12) — 50-user closed beta.** Discord, weekly office hours, per-week metric tracking, written go/no-go decision.
+The PWA remains the primary shared UI surface. It exposes chat, memory, tasks,
+skills, system activity, settings, and setup. It is installable through browser
+PWA support.
 
-## Current Surface: Web PWA (shipped, evolving with the pivot)
+### Desktop Shell
 
-The browser application is the first surface for June 1.0. Installable through the browser's native install flow. Works offline against a local Ollama. Works online against Gemini. No account, no cloud dependency beyond the optional model call. The first prototype checklist is fully shipped as of 2026-04-20.
+The Tauri desktop shell now builds and has produced the v0.1.0 Apple Silicon
+DMG. It adds native process and OS capabilities that the browser cannot provide:
 
-The web PWA remains the primary surface during the pivot. The desktop shell does not retire it; the same SvelteKit build serves both.
+- Ollama supervision
+- native notifications
+- system tray
+- global hotkey
+- autostart
+- future background work and local file/app capabilities
 
-The agentic capabilities being added in Sprint 1 will appear in the PWA where the browser's sandbox allows: file access via the File System Access API where supported, OAuth via same-origin popups, MCP-server installation in registry-browse-only mode. Browser-controlled automation and computer use are desktop-only by physical necessity.
+The current public DMG is ad-hoc signed and not notarized. Signed distribution
+is deferred until external users justify the Apple Developer Program cost and
+release-process work.
 
-### Done Criteria for the Prototype (achieved 2026-04-20)
+## Active Release: v0.1.1
 
-A first-time user opens the URL, completes setup in under two minutes, has their first conversation with Gemma or Gemini, sees a memory land in the browser, and toggles at least one skill. The browser prompts them to install. They close the tab and the next day open the installed app from their dock or home screen and continue the conversation.
+Theme: **Quick Capture + Daily Home + Durable Intent Ledger**
 
-## Next Surface: Desktop Shell — In Progress
+Primary references:
 
-### Trigger Fired
+- [ADR 0014 — Personal Operating Layer](../decisions/0014-personal-operating-layer.md)
+- [v0.1.1 Scheduled Development Plan](../plans/v0.1.1-scheduled-development.md)
+- [Personal Operating Layer Research](personal-operating-layer-research.md)
 
-The Ollama process-supervision capability gap fired the trigger on 2026-04-27. The PWA can detect Ollama reachability but cannot install it, start it, or pull a model on the user's behalf, leaving non-technical users at a terminal-instructions cliff. The desktop shell is also the only surface where the agentic core can run at full capability: filesystem access, browser automation, OAuth via loopback redirect, system tray, background tasks, native notifications.
+### P0 — Repo Truth And Planning
 
-The full plan is in [desktop-shell-plan.md](desktop-shell-plan.md). Phases 1-4 have shipped (scaffold, capability layer, Ollama supervision, native affordances). Phase 4.5 (First Compile — install rustup and verify the Rust code in Phases 3-4 actually builds) is Sprint 1.7 of the agentic pivot. Phases 5-7 (touch hardening, distribution, polish) merge into Sprint 3 of the pivot ("installable for humans").
+Align docs and codebase vocabulary around the new direction.
 
-### What This Unblocks
+Done when:
 
-- The mobile-shell trigger (push, share extensions, voice) becomes the next one to watch once the desktop shell is in users' hands.
-- Background task execution (Sprint 1.2 of the pivot) becomes meaningful: tasks survive laptop sleep, native notifications surface results, the tray icon shows running work.
-- OAuth flows for service skills become reliable: a loopback redirect on `127.0.0.1` is much more robust than the popup-with-postMessage path the PWA must use.
+- README, roadmap, docs index, desktop setup, and release docs are current.
+- Python version references are accurate.
+- Old plans are clearly historical or backlog.
 
-## Later Surface: Mobile Shell
+### P1 — Shared Operating-Layer Models
 
-### Trigger to Plan
+Add shared primitives for the rest of the release:
 
-The desktop shell has shipped and is stable, and one of the following is true:
+- capture items
+- capture kinds
+- action intents
+- action risk
+- approval status
+- event kinds
 
-- Users ask for push notifications on their phone.
-- Users want to share content from Safari or Mail into June.
-- Users want voice input on the go.
+Done when:
 
-### What It Is
+- Local low-risk actions and high-risk external actions are represented with
+  clear approval behavior.
+- Unit tests cover the invariants.
 
-A Capacitor shell that wraps the same SvelteKit build. Swift plugins expose iOS push, share extensions, and voice input via AVFoundation. Ships to TestFlight first, App Store second.
+### P2 — Event Ledger
 
-### Why Not Now
+Create the durable event record that underpins memory, tasks, reviews, and
+debugging.
 
-Mobile adds an App Store submission process, code signing, and a second capability layer to maintain. The PWA is installable on iOS via Safari's Add to Home Screen; that path serves users until the native features above become load-bearing.
+Done when:
 
-### When Implemented
+- SQLite stores events, captures, intents, approvals, and memory sources.
+- Export/import includes those records.
+- Tests prove migration idempotency and event ordering.
 
-Estimate two to three weeks once started. Most of the UI already works; the budget is for capability plugins, icon variants, and App Store review cycles.
+### P3 — Quick Capture Backend
 
-## Feature Surfaces
+Add the first real product loop: a universal input that turns messy thoughts
+into structured candidates.
 
-Features live on top of the surfaces above. Ordered by user-visible impact.
+Done when:
+
+- Natural planning creates task/event candidates.
+- Promises are detected.
+- Feelings produce supportive, practical responses.
+- Privacy dial behavior is enforced.
+
+### P4 — Action Preview And Approval
+
+Turn action proposals into safe execution.
+
+Done when:
+
+- Calendar writes ask before committing.
+- Notifications ask if they interrupt later.
+- Message sending and deletion always ask.
+- Rejected intents are recorded and do not run.
+
+### P5 — Daily Home
+
+Make the first screen useful without turning it into a heavy dashboard.
+
+Done when the first screen has:
+
+- quick capture
+- today
+- open loops
+- promises
+- recent important memories
+- next best action
+- emotional check-in
+
+### P6 — Promise And Agenda Engine
+
+Make June remember commitments and suggest time placement.
+
+Done when:
+
+- June can answer "what did I promise?"
+- Dated tasks receive agenda suggestions.
+- Evening review can carry unfinished work forward.
+
+### P7 — Telegram Quick Capture
+
+Use Telegram as a cheap mobile surface before building native mobile.
+
+Done when:
+
+- Telegram messages enter the capture pipeline.
+- Approved reminders and daily briefings can be delivered through Telegram.
+- Sensitive actions still require approval in June.
+
+### P8 — Release Hardening
+
+Ship v0.1.1 cleanly.
+
+Done when:
+
+- Golden workflow tests pass.
+- `./tools/check.sh` passes.
+- `pnpm desktop:build` produces a DMG.
+- v0.1.1 release notes are honest about alpha limitations.
+
+## Later Feature Surfaces
+
+These are trigger-gated.
+
+### Signed Desktop Distribution
+
+Trigger: real external testers are blocked by macOS warnings. Until then, the
+unsigned/ad-hoc signed DMG is enough for alpha testing.
+
+### OAuth Gmail And Calendar
+
+Trigger: action preview and approval are solid. External service writes should
+not ship before June has a durable consent and audit model.
+
+### Browser And Computer Use
+
+Trigger: June needs to complete important tasks that cannot be done through
+APIs, local files, or MCP skills. This remains an escape hatch.
 
 ### Voice
 
-Speech-to-text input and text-to-speech output. The PWA uses the Web Speech API where available. Desktop and mobile shells use native APIs. Plan when at least one user asks for it; implement when three have.
+Trigger: quick capture works and typing becomes the bottleneck. Likely first
+implementation is desktop local speech-to-text.
 
-### Proactive Agent
+### Mobile Shell
 
-June surfaces its own thoughts without being prompted: reminders, gentle nudges, pattern observations, results of background tasks. Requires the tasks primitive (shipping in Sprint 1.2) plus the scheduler and a notification channel on each shell. Plan once the desktop shell's native notifications are exercised by Sprint 1 tasks; implement once mobile push lands.
+Trigger: Telegram and the PWA are not enough for mobile capture, share
+extensions, or push notifications.
 
 ### Skill Marketplace
 
-A browsable registry of community skills, installable in one click. The Sprint 1.6 MCP registry connector ships a minimal version of this against a static, curated index. A richer marketplace with descriptions, ratings, signing, and a review process is planned when three external contributors have shipped skills.
+Trigger: at least three external contributors ship useful MCP skills.
 
-### Multi-User
+### Sync
 
-One installation, multiple profiles. Requires memory partitioning by user, a profile picker, and per-profile settings. Plan when a user asks (families, couples). Not before.
+Trigger: export/import becomes a clear user pain and the privacy tradeoff is
+worth designing.
 
-## Things That Are Not On The Roadmap
+## Not On The Roadmap
 
-- **Cloud sync.** Memories stay local. Export and manual import are the cross-device story until a user shows the pain is bigger than the privacy cost. Cross-device memory sync is considered for a later phase but is not on the twelve-week pivot.
-- **Team or collaboration features.** June is a personal agent. An organisation layer is a different product.
-- **A third model provider.** Gemma and Gemini. A new provider replaces one; it does not add to them.
-- **Account-required modes.** June installs onto your machine. No signup, no login, no cloud dependency by default.
-- **A native app on a platform not listed above.** Android, Linux-only, watchOS, etc. are considered if a contributor ships them, not planned by us.
+- Account-required modes.
+- Cloud memory as the default.
+- Team workspaces.
+- A third model provider.
+- Paid hosting dependency.
+- Always-on audio capture.

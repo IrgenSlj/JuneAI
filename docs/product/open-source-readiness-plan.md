@@ -1,9 +1,10 @@
 # Open Source Readiness Plan
 
-This plan turns June from a promising local alpha into a public alpha that
-people can clone, run, trust, and contribute to. It was written after the
-2026-05-12 repository review and is the active hardening track until the
-release gates below are met.
+This historical plan turned June from a promising local alpha into a public
+alpha that people can clone, run, trust, and contribute to. It was written after
+the 2026-05-12 repository review. The active development track is now
+[v0.1.1 Scheduled Development](../plans/v0.1.1-scheduled-development.md), but
+the correctness checks here remain useful backlog.
 
 The immediate goal is not to add another surface. The goal is to make the
 current product promise true:
@@ -180,14 +181,12 @@ This phase makes the contributor path boring and repeatable.
 
 ### 1.1 Python Version and Dependencies
 
-Problem: the package claims Python 3.10 support, but the TOML fallback imports
-`tomli` without declaring it.
+Problem: early docs claimed Python 3.10 support while the repo was moving to a
+modern Python baseline.
 
-Status: shipped. June continues to support Python 3.10+; `june-brain` declares
-`tomli` for Python `<3.11`, and CI runs backend checks on Python 3.10, 3.11,
-and 3.12.
+Status: superseded by ADR 0011. June now targets Python 3.13.
 
-Decision: support Python 3.10+ rather than raising the floor to 3.11.
+Decision: use Python 3.13 as the single baseline for the alpha period.
 
 Acceptance:
 

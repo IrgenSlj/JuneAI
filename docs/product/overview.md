@@ -1,8 +1,16 @@
 # June
 
-June is the open personal agent that remembers you. It runs Gemma 4 locally for chat and recall, reaches Gemini for agentic work when you allow it, and is designed around one shared brain for browser, desktop, and mobile surfaces. The web PWA is the current shipped surface; desktop is in active development; mobile is planned.
+June is the open personal agent that remembers you. It runs Gemma 4 locally for
+chat and recall, reaches Gemini for agentic work when you allow it, and is
+designed around one shared brain for browser, desktop, and future mobile
+surfaces. The web PWA is usable today, and the Tauri desktop shell has produced
+the v0.1.0 Apple Silicon macOS DMG.
 
-This document describes what June is. For why it exists, read [vision.md](../vision.md). For how it is built, read [architecture/overview.md](../architecture/overview.md). For where it is going next, read [roadmap.md](roadmap.md) and the [agentic pivot plan](agentic-pivot-plan.md).
+This document describes what June is. For why it exists, read
+[vision.md](../vision.md). For how it is built, read
+[architecture/overview.md](../architecture/overview.md). For where it is going
+next, read [roadmap.md](roadmap.md), [ADR 0014](../decisions/0014-personal-operating-layer.md),
+and the [v0.1.1 scheduled development plan](../plans/v0.1.1-scheduled-development.md).
 
 ## What June Is
 
@@ -21,7 +29,14 @@ The user closes the laptop and opens their phone. Same agent. Same memory. Same 
 
 ## The Product Surface
 
-### Primary screen: Chat
+### Primary screen: Daily Home
+
+One calm first screen. Quick capture is the center. Around it June shows today,
+open loops, promises, recent important memories, the next best action, and a
+quiet emotional check-in. Chat remains available, but the product center moves
+from "ask and answer" to "capture and operate."
+
+### Chat
 
 One column. Message list above, composer below, model and privacy status in the header. Streaming responses token by token. Tool calls render inline with their arguments and results. Per-message provenance shows which model handled which segment of the turn and which skills were called. The composer supports cancellation mid-stream. No sidebars, no tabs, no modals that break the conversation.
 
@@ -83,6 +98,22 @@ A task is a first-class, persistable, observable unit of work, separate from a c
 
 A task carries a goal (free-form natural language), a plan (LLM-produced, editable, JSON), a status (`planning`, `running`, `paused`, `awaiting_user`, `completed`, `failed`), a step trace with model provenance per step, an optional owner skill, and an optional schedule. Tasks live in a new SQLite table; the API surfaces them at `POST /tasks`, `GET /tasks`, `GET /tasks/{id}/events` (SSE), `PATCH /tasks/{id}`, and `DELETE /tasks/{id}`. The chat composer can spawn a task with a slash command or via an inline confirmation when the agent suggests one.
 
+## Personal Operating Layer
+
+The v0.1.1 layer standardizes how future features behave:
+
+1. Capture natural input.
+2. Classify it as task, event, memory, decision, promise, feeling, idea,
+   question, or note.
+3. Create action intents for writes and external actions.
+4. Ask approval when risk requires it.
+5. Commit to memory, tasks, schedules, notifications, or skills.
+6. Record the event in the durable ledger.
+7. Bring it back through Daily Home, reviews, reminders, and search.
+
+This is the shared path for calendar, promises, Telegram, agenda suggestions,
+emotional support, and future service skills.
+
 ## Privacy Model
 
 - Conversations, memories, and embeddings live on the user's machine.
@@ -93,8 +124,11 @@ A task carries a goal (free-form natural language), a plan (LLM-produced, editab
 
 ## Status
 
-June currently ships as a web application. The brain, the API, the memory stores, and the skills system are implemented, and the shared UI renders the chat, memory, and skills surfaces. Light mode is the default with dark mode toggle available.
+June currently ships as a web application and an experimental macOS desktop
+DMG. The brain, API, memory stores, model routing, tasks, scheduler,
+notification bus, daily orchestration, Telegram foundation, and skills system
+are implemented. Light mode is the default with a dark mode toggle.
 
-The current priority is the [agentic pivot](agentic-pivot-plan.md): a twelve-week, four-sprint transformation from chat-with-memory to personal-agent-with-memory. Sprint 1 builds the three-tier model router, the tasks primitive, real OAuth-backed gmail and gcal skills, a sandboxed files skill, a browser skill, an MCP registry connector, and the first compile of the Tauri desktop shell. Sprint 2 is dogfooding. Sprint 3 is installable-for-humans. Sprint 4 is a fifty-user closed beta.
-
-See [roadmap.md](roadmap.md) for the trigger-gated surfaces beyond the pivot.
+The active priority is v0.1.1: **Quick Capture + Daily Home + Durable Intent
+Ledger**. See [roadmap.md](roadmap.md) for the trigger-gated surfaces beyond
+this release.
