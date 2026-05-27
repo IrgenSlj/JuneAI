@@ -88,6 +88,7 @@ def create_app() -> FastAPI:
     from .routes import (
         chat,
         demo,
+        greeting,
         memory,
         notifications,
         obsidian,
@@ -161,6 +162,7 @@ def create_app() -> FastAPI:
 
     app.include_router(chat.router)
     app.include_router(demo.router)
+    app.include_router(greeting.router)
     app.include_router(memory.router)
     app.include_router(notifications.router)
     app.include_router(obsidian.router)

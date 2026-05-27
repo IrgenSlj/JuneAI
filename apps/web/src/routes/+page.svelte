@@ -8,8 +8,21 @@
     voteRecall,
   } from "$lib/stores/chat.svelte.js";
   import { system, loadSystem } from "$lib/stores/system.svelte.js";
+  import { onMount } from "svelte";
+  import { client } from "$lib/api.js";
+  import { profileName } from "$lib/stores/user.svelte.js";
 
   let focusComposer: (() => void) | undefined = $state();
+  let greeting = $state("");
+
+  onMount(async () => {
+    try {
+      const res = await client.getGreeting(profileName.value, profileName.value);
+      greeting = res.greeting;
+    } catch {
+      // Brain down — the static fallback in the template covers this.
+    }
+  });
 
   const canRegenerate = $derived(
     !chat.streaming &&
@@ -78,7 +91,7 @@
       </div>
     {:else if chat.messages.length === 0}
       <div class="empty">
-        <p>Hi, I'm June. I'll remember what matters so you don't have to.</p>
+        <p>{greeting || "Hi, I'm June. I'll remember what matters so you don't have to."}</p>
         <p class="muted">Type below to start.</p>
       </div>
     {:else}

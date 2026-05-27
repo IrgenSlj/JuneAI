@@ -88,6 +88,59 @@
         }
       }
     },
+    "/greeting/{user_id}": {
+      "get": {
+        "tags": [
+          "greeting"
+        ],
+        "summary": "Get Greeting",
+        "description": "Return a short greeting for the empty chat, built from local memory.",
+        "operationId": "get_greeting_greeting__user_id__get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GreetingResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/memory/{user_id}": {
       "get": {
         "tags": [
@@ -1927,6 +1980,25 @@
         ],
         "title": "ForgetKeyResponse",
         "description": "Outcome of POST /settings/forget-key."
+      },
+      "GreetingResponse": {
+        "properties": {
+          "greeting": {
+            "type": "string",
+            "title": "Greeting"
+          },
+          "has_context": {
+            "type": "boolean",
+            "title": "Has Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "greeting",
+          "has_context"
+        ],
+        "title": "GreetingResponse",
+        "description": "A short, local greeting for the empty-chat state."
       },
       "HTTPValidationError": {
         "properties": {

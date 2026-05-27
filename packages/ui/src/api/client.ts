@@ -19,6 +19,7 @@ export type RecallHit = components["schemas"]["RecallHit"];
 export type MemorySnapshot = components["schemas"]["MemorySnapshot"];
 export type MemoryFact = components["schemas"]["MemoryFact"];
 export type MemoryStats = components["schemas"]["MemoryStats"];
+export type GreetingResponse = components["schemas"]["GreetingResponse"];
 export type MemoryStoreCount = components["schemas"]["MemoryStoreCount"];
 export type MemoryDeleteResponse = components["schemas"]["MemoryDeleteResponse"];
 export type MemoryUpdateRequest = components["schemas"]["MemoryUpdateRequest"];
@@ -282,6 +283,16 @@ export function createJuneClient(options: JuneClientOptions) {
     /** GET /memory/{user_id}/stats — per-store totals and last-write timestamp. */
     getMemoryStats(userId: string): Promise<MemoryStats> {
       return getJson<MemoryStats>(`/memory/${encodeURIComponent(userId)}/stats`);
+    },
+
+    /** GET /greeting/{user_id} — a short, local greeting for the empty chat. */
+    getGreeting(userId: string, name = ""): Promise<GreetingResponse> {
+      const params = new URLSearchParams();
+      if (name) params.set("name", name);
+      const qs = params.toString();
+      return getJson<GreetingResponse>(
+        `/greeting/${encodeURIComponent(userId)}${qs ? `?${qs}` : ""}`,
+      );
     },
 
     /** GET /tasks/{user_id} — list this user's tasks, newest first. */

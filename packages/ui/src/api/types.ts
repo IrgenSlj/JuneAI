@@ -48,6 +48,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/greeting/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Greeting
+         * @description Return a short greeting for the empty chat, built from local memory.
+         */
+        get: operations["get_greeting_greeting__user_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/memory/{user_id}": {
         parameters: {
             query?: never;
@@ -807,6 +827,16 @@ export interface components {
              * @enum {string}
              */
             cleared_from: "keyring" | "file" | "none";
+        };
+        /**
+         * GreetingResponse
+         * @description A short, local greeting for the empty-chat state.
+         */
+        GreetingResponse: {
+            /** Greeting */
+            greeting: string;
+            /** Has Context */
+            has_context: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -2136,6 +2166,39 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_greeting_greeting__user_id__get: {
+        parameters: {
+            query?: {
+                name?: string;
+            };
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GreetingResponse"];
                 };
             };
             /** @description Validation Error */
