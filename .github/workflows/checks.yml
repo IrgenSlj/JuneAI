@@ -27,8 +27,15 @@ jobs:
       - run: pnpm build
 
   backend:
-    name: Backend (Python 3.13)
+    name: Backend (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.13 is the supported floor (requires-python, mypy target); 3.14 is
+        # what the maintainer develops on. Test both so the dev runtime is
+        # covered, not just assumed.
+        python-version: ["3.13", "3.14"]
     env:
       JUNE_DATA_DIR: /tmp/june-data
       JUNE_SKIP_MODEL_CHECK: "1"
@@ -45,7 +52,7 @@ jobs:
           node-version: 20
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
           cache: pip
       - run: ./tools/bootstrap.sh
       - run: ./tools/check.sh
