@@ -93,6 +93,24 @@ def test_migration_v4_is_idempotent(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     assert 4 in applied
 
 
+def test_store_works_when_data_dir_does_not_exist(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fresh install: MEMORY_DIR may not exist yet — the store must create it."""
+    import june_brain.memory as memory_pkg
+    import june_brain.memory.sqlite as memory_sqlite
+
+    fresh = tmp_path / "does" / "not" / "exist"
+    assert not fresh.exists()
+    monkeypatch.setattr(memory_pkg, "MEMORY_DIR", str(fresh), raising=False)
+    monkeypatch.setattr(memory_sqlite, "_local", type(memory_sqlite._local)())
+    from june_brain.events import EventLedger
+    from june_brain.operating_layer import EventKind, LedgerEvent
+
+    EventLedger().append(LedgerEvent(kind=EventKind.MEMORY_WRITTEN, user_id="u"))
+    assert fresh.exists()
+
+
 def test_export_includes_ledger_events(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import june_brain.memory as memory_pkg
     import june_brain.memory.sqlite as memory_sqlite

@@ -59,6 +59,10 @@ def _get_connection(db_path: str) -> sqlite3.Connection:
         _local.conns = {}
         conns = _local.conns
     if db_path not in conns:
+        # Ensure the data directory exists — on a fresh install MEMORY_DIR may
+        # not have been created yet, and sqlite won't make the parent dir.
+        if db_path != ":memory:":
+            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(db_path, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
