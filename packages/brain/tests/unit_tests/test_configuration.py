@@ -47,3 +47,23 @@ def test_detect_tool_strategy_returns_native() -> None:
     assert detect_tool_strategy("gemma4:e4b") == "native"
     assert detect_tool_strategy("gemini-2.0-flash") == "native"
     assert detect_tool_strategy("anything-else") == "native"
+
+
+def test_default_runtime_is_local_gemma_e2b(monkeypatch) -> None:
+    """With nothing configured, June must default to local Gemma — never cloud.
+
+    Local privacy is the non-negotiable baseline: no key, no env, no surprise
+    cloud call. The default model is the smallest tag (e2b) for fastest start.
+    """
+    from june_brain.config import resolve_runtime_config
+
+    for var in (
+        "MODEL_PROVIDER", "MODEL_PRESET", "GEMMA_MODEL", "MODEL_NAME",
+        "LLM_API_KEY", "LLM_BASE_URL", "OLLAMA_BASE_URL", "GEMINI_API_KEY",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+    runtime = resolve_runtime_config()
+    assert runtime.preset_key == "gemma"
+    assert runtime.is_local
+    assert runtime.model == "gemma4:e2b"

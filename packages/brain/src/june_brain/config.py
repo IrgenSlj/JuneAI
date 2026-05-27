@@ -98,7 +98,10 @@ RUNTIME_PRESETS: dict[str, RuntimePreset] = {
         label="Gemma 4 (local)",
         provider="openai_compatible",
         model_env_var="GEMMA_MODEL",
-        default_model="gemma4:e4b",
+        # Smallest Gemma 4 by default: fastest cold start and lowest memory, so
+        # June runs well on modest machines out of the box. Users can point
+        # GEMMA_MODEL at a larger tag (e4b/26b/31b) for more capability.
+        default_model="gemma4:e2b",
         default_base_url="http://localhost:11434/v1",
         default_api_key="ollama",
         temperature=0.4,

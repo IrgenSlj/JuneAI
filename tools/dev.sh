@@ -23,7 +23,7 @@ if [ -f .env ]; then
 fi
 
 PROVIDER="${MODEL_PROVIDER:-gemma}"
-GEMMA_TAG="${GEMMA_MODEL:-gemma4:e4b}"
+GEMMA_TAG="${GEMMA_MODEL:-gemma4:e2b}"
 OLLAMA_URL="${OLLAMA_BASE_URL:-http://localhost:11434/v1}"
 OLLAMA_HOST="${OLLAMA_URL%/v1}"
 SKIP_MODEL_CHECK="${JUNE_SKIP_MODEL_CHECK:-}"

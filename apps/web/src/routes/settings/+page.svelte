@@ -187,7 +187,7 @@
             <span class="desc">
               {#if provider === "gemma"}
                 {#if settings.ollama_reachable && settings.ollama_has_model}
-                  <span class="ok">Ollama ready with {settings.model || "gemma4:e4b"}.</span>
+                  <span class="ok">Ollama ready with {settings.model || "gemma4:e2b"}.</span>
                 {:else if settings.ollama_reachable}
                   <span class="warn">
                     Model not pulled. <a href="/help/ollama">Fix it</a>.
