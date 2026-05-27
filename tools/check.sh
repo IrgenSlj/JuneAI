@@ -44,4 +44,22 @@ fi
 echo "==> Ruff lint"
 "$PYTHON_BIN" -m ruff check .
 
+if [ "${JUNE_CHECK_MYPY:-1}" = "1" ]; then
+  # Narrow mypy gate: the codebase is not fully annotated, so a full strict run
+  # is noisy (~270 errors, mostly missing generics). These two codes, however,
+  # are the real-bug classes — operator misuse (e.g. str / "x") and missing
+  # required call args. They must stay at zero. Intentionally NOT gating
+  # arg-type/valid-type/attr-defined: those still carry false positives
+  # (LangGraph ToolNode state typing; list-named store methods) until a focused
+  # typing-cleanup pass. mypy has no "only these codes" flag, so we grep.
+  echo "==> Mypy real-bug gate (operator, call-arg)"
+  mypy_out="$("$PYTHON_BIN" -m mypy packages/brain/src packages/api/src --no-error-summary 2>&1 || true)"
+  if echo "$mypy_out" | grep -E '\[(operator|call-arg)\]'; then
+    echo "error: mypy found real-bug-class errors (operator/call-arg); see above" >&2
+    exit 1
+  fi
+else
+  echo "==> Mypy gate skipped via JUNE_CHECK_MYPY=0"
+fi
+
 echo "==> Checks complete"
