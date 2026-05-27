@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { ConfirmDialog, type PrivacyDial, type SettingsView, type SetupApplyResponse } from "@june/ui";
+  import { ConfirmDialog, OfflineNotice, type PrivacyDial, type SettingsView, type SetupApplyResponse } from "@june/ui";
   import { client, apiUrl } from "$lib/api.js";
   import { getPlatform, UnsupportedError } from "@june/ui/platform";
   import { profileName, setProfileName } from "$lib/stores/user.svelte.js";
@@ -9,6 +9,9 @@
   type Provider = "gemma" | "gemini";
 
   let settings: SettingsView | null = $state(null);
+  let loaded = $state(false);
+  let unreachable = $state(false);
+  let retrying = $state(false);
   let provider: Provider = $state("gemma");
   let gemmaModel = $state("");
   let geminiModel = $state("");
@@ -54,13 +57,19 @@
   }
 
   async function refresh() {
+    retrying = true;
     try {
       settings = await client.getSettings();
       provider = ((settings.provider as Provider) || "gemma") as Provider;
       gemmaModel = settings.gemma_model || "";
       geminiModel = settings.gemini_model || "";
+      unreachable = false;
     } catch (err) {
       console.warn("June: /settings unreachable", err);
+      unreachable = true;
+    } finally {
+      loaded = true;
+      retrying = false;
     }
   }
 
@@ -157,8 +166,10 @@
     <h1>Settings</h1>
   </header>
 
-  {#if !settings}
+  {#if !loaded}
     <p class="hint">Loading…</p>
+  {:else if unreachable || !settings}
+    <OfflineNotice kind="settings" onRetry={refresh} {retrying} />
   {:else}
     <section class="card">
       <h2>Model provider</h2>
