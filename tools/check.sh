@@ -41,5 +41,7 @@ else
   echo "==> OpenAPI codegen skipped via JUNE_CHECK_CODEGEN=0"
 fi
 
-echo "==> Ruff/mypy gates are tracked in Phase 1.3 and are not enforced by check.sh yet"
+echo "==> Ruff lint"
+"$PYTHON_BIN" -m ruff check .
+
 echo "==> Checks complete"

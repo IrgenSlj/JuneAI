@@ -22,6 +22,9 @@ lint.ignore = ["E501"]
 [tool.ruff.lint.per-file-ignores]
 "**/tests/*" = ["D", "UP"]
 "**/scripts/*" = ["T201"]
+# tools/ holds operator-facing CLI scripts (seed_demo, migrate_v1_data,
+# export_obsidian) where print is the intended UI, not stray debug output.
+"tools/*" = ["T201"]
 
 [tool.mypy]
 python_version = "3.13"

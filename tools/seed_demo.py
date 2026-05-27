@@ -15,10 +15,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from datetime import datetime, timedelta
 from urllib.request import Request, urlopen
-
 
 API_URL = "http://localhost:8000"
 DEMO_USER = "demo"
