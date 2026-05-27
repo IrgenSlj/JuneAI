@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# One-command developer startup for June v2.
+# Developer health check for June v2 (does NOT start the app).
+#
+# To actually launch Ollama + API + web together, use ./tools/run.sh.
 #
 # Runs three checks so you know the local setup is healthy before you
 # start coding:

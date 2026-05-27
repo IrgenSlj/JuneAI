@@ -46,7 +46,7 @@
     </div>
   </div>
   <p class="hint">
-    Start the brain with <code>./tools/dev.sh</code>, then retry.
+    Start the brain with <code>./tools/run.sh</code>, then retry.
   </p>
   {#if onRetry}
     <button type="button" onclick={onRetry} disabled={retrying}>
