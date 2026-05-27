@@ -17,7 +17,7 @@ def test_gemma_preset_exists():
     assert "gemma" in RUNTIME_PRESETS
     preset = RUNTIME_PRESETS["gemma"]
     assert preset.tool_strategy == "native"
-    assert preset.default_model == "gemma4:e4b"
+    assert preset.default_model == "gemma4:e2b"
 
 
 def test_gemini_preset_exists():
