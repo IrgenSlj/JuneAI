@@ -179,6 +179,50 @@ def _migration_003(conn: Any) -> None:
     """)
 
 
+@MIGRATIONS.register(4, "Add operating-layer ledger: events, capture_items, action_intents")
+def _migration_004(conn: Any) -> None:
+    """Durable product record for the personal operating layer (ADR 0014).
+
+    events is append-only; insertion order is preserved by SQLite's implicit
+    rowid (stores order by rowid, not the ISO timestamp which can tie).
+    """
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS events (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            source TEXT NOT NULL DEFAULT '',
+            payload TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_events_user ON events(user_id);
+        CREATE TABLE IF NOT EXISTS capture_items (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            source TEXT NOT NULL DEFAULT 'chat',
+            text TEXT NOT NULL,
+            kinds TEXT NOT NULL DEFAULT '[]',
+            metadata TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_capture_user ON capture_items(user_id);
+        CREATE TABLE IF NOT EXISTS action_intents (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            title TEXT NOT NULL DEFAULT '',
+            summary TEXT NOT NULL DEFAULT '',
+            risk TEXT NOT NULL DEFAULT 'low',
+            source_capture_id TEXT,
+            payload TEXT NOT NULL DEFAULT '{}',
+            approval_status TEXT NOT NULL DEFAULT 'not_required',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_intents_user ON action_intents(user_id);
+    """)
+
+
 def ensure_schema(conn: Any) -> None:
     """Idempotent: create tables + apply pending migrations."""
     MIGRATIONS.ensure(conn)
