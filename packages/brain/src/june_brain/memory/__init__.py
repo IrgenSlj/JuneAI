@@ -16,12 +16,13 @@ from __future__ import annotations
 from ..config import MEMORY_DIR  # re-exported so tests can patch it here
 from .graph import KnowledgeGraph
 from .manager import MemoryManager
-from .sqlite import Memory
+from .sqlite import Memory, db_path
 from .vector import VectorStore
 
 __all__ = [
     "MEMORY_DIR",
     "Memory",
+    "db_path",
     "MemoryManager",
     "VectorStore",
     "KnowledgeGraph",

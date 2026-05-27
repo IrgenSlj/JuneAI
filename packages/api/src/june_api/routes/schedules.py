@@ -6,8 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from june_brain.config import MEMORY_DIR
-from june_brain.memory.sqlite import _get_connection
+from june_brain.memory.sqlite import _get_connection, db_path
 from june_brain.scheduler.models import Schedule
 from june_brain.scheduler.store import ScheduleStore
 
@@ -15,9 +14,7 @@ router = APIRouter(prefix="/schedules", tags=["scheduler"])
 
 
 def _store() -> ScheduleStore:
-    db_dir = MEMORY_DIR
-    db_path = str(db_dir / "june.db")
-    conn = _get_connection(db_path)
+    conn = _get_connection(db_path())
     # Ensure the schedules table exists
     from june_brain.scheduler.models import _SCHEDULES_TABLE_SQL
 

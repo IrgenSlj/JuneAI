@@ -9,9 +9,11 @@ from typing import Any
 
 @dataclass
 class Schedule:
-    id: str
-    user_id: str
-    name: str
+    # Default "" so callers can omit it; ScheduleStore.create() backfills a
+    # generated id on insert. _row_to_schedule always passes id explicitly.
+    id: str = ""
+    user_id: str = ""
+    name: str = ""
     description: str = ""
     cron_expression: str = ""
     interval_seconds: int = 0

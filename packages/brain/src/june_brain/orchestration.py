@@ -59,13 +59,11 @@ def create_default_schedules(user_id: str) -> list[dict[str, Any]]:
 
     Returns the list of created schedules.
     """
-    from june_brain.config import MEMORY_DIR
-    from june_brain.memory.sqlite import _get_connection
+    from june_brain.memory.sqlite import _get_connection, db_path
     from june_brain.scheduler.models import _SCHEDULES_TABLE_SQL, Schedule
     from june_brain.scheduler.store import ScheduleStore
 
-    db_path = str(MEMORY_DIR / "june.db")
-    conn = _get_connection(db_path)
+    conn = _get_connection(db_path())
     conn.executescript(_SCHEDULES_TABLE_SQL)
     conn.commit()
     store = ScheduleStore(conn)

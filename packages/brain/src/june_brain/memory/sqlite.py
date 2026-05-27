@@ -34,6 +34,17 @@ def _current_memory_dir() -> str:
     from . import MEMORY_DIR  # re-read package attribute each call
     return MEMORY_DIR
 
+
+def db_path() -> str:
+    """Absolute path to the shared june.db.
+
+    ``MEMORY_DIR`` is a ``str``, so callers must not do ``MEMORY_DIR / "june.db"``
+    (that raises ``TypeError``). This is the one correct construction; use it
+    instead of rebuilding the path by hand.
+    """
+    return str(Path(_current_memory_dir()) / "june.db")
+
+
 APP_STATE_SCHEMA_VERSION = 1
 
 # ---------------------------------------------------------------------------

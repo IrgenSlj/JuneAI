@@ -1439,15 +1439,12 @@ def create_schedule(
     state: InjectedAgentState = None,
 ) -> str:
     """Create a recurring or one-shot schedule. Use cron (e.g., '0 8 * * *') or interval_seconds for recurring schedules."""
-    from june_brain.config import MEMORY_DIR
-    from june_brain.memory.sqlite import _get_connection
+    from june_brain.memory.sqlite import _get_connection, db_path
     from june_brain.scheduler.models import Schedule as _Schedule
     from june_brain.scheduler.store import ScheduleStore
 
     user_id = (state or {}).get("user_id", "default")
-    db_dir = MEMORY_DIR
-    db_path = str(db_dir / "june.db")
-    conn = _get_connection(db_path)
+    conn = _get_connection(db_path())
     from june_brain.scheduler.models import _SCHEDULES_TABLE_SQL
 
     conn.executescript(_SCHEDULES_TABLE_SQL)
@@ -1475,13 +1472,12 @@ def list_schedules(
     state: InjectedAgentState = None,
 ) -> str:
     """List all active schedules."""
-    from june_brain.config import MEMORY_DIR
-    from june_brain.memory.sqlite import _get_connection
+    from june_brain.memory.sqlite import _get_connection, db_path
     from june_brain.scheduler.models import _SCHEDULES_TABLE_SQL
     from june_brain.scheduler.store import ScheduleStore
 
     user_id = (state or {}).get("user_id", "default")
-    conn = _get_connection(str(MEMORY_DIR / "june.db"))
+    conn = _get_connection(db_path())
     conn.executescript(_SCHEDULES_TABLE_SQL)
     conn.commit()
     store = ScheduleStore(conn)
@@ -1500,12 +1496,11 @@ def delete_schedule(
     state: InjectedAgentState = None,
 ) -> str:
     """Delete a schedule by its ID."""
-    from june_brain.config import MEMORY_DIR
-    from june_brain.memory.sqlite import _get_connection
+    from june_brain.memory.sqlite import _get_connection, db_path
     from june_brain.scheduler.models import _SCHEDULES_TABLE_SQL
     from june_brain.scheduler.store import ScheduleStore
 
-    conn = _get_connection(str(MEMORY_DIR / "june.db"))
+    conn = _get_connection(db_path())
     conn.executescript(_SCHEDULES_TABLE_SQL)
     conn.commit()
     store = ScheduleStore(conn)
