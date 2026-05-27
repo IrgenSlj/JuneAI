@@ -337,6 +337,41 @@ def test_build_chat_model_uses_current_openai_signature():
     assert captured["timeout"] == 120
 
 
+def test_build_chat_model_pins_keep_alive_for_local():
+    runtime = resolve_runtime_config("gemma")
+    captured = {}
+
+    class FakeChatOpenAI:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    with patch("june_brain.models.ChatOpenAI", FakeChatOpenAI):
+        build_chat_model(runtime)
+
+    # Local Ollama gets keep_alive=-1 so the model stays resident between turns.
+    assert captured.get("extra_body") == {"keep_alive": -1}
+
+
+def test_build_chat_model_omits_keep_alive_for_cloud():
+    with patch.dict(
+        "os.environ",
+        {"MODEL_PROVIDER": "gemini", "GEMINI_API_KEY": "test-key"},
+        clear=False,
+    ):
+        runtime = resolve_runtime_config()
+    captured = {}
+
+    class FakeChatOpenAI:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    with patch("june_brain.models.ChatOpenAI", FakeChatOpenAI):
+        build_chat_model(runtime)
+
+    # Cloud providers must not receive Ollama's keep_alive field.
+    assert "extra_body" not in captured
+
+
 def test_memory_context_includes_detailed_body_metrics(tmp_path):
     with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
         memory = Memory("body_context_user")

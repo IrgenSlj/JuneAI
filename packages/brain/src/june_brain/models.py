@@ -31,6 +31,13 @@ def build_chat_model(runtime: RuntimeConfig) -> Any:
             f"API key is empty for preset {runtime.preset_key!r}. "
             "Set GEMINI_API_KEY (or LLM_API_KEY) before calling the provider."
         )
+    # For local Ollama, send keep_alive=-1 on every request so the model stays
+    # resident between turns (Ollama otherwise resets a ~5min unload timer each
+    # request, reintroducing cold starts). Cloud providers must not receive it.
+    extra: dict[str, Any] = {}
+    if runtime.is_local:
+        extra["extra_body"] = {"keep_alive": -1}
+
     return ChatOpenAI(
         model=runtime.model,
         api_key=SecretStr(runtime.api_key or "unused"),
@@ -39,4 +46,5 @@ def build_chat_model(runtime: RuntimeConfig) -> Any:
         max_completion_tokens=runtime.max_tokens,
         streaming=True,
         timeout=120,
+        **extra,
     )

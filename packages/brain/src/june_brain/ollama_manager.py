@@ -67,6 +67,32 @@ def is_ollama_running(base_url: str) -> bool:
         return False
 
 
+def warm_model(model: str, base_url: str, keep_alive: int = -1) -> bool:
+    """Preload a model into memory and pin it resident.
+
+    Sends an empty-prompt ``/api/generate`` so Ollama loads the weights without
+    generating, with ``keep_alive`` so they stay resident — the first real
+    request is then warm instead of paying a cold-start load. ``keep_alive=-1``
+    keeps the model loaded until Ollama restarts. Returns True on success;
+    callers treat warmup as best-effort.
+    """
+    api_base = _ollama_api_base(base_url)
+    payload = json.dumps(
+        {"model": model, "prompt": "", "stream": False, "keep_alive": keep_alive}
+    ).encode()
+    req = urllib.request.Request(
+        f"{api_base}/api/generate",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            return int(resp.status) == 200
+    except Exception:
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Model availability
 # ---------------------------------------------------------------------------

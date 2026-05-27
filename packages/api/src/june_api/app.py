@@ -9,7 +9,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import threading
 import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -50,6 +52,37 @@ def _cors_origins() -> list[str]:
     ]
 
 
+def _maybe_warm_local_model() -> None:
+    """Preload the local model so the first chat turn isn't a cold start.
+
+    Best-effort and non-blocking: runs in a daemon thread, only when the
+    resolved runtime is local, and skipped under JUNE_SKIP_MODEL_CHECK (tests
+    and CI). Never touches the cloud.
+    """
+    if os.getenv("JUNE_SKIP_MODEL_CHECK", "").lower() in ("1", "true", "yes"):
+        return
+    try:
+        from june_brain import ollama_manager
+        from june_brain.config import resolve_runtime_config
+
+        runtime = resolve_runtime_config()
+        if not runtime.is_local:
+            return
+        threading.Thread(
+            target=ollama_manager.warm_model,
+            args=(runtime.model, runtime.base_url),
+            daemon=True,
+        ).start()
+    except Exception:  # noqa: BLE001
+        logger.exception("local model warmup failed to start")
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    _maybe_warm_local_model()
+    yield
+
+
 def create_app() -> FastAPI:
     """Assemble the FastAPI instance."""
     from .routes import (
@@ -73,6 +106,7 @@ def create_app() -> FastAPI:
             "HTTP boundary for the June brain. The canonical client is "
             "apps/web (SvelteKit) but any shell speaking JSON/SSE can use it."
         ),
+        lifespan=_lifespan,
     )
 
     app.add_middleware(
