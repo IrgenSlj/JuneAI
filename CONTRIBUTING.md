@@ -9,7 +9,7 @@ Prerequisites:
 - Node.js 20+
 - `pnpm`
 - Python 3.13
-- Ollama with `gemma4:e4b`, or a Gemini API key if you want to run the app end to end
+- Ollama with `gemma4:e2b`, or a Gemini API key if you want to run the app end to end
 
 Bootstrap the repo:
 

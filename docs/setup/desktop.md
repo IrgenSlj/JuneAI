@@ -97,7 +97,7 @@ The UI calls every native feature through `getPlatform()` from `@june/ui/platfor
 
 ### Ollama supervision (Phase 3)
 
-Visit `/help/ollama` inside the desktop shell. You'll see a one-click "Install Ollama → Start Ollama → Pull gemma4:e4b" panel that browser users don't get. The Rust side spawns `ollama serve` in-process (via `tokio::process`) and streams pull progress to the UI through Tauri events.
+Visit `/help/ollama` inside the desktop shell. You'll see a one-click "Install Ollama → Start Ollama → Pull gemma4:e2b" panel that browser users don't get. The Rust side spawns `ollama serve` in-process (via `tokio::process`) and streams pull progress to the UI through Tauri events.
 
 `bootstrap_ollama` opens the official OS-specific installer URL — Gatekeeper handles the macOS hand-off, UAC handles Windows, the install.sh page handles Linux. You return to the app and click "Start Ollama". This is by design (Phase 3 plan, "pragmatic caveat — bootstrap"); Phase 3.5 may swap to in-process download if real users ask.
 

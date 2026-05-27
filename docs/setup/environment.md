@@ -7,7 +7,7 @@ This file is the canonical reference for June's runtime configuration. Per [ADR 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
 | `MODEL_PROVIDER` | Yes | `gemma` | One of `gemma` (local, via Ollama) or `gemini` (cloud, via Google AI Studio) |
-| `GEMMA_MODEL` | No | `gemma4:e4b` | Ollama tag for the local Gemma model. Must match `ollama list` |
+| `GEMMA_MODEL` | No | `gemma4:e2b` | Ollama tag for the local Gemma model. Must match `ollama list` |
 | `OLLAMA_BASE_URL` | No | `http://localhost:11434/v1` | Base URL for the local Ollama server |
 | `GEMINI_API_KEY` | For `gemini` | — | API key from https://aistudio.google.com |
 | `GEMINI_MODEL` | No | `gemini-2.0-flash` | Gemini model identifier |
@@ -36,7 +36,7 @@ This file is the canonical reference for June's runtime configuration. Per [ADR 
 ```env
 # Local inference (default)
 MODEL_PROVIDER=gemma
-GEMMA_MODEL=gemma4:e4b
+GEMMA_MODEL=gemma4:e2b
 OLLAMA_BASE_URL=http://localhost:11434/v1
 
 # Optional cloud escape valve
@@ -70,7 +70,7 @@ The `/settings` screen shows which of the two is active. "Forget key" removes th
 ## First-Run Setup
 
 1. Install Ollama: `brew install ollama` on macOS.
-2. Pull Gemma 4: `ollama pull gemma4:e4b`.
+2. Pull Gemma 4: `ollama pull gemma4:e2b`.
 3. Start Ollama: `ollama serve` (runs in the background on first `ollama` command).
 4. Set `MODEL_PROVIDER=gemma` in `.env`.
 

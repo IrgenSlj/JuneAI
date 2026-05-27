@@ -130,5 +130,7 @@ notification bus, daily orchestration, Telegram foundation, and skills system
 are implemented. Light mode is the default with a dark mode toggle.
 
 The active priority is v0.1.1: **Quick Capture + Daily Home + Durable Intent
-Ledger**. See [roadmap.md](roadmap.md) for the trigger-gated surfaces beyond
-this release.
+Ledger**. The durable event ledger and the local-first Quick Capture backend
+and capture box have shipped; action approval/commit and the full Daily Home
+layout are next. See [roadmap.md](roadmap.md) for the trigger-gated surfaces
+beyond this release.

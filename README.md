@@ -117,7 +117,7 @@ picture and [docs/decisions/](docs/decisions/) for the ADRs behind each choice.
 - Node.js 20+ with [`pnpm`](https://pnpm.io)
 - Python 3.13
 - One model provider:
-  - [Ollama](https://ollama.com) with `gemma4:e4b` pulled (fully local), **or**
+  - [Ollama](https://ollama.com) with `gemma4:e2b` pulled (fully local; `run.sh` pulls it for you), **or**
   - a [Gemini API key](https://aistudio.google.com) (cloud)
 
 **Install and verify**
@@ -130,19 +130,21 @@ cp .env.example .env
 ./tools/check.sh       # backend tests, frontend checks, OpenAPI drift check
 ```
 
-`bootstrap.sh` is idempotent and safe to re-run. If you only want to run the
-backend tests without a model installed, `check.sh` already skips provider
-probes; use `JUNE_SKIP_MODEL_CHECK=1 ./tools/dev.sh` when you want the provider
-sanity check too.
+`bootstrap.sh` is idempotent and safe to re-run. `dev.sh` is a check-only script
+(it verifies Ollama/Gemini readiness and runs the gate); it does not start the
+app.
 
 **Run the stack**
 
 ```bash
-# terminal 1 — API
-packages/brain/.venv/bin/june-api
+./tools/run.sh   # starts Ollama if needed, pulls the model, runs API + web; Ctrl-C stops all
+```
 
-# terminal 2 — web app
-pnpm dev
+Or run the pieces yourself in two terminals:
+
+```bash
+packages/brain/.venv/bin/june-api   # API
+pnpm dev                            # web app
 ```
 
 Open <http://localhost:5173>. First run walks you through choosing a provider and
@@ -171,7 +173,7 @@ JuneAI/
 │   └── design/       Design tokens
 ├── skills/           MCP skill servers: calendar, health, research, files, daily
 ├── docs/             Vision, architecture, ADRs, product plans, setup guides
-└── tools/            bootstrap.sh, check.sh, dev.sh, codegen.sh
+└── tools/            run.sh (launch), bootstrap.sh, check.sh, dev.sh, codegen.sh
 ```
 
 ## Tech stack
@@ -218,7 +220,9 @@ python tools/export_obsidian.py --user local --vault ~/JuneMemory
 June has completed the first agentic core: router, tasks, files skill, MCP
 registry, live trace, scheduler, notifications, daily orchestration, Telegram
 foundation, and a first desktop DMG. The active track is v0.1.1: **Quick Capture
-+ Daily Home + Durable Intent Ledger**. Read the [roadmap](docs/product/roadmap.md),
++ Daily Home + Durable Intent Ledger** — the durable event ledger and the
+local-first Quick Capture backend and capture box have landed; action approval
+and Daily Home are next. Read the [roadmap](docs/product/roadmap.md),
 [ADR 0014](docs/decisions/0014-personal-operating-layer.md), and the
 [v0.1.1 plan](docs/plans/v0.1.1-scheduled-development.md).
 

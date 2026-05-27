@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Quick Capture**: `POST /capture` classifies a thought locally (rules first,
+  with a local-only Gemma fallback that never reaches the cloud) into typed
+  candidates, recorded through a durable event ledger; a capture box on the home
+  screen shows what June understood and what it would do.
+- **Durable event ledger** (`events`, `capture_items`, `action_intents` tables)
+  underpinning the operating layer; included in export/import.
+- **Local startup greeting** in the empty chat (`GET /greeting`), generated
+  on-device with no model call.
+- **`tools/run.sh`**: one-command launcher that starts Ollama (if needed), the
+  API, and the web app together.
 - Personal operating layer plan for v0.1.1: quick capture, Daily Home, durable
   event ledger, action intents, approvals, promises, agenda suggestions, and
   Telegram quick capture.
@@ -17,9 +27,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Default local model is now `gemma4:e2b` (smallest, fastest start); the local
+  model is warmed and kept resident (`keep_alive`) on API startup to remove
+  cold starts.
+- `check.sh` now enforces `ruff` and a focused mypy gate (`operator`/`call-arg`
+  error classes); CI tests both Python 3.13 and 3.14.
 - Roadmap and docs now treat v0.1.1 as the active development track.
 - Documentation now reflects Python 3.13 and the shipped v0.1.0 Apple Silicon
   DMG.
+
+### Fixed
+
+- Scheduler/orchestration crash cluster: `MEMORY_DIR` (a string) was used as a
+  path and `Schedule` was constructed without its required `id`, which left
+  first-run default schedules silently uncreated and the `/schedules` route
+  broken on every call.
+- Settings page no longer hangs on "Loading…" when the brain is unreachable; it
+  shows the offline notice with a retry, like every other screen.
+- SQLite stores now create the data directory if it does not exist yet
+  (fresh-install fix).
 
 ## [0.1.0] - 2026-05-25
 
