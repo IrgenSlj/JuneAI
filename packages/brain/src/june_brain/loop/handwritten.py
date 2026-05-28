@@ -58,7 +58,15 @@ class HandwrittenLoop:
         if assemble_context is not None:
             self._assemble_context = assemble_context
         else:
-            _assembler = ContextAssembler()
+            character_block: str | None = None
+            try:
+                from june_brain.character import load_or_seed, shaping_section
+
+                block = load_or_seed()
+                character_block = block.to_block() + "\n\n" + shaping_section(block)
+            except Exception:
+                pass
+            _assembler = ContextAssembler(character_block=character_block)
             self._assemble_context = _assembler.assemble
         self._extract_tool_calls = extract_tool_calls or _default_extract_tool_calls
         self._dispatch = dispatch
