@@ -7,6 +7,7 @@ measured side-by-side in the C.2 CLEAR experiment.  Do NOT modify graph.py.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from june_brain.providers.base import Message
@@ -52,6 +53,7 @@ class LangGraphLoop:
         return self._agent
 
     async def run_turn(self, session: SessionState, user_msg: Message) -> TurnResult:
+        _start = time.monotonic()
         try:
             agent = self._get_agent()
             lc_messages = [_to_lc_message(m) for m in session.messages]
@@ -81,11 +83,13 @@ class LangGraphLoop:
             tiers = ["local-fast"]
             model_ids = ["unknown"]
 
+        _tier = tiers[0]
         provenance = TurnProvenance(
             tiers_used=tiers,
             cloud_call=cloud_call,
             model_ids=model_ids,
-            rationale="Handled by LangGraph agent.",
+            latency_ms=max(0, int((time.monotonic() - _start) * 1000)),
+            rationale=f"Handled by LangGraph agent via {model_ids[0]} ({_tier}).",
         )
 
         return TurnResult(

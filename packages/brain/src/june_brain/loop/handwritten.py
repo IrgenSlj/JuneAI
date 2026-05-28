@@ -9,6 +9,7 @@ never changes and is never self-modified.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Awaitable, Callable
 
 from june_brain.context.assembler import ContextAssembler
@@ -78,6 +79,7 @@ class HandwrittenLoop:
         self._max_iterations = max_iterations
 
     async def run_turn(self, session: SessionState, user_msg: Message) -> TurnResult:
+        _start = time.monotonic()
         provider = self._registry.get(self._role)
         tokens = TokenAccounting()
         all_tool_calls: list[ToolCall] = []
@@ -109,6 +111,7 @@ class HandwrittenLoop:
             tiers_used=[self._role],
             cloud_call=(provider.tier == "cloud-capable"),
             model_ids=[provider.model_id],
+            latency_ms=max(0, int((time.monotonic() - _start) * 1000)),
             rationale=f"Handled locally via {provider.model_id} ({self._role}).",
         )
 

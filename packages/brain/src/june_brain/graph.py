@@ -668,16 +668,17 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
         _cloud_payload_summary: str | None = None
         if runtime.is_api:
             _cloud_payload_summary = f"{len(messages)} messages this turn"
+        _tier_label = "cloud" if runtime.is_api else "local"
         if runtime.is_api:
             _rationale = f"Used {runtime.model} (cloud) for this turn — sent {_cloud_payload_summary}; recalled {_n_memories} {'memory' if _n_memories == 1 else 'memories'}."
         else:
-            _rationale = f"Answered on-device with {runtime.model}; recalled {_n_memories} {'memory' if _n_memories == 1 else 'memories'}."
+            _rationale = f"Answered locally with {runtime.model}; recalled {_n_memories} {'memory' if _n_memories == 1 else 'memories'}."
         writer(
             {
                 "event": "provenance",
                 "provider": runtime.preset_key,
                 "model": runtime.model,
-                "tier": runtime.preset_key,
+                "tier": _tier_label,
                 "latency_ms": _invoke_latency_ms,
                 "cloud_call": runtime.is_api,
                 "cloud_payload_summary": _cloud_payload_summary,

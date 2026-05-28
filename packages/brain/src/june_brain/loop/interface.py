@@ -42,11 +42,7 @@ class TokenAccounting:
 
 @dataclass
 class TurnProvenance:
-    """Minimal per-turn record of what happened.
-
-    The full SSE TurnProvenance (C.6) adds cloud_payload_summary and will
-    extend this shape; keep this minimal for now.
-    """
+    """Per-turn record of what happened and why."""
 
     tiers_used: list[str]
     cloud_call: bool
@@ -54,6 +50,8 @@ class TurnProvenance:
     memories_recalled: int = 0
     skills_called: list[str] = field(default_factory=list)
     rationale: str = ""
+    latency_ms: int = 0
+    cloud_payload_summary: str | None = None
 
 
 @dataclass

@@ -116,7 +116,7 @@ def test_local_provenance_has_cloud_call_false(tmp_path: Any) -> None:
     assert prov["cloud_call"] is False
     assert prov["cloud_payload_summary"] is None
     assert isinstance(prov["rationale"], str) and len(prov["rationale"]) > 0
-    assert "on-device" in prov["rationale"]
+    assert "locally" in prov["rationale"]
     assert isinstance(prov["memories_recalled"], int)
     assert isinstance(prov["skills_called"], list)
 
@@ -140,5 +140,5 @@ def test_provenance_carries_existing_keys(tmp_path: Any) -> None:
     assert prov is not None
     assert prov["provider"] == "gemma"
     assert prov["model"] == "gemma4:e4b"
-    assert prov["tier"] == "gemma"
+    assert prov["tier"] == "local"
     assert isinstance(prov["latency_ms"], int)
