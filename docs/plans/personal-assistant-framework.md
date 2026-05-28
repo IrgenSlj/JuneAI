@@ -2,10 +2,13 @@
 
 The meta-feature that all personal-assistant capabilities build on. Architecture defined in ADR 0013.
 
-> **Status:** Foundation shipped in pieces: scheduler, notification bus, daily
-> orchestration, and Telegram groundwork exist. The next implementation layer is
-> ADR 0014's capture, intent, approval, event-ledger, and Daily Home pipeline.
-> See [v0.1.1 Scheduled Development](v0.1.1-scheduled-development.md).
+> **Status:** Foundation shipped in pieces: scheduler, notification bus, and
+> Telegram groundwork exist and remain valid for user-requested, deterministic
+> jobs. The **clock-driven daily orchestration is superseded by**
+> [ADR 0016](../decisions/0016-event-driven-no-heartbeat.md) (June acts on user
+> input or real-world events, never on a timer). The active direction is the
+> canonical [build specification](../product/build-spec.md) and
+> [ADR 0015](../decisions/0015-center-of-gravity-four-inversions.md).
 
 ## Component 1: Scheduler Service
 

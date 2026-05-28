@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Canonical build specification** (`docs/product/build-spec.md`): June is a
+  personal assistant whose center of gravity is the user, not the task, defined by
+  four inversions of a coding agent and built in tiers (Tier 1 spine first). New
+  ADRs lock the direction — 0015 (four inversions), 0016 (event-driven, no
+  heartbeat), 0017 (model-specific provider layer) — and the CLEAR experiment
+  scaffold (`docs/experiments/loop-clear.md`) is in place for the loop measurement.
+
+### Changed
+
+- **Direction realigned across the docs.** Vision, product overview, architecture
+  overview, and both roadmaps now describe the Tier 1 spine (portable data
+  directory, model-specific providers, measured loop, layered context with anchored
+  compaction, salience recall, honest character, visible cloud boundary). The
+  earlier "personal operating layer / Quick Capture / Daily Home" framing (ADR
+  0013, ADR 0014, the agentic-pivot and v0.1.1 plans) is retained as historical
+  context only.
+
+### Added (earlier in this cycle)
+
 - **Quick Capture**: `POST /capture` classifies a thought locally (rules first,
   with a local-only Gemma fallback that never reaches the cloud) into typed
   candidates, recorded through a durable event ledger; a capture box on the home

@@ -4,34 +4,34 @@ This directory is the documentation root. Everything you need to understand, con
 
 ## What's New
 
-- **v0.1.1 personal operating layer** — The active development track is quick
-  capture, Daily Home, durable events, action approvals, promises, and agenda
-  suggestions. See [ADR 0014](decisions/0014-personal-operating-layer.md) and
-  the [v0.1.1 scheduled development plan](plans/v0.1.1-scheduled-development.md).
-- **Research memo** — The technical and product research behind the plan lives
-  at [`product/personal-operating-layer-research.md`](product/personal-operating-layer-research.md).
-- **Desktop shell builds** — The Tauri shell has produced a v0.1.0 Apple Silicon
-  DMG. The current artifact is ad-hoc signed and not notarized; signed
-  distribution is deferred until external users justify the cost.
-- **Open-source readiness** — The hardening plan remains useful backlog, but it
-  is no longer the active roadmap. Keep its correctness checks in mind when
-  touching providers, setup, memory, or local API safety.
-- **Light mode default** — June defaults to light theme. Click the moon icon in the header to switch to dark mode.
-- **Black J branding** — Clean black "J" on transparent for favicon and PWA icons.
+- **New direction (28 May 2026)** — June is a personal assistant whose center of
+  gravity is the user, not the task. The canonical, decision-by-decision plan is
+  the [build specification](product/build-spec.md). It supersedes the earlier
+  "personal operating layer / Quick Capture" framing (ADR 0013, ADR 0014, the
+  agentic-pivot plan, the v0.1.1 plan), which are retained as historical context.
+- **The four inversions** — June borrows a coding agent's skeleton but inverts its
+  four operations: defer (not verify), continue (not complete), forget (not
+  accumulate), stay quiet (not act fast). See
+  [ADR 0015](decisions/0015-center-of-gravity-four-inversions.md).
+- **No heartbeat** — June acts on user input or real-world events, never on a
+  timer. See [ADR 0016](decisions/0016-event-driven-no-heartbeat.md).
+- **Model-specific providers** — June is tuned for Gemma 4 + Gemini, not abstracted
+  to be model-agnostic. See [ADR 0017](decisions/0017-model-specific-provider-layer.md).
+- **Desktop shell builds** — The Tauri shell produced a v0.1.0 Apple Silicon DMG
+  (ad-hoc signed, not notarized); signed distribution is deferred.
 
-- [**Vision**](vision.md) — the product premise and the three non-negotiables
+- [**Build specification**](product/build-spec.md) — the authoritative plan (Tier 1/2/3)
+- [**Vision**](vision.md) — the product premise and the non-negotiables
 - [**Product overview**](product/overview.md) — what June is
-- [**v0.1.1 scheduled development plan**](plans/v0.1.1-scheduled-development.md) — the active implementation schedule
-- [**Personal operating layer research**](product/personal-operating-layer-research.md) — product/technical research memo
-- [**Open-source readiness plan**](product/open-source-readiness-plan.md) — historical hardening plan and backlog
-- [**Roadmap**](product/roadmap.md) — what ships next and when the next surface is worth planning
-- [**Desktop shell plan**](product/desktop-shell-plan.md) — status and remaining distribution work for the Tauri desktop shell
-- [**Responsive and touch plan**](product/responsive-plan.md) — how the UI works on every screen size and input method
+- [**Roadmap**](product/roadmap.md) — what ships next, sequencing the build spec
 - [**Architecture overview**](architecture/overview.md) — how the system is layered
 - [**Architecture decisions**](decisions/README.md) — the ADRs that justify the design
+- [**Experiments**](experiments/loop-clear.md) — CLEAR measurements (e.g. loop engine)
+- [**Desktop shell plan**](product/desktop-shell-plan.md) — status and remaining distribution work
+- [**Responsive and touch plan**](product/responsive-plan.md) — the UI on every screen size
 - [**Environment**](setup/environment.md) — runtime configuration reference
 - [**Desktop setup**](setup/desktop.md) — Rust toolchain, run/build commands for the desktop shell
-- [**Design brief**](design/claude-design-prompt.md) — the prompt for iterating on June's UI with Claude
+- [**Design brief**](design/claude-design-prompt.md) — the prompt for iterating on June's UI
 
 ## Structure
 
@@ -39,38 +39,34 @@ This directory is the documentation root. Everything you need to understand, con
 docs/
 ├── vision.md                      # product north star
 ├── product/
+│   ├── build-spec.md              # canonical, decision-by-decision build plan
 │   ├── overview.md                # what June is
-│   ├── personal-operating-layer-research.md # product/technical research memo
-│   ├── open-source-readiness-plan.md # historical hardening plan and backlog
-│   ├── roadmap.md                 # scaling map, trigger-gated
-│   ├── desktop-shell-plan.md      # historical/current status plan for the Tauri desktop shell
-│   └── responsive-plan.md         # touch and tablet hardening shipped alongside the shell
+│   ├── roadmap.md                 # Tier 1/2/3, sequences the build spec
+│   ├── desktop-shell-plan.md      # status plan for the Tauri desktop shell
+│   ├── responsive-plan.md         # touch and tablet hardening
+│   └── (historical) agentic-pivot-plan.md, personal-operating-layer-research.md, ...
 ├── architecture/
 │   └── overview.md                # layered system architecture
-├── decisions/                     # Architecture Decision Records
+├── decisions/                     # Architecture Decision Records (0001–0017)
 │   ├── README.md                  # ADR index
-│   ├── 0001-monorepo-structure.md
-│   ├── 0002-gemma-gemini-only.md
-│   ├── 0003-streamlit-to-sveltekit.md
-│   ├── 0004-memory-architecture.md
-│   ├── 0005-skills-as-mcp.md
-│   ├── 0006-desktop-and-mobile-shells.md
-│   ├── 0007-sse-over-websockets.md
-│   ├── 0008-ollama-supervision.md
-│   └── 0014-personal-operating-layer.md
+│   ├── 0015-center-of-gravity-four-inversions.md
+│   ├── 0016-event-driven-no-heartbeat.md
+│   └── 0017-model-specific-provider-layer.md
+├── experiments/
+│   └── loop-clear.md              # CLEAR loop-engine measurement (C.2)
 ├── design/
 │   └── claude-design-prompt.md    # UI design brief
 ├── setup/
 │   ├── environment.md             # env vars, .env template
-│   └── desktop.md                 # Rust toolchain, dev/build commands for the desktop shell
+│   └── desktop.md                 # Rust toolchain, dev/build commands
 └── README.md                      # this file
 ```
 
 ## Documentation Rules
 
-1. The vision document is the tiebreaker. When documentation conflicts, the vision wins and the other document is updated.
+1. The [build specification](product/build-spec.md) is the authoritative direction. Where it conflicts with anything else, it wins; the vision is the tiebreaker for product premise.
 2. Every architectural decision gets an ADR. If it is worth debating, it is worth recording.
-3. The product overview describes what June is. The roadmap describes what ships next. The v0.1.1 plan is the scheduled development document for the active release.
+3. The product overview describes what June is. The roadmap describes what ships next and sequences the build spec.
 4. No emojis in documentation.
 5. Complete sentences. Two-page maximum per document unless the content genuinely requires more.
 

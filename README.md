@@ -33,8 +33,17 @@ no signup, no telemetry without consent, and one button to export everything.
 > **Status:** June is alpha software under active development. It is usable as a
 > web app and has a v0.1.0 Apple Silicon macOS DMG on GitHub Releases. The DMG
 > is ad-hoc signed and not notarized, so macOS may show a first-launch warning.
-> The active v0.1.1 track is the personal operating layer: quick capture, daily
-> home, durable events, action approvals, promises, and agenda suggestions.
+> The active track is **Tier 1 — the spine** of the canonical
+> [build specification](docs/product/build-spec.md): a portable data directory, a
+> model-specific provider layer, a measured harness loop, layered context with
+> anchored compaction, salience-scored recall, an honest character, and a visible
+> cloud boundary.
+
+June's center of gravity is the user, not the task. She borrows a coding agent's
+skeleton but inverts its four operations: she **defers** to the user instead of
+verifying against ground truth, **continues** standing intentions instead of
+completing and exiting, **forgets** gracefully instead of accumulating, and knows
+when to **stay quiet** instead of acting fast.
 
 ## Why June
 
@@ -217,14 +226,16 @@ python tools/export_obsidian.py --user local --vault ~/JuneMemory
 
 ## Roadmap
 
-June has completed the first agentic core: router, tasks, files skill, MCP
-registry, live trace, scheduler, notifications, daily orchestration, Telegram
-foundation, and a first desktop DMG. The active track is v0.1.1: **Quick Capture
-+ Daily Home + Durable Intent Ledger** — the durable event ledger and the
-local-first Quick Capture backend and capture box have landed; action approval
-and Daily Home are next. Read the [roadmap](docs/product/roadmap.md),
-[ADR 0014](docs/decisions/0014-personal-operating-layer.md), and the
-[v0.1.1 plan](docs/plans/v0.1.1-scheduled-development.md).
+The foundation is shipped: a LangGraph agent, three-store memory, model routing
+with per-message provenance, tasks, a scheduler, MCP skills, and a first desktop
+DMG. The active track is **Tier 1 — the spine**: a portable data directory, a
+model-specific provider layer, a measured harness loop, layered context with
+anchored compaction, salience-scored recall, an honest character block, and a
+visible cloud boundary. Tier 2 (proactivity, native memory graph, encrypted
+backup, Google skills) is built only after Tier 1 ships and is used. Read the
+[build specification](docs/product/build-spec.md), the
+[roadmap](docs/product/roadmap.md), and
+[ADR 0015–0017](docs/decisions/).
 
 ## Contributing
 
@@ -246,12 +257,11 @@ Discussion happens in [GitHub issues](https://github.com/IrgenSlj/JuneAI/issues)
 
 ## Documentation
 
+- [Build specification](docs/product/build-spec.md) — the authoritative, decision-by-decision plan
 - [Vision](docs/vision.md) — what June is and the non-negotiables
 - [Product overview](docs/product/overview.md) — the surfaces and the boundary
 - [Architecture overview](docs/architecture/overview.md) — the layered model
 - [Architecture Decision Records](docs/decisions/) — why the design is the way it is
-- [v0.1.1 Scheduled Development Plan](docs/plans/v0.1.1-scheduled-development.md) — the active execution plan
-- [Personal operating layer research](docs/product/personal-operating-layer-research.md) — research and technical selection memo
 - [Roadmap](docs/product/roadmap.md) — what ships next
 - [Environment reference](docs/setup/environment.md) — configuration options
 

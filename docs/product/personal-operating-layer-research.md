@@ -1,5 +1,10 @@
 # Personal Operating Layer Research
 
+> **Status:** Historical. This memo informed the now-superseded operating-layer
+> direction (ADR 0014). The active direction is the canonical
+> [build specification](build-spec.md) and [ADR 0015](../decisions/0015-center-of-gravity-four-inversions.md).
+> Retained for the research it captured, not as a plan to execute.
+
 This document records the research behind June's next development track. It is
 not a feature list. It is the technical selection memo for building a scalable,
 local-first personal assistant with a simple UI.
