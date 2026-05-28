@@ -794,21 +794,19 @@ def run_agent_sync(prompt: str, user_id: str) -> str:
     from june_brain.memory import Memory
     from june_brain.skills.prompts import build_system_prompt
 
-    agent = get_or_create_agent()
-    if agent is None:
-        return "error: agent not available"
     memory = Memory(user_id)
     system = build_system_prompt("default", memory=memory)
-    response = agent.invoke({
-        "messages": [
+    from june_brain.config import resolve_runtime_config
+    from june_brain.models import build_chat_model
+
+    model = build_chat_model(resolve_runtime_config())
+    response = model.invoke(
+        [
             SystemMessage(content=system),
             HumanMessage(content=prompt),
-        ],
-        "user_id": user_id,
-        "skill": "default",
-    })
-    last = response["messages"][-1] if response.get("messages") else None
-    return str(getattr(last, "content", "")) if last else ""
+        ]
+    )
+    return _extract_text(getattr(response, "content", ""))
 
 
 def reload_agent() -> None:
