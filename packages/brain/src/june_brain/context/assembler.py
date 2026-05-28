@@ -1,0 +1,81 @@
+"""ContextAssembler — fixed 5-part context order for every harness turn.
+
+Assembly order (stable prefix first, volatile last):
+  1. system / persona block        (stable, cached)
+  2. character block               (semi-stable, optional — C.5)
+  3. pinned-state block            (the anchored summary)
+  4. recalled memory               (volatile, this-turn — C.4)
+  5. recent raw turns              (volatile, oldest trimmed to fit budget)
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+
+from june_brain.providers.base import Message
+
+_DEFAULT_SYSTEM_PROMPT = (
+    "You are June, a personal assistant. "
+    "Be helpful, honest, and concise. "
+    "You remember what matters and tell the truth plainly and kindly."
+)
+
+
+def estimate_tokens(text: str) -> int:
+    """Byte heuristic: ~4 chars per token.  Always returns at least 1."""
+    return max(1, len(text) // 4)
+
+
+def _msg_tokens(msg: Message) -> int:
+    return estimate_tokens(msg.role + msg.content)
+
+
+class ContextAssembler:
+    """Composes the fixed 5-part context list for a harness turn."""
+
+    def __init__(
+        self,
+        system_prompt: str = _DEFAULT_SYSTEM_PROMPT,
+        character_block: str | None = None,
+        recall: Callable[..., list[Message]] | None = None,
+        token_budget: int = 6000,
+    ) -> None:
+        self._system_prompt = system_prompt
+        self._character_block = character_block
+        self._recall = recall
+        self._token_budget = token_budget
+
+    def assemble(self, session: object, user_msg: Message) -> list[Message]:
+        """Return the ordered context list, trimming oldest raw turns to fit budget."""
+        fixed: list[Message] = []
+
+        # Section 1 — system / persona
+        fixed.append(Message(role="system", content=self._system_prompt))
+
+        # Section 2 — character block (optional)
+        if self._character_block:
+            fixed.append(Message(role="system", content=self._character_block))
+
+        # Section 3 — pinned state (only when non-empty)
+        pinned = getattr(session, "pinned", None)
+        if pinned is not None:
+            block_text = pinned.to_block()
+            if block_text:
+                fixed.append(Message(role="system", content=block_text))
+
+        # Section 4 — recalled memory (optional)
+        if self._recall is not None:
+            recalled = self._recall(session, user_msg)
+            fixed.extend(recalled)
+
+        # Budget consumed by fixed sections
+        fixed_tokens = sum(_msg_tokens(m) for m in fixed)
+        user_msg_tokens = _msg_tokens(user_msg)
+        remaining = self._token_budget - fixed_tokens - user_msg_tokens
+
+        # Section 5 — recent raw turns, trimmed oldest-first to fit budget
+        raw: list[Message] = list(getattr(session, "messages", []))
+        while raw and remaining < sum(_msg_tokens(m) for m in raw):
+            raw.pop(0)
+
+        return [*fixed, *raw, user_msg]

@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 
+from june_brain.context.assembler import ContextAssembler
+from june_brain.context.compactor import Compactor
 from june_brain.providers.base import GenerateRequest, GenerateResult, Message
 from june_brain.providers.registry import ProviderRegistry, get_registry
 
@@ -23,20 +25,6 @@ from .interface import (
     TurnResult,
 )
 
-_SYSTEM_PROMPT = (
-    "You are June, a personal assistant. Be helpful, honest, and concise."
-)
-
-
-def _default_assemble_context(session: SessionState, user_msg: Message) -> list[Message]:
-    """Minimal context assembler: system + history + new user message.
-
-    The full C.3 assembler (pinned state, salience-ranked recall, character block)
-    slots in here as a drop-in replacement.
-    """
-    system = Message(role="system", content=_SYSTEM_PROMPT)
-    return [system, *session.messages, user_msg]
-
 
 def _default_extract_tool_calls(result: GenerateResult) -> list[ToolCall]:
     """Extension point for tool-call parsing.
@@ -45,11 +33,6 @@ def _default_extract_tool_calls(result: GenerateResult) -> list[ToolCall]:
     arrives with later tasks and replaces this function via injection.
     """
     return []
-
-
-def _default_maybe_compact(session: SessionState) -> bool:  # noqa: ARG001
-    """Compaction stub — real logic is C.3.  Always returns False."""
-    return False
 
 
 class HandwrittenLoop:
@@ -67,15 +50,23 @@ class HandwrittenLoop:
         dispatch: (
             Callable[[list[ToolCall], SessionState], Awaitable[list[Message]]] | None
         ) = None,
-        maybe_compact: Callable[[SessionState], bool] | None = None,
+        maybe_compact: Callable[[SessionState], Awaitable[bool]] | None = None,
         max_iterations: int = 6,
     ) -> None:
         self._registry = registry if registry is not None else get_registry()
         self._role = role
-        self._assemble_context = assemble_context or _default_assemble_context
+        if assemble_context is not None:
+            self._assemble_context = assemble_context
+        else:
+            _assembler = ContextAssembler()
+            self._assemble_context = _assembler.assemble
         self._extract_tool_calls = extract_tool_calls or _default_extract_tool_calls
         self._dispatch = dispatch
-        self._maybe_compact = maybe_compact or _default_maybe_compact
+        if maybe_compact is not None:
+            self._maybe_compact = maybe_compact
+        else:
+            _compactor = Compactor(registry=self._registry, role=self._role)
+            self._maybe_compact = _compactor.compact
         self._max_iterations = max_iterations
 
     async def run_turn(self, session: SessionState, user_msg: Message) -> TurnResult:
@@ -104,7 +95,7 @@ class HandwrittenLoop:
                 break
 
         assert last_result is not None
-        compacted = self._maybe_compact(session)
+        compacted = await self._maybe_compact(session)
 
         provenance = TurnProvenance(
             tiers_used=[self._role],

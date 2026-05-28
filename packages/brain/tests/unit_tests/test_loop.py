@@ -252,7 +252,7 @@ def test_fixed_shape_order() -> None:
         order_log.append("assemble")
         return [Message(role="system", content="sys"), user_msg]
 
-    def spy_compact(session: SessionState) -> bool:
+    async def spy_compact(session: SessionState) -> bool:
         order_log.append("compact")
         return False
 

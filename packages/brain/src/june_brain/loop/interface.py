@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
+from june_brain.context.pinned_state import PinnedState
 from june_brain.providers.base import Message
 
 
@@ -20,6 +21,7 @@ class SessionState:
     user_id: str
     messages: list[Message]
     skill: str = "default"
+    pinned: PinnedState = field(default_factory=PinnedState)
 
 
 @dataclass
