@@ -86,7 +86,6 @@ async def _lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     """Assemble the FastAPI instance."""
     from .routes import (
-        capture,
         chat,
         demo,
         greeting,
@@ -161,7 +160,6 @@ def create_app() -> FastAPI:
         except Exception:  # noqa: BLE001
             logger.exception("activity log write failed")
 
-    app.include_router(capture.router)
     app.include_router(chat.router)
     app.include_router(demo.router)
     app.include_router(greeting.router)

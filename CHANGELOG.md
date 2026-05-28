@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Quick Capture and the personal operating layer (capture classifier, action intents, event ledger, capture box) — superseded by the new direction (ADR 0015). The SQLite tables created by migration v4 are left in place but unused.
+
 ### Added
 
 - **Canonical build specification** (`docs/product/build-spec.md`): June is a

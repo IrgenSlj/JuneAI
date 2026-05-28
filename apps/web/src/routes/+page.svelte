@@ -11,22 +11,9 @@
   import { onMount } from "svelte";
   import { client } from "$lib/api.js";
   import { profileName } from "$lib/stores/user.svelte.js";
-  import { capture, submitCapture } from "$lib/stores/capture.svelte.js";
 
   let focusComposer: (() => void) | undefined = $state();
   let greeting = $state("");
-  let captureText = $state("");
-
-  async function runCapture() {
-    if (await submitCapture(captureText)) captureText = "";
-  }
-
-  function onCaptureKey(e: KeyboardEvent) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      void runCapture();
-    }
-  }
 
   onMount(async () => {
     try {
@@ -105,38 +92,7 @@
     {:else if chat.messages.length === 0}
       <div class="empty">
         <p>{greeting || "Hi, I'm June. I'll remember what matters so you don't have to."}</p>
-        <div class="capture">
-          <input
-            type="text"
-            bind:value={captureText}
-            onkeydown={onCaptureKey}
-            placeholder="Capture a thought — a task, a promise, how you feel…"
-            aria-label="Quick capture"
-          />
-          <button type="button" onclick={runCapture} disabled={capture.loading || !captureText.trim()}>
-            {capture.loading ? "…" : "Capture"}
-          </button>
-        </div>
-        {#if capture.error}
-          <p class="capture-error">Couldn't capture that — is the brain running?</p>
-        {:else if capture.result}
-          <div class="capture-result" aria-live="polite">
-            <p class="kinds">
-              Understood as: {capture.result.kinds.join(", ") || "note"}
-            </p>
-            {#if capture.result.message}
-              <p class="support">{capture.result.message}</p>
-            {/if}
-            {#if capture.result.candidates.length}
-              <ul>
-                {#each capture.result.candidates as c (c.id)}
-                  <li>{c.title}{c.requires_approval ? " · needs your approval" : " · saved"}</li>
-                {/each}
-              </ul>
-            {/if}
-          </div>
-        {/if}
-        <p class="muted">Or type below to chat.</p>
+        <p class="muted">Type below to chat.</p>
       </div>
     {:else}
       <MessageList
@@ -202,58 +158,6 @@
     color: var(--color-fg-subtle);
     font-size: var(--size-sm);
   }
-  .capture {
-    display: flex;
-    gap: var(--space-2);
-    margin: var(--space-4) 0;
-  }
-  .capture input {
-    flex: 1;
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-bg-raised);
-    color: var(--color-fg-primary);
-    font: inherit;
-  }
-  .capture button {
-    background: var(--color-accent);
-    color: var(--color-bg);
-    border: none;
-    border-radius: var(--radius-md);
-    padding: var(--space-2) var(--space-4);
-    cursor: pointer;
-  }
-  .capture button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  .capture-result {
-    text-align: left;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    padding: var(--space-3) var(--space-4);
-    margin: var(--space-2) 0;
-  }
-  .capture-result .kinds {
-    font-weight: 500;
-    color: var(--color-fg-primary);
-  }
-  .capture-result .support {
-    color: var(--color-fg-muted);
-    font-size: var(--size-sm);
-  }
-  .capture-result ul {
-    margin: var(--space-2) 0 0;
-    padding-left: var(--space-4);
-    color: var(--color-fg-muted);
-    font-size: var(--size-sm);
-  }
-  .capture-error {
-    color: var(--color-accent);
-    font-size: var(--size-sm);
-  }
-
   .waiting {
     margin: var(--space-2) auto 0;
     font-size: var(--size-xs);

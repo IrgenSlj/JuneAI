@@ -20,8 +20,6 @@ export type MemorySnapshot = components["schemas"]["MemorySnapshot"];
 export type MemoryFact = components["schemas"]["MemoryFact"];
 export type MemoryStats = components["schemas"]["MemoryStats"];
 export type GreetingResponse = components["schemas"]["GreetingResponse"];
-export type CaptureResponse = components["schemas"]["CaptureResponse"];
-export type CaptureCandidate = components["schemas"]["CaptureCandidate"];
 export type MemoryStoreCount = components["schemas"]["MemoryStoreCount"];
 export type MemoryDeleteResponse = components["schemas"]["MemoryDeleteResponse"];
 export type MemoryUpdateRequest = components["schemas"]["MemoryUpdateRequest"];
@@ -295,14 +293,6 @@ export function createJuneClient(options: JuneClientOptions) {
       return getJson<GreetingResponse>(
         `/greeting/${encodeURIComponent(userId)}${qs ? `?${qs}` : ""}`,
       );
-    },
-
-    /** POST /capture/{user_id} — classify a thought into typed candidates. */
-    createCapture(userId: string, text: string, source = "quick-capture"): Promise<CaptureResponse> {
-      return requestJson<CaptureResponse>(`/capture/${encodeURIComponent(userId)}`, {
-        method: "POST",
-        body: JSON.stringify({ text, source }),
-      });
     },
 
     /** GET /tasks/{user_id} — list this user's tasks, newest first. */

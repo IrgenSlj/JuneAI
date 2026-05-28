@@ -26,7 +26,6 @@ _USER_TABLES = frozenset({
     "graph_nodes", "graph_edges", "schedules", "skill_inbound_events",
     "products", "purchase_history", "price_alerts", "chores",
     "chore_completions", "tasks",
-    "events", "capture_items", "action_intents",
 })
 
 _SKIP_TABLES = frozenset({

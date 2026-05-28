@@ -4,46 +4,6 @@
  */
 
 export interface paths {
-    "/capture/{user_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Capture
-         * @description Capture a thought, classify it locally, and return candidate actions.
-         */
-        post: operations["create_capture_capture__user_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/capture/{user_id}/recent": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Recent Captures
-         * @description Return this user's recent captures, newest first.
-         */
-        get: operations["recent_captures_capture__user_id__recent_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/chat": {
         parameters: {
             query?: never;
@@ -824,72 +784,6 @@ export interface components {
              * @default 0
              */
             count: number;
-        };
-        /**
-         * CaptureCandidate
-         * @description A proposed action intent derived from a capture.
-         */
-        CaptureCandidate: {
-            /** Id */
-            id: string;
-            /** Kind */
-            kind: string;
-            /** Title */
-            title: string;
-            /** Summary */
-            summary: string;
-            /** Risk */
-            risk: string;
-            /** Requires Approval */
-            requires_approval: boolean;
-            /** Approval Status */
-            approval_status: string;
-            /** Can Commit */
-            can_commit: boolean;
-        };
-        /**
-         * CaptureRecentResponse
-         * @description Recent captures for this user, newest first.
-         */
-        CaptureRecentResponse: {
-            /** Items */
-            items: {
-                [key: string]: unknown;
-            }[];
-        };
-        /**
-         * CaptureRequest
-         * @description A raw thought to capture and classify.
-         */
-        CaptureRequest: {
-            /** Text */
-            text: string;
-            /**
-             * Source
-             * @default chat
-             */
-            source: string;
-        };
-        /**
-         * CaptureResponse
-         * @description Result of classifying a capture: the item, candidates, and any message.
-         */
-        CaptureResponse: {
-            /** Id */
-            id: string;
-            /** Text */
-            text: string;
-            /** Kinds */
-            kinds: string[];
-            /** Candidates */
-            candidates: components["schemas"]["CaptureCandidate"][];
-            /**
-             * Message
-             * @default
-             */
-            message: string;
-            /** Created At */
-            created_at: string;
         };
         /**
          * ChatRequest
@@ -2217,74 +2111,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    create_capture_capture__user_id__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CaptureRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CaptureResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    recent_captures_capture__user_id__recent_get: {
-        parameters: {
-            query?: {
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                user_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CaptureRecentResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     chat_chat_post: {
         parameters: {
             query?: never;
