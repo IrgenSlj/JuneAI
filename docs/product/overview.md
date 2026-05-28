@@ -1,136 +1,153 @@
 # June
 
-June is the open personal agent that remembers you. It runs Gemma 4 locally for
-chat and recall, reaches Gemini for agentic work when you allow it, and is
-designed around one shared brain for browser, desktop, and future mobile
-surfaces. The web PWA is usable today, and the Tauri desktop shell has produced
-the v0.1.0 Apple Silicon macOS DMG.
+June is a personal assistant whose center of gravity is the user, not the task.
+She remembers what matters, forgets what doesn't, tells the truth, knows when to
+stay quiet, and never does anything the user can't see. June runs Gemma 4 locally
+for chat and recall, and reaches Gemini for capability when the user allows it,
+with every cloud call visible before and after. One brain spans browser, desktop,
+and future mobile surfaces.
 
 This document describes what June is. For why it exists, read
-[vision.md](../vision.md). For how it is built, read
-[architecture/overview.md](../architecture/overview.md). For where it is going
-next, read [roadmap.md](roadmap.md), [ADR 0014](../decisions/0014-personal-operating-layer.md),
-and the [v0.1.1 scheduled development plan](../plans/v0.1.1-scheduled-development.md).
+[vision.md](../vision.md). For the authoritative, decision-by-decision build plan,
+read [build-spec.md](build-spec.md). For how it is built, read
+[architecture/overview.md](../architecture/overview.md). For what ships next, read
+[roadmap.md](roadmap.md).
 
-## What June Is
+## The Four Inversions
 
-A single, persistent agent with three surfaces, one memory, and the ability to do work for you across the apps and services you already use.
+June shares a coding harness's skeleton — a loop, tools, tiered memory,
+compaction — but inverts its four core operations. This is not flavor; it dictates
+the data models and the control flow.
 
-- **Chat** — a fluent conversation that remembers. Every turn recalls relevant memories before responding and extracts new facts afterwards. The assistant feels like it knows you because it does.
-- **Tasks** — long-running, observable units of work that June carries out on your behalf: drafting and sending an email, finding files across folders, watching a page for a change, planning a trip across calendar and browser. Tasks are persistable, schedulable, and survive the conversation that spawned them.
-- **Memory** — an inspectable, editable, exportable record of everything June has learned. Three stores work together: structured facts in SQLite, semantic recall in ChromaDB, entities and relationships in a graph. Users see what June knows, correct mistakes, and delete anything at any time.
-- **Skills** — capabilities the agent can call. First-party skills (calendar, gmail, files, health, browser, research) ship in the box. Any third-party MCP server is installable from the in-app registry. Each skill is a standalone MCP server, independently enabled, versioned, and swappable. Third parties can ship skills as pip packages.
+| A coding agent | June |
+|---|---|
+| **Verifies** against ground truth (tests, the compiler) | **Defers** — verifies *with* the user. Human-in-the-loop approval is core, not optional. |
+| **Completes** tasks; the loop exits | **Continues** — standing intentions. Tasks are modeled as *promises*, not TODOs that terminate. |
+| **Accumulates** context; the repo is truth | **Forgets** gracefully; the user is truth. Forgetting is first-class, conservative, and reversible. |
+| **Acts fast** | Knows when to **stay quiet**. "Surface vs defer" is a real operation with real timing code. |
+
+June's genuine distinctiveness is exactly two things: these four inversions, and
+radical, user-readable transparency of her inner life. Everything else — tiered
+memory, salience scoring, anchored compaction, the character block — is a sound
+synthesis of known work, built in service of those two.
 
 ## The Product in One Turn
 
-A user opens June. The agent greets them by name, references something real from the last conversation, and asks a specific question. The user answers in natural language. June files the answer into memory, calls a skill if needed (log the workout, draft and send a message, check the calendar, fetch the flight status), streams a response token by token, and updates its understanding of the user. The whole turn happens in one screen, on one device, with the user seeing per-call which model ran where, which skills were touched, and what was written to memory.
+A user opens June. She greets them within a live turn — never cold-starting a
+session — references something real, and answers in her own voice. A message
+arrives: a cheap local classifier tags its difficulty and the router picks a tier;
+the assembler builds context in a fixed order, pulling salience-ranked memories,
+the pinned state, and the character block; the loop calls the model, dispatches any
+skills, and observes until done; if the conversation is long it compacts by merging
+into the pinned anchor, never losing the user's stated goal. Every turn ends with a
+one-line, plain-English provenance record: which tiers ran, whether anything left
+the device, what was recalled, and why. Nothing reaches the cloud silently.
 
-The user closes the laptop and opens their phone. Same agent. Same memory. Same tasks running in the background.
+## The Spine (Tier 1)
+
+The current build is the spine and nothing more. It is built in order; each later
+piece slots into the turn above.
+
+- **Portable data directory** — everything June *is* lives under one documented,
+  versioned folder. Move machines by copying it.
+- **Model-specific provider layer** — Gemma 4 and Gemini behind roles
+  (`local-fast`, `local-deep`, `cloud-capable`), with a clean seam for a third.
+- **Loop behind an interface** — a fixed loop whose engine (hand-written vs
+  LangGraph) is chosen by measurement, not taste.
+- **Layered context + pinned state** — a stable assembly order that protects the
+  prefix cache, and compaction that merges into an anchor instead of regenerating.
+- **Salience-scored recall** — `recency × frequency × relevance`, so June recalls
+  what matters rather than what is merely textually similar.
+- **Honest character block** — one recognizable June, seeded by us and deepening
+  per user, with honesty as a fixed, non-editable core.
+- **Visible cloud boundary + decision trace** — a provenance line every turn, and
+  local-only mode that provably blocks egress.
 
 ## The Product Surface
 
-### Primary screen: Daily Home
-
-One calm first screen. Quick capture is the center. Around it June shows today,
-open loops, promises, recent important memories, the next best action, and a
-quiet emotional check-in. Chat remains available, but the product center moves
-from "ask and answer" to "capture and operate."
-
-### Chat
-
-One column. Message list above, composer below, model and privacy status in the header. Streaming responses token by token. Tool calls render inline with their arguments and results. Per-message provenance shows which model handled which segment of the turn and which skills were called. The composer supports cancellation mid-stream. No sidebars, no tabs, no modals that break the conversation.
-
-### Tasks
-
-A list of active tasks (with a live step trace) and recently completed tasks. Each task shows its goal, the plan June produced, the steps taken, the model used per step, and the artifacts touched (files, services, memories). The user can pause, resume, edit, or cancel any task. Tasks can be spawned from a chat turn or directly from this screen.
-
-### Memory browser
-
-Three sections: structured facts, semantic memories, entities and relationships. Each memory is a card with its source, timestamp, and a delete button. The user can scan their own history at a glance, search it, and remove anything that is wrong or out of date. Manual add and edit are deferred; delete-and-re-learn is the workflow until the UI demands more.
-
-### Skills registry
-
-One card per installed skill. Each card shows the skill name, a description, a running/stopped/crashed status badge, the list of tools it exposes, the model policy (`local-only`, `cloud-allowed`, `cloud-required`), required OAuth scopes if any, and an enable/disable toggle. A separate "Browse skills" view lists installable third-party MCP servers from the registry; one-click install adds them under the same supervisor.
-
-### System header
-
-Active privacy tier (`local-only`, `private-by-default`, `cloud-first`), Ollama reachability, Gemini key state, and the model currently in use for the active turn. Visible on every screen so the user always knows where their data is going.
-
-## The Product Boundary
-
-- **No account.** June is installed, not subscribed to. No signup, no login, no cloud sync by default.
-- **No telemetry without consent.** The brain never reports back unless the user opts in.
-- **No third model.** Gemma 4 for local, Gemini for cloud. Any new provider must replace one of these, not add to them.
-- **No shell-specific business logic.** Desktop and mobile shells are capability wrappers. The same UI runs in all three.
-- **No silent cloud calls.** Every cloud-routed model call and every external service call is visible in the UI before and after it happens.
+- **Chat** — one column: message list, composer, model and privacy status in the
+  header. Streaming token by token; tool calls render inline; a provenance chip
+  carries the one-line rationale per turn.
+- **Memory** — an inspectable, editable, exportable record of what June has
+  learned across the three stores. The native on-demand graph (Tier 2) is opened
+  here, not in an external app.
+- **Tasks** — long-running units of work modeled as promises: the user's standing
+  intentions, observable and resumable, not TODOs that simply terminate.
+- **Skills** — capabilities the agent can call, each a standalone MCP server,
+  independently enabled. Google services arrive as per-service skills (Tier 2).
+- **System / Trust** — responsiveness and the capability profile in plain
+  language, plus the visible record of every time data left the device.
 
 ## Model Routing
 
-Three tiers, one dial. See [ADR 0009](../decisions/0009-private-by-default-and-model-routing.md) for the decision record.
+Three roles, one dial.
 
-- **Local (Gemma via Ollama)** is the default for chat tone, memory recall, classification, short summarisation, journaling, and any turn the user keeps private.
-- **Cloud-on-consent (Gemini)** handles agentic planning, long context, vision, computer use, and any skill whose policy requires it.
-- **Per-skill policy** — every skill manifest declares `local-only`, `cloud-allowed`, or `cloud-required`. The router resolves the effective tier per tool call, not per turn. A single turn can mix local recall, local planning, and one cloud-required tool call.
+- **`local-fast` / `local-deep` (Gemma 4 via Ollama)** handle chat, recall,
+  classification, summarisation, and any turn the user keeps private.
+- **`cloud-capable` (Gemini)** handles capability the local model cannot reach,
+  and only when the user's policy allows — every call visible before and after.
+- The router resolves a tier per request from a difficulty classification.
+  Escalation to cloud for a routine local operation is a visible last resort,
+  never a silent default.
 
-The user holds a privacy dial in settings: `local-only` (never call cloud; agentic skills that need cloud are disabled with a visible explanation), `private-by-default` (the default — chat and recall are local, agentic skills may call cloud with confirmation on first call of each kind per session), `cloud-first` (prefer cloud for capability, fall back to local when offline).
+June is model-specific on purpose: she is tuned for this roster the way a real
+harness is tuned for its model, because abstraction would block that tuning.
 
 ## Memory Model
 
-Three stores, one facade. The `MemoryManager` is the only way into memory:
+Three stores, one facade (`MemoryManager`): SQLite for deterministic rows, ChromaDB
+for semantic recall, a graph for entities and relationships. Recall is ranked by
+*salience*, not similarity alone. The pinned state is a small structured anchor
+(goal, constraints, confirmed facts, open questions) that compaction merges into,
+so trimming a long conversation never drops a commitment. Forgetting (Tier 2) is
+conservative, reversible, and visible — aggressive forgetting is treated as a bug.
 
-- **SQLite** stores deterministic rows: user profile fields, preferences, habits, daily chapters, workouts, tasks.
-- **ChromaDB** stores semantic chunks: conversational context, journal entries, arbitrary facts that need recall-by-meaning.
-- **Graph** stores entities (people, places, projects, things) and the relationships between them.
+## Privacy Spectrum
 
-Before every turn, the manager recalls from all three stores based on the incoming message. After every turn, it extracts new facts and writes them back. Skills read and write memory through MCP resources proxied by the brain. No skill opens its own connection.
+- **Mode 1 — local-only (default).** Conversations, memories, and embeddings stay
+  on the machine. No silent egress.
+- **Mode 2 — encrypted backup (Tier 2).** The whole data dir is client-side
+  encrypted before upload; the provider holds an opaque blob. The key lives in the
+  OS keychain day-to-day; a passphrase is required only when moving to a new
+  machine. Crypto uses vetted libraries — never hand-rolled.
+- **Mode 3 — Google per-service skills (Tier 2).** OAuth into Gmail / Calendar /
+  Drive / Maps as independently-toggled skills, granted once, revocable anytime,
+  always visible. Reads first; writes require per-action approval.
 
-## Skills Model
+## Behavioral Safety Floor
 
-Each skill is a standalone Python package with a `python -m june_skill_<name>` entrypoint and an MCP manifest declaring its tools, required OAuth scopes (if any), and model policy. A supervisor in the brain starts each enabled skill as a subprocess, negotiates capabilities over MCP stdio, bridges each skill's tools into LangChain `StructuredTool` instances, and restarts on crash. A manifest under the user's data directory records which skills are enabled.
+June holds intimate context — relationships, family, health-adjacent, financial.
+This is core to the product, not boilerplate.
 
-A skill subprocess that re-imports the brain is a fork bomb. The supervisor sets `JUNE_IS_SKILL_SUBPROCESS=1` and `JUNE_SKILLS_DISABLED=1` in the child environment; the brain's graph module skips agent construction under those flags. See [ADR 0005](../decisions/0005-skills-as-mcp.md).
+- June is not a therapist, doctor, lawyer, or financial advisor, and never implies
+  she is. In high-stakes domains she informs and helps the user think, and points
+  to qualified humans for decisions.
+- In genuine distress or crisis she responds with care, avoids amateur diagnosis,
+  and surfaces real-world support. No metric in June rewards keeping the user
+  talking.
+- Candor means honest, never cruel; June can disagree kindly and decline kindly.
+- Sensitive memories are surfaced by the user, not volunteered by June.
+- These rules sit above personalization: no learned preference overrides them.
 
-Third-party MCP servers ship via the same supervisor. The user installs them from the in-app registry; they run with the same subprocess lifecycle, the same memory access proxy, and the same model-policy resolution. Unsigned third-party skills carry a visible badge and a one-time "this runs with your user privileges" warning before first use.
+## The Product Boundary
 
-## Tasks Model
-
-A task is a first-class, persistable, observable unit of work, separate from a chat turn. See [ADR 0010](../decisions/0010-agentic-core-tasks-oauth-computer-use.md).
-
-A task carries a goal (free-form natural language), a plan (LLM-produced, editable, JSON), a status (`planning`, `running`, `paused`, `awaiting_user`, `completed`, `failed`), a step trace with model provenance per step, an optional owner skill, and an optional schedule. Tasks live in a new SQLite table; the API surfaces them at `POST /tasks`, `GET /tasks`, `GET /tasks/{id}/events` (SSE), `PATCH /tasks/{id}`, and `DELETE /tasks/{id}`. The chat composer can spawn a task with a slash command or via an inline confirmation when the agent suggests one.
-
-## Personal Operating Layer
-
-The v0.1.1 layer standardizes how future features behave:
-
-1. Capture natural input.
-2. Classify it as task, event, memory, decision, promise, feeling, idea,
-   question, or note.
-3. Create action intents for writes and external actions.
-4. Ask approval when risk requires it.
-5. Commit to memory, tasks, schedules, notifications, or skills.
-6. Record the event in the durable ledger.
-7. Bring it back through Daily Home, reviews, reminders, and search.
-
-This is the shared path for calendar, promises, Telegram, agenda suggestions,
-emotional support, and future service skills.
-
-## Privacy Model
-
-- Conversations, memories, and embeddings live on the user's machine.
-- Gemini calls send only the turn's context to Google; nothing persists there on June's behalf.
-- OAuth tokens live in the OS credential store: Keychain on macOS, Credential Manager on Windows, libsecret on Linux. The brain never sees them; the skill subprocess holds and refreshes them.
-- No analytics, crash reporting, or usage metrics leave the device without an explicit opt-in.
-- Export is one command; delete is one button.
+- **No account.** June is installed, not subscribed to. No signup, no login, no
+  cloud sync by default.
+- **No silent cloud calls.** Every cloud-routed model call and external service
+  call is visible in the UI before and after.
+- **No third model.** Gemma 4 for local, Gemini for cloud. A new provider must
+  replace one of these, not add to them.
+- **No heartbeat.** June acts when the user speaks or the world genuinely changes,
+  never merely because time passed.
+- **No core self-modification.** June evolves character and skills on top of the
+  harness; she never edits the loop itself.
 
 ## Status
 
-June currently ships as a web application and an experimental macOS desktop
-DMG. The brain, API, memory stores, model routing, tasks, scheduler,
-notification bus, daily orchestration, Telegram foundation, and skills system
-are implemented. Light mode is the default with a dark mode toggle.
-
-The active priority is v0.1.1: **Quick Capture + Daily Home + Durable Intent
-Ledger**. The durable event ledger and the local-first Quick Capture backend
-and capture box have shipped; action approval/commit and the full Daily Home
-layout are next. See [roadmap.md](roadmap.md) for the trigger-gated surfaces
-beyond this release.
+June ships today as a web application and an experimental macOS desktop DMG. The
+brain, API, three-store memory, model routing, tasks, scheduler, notification bus,
+and skills system are implemented on the LangGraph agent. The active priority is
+**Tier 1 — the spine**: the portable data directory, the model-specific provider
+layer, and the measured loop, followed by layered context, salience recall, the
+character block, and the visible cloud boundary. See [roadmap.md](roadmap.md) for
+the Tier 2 and Tier 3 surfaces beyond it.
