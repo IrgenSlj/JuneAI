@@ -9,9 +9,52 @@ from __future__ import annotations
 from typing import Any
 
 from langchain_openai import ChatOpenAI
+from langchain_core.outputs.chat_generation import ChatGenerationChunk
 from pydantic import SecretStr
 
 from .config import RuntimeConfig
+
+
+class GeminiChatOpenAI(ChatOpenAI):
+    """ChatOpenAI subclass that captures Gemini thought_signature from extra_content.
+
+    Gemini 3.x sends thought_signature in the OpenAI-compatible endpoint's
+    ``extra_content`` field rather than on the ``function_call`` dict itself.
+    The standard ChatOpenAI delta parser discards ``extra_content``, so the
+    signature is lost on the round-trip and the next request gets a 400.
+
+    This override captures ``extra_content`` from the raw delta and injects
+    ``thought_signature`` directly into the ``function_call`` dict inside
+    ``additional_kwargs`` so that LangChain's serialisation includes it.
+    """
+
+    def _convert_chunk_to_generation_chunk(
+        self,
+        chunk: dict,
+        default_chunk_class: type,
+        base_generation_info: dict | None,
+    ) -> ChatGenerationChunk | None:
+        generation_chunk = super()._convert_chunk_to_generation_chunk(
+            chunk, default_chunk_class, base_generation_info
+        )
+        if generation_chunk is None:
+            return None
+        choices = chunk.get("choices", [])
+        if not choices:
+            return generation_chunk
+        delta = choices[0].get("delta", {})
+        extra_content = delta.get("extra_content")
+        if isinstance(extra_content, dict):
+            akw = generation_chunk.message.additional_kwargs
+            akw.setdefault("extra_content", extra_content)
+            google = extra_content.get("google")
+            if isinstance(google, dict):
+                ts = google.get("thought_signature")
+                if isinstance(ts, str):
+                    fc = akw.get("function_call")
+                    if isinstance(fc, dict) and "thought_signature" not in fc:
+                        fc["thought_signature"] = ts
+        return generation_chunk
 
 
 def build_chat_model(runtime: RuntimeConfig) -> Any:
@@ -38,7 +81,8 @@ def build_chat_model(runtime: RuntimeConfig) -> Any:
     if runtime.is_local:
         extra["extra_body"] = {"keep_alive": -1}
 
-    return ChatOpenAI(
+    cls = GeminiChatOpenAI if runtime.is_api else ChatOpenAI
+    return cls(
         model=runtime.model,
         api_key=SecretStr(runtime.api_key or "unused"),
         base_url=runtime.base_url,

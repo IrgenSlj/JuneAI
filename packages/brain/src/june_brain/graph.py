@@ -40,6 +40,44 @@ _CONTEXT_TTL = 30.0  # seconds
 _CONTEXT_CACHE_MAX = 256  # FIFO cap so the dict can't grow unbounded
 
 
+def _inject_thought_signature(msg: AIMessage) -> AIMessage:
+    """Copy Gemini's thought_signature from extra_content into function_call.
+
+    Gemini 3.x delivers thought_signature inside
+    additional_kwargs["extra_content"]["google"]["thought_signature"] rather
+    than directly on the function_call dict.  LangChain's message serializer
+    reads from additional_kwargs["function_call"] and would drop the value.
+
+    Move it into the function_call dict so it survives the round-trip.
+    """
+    akw = msg.additional_kwargs
+    extra = akw.get("extra_content")
+    if isinstance(extra, dict):
+        google = extra.get("google")
+        if isinstance(google, dict):
+            ts = google.get("thought_signature")
+            if isinstance(ts, str):
+                fc = akw.get("function_call")
+                if isinstance(fc, dict) and "thought_signature" not in fc:
+                    fc["thought_signature"] = ts
+    return msg
+
+
+def _ensure_thought_signature(msg: AIMessage) -> AIMessage:
+    """Guarantee an AIMessage has thought_signature on its function_call.
+
+    For Gemini 3.x the API requires thought_signature on every function_call
+    in conversation history.  Messages that were created before the parser fix
+    lack it altogether; for those we inject the documented skip-validator
+    dummy so the request doesn't get a 400.
+    """
+    _inject_thought_signature(msg)
+    fc = msg.additional_kwargs.get("function_call")
+    if isinstance(fc, dict) and "thought_signature" not in fc:
+        fc["thought_signature"] = "skip_thought_signature_validator"
+    return msg
+
+
 class AgentState(TypedDict):
     """The state passed between every node in the graph."""
 
@@ -606,8 +644,16 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
         if recall_block:
             system_messages.append(SystemMessage(content=recall_block))
         messages = system_messages + _trim_messages(state["messages"])
+        # Gemini 3.x requires thought_signature on every function_call in
+        # history.  Ensure every AIMessage has one before invoking.
+        if runtime.is_api:
+            for _m in messages:
+                if isinstance(_m, AIMessage):
+                    _ensure_thought_signature(_m)
         _invoke_started_at = time.monotonic()
         raw_response = llm.invoke(messages)
+        if isinstance(raw_response, AIMessage):
+            _inject_thought_signature(raw_response)
         _invoke_latency_ms = max(0, int((time.monotonic() - _invoke_started_at) * 1000))
         if isinstance(getattr(raw_response, "content", None), str):
             raw_response.content = _strip_internal_thoughts(str(raw_response.content))
