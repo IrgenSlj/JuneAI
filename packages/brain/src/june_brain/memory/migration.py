@@ -223,6 +223,24 @@ def _migration_004(conn: Any) -> None:
     """)
 
 
+@MIGRATIONS.register(5, "Add salience bookkeeping columns to semantic_facts")
+def _migration_005(conn: Any) -> None:
+    """Add access_count and last_accessed to semantic_facts.
+
+    Idempotent: each ALTER is wrapped in a try/except so running this
+    migration a second time (e.g. on an already-migrated db) is safe.
+    """
+    for stmt in (
+        "ALTER TABLE semantic_facts ADD COLUMN access_count INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE semantic_facts ADD COLUMN last_accessed TEXT NOT NULL DEFAULT ''",
+    ):
+        try:
+            conn.execute(stmt)
+        except Exception:
+            pass
+    conn.commit()
+
+
 def ensure_schema(conn: Any) -> None:
     """Idempotent: create tables + apply pending migrations."""
     MIGRATIONS.ensure(conn)

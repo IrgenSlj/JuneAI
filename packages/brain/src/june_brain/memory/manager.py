@@ -19,13 +19,15 @@ import json
 import logging
 import re
 from collections.abc import Callable
+from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
 from .graph import KnowledgeGraph, _slug
-from .sqlite import Memory
-from .vector import VectorStore
+from .salience import SalienceWeights, relevance_from_distance, salience
+from .sqlite import Memory, _get_connection
+from .vector import VectorStore, _db_path
 
 logger = logging.getLogger(__name__)
 
@@ -70,17 +72,12 @@ class MemoryManager:
 
         hits: list[dict[str, Any]] = []
 
-        # 1) Semantic (vector) — widest net, ranked by cosine distance.
+        # 1) Semantic (vector) — re-ranked by salience (recency × frequency × relevance).
         try:
-            for v in self.vector.search(query, k=k):
-                hits.append(
-                    {
-                        "source": "vector",
-                        "text": v["text"],
-                        "kind": str(v.get("metadata", {}).get("kind", "fact")),
-                        "ref": v["fact_id"],
-                        "score": v.get("distance"),
-                    }
+            raw_vector = self.vector.search(query, k=k)
+            if raw_vector:
+                hits.extend(
+                    _salience_rerank(self.user_id, raw_vector, k)
                 )
         except Exception:  # noqa: BLE001
             logger.exception("recall: vector search failed")
@@ -819,6 +816,93 @@ class MemoryManager:
                 )
             return row
         return None
+
+
+# ----------------------------------------------------------------------
+# Salience helpers
+# ----------------------------------------------------------------------
+
+
+def _salience_rerank(
+    user_id: str,
+    raw_hits: list[dict[str, Any]],
+    k: int,
+) -> list[dict[str, Any]]:
+    """Re-rank vector hits by salience; update access bookkeeping for returned hits.
+
+    For each candidate we read (access_count, last_accessed) from the
+    semantic_facts shadow row, compute the salience score, sort DESC, take
+    top-k, then UPDATE each returned row's access counters.
+    """
+    weights = SalienceWeights.from_env()
+    conn = _get_connection(_db_path())
+    now = datetime.now()
+
+    scored: list[tuple[float, dict[str, Any]]] = []
+    for v in raw_hits:
+        fact_id = v["fact_id"]
+        row = conn.execute(
+            "SELECT access_count, last_accessed FROM semantic_facts "
+            "WHERE user_id=? AND fact_id=?",
+            (user_id, fact_id),
+        ).fetchone()
+        if row:
+            access_count: int = int(row["access_count"] or 0)
+            last_accessed_str: str = str(row["last_accessed"] or "")
+        else:
+            access_count = 0
+            last_accessed_str = ""
+
+        if last_accessed_str:
+            try:
+                last_dt = datetime.fromisoformat(last_accessed_str)
+                hours_since = (now - last_dt).total_seconds() / 3600.0
+            except ValueError:
+                hours_since = 0.0
+        else:
+            hours_since = 0.0
+
+        rel = relevance_from_distance(v.get("distance"))
+        score = salience(rel, hours_since, access_count, weights)
+        scored.append((score, v))
+
+    scored.sort(key=lambda t: t[0], reverse=True)
+    top = scored[:k]
+
+    now_iso = now.isoformat()
+    for _score, v in top:
+        conn.execute(
+            "UPDATE semantic_facts SET access_count = access_count + 1, last_accessed = ? "
+            "WHERE user_id=? AND fact_id=?",
+            (now_iso, user_id, v["fact_id"]),
+        )
+    conn.commit()
+
+    result: list[dict[str, Any]] = []
+    for score, v in top:
+        result.append(
+            {
+                "source": "vector",
+                "text": v["text"],
+                "kind": str(v.get("metadata", {}).get("kind", "fact")),
+                "ref": v["fact_id"],
+                # Store distance-like (lower = more salient): recall()'s final rank
+                # sort is ascending and the feedback multipliers assume lower=better,
+                # so a raw (higher=better) salience here would invert the ordering.
+                "score": max(0.0, 1.0 - score),
+            }
+        )
+    return result
+
+
+def salience_recall(user_id: str, query: str, k: int = 5) -> list[dict[str, Any]]:
+    """Convenience adapter: salience-ranked recall for a given user.
+
+    Returns the same list[dict] shape as MemoryManager.recall().
+    Intended as the assembler's recall hook for C.3 and later tasks.
+    """
+    mm = MemoryManager(user_id)
+    return mm.recall(query, k=k)
 
 
 # ----------------------------------------------------------------------
