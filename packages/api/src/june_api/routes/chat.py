@@ -29,8 +29,6 @@ def get_agent() -> Any:
     ``app.dependency_overrides[get_agent] = ...`` without touching
     process-global state.
     """
-    if _chat_use_harness():
-        return None
     try:
         return brain_graph.get_or_create_agent()
     except Exception as exc:  # noqa: BLE001
@@ -41,19 +39,14 @@ def get_agent() -> Any:
 
 
 def get_harness_loop(agent: Any | None = None) -> HarnessLoop:
-    """Resolve the live-chat HarnessLoop implementation.
-
-    Live chat explicitly uses the LangGraph-backed harness path for now. The
-    handwritten engine remains experiment-only until it has streaming/tool
-    parity with the existing chat route.
-    """
+    """Resolve the live-chat HarnessLoop implementation."""
     from june_brain.loop.langgraph_loop import LangGraphLoop
 
     return LangGraphLoop(agent=agent)
 
 
 def _chat_use_harness() -> bool:
-    return os.getenv("JUNE_CHAT_USE_HARNESS", "").strip().lower() in {
+    return os.getenv("JUNE_CHAT_USE_HARNESS", "1").strip().lower() in {
         "1",
         "true",
         "yes",
@@ -297,14 +290,71 @@ async def _iter_harness_events(
     request: ChatRequest,
     assistant_buffer: list[str],
 ) -> AsyncIterator[str]:
+    state = {
+        "messages": _messages_for_turn(request.user_id, request.message),
+        "user_id": request.user_id,
+        "skill": request.skill,
+        "ui_state": _empty_ui_state(),
+        "tool_stats": {"requested": 0, "succeeded": 0, "failed": 0, "last_calls": []},
+    }
+
+    emitted_tool_call_ids: set[str] = set()
     try:
-        loop = get_harness_loop(agent)
-        session, user_msg = _harness_turn_inputs(request)
-        result = await loop.run_turn(session, user_msg)
-        for event in _turn_result_events(result):
-            if event.type == "token" and event.content:
-                assistant_buffer.append(event.content)
-            yield _event_to_sse(event)
+        async for mode, chunk in agent.astream(
+            state, stream_mode=["messages", "updates", "custom"]
+        ):
+            if mode == "messages":
+                message, _metadata = chunk
+                text = getattr(message, "content", "")
+                if isinstance(text, str) and text:
+                    assistant_buffer.append(text)
+                    yield _event_to_sse(ChatEvent(type="token", content=text))
+            elif mode == "updates":
+                for _node, update in chunk.items():
+                    for msg in update.get("messages") or []:
+                        if isinstance(msg, AIMessage):
+                            for call in msg.tool_calls or []:
+                                call_id = str(call.get("id") or "")
+                                if call_id and call_id in emitted_tool_call_ids:
+                                    continue
+                                if call_id:
+                                    emitted_tool_call_ids.add(call_id)
+                                yield _event_to_sse(
+                                    ChatEvent(
+                                        type="tool_call",
+                                        tool_name=str(call.get("name", "")),
+                                        tool_args=_safe_tool_args(call),
+                                    )
+                                )
+                        elif isinstance(msg, ToolMessage):
+                            yield _event_to_sse(_tool_result_event(msg))
+            elif mode == "custom":
+                if isinstance(chunk, dict) and chunk.get("event") == "recall":
+                    raw_hits = chunk.get("hits") or []
+                    hits = [RecallHit(**h) for h in raw_hits if isinstance(h, dict)]
+                    if hits:
+                        yield _event_to_sse(
+                            ChatEvent(type="recall", recall_hits=hits)
+                        )
+                elif isinstance(chunk, dict) and chunk.get("event") == "provenance":
+                    yield _event_to_sse(
+                        ChatEvent(
+                            type="provenance",
+                            provenance={
+                                "provider": chunk.get("provider", ""),
+                                "model": chunk.get("model", ""),
+                                "tier": chunk.get("tier", ""),
+                                "latency_ms": chunk.get("latency_ms", 0),
+                                "cloud_call": chunk.get("cloud_call", False),
+                                "cloud_payload_summary": chunk.get("cloud_payload_summary"),
+                                "memories_recalled": chunk.get("memories_recalled", 0),
+                                "skills_called": chunk.get("skills_called", []),
+                                "rationale": chunk.get("rationale", ""),
+                            },
+                        )
+                    )
+
+        yield _event_to_sse(ChatEvent(type="done"))
     except Exception as exc:
         logger.exception("harness chat stream failed for user=%s", request.user_id)
         yield _event_to_sse(ChatEvent(type="error", content=str(exc)))

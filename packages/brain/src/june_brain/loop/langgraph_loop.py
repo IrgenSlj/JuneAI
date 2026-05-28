@@ -52,6 +52,28 @@ class LangGraphLoop:
             self._agent_resolved = True
         return self._agent
 
+    @staticmethod
+    def _build_token_collector() -> Any:
+        """Build a non-streaming chat model to measure token usage.
+
+        The streaming model used by the agent loses ``token_usage`` (OpenAI
+        returns it only in the final non-streaming response), so we build a
+        separate non-streaming copy just for token counting.
+        """
+        from langchain_openai import ChatOpenAI
+        from june_brain.config import resolve_runtime_config
+
+        rc = resolve_runtime_config()
+        return ChatOpenAI(
+            model=rc.model,
+            api_key=rc.api_key or "unused",
+            base_url=rc.base_url,
+            temperature=rc.temperature,
+            max_completion_tokens=rc.max_tokens,
+            streaming=False,
+            timeout=120,
+        )
+
     async def run_turn(self, session: SessionState, user_msg: Message) -> TurnResult:
         _start = time.monotonic()
         try:
@@ -66,10 +88,23 @@ class LangGraphLoop:
                     "skill": session.skill,
                 }
             )
-            reply_text = str(response["messages"][-1].content)
+            last_msg = response["messages"][-1]
+            reply_text = str(last_msg.content)
+
+            tokens = TokenAccounting()
+            try:
+                tc = self._build_token_collector()
+                tc_resp = tc.invoke(lc_messages)
+                rm = tc_resp.response_metadata or {}
+                tu = rm.get("token_usage", {}) or {}
+                tokens.input_tokens = tu.get("prompt_tokens", 0)
+                tokens.output_tokens = tu.get("completion_tokens", 0)
+            except Exception:
+                log.warning("token collection failed", exc_info=True)
         except Exception:
             log.exception("LangGraphLoop.run_turn failed")
             reply_text = "error: LangGraph agent call failed"
+            tokens = TokenAccounting()
 
         try:
             from june_brain.config import resolve_runtime_config
@@ -96,6 +131,6 @@ class LangGraphLoop:
             assistant_msg=Message(role="assistant", content=reply_text),
             tool_calls=[],
             provenance=provenance,
-            tokens=TokenAccounting(),
+            tokens=tokens,
             compacted=False,
         )
