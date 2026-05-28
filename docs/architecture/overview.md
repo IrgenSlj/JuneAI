@@ -1,10 +1,20 @@
 # Architecture Overview
 
-This document describes how June is built. For the rationale behind each choice, see the Architecture Decision Records under `docs/decisions/`.
+This document describes how June is built and the harness shape it is being built
+toward. For the rationale behind each choice, see the Architecture Decision Records
+under `docs/decisions/`. For the authoritative, decision-by-decision plan, see
+[build-spec.md](../product/build-spec.md).
+
+The brain runs today on a LangGraph agent. Tier 1 (the spine) introduces a
+model-specific provider layer, a fixed loop behind an interface, layered context
+with anchored compaction, salience recall, an honest character block, and a visible
+cloud boundary. LangGraph is kept behind the loop interface until the CLEAR
+experiment (C.2) chooses the default engine. Sections below mark what is shipped
+versus in-progress.
 
 ## Layered View
 
-June is organized in four horizontal layers, each with a single responsibility:
+June is organized in horizontal layers, each with a single responsibility:
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
@@ -12,109 +22,156 @@ June is organized in four horizontal layers, each with a single responsibility:
 ├───────────────────────────────────────────────────────────────┤
 │  UI           SvelteKit app + shared TypeScript components    │
 ├───────────────────────────────────────────────────────────────┤
-│  API          FastAPI · REST + SSE streaming                  │
+│  API          FastAPI · REST + SSE streaming (+ provenance)   │
 ├───────────────────────────────────────────────────────────────┤
-│  BRAIN        LangGraph · operating layer · memory · skills   │
+│  BRAIN        loop · context · memory · character · router    │
 ├───────────────────────────────────────────────────────────────┤
-│  PROVIDERS    Ollama/Gemma 4   Gemini API                     │
+│  PROVIDERS    local-fast / local-deep (Gemma 4)   cloud (Gemini)│
 └───────────────────────────────────────────────────────────────┘
                               ↑
-                              │
                     ┌─────────┴─────────┐
                     │  SKILLS (MCP)     │
                     │  calendar, health,│
                     │  research, files, │
-                    │  daily            │
+                    │  daily, google*   │
                     └───────────────────┘
 ```
 
-A layer only calls into the layer directly below it. Shells consume the UI. The UI consumes the API. The API consumes the Brain. The Brain consumes the Providers and the Skills. No layer reaches across another.
+A layer only calls into the layer directly below it. Shells consume the UI; the UI
+consumes the API; the API consumes the Brain; the Brain consumes the Providers and
+the Skills. No layer reaches across another.
+
+## The Data Directory
+
+`<datadir>/` — one documented, versioned folder that *is* June (C.0 / ADR 0020).
+Everything June persists lives here, so "move to a new machine" is "copy the
+folder," and "reload" is "read the manifest and rehydrate."
+
+```
+<datadir>/
+  manifest.json            # {schema_version, created_at, june_version, contents[]}
+  memory/                  # SQLite db + ChromaDB store + graph
+  character/persona.json   # the character block
+  skills/                  # installed skill configs
+  tasks/ledger.jsonl       # append-only event ledger (Tier 2)
+  config/                  # providers.toml, privacy mode, salience weights, thresholds
+```
+
+A `layout.py` module is the single source of truth for all June paths; nothing
+hardcodes a path elsewhere. A missing or corrupt manifest initializes a fresh data
+dir and surfaces that in the UI rather than failing silently.
+
+## The Providers
+
+`packages/brain/june_brain/providers/` (Tier 1, in-progress) — June is
+*model-specific*, not model-agnostic (ADR 0017). The roster is exactly two models
+behind three roles, with a clean seam for a third.
+
+- **`local-fast` / `local-deep`** — Gemma 4 configurations via Ollama (HTTP).
+- **`cloud-capable`** — Gemini via the official Google client.
+
+A `registry.py` maps roles to concrete models from `config/providers.toml`; the
+brain references roles, config names models. All model access goes through a
+provider — no raw model HTTP call lives anywhere else in the brain — and every
+cloud call emits a provenance event before and after.
 
 ## The Brain
 
-`packages/brain/` — Python, installable as `june-brain`.
+`packages/brain/` — Python, installable as `june-brain`. The brain is the
+intelligence; anything model-facing or memory-facing lives here, and it is usable
+without the API.
 
-The brain is the intelligence. Anything that is model-facing or memory-facing lives here. The brain is designed to be usable without the API — a Python developer can `pip install june-brain` and embed June in their own system.
+Harness modules (Tier 1 target shape):
 
-Internal modules:
+- **`loop/`** — a fixed loop behind a `HarnessLoop` interface:
+  `assemble_context → call_provider → (tool calls? dispatch → observe → repeat :
+  done) → maybe_compact`. `handwritten.py` and `langgraph_loop.py` both implement
+  it; the CLEAR experiment chooses the default. The loop never mutates its own
+  structure — dynamic choices flow as data, not as new control-flow nodes.
+- **`context/`** — `assembler.py` composes a fixed 5-part order (system/persona →
+  character → pinned state → recalled memory → recent raw turns) so the stable
+  prefix is cache-friendly. `pinned_state.py` is a small structured anchor (goal,
+  constraints, confirmed facts, open questions). `compactor.py` triggers at a token
+  threshold and *merges* summaries into the pinned state rather than regenerating,
+  with a salience-drop fallback when the local model can't summarize reliably.
+- **`memory/`** — three-store memory (ADR 0004): `sqlite.py`, `vector.py`,
+  `graph.py`, with `manager.py` as the facade. `salience.py` ranks recall by
+  `recency × frequency × relevance` instead of similarity alone; recalled rows have
+  their `access_count` / `last_accessed` updated.
+- **`character/`** — `block.py` holds a `CharacterBlock` with immutable
+  `FixedTraits` (candor lives here) and editable `LearnedTraits`. `shaping.py` is a
+  prompt section (not a second model call) that shapes register and warmth.
+  A `character_update` tool may edit `learned` but hard-refuses any write to
+  `fixed`.
+- **`router/difficulty.py`** — a cheap `local-fast` classifier tagging each request
+  `{trivial|standard|hard|creative}`, feeding tier selection.
+- **`capability/probe.py`** — fixed micro-tasks scored against known-good answers,
+  producing a `CapabilityProfile` ({good|weak|poor} per operation) the compaction
+  and self-edit fallbacks read. Plumbed in Tier 1; surfaced on the System page in
+  Tier 2.
 
-- **`graph.py`** — LangGraph state machine, routing, streaming orchestration.
-- **`memory/`** — three-store memory (see ADR 0004): `sqlite.py`, `vector.py`, `graph.py`, with `manager.py` as the unified facade.
-- **`operating_layer.py`** — v0.1.1 shared models for capture, action intents,
-  risk, approvals, and event kinds.
-- **`config.py` / `models.py`** — runtime resolution and OpenAI-compatible model client construction for Ollama/Gemma and Gemini.
-- **`skills/`** — MCP client that discovers and connects to skill servers.
-- **`patterns.py` / `context_intelligence.py`** — chapter and pattern detection, injected into system prompts.
-- **`telemetry.py`** — structured event logging, stays local.
-
-The brain exposes `create_june_agent()`, which compiles the LangGraph agent. The API streams the compiled graph and translates LangGraph events into JSON/SSE frames.
+Shipped today: the LangGraph agent (`graph.py`), the three-store memory, the model
+config/clients, the MCP skills client, and pattern/context detection. These are
+migrated under the harness modules above as Tier 1 lands; nothing is removed before
+the experiment justifies it.
 
 ## The API
 
-`packages/api/` — Python, FastAPI.
+`packages/api/` — Python, FastAPI. The network boundary, deliberately thin: routes
+wrap the brain, handle HTTP and SSE, and nothing else.
 
-The API is the network boundary. It is deliberately thin: routes wrap the compiled LangGraph agent, handle HTTP and SSE concerns, and nothing else. Business logic belongs in the Brain.
+- **`POST /chat`** — stream an agent turn over SSE. Emits token, tool-call, memory,
+  and **provenance** events. The provenance event (`TurnProvenance`) reports tiers
+  used, whether a cloud call happened and what it sent, models, memories recalled,
+  skills called, and a one-line rationale.
+- **`GET /memory/{user_id}`**, **`POST`/`PATCH`/`DELETE` fact routes** — snapshot
+  and edit across the three stores via `MemoryManager`.
+- **`GET /skills`**, **toggle routes** — discovered skill servers and per-tool
+  toggles.
+- **`GET /system`** — provider status, Ollama health, memory paths; gains the
+  capability profile in Tier 2.
 
-Routes:
+Invariant: no cloud call without a provenance event; local-only mode blocks egress.
+All schemas are Pydantic models; `tools/codegen.sh` produces the TypeScript types
+under `packages/ui/src/api/types.ts`. The UI never defines its own API types.
 
-- **`POST /chat`** — stream an agent turn over SSE. Request: user ID, message. Response: token stream, tool call events, memory events.
-- **`GET /memory/{user_id}`** — snapshot across all three stores: structured rows, semantic facts, entities.
-- **`DELETE /memory/{user_id}/fact/{ref}`** — fact removal. The `ref` carries a source prefix (`semantic:`, `node:`, `edge:`) so the handler routes to the correct store through `MemoryManager.forget`.
-- **`GET /skills`** — discovered skill servers with their tool lists.
-- **`POST /skills/{key}/toggle`** — runtime skill toggling.
-- **`POST /skills/{key}/tools/{tool}/toggle`** — per-tool toggling inside a skill.
-- **`GET /system`** — model provider status, Ollama health, memory paths.
-- **`GET /obsidian/{user_id}`** — vault-shaped Markdown and Canvas export for memory, skills, and architecture inspection.
-
-Manual fact editing exists through `POST /memory/{user_id}/fact` and `PATCH /memory/{user_id}/fact/{ref}` for the supported structured fact kinds.
-
-All request and response schemas are defined as Pydantic models in `packages/api/src/june_api/schemas/`. A codegen step (`tools/codegen.sh`) produces TypeScript types under `packages/ui/src/api/types.ts`. The UI never defines its own API types.
+The legacy Obsidian/Canvas export endpoint is superseded by the native on-demand
+memory graph (D.6); it remains until the native graph lands.
 
 ## The UI
 
-`apps/web/` + `packages/ui/` — TypeScript, SvelteKit.
+`apps/web/` + `packages/ui/` — TypeScript, SvelteKit. The shared frontend; every
+shell serves the same build.
 
-The UI is the shared frontend. Every shell serves this same build.
-
-`packages/ui/` holds reusable components and stores:
-
-- **`components/`** — `ChatBubble`, `MessageList`, `Composer`, `MemoryCard`, `SkillToggle`, etc.
-- **`stores/`** — Svelte stores for the active conversation, memory index, user settings.
-- **`api/`** — typed client generated from the API's Pydantic schemas.
-
-`apps/web/` holds routes and app-specific layout:
-
-- `/` — current chat surface; becoming Daily Home in v0.1.1: quick capture, today, promises, open
-  loops, and next action.
-- `/memory` — memory browser and editor.
-- `/skills` — skill registry.
-- `/settings` — model provider, API keys, preferences.
-
-A small capability layer (`packages/ui/src/platform/`) exposes platform features (`notify`, `registerHotkey`, `pickFile`, Ollama supervision) with implementations that route to Tauri commands, Capacitor stubs, or web APIs depending on the runtime.
+- **`packages/ui/`** — reusable components (`ChatBubble`, `MessageList`,
+  `Composer`, `MemoryCard`, ...), stores, and the generated typed client.
+- **`apps/web/`** — routes: `/` (chat with the per-turn provenance chip and
+  cloud-boundary banner), `/memory` (browser + the native graph in Tier 2),
+  `/tasks`, `/skills`, `/settings`, `/system`.
+- **`packages/ui/src/platform/`** — a capability layer exposing `notify`,
+  `registerHotkey`, `pickFile`, and Ollama supervision, with Tauri, Capacitor, and
+  Web backends selected at load.
 
 ## The Shells
 
-Three thin shells wrap the UI:
+- **Web** — the SvelteKit PWA, installable via the browser. Shipped.
+- **`apps/desktop/`** — Tauri 2.x: Ollama supervision (ADR 0008), tray, global
+  hotkey, native notifications, autostart. Builds; produced the v0.1.0 DMG. Signing
+  and the Python sidecar remain open.
+- **`apps/mobile/`** — planned Capacitor shell, trigger-gated.
 
-- **Web** — the SvelteKit PWA served directly. Installable via the browser's native install flow. Shipped.
-- **`apps/desktop/`** — Tauri 2.x. Rust commands for Ollama process supervision
-  (see [ADR 0008](../decisions/0008-ollama-supervision.md)), system tray,
-  global hotkey (`Cmd+Shift+J`), native notifications, and autostart. It builds
-  and has produced the v0.1.0 Apple Silicon DMG; Developer ID signing and
-  notarization remain pending.
-- **`apps/mobile/`** — planned Capacitor shell. Trigger-gated; planned after the desktop shell ships.
-
-Shells do not contain business logic. If a shell needs to do something, there is a Tauri command or a Capacitor plugin, and the UI calls it through the capability layer (`packages/ui/src/platform/`). The capability layer has three runtime backends — Tauri, Capacitor, and Web — selected at module load via runtime detection.
-
-Across all three shells the same UI must look and behave correctly on every screen size and input method. Touch, tablet, and PWA-on-iOS specifics are covered in [responsive-plan.md](../product/responsive-plan.md).
+Shells contain no business logic; they expose capabilities the UI calls through the
+platform layer.
 
 ## The Skills
 
-`skills/` — one folder per skill, each a standalone MCP server.
-
-Each skill is a pip-installable Python package that exposes a Model Context Protocol server. The brain's skills loader discovers skills from a manifest file, spawns each server as a child process, and multiplexes tool calls over the MCP stdio transport.
-
-Bundled skills currently call the local `MemoryManager` from their subprocess. The supervisor injects `user_id` into tool calls so writes land in the active profile.
+`skills/` — one folder per skill, each a standalone MCP server (ADR 0005). The
+brain's supervisor discovers skills from a manifest, spawns each as a child
+process, and multiplexes tool calls over MCP stdio. A skill subprocess that
+re-imports the brain is a fork bomb; the supervisor sets `JUNE_IS_SKILL_SUBPROCESS=1`
+and `JUNE_SKILLS_DISABLED=1` in the child environment. Google services (Gmail,
+Calendar, Drive, Maps) arrive in Tier 2 as per-service skills: granted once,
+revocable, always visible, reads before writes.
 
 ## Data Flow: One Turn
 
@@ -122,53 +179,41 @@ Bundled skills currently call the local `MemoryManager` from their subprocess. T
 user types a message in apps/web
         │
         ▼
-SvelteKit composer → POST /chat (SSE) ──── @packages/api
+SvelteKit composer → POST /chat (SSE) ──────────── @packages/api
         │
         ▼
-api route streams compiled graph ───────── @packages/brain
-        │
-        ├──► MemoryManager.recall(message)
-        │        │
-        │        ├─► sqlite (structured facts)
-        │        ├─► chromadb (semantic recall)
-        │        └─► graph (entity relations)
-        │        │
-        │        ▼
-        │    top-K memories
+difficulty classifier (local-fast) → router picks a tier
         │
         ▼
-LangGraph builds prompt, calls ModelProvider
+assembler builds context (fixed 5-part order) ──── @packages/brain
+   1 system/persona  2 character  3 pinned state
+   4 recalled memory (salience-ranked)  5 recent raw turns
         │
         ▼
-Gemma 4 (Ollama) or Gemini API — streams tokens
+loop calls provider (Gemma 4 local, or Gemini if allowed)
+        │
+        ├──► tool call? → MCP skill process → observe → repeat
         │
         ▼
-Tokens stream back to SSE → SvelteKit renders
+near token threshold? → compact: summarize oldest turns,
+                        MERGE into pinned state, drop raw turns
         │
         ▼
-On tool call: brain's skill loader → MCP → skill process
-        │                                       │
-        │                                       ▼
-        │                             skill reads/writes memory
-        │                                       │
-        │                                       ▼
-        ◄── tool result ───────────────────────────
+tokens stream back over SSE → SvelteKit renders
         │
         ▼
-Model continues until done
+turn emits provenance (tiers, cloud y/n + payload summary,
+                        memories recalled, skills, rationale)
         │
         ▼
-Post-turn: MemoryManager.extract(conversation)
-        │
-        ├─► new structured facts → sqlite
-        ├─► new embeddings → chromadb
-        └─► new entities/edges → graph
+post-turn: MemoryManager.extract → sqlite / chromadb / graph
 ```
 
 ## Where User Data Lives
 
-- **Database and vector index:** `~/Library/Application Support/June/` on macOS, `~/.local/share/June/` on Linux, `%APPDATA%/June/` on Windows. On iOS, the app's sandboxed container.
-- **Logs and telemetry:** `~/Library/Logs/June/` on macOS.
-- **Config:** `~/Library/Application Support/June/config.json` plus OS credential storage for secrets when available.
-
-The repository never contains user data.
+All of June lives under the portable data directory (C.0). The default location
+resolves from config to an OS app-data path: `~/Library/Application Support/June/`
+on macOS, `~/.local/share/June/` on Linux, `%APPDATA%/June/` on Windows; on iOS the
+app's sandboxed container. Logs go to `~/Library/Logs/June/` on macOS. Secrets use
+OS credential storage (Keychain / Credential Manager / libsecret). The repository
+never contains user data.
