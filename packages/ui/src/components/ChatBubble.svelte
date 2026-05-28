@@ -27,7 +27,7 @@
      */
     onVote?: (ref: string, vote: "up" | "down" | "clear") => void | Promise<void>;
     /** Model provenance for this assistant turn. */
-    provenance?: { provider?: string; model?: string; tier?: string; latency_ms?: number };
+    provenance?: { provider?: string; model?: string; tier?: string; latency_ms?: number; cloud_call?: boolean; cloud_payload_summary?: string; memories_recalled?: number; skills_called?: string[]; rationale?: string };
   }
 
   const {
@@ -174,13 +174,28 @@
     </details>
   {/if}
   {#if hasProvenance}
-    <div class="provenance-chip">
-      <span class="provenance-tier">{provenance!.tier}</span>
-      <span class="provenance-sep">·</span>
-      <span class="provenance-model">{provenance!.model}</span>
-      {#if provenance!.latency_ms}
+    <div class="provenance-block">
+      <div class="provenance-chip">
+        {#if provenance!.cloud_call}
+          <span
+            class="provenance-cloud-badge"
+            title={provenance!.cloud_payload_summary ?? "Data sent to cloud"}
+          >Cloud</span>
+          <span class="provenance-sep">·</span>
+        {:else}
+          <span class="provenance-local-badge">Local</span>
+          <span class="provenance-sep">·</span>
+        {/if}
+        <span class="provenance-tier">{provenance!.tier}</span>
         <span class="provenance-sep">·</span>
-        <span class="provenance-latency">{provenance!.latency_ms}ms</span>
+        <span class="provenance-model">{provenance!.model}</span>
+        {#if provenance!.latency_ms}
+          <span class="provenance-sep">·</span>
+          <span class="provenance-latency">{provenance!.latency_ms}ms</span>
+        {/if}
+      </div>
+      {#if provenance!.rationale}
+        <div class="provenance-rationale">{provenance!.rationale}</div>
       {/if}
     </div>
   {/if}
@@ -412,11 +427,17 @@
     text-overflow: ellipsis;
   }
 
+  .provenance-block {
+    margin-top: var(--space-2);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25em;
+  }
+
   .provenance-chip {
     display: flex;
     align-items: center;
     gap: 0.3em;
-    margin-top: var(--space-2);
     font-family: var(--font-mono);
     font-size: var(--size-xs);
     color: var(--color-fg-subtle);
@@ -430,5 +451,35 @@
   .provenance-model,
   .provenance-latency {
     color: var(--color-fg-subtle);
+  }
+
+  .provenance-cloud-badge {
+    display: inline-block;
+    padding: 0 5px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    font-weight: 600;
+    color: var(--color-accent);
+    border: 1px solid var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+    cursor: default;
+  }
+
+  .provenance-local-badge {
+    display: inline-block;
+    padding: 0 5px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    color: var(--color-fg-subtle);
+    border: 1px solid var(--color-border);
+  }
+
+  .provenance-rationale {
+    font-size: var(--size-xs);
+    color: var(--color-fg-subtle);
+    font-family: var(--font-sans);
+    line-height: var(--leading-normal);
   }
 </style>

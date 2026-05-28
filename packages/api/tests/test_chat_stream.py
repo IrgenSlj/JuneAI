@@ -242,3 +242,68 @@ def test_chat_emits_error_frame_on_failure(client_with_agent):
     events = _parse_sse(response.text)
     assert [event["type"] for event in events] == ["token", "error"]
     assert "upstream exploded" in events[-1]["content"]
+
+
+def test_chat_emits_provenance_event_with_all_keys(client_with_agent):
+    """A provenance custom event must propagate all C.6 keys to the SSE frame."""
+    script = [
+        (
+            "custom",
+            {
+                "event": "provenance",
+                "provider": "gemma",
+                "model": "gemma4:e4b",
+                "tier": "gemma",
+                "latency_ms": 42,
+                "cloud_call": False,
+                "cloud_payload_summary": None,
+                "memories_recalled": 2,
+                "skills_called": [],
+                "rationale": "Answered on-device with gemma4:e4b; recalled 2 memories.",
+            },
+        ),
+        ("messages", (AIMessage(content="hi"), {})),
+    ]
+    client = client_with_agent(_FakeAgent(script))
+    response = client.post("/chat", json={"user_id": "u", "message": "hi"})
+    events = _parse_sse(response.text)
+    prov_events = [e for e in events if e["type"] == "provenance"]
+    assert len(prov_events) == 1
+    p = prov_events[0]["provenance"]
+    assert p["cloud_call"] is False
+    assert p["cloud_payload_summary"] is None
+    assert p["memories_recalled"] == 2
+    assert p["skills_called"] == []
+    assert p["rationale"] == "Answered on-device with gemma4:e4b; recalled 2 memories."
+
+
+def test_chat_provenance_cloud_call_true(client_with_agent):
+    """When cloud_call is True the provenance dict must carry the payload summary."""
+    script = [
+        (
+            "custom",
+            {
+                "event": "provenance",
+                "provider": "gemini",
+                "model": "gemini-2.0-flash",
+                "tier": "gemini",
+                "latency_ms": 300,
+                "cloud_call": True,
+                "cloud_payload_summary": "5 messages this turn",
+                "memories_recalled": 0,
+                "skills_called": ["log_mood"],
+                "rationale": "Used gemini-2.0-flash (cloud) for this turn — sent 5 messages this turn; recalled 0 memories.",
+            },
+        ),
+        ("messages", (AIMessage(content="done"), {})),
+    ]
+    client = client_with_agent(_FakeAgent(script))
+    response = client.post("/chat", json={"user_id": "u", "message": "hi"})
+    events = _parse_sse(response.text)
+    prov_events = [e for e in events if e["type"] == "provenance"]
+    assert len(prov_events) == 1
+    p = prov_events[0]["provenance"]
+    assert p["cloud_call"] is True
+    assert p["cloud_payload_summary"] == "5 messages this turn"
+    assert p["skills_called"] == ["log_mood"]
+    assert "cloud" in p["rationale"]

@@ -169,6 +169,11 @@ async def _iter_events(
                                 "model": chunk.get("model", ""),
                                 "tier": chunk.get("tier", ""),
                                 "latency_ms": chunk.get("latency_ms", 0),
+                                "cloud_call": chunk.get("cloud_call", False),
+                                "cloud_payload_summary": chunk.get("cloud_payload_summary"),
+                                "memories_recalled": chunk.get("memories_recalled", 0),
+                                "skills_called": chunk.get("skills_called", []),
+                                "rationale": chunk.get("rationale", ""),
                             },
                         )
                     )

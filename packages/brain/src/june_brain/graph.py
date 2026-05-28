@@ -609,15 +609,6 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
         _invoke_started_at = time.monotonic()
         raw_response = llm.invoke(messages)
         _invoke_latency_ms = max(0, int((time.monotonic() - _invoke_started_at) * 1000))
-        writer(
-            {
-                "event": "provenance",
-                "provider": runtime.preset_key,
-                "model": runtime.model,
-                "tier": runtime.preset_key,
-                "latency_ms": _invoke_latency_ms,
-            }
-        )
         if isinstance(getattr(raw_response, "content", None), str):
             raw_response.content = _strip_internal_thoughts(str(raw_response.content))
         # "native" and "balanced_reasoning" (Claude) both emit proper tool_calls —
@@ -626,11 +617,34 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
             response = raw_response
         else:
             response = _recover_tool_call(raw_response, _bound_tool_names)
-        if getattr(response, "tool_calls", None):
+        _skills_called: list[str] = [call["name"] for call in response.tool_calls] if getattr(response, "tool_calls", None) else []
+        _n_memories = len(recall_hits)
+        _cloud_payload_summary: str | None = None
+        if runtime.is_api:
+            _cloud_payload_summary = f"{len(messages)} messages this turn"
+        if runtime.is_api:
+            _rationale = f"Used {runtime.model} (cloud) for this turn — sent {_cloud_payload_summary}; recalled {_n_memories} {'memory' if _n_memories == 1 else 'memories'}."
+        else:
+            _rationale = f"Answered on-device with {runtime.model}; recalled {_n_memories} {'memory' if _n_memories == 1 else 'memories'}."
+        writer(
+            {
+                "event": "provenance",
+                "provider": runtime.preset_key,
+                "model": runtime.model,
+                "tier": runtime.preset_key,
+                "latency_ms": _invoke_latency_ms,
+                "cloud_call": runtime.is_api,
+                "cloud_payload_summary": _cloud_payload_summary,
+                "memories_recalled": _n_memories,
+                "skills_called": _skills_called,
+                "rationale": _rationale,
+            }
+        )
+        if _skills_called:
             writer(
                 {
                     "event": "tool_calls_requested",
-                    "tools": [call["name"] for call in response.tool_calls],
+                    "tools": _skills_called,
                 }
             )
         else:

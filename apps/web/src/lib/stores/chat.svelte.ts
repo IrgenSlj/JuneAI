@@ -38,8 +38,9 @@ function attachRecallHits(id: string, hits: ChatEvent["recall_hits"]) {
 }
 
 function attachProvenance(id: string, provenance: ChatEvent["provenance"]) {
+  const p = provenance as ChatMessage["provenance"];
   chat.messages = chat.messages.map((m) =>
-    m.id === id ? { ...m, provenance: provenance ?? undefined } : m,
+    m.id === id ? { ...m, provenance: p ?? undefined } : m,
   );
 }
 
