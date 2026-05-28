@@ -792,7 +792,7 @@ def run_agent_sync(prompt: str, user_id: str) -> str:
     from langchain_core.messages import HumanMessage, SystemMessage
 
     from june_brain.memory import Memory
-    from june_brain.prompts import build_system_prompt
+    from june_brain.skills.prompts import build_system_prompt
 
     agent = get_or_create_agent()
     if agent is None:
