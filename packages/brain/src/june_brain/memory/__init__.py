@@ -13,7 +13,7 @@ because a lot of legacy brain code speaks directly to SQLite tables.
 
 from __future__ import annotations
 
-from ..config import MEMORY_DIR  # re-exported so tests can patch it here
+from ..config import MEMORY_DIR  # re-exported so tests can patch the data root here
 from .graph import KnowledgeGraph
 from .manager import MemoryManager
 from .sqlite import Memory, db_path

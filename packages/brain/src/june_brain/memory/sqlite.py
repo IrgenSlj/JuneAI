@@ -1,6 +1,7 @@
 """JuneAI memory system — SQLite backend.
 
-Single june.db per MEMORY_DIR. user_id is a column in every table.
+Single june.db per data-directory memory folder. user_id is a column in every
+table.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from uuid import uuid4
 
+from ..config import MEMORY_DIR as _IMPORTED_MEMORY_DIR
 from .daos import (
     CalendarDAO,
     ChatDAO,
@@ -28,19 +30,95 @@ from .daos import (
 )
 from .migration import ensure_schema
 
+_LEGACY_JSON_SUFFIXES = (
+    "chat",
+    "moods",
+    "journal",
+    "relationships",
+    "goals",
+    "open_loops",
+    "preferences",
+    "calendar",
+    "favorites",
+    "gym_plans",
+    "food_programs",
+    "workout_sessions",
+    "body_metrics",
+    "habits",
+    "nutrition_logs",
+    "water_logs",
+    "telemetry",
+    "app_state",
+)
+
+
+def _memory_package_dir_override() -> str | None:
+    """Return the test/legacy package-level override, if one is active."""
+    from . import MEMORY_DIR  # re-read package attribute each call
+
+    memory_dir = str(MEMORY_DIR)
+    if memory_dir != str(_IMPORTED_MEMORY_DIR):
+        return memory_dir
+    return None
+
+
+def _current_data_dir() -> Path:
+    override = _memory_package_dir_override()
+    if override is not None:
+        return Path(override).expanduser()
+
+    import june_brain.config as _cfg  # noqa: PLC0415
+
+    return Path(_cfg.MEMORY_DIR).expanduser()
+
+
+def _canonical_memory_dir() -> Path:
+    override = _memory_package_dir_override()
+    if override is not None:
+        return Path(override).expanduser() / "memory"
+
+    from ..datadir.layout import memory_dir  # noqa: PLC0415
+
+    return memory_dir().expanduser()
+
+
+def _memory_store_exists(path: Path) -> bool:
+    return any(
+        (path / name).exists()
+        for name in ("june.db", "june.db-wal", "june.db-shm", "chroma")
+    )
+
+
+def _legacy_json_exists(path: Path) -> bool:
+    return any(path.glob(f"*_{suffix}.json") for suffix in _LEGACY_JSON_SUFFIXES)
+
 
 def _current_memory_dir() -> str:
-    """Resolve MEMORY_DIR lazily so tests that patch june_brain.memory.MEMORY_DIR win."""
-    from . import MEMORY_DIR  # re-read package attribute each call
-    return MEMORY_DIR
+    """Resolve the directory containing persisted memory stores.
+
+    New data dirs use ``june_brain.datadir.layout.memory_dir()``. If an
+    existing install still has root-level memory artifacts and no canonical
+    ``memory/`` artifacts, keep using the legacy root so upgrades remain
+    non-destructive. Tests that patch ``june_brain.memory.MEMORY_DIR`` still
+    get an isolated data root.
+    """
+    data_root = _current_data_dir()
+    canonical = _canonical_memory_dir()
+    if (
+        canonical != data_root
+        and not _memory_store_exists(canonical)
+        and (_memory_store_exists(data_root) or _legacy_json_exists(data_root))
+    ):
+        return str(data_root)
+    return str(canonical)
 
 
 def db_path() -> str:
     """Absolute path to the shared june.db.
 
-    ``MEMORY_DIR`` is a ``str``, so callers must not do ``MEMORY_DIR / "june.db"``
-    (that raises ``TypeError``). This is the one correct construction; use it
-    instead of rebuilding the path by hand.
+    This is the one correct construction; use it instead of rebuilding the path
+    by hand so callers get the canonical ``<data>/memory`` location and the
+    legacy root-level fallback.
     """
     return str(Path(_current_memory_dir()) / "june.db")
 
@@ -59,8 +137,8 @@ def _get_connection(db_path: str) -> sqlite3.Connection:
         _local.conns = {}
         conns = _local.conns
     if db_path not in conns:
-        # Ensure the data directory exists — on a fresh install MEMORY_DIR may
-        # not have been created yet, and sqlite won't make the parent dir.
+        # Ensure the memory directory exists — on a fresh install it may not
+        # have been created yet, and sqlite won't make the parent dir.
         if db_path != ":memory:":
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(db_path, check_same_thread=False)
@@ -384,11 +462,10 @@ class Memory:
 
     def __init__(self, user_id: str):
         self.user_id = user_id
-        db_dir = Path(_current_memory_dir())
-        db_dir.mkdir(parents=True, exist_ok=True)
-        self._db_path = str(db_dir / "june.db")
+        self._db_path = db_path()
         conn = _get_connection(self._db_path)
         _init_schema(conn)
+        db_dir = Path(self._db_path).parent
         self._migrate_from_json(db_dir)
         # DAO layer — new code should prefer these over Memory methods
         self._chat_dao = ChatDAO(conn, user_id)

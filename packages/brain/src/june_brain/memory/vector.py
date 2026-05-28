@@ -1,7 +1,7 @@
 """Semantic memory — ChromaDB with a local sentence-transformer embedder.
 
 ChromaDB runs in embedded mode (no server process) and persists to
-``MEMORY_DIR/chroma``. Embeddings are generated locally with
+``<data>/memory/chroma``. Embeddings are generated locally with
 ``all-MiniLM-L6-v2`` (≈90 MB, downloaded once and cached). The model
 loads lazily so startup stays fast — first recall/extract pays the
 model-load cost; subsequent operations don't.
@@ -25,7 +25,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
-from .sqlite import _current_memory_dir, _get_connection
+from .sqlite import _current_memory_dir, _get_connection, db_path
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ _embedding_function: Any = None
 
 
 def _db_path() -> str:
-    return str(Path(_current_memory_dir()) / "june.db")
+    return db_path()
 
 
 def _chroma_dir() -> Path:

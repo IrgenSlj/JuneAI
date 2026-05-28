@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -16,6 +17,8 @@ from june_brain.memory import (
     vector as vector_module,
 )
 from june_brain.memory.manager import _parse_json_block
+from june_brain.providers import reset_cloud_call_recorder, set_cloud_call_recorder
+from june_brain.providers.registry import ProviderRegistry
 
 # Reuse the stub embedder from test_vector_store so both test files
 # exercise the same deterministic behavior.
@@ -40,6 +43,42 @@ def manager(memory_dir):
         graph=KnowledgeGraph(user_id),
         sqlite=Memory(user_id),
     )
+
+
+class _FakeLocalExtractor:
+    model_id = "gemma4:e2b"
+    tier = "local-fast"
+
+    def __init__(
+        self,
+        text: str,
+        *,
+        reachable: bool = True,
+        loaded: bool = True,
+        detail: str = "",
+    ) -> None:
+        self.text = text
+        self.reachable = reachable
+        self.loaded = loaded
+        self.detail = detail
+        self.requests = []
+
+    async def health(self):
+        return SimpleNamespace(
+            reachable=self.reachable,
+            loaded=self.loaded,
+            detail=self.detail,
+        )
+
+    async def generate(self, req):
+        self.requests.append(req)
+        return SimpleNamespace(text=self.text)
+
+
+def _registry_with(role: str, provider) -> ProviderRegistry:
+    registry = ProviderRegistry(toml_data={"roles": {}, "providers": {}})
+    registry.register(role, provider)
+    return registry
 
 
 def test_recall_returns_vector_hits(manager):
@@ -120,6 +159,61 @@ def test_extract_handles_broken_json(manager):
 def test_extract_skips_when_exchange_empty(manager):
     result = manager.extract({"user": "", "assistant": ""}, llm_call=lambda _: "{}")
     assert result == {"facts": 0, "entities": 0, "relations": 0}
+
+
+def test_default_extract_uses_local_provider_when_runtime_is_gemini(manager, monkeypatch):
+    provider = _FakeLocalExtractor(
+        json.dumps({"facts": ["User prefers tea"], "entities": [], "relations": []})
+    )
+    registry = _registry_with("local-fast", provider)
+    monkeypatch.setenv("MODEL_PROVIDER", "gemini")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr("june_brain.providers.registry.get_registry", lambda: registry)
+
+    cloud_events = []
+    set_cloud_call_recorder(cloud_events.append)
+    try:
+        with patch(
+            "june_brain.models.build_chat_model",
+            side_effect=AssertionError("default extractor must not build chat model"),
+        ) as build_chat_model:
+            result = manager.extract(
+                {"user": "I prefer tea.", "assistant": "I'll remember that."}
+            )
+    finally:
+        reset_cloud_call_recorder()
+
+    assert result == {"facts": 1, "entities": 0, "relations": 0}
+    assert build_chat_model.call_count == 0
+    assert cloud_events == []
+    assert len(provider.requests) == 1
+    assert provider.requests[0].response_format == "json"
+
+
+def test_default_extract_skips_when_local_extractor_unavailable(manager, monkeypatch):
+    provider = _FakeLocalExtractor("{}", reachable=False, detail="ollama down")
+    registry = _registry_with("local-fast", provider)
+    monkeypatch.setenv("MODEL_PROVIDER", "gemini")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr("june_brain.providers.registry.get_registry", lambda: registry)
+
+    with patch(
+        "june_brain.models.build_chat_model",
+        side_effect=AssertionError("default extractor must not fall back to cloud"),
+    ) as build_chat_model:
+        result = manager.extract(
+            {"user": "Please remember this.", "assistant": "Done."}
+        )
+
+    assert {k: result[k] for k in ("facts", "entities", "relations")} == {
+        "facts": 0,
+        "entities": 0,
+        "relations": 0,
+    }
+    assert "Local memory extractor unavailable" in result["error"]
+    assert "ollama down" in result["error"]
+    assert provider.requests == []
+    assert build_chat_model.call_count == 0
 
 
 def test_two_turn_recall_surfaces_extracted_fact(manager):

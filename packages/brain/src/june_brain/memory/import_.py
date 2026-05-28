@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from .export import _USER_TABLES
-from .sqlite import _current_memory_dir, _get_connection
+from .sqlite import _get_connection, db_path
 
 _IMPORT_SKIP_TABLES = frozenset({
     "chat_messages", "_schema_migrations",
@@ -33,10 +33,8 @@ def import_memory(input_path: str | Path, user_id: str) -> dict[str, int]:
     if archive.get("version") != 1:
         raise ValueError(f"Unsupported archive version: {archive.get('version')}")
 
-    db_dir = Path(_current_memory_dir())
-    db_dir.mkdir(parents=True, exist_ok=True)
-    db_path = str(db_dir / "june.db")
-    conn = _get_connection(db_path)
+    sqlite_path = db_path()
+    conn = _get_connection(sqlite_path)
 
     # Ensure all tables exist before importing
     from .sqlite import _SCHEMA_SQL as schema_sql

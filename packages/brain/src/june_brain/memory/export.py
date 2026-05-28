@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .sqlite import _current_memory_dir, _get_connection
+from .sqlite import _get_connection, db_path
 
 # Tables whose rows are tied to a user_id and should be filtered on export.
 _USER_TABLES = frozenset({
@@ -63,15 +63,14 @@ def export_memory(user_id: str, output_path: str | Path | None = None) -> dict[s
     If ``output_path`` is provided, writes JSON and returns the dict.
     Otherwise returns the dict in memory.
     """
-    db_dir = Path(_current_memory_dir())
-    db_path = str(db_dir / "june.db")
+    sqlite_path = db_path()
 
     archive: dict[str, Any] = {
         "version": 1,
         "exported_at": datetime.now(UTC).isoformat(),
         "user_id": user_id,
         "stores": {
-            "sqlite": _export_sqlite(db_path, user_id),
+            "sqlite": _export_sqlite(sqlite_path, user_id),
         },
     }
 

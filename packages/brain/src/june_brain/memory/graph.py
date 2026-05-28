@@ -18,7 +18,7 @@ import re
 from datetime import datetime
 from typing import Any
 
-from .sqlite import _current_memory_dir, _get_connection
+from .sqlite import _get_connection, db_path
 
 
 def _slug(value: str) -> str:
@@ -32,8 +32,7 @@ def _now() -> str:
 
 
 def _db_path() -> str:
-    from pathlib import Path
-    return str(Path(_current_memory_dir()) / "june.db")
+    return db_path()
 
 
 class KnowledgeGraph:

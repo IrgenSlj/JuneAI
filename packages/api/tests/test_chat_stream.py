@@ -16,7 +16,14 @@ import pytest
 from fastapi.testclient import TestClient
 from june_api.app import create_app
 from june_api.routes.chat import get_agent
+from june_brain.loop.interface import (
+    SessionState,
+    TokenAccounting,
+    TurnProvenance,
+    TurnResult,
+)
 from june_brain.memory import vector as vector_module
+from june_brain.providers.base import Message
 from langchain_core.messages import AIMessage, ToolMessage
 
 
@@ -33,6 +40,24 @@ class _FakeAgent:
         self.states.append(state)
         for item in self._script:
             yield item
+
+
+class _FakeHarnessLoop:
+    def __init__(
+        self,
+        result: TurnResult | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.result = result
+        self.error = error
+        self.calls: list[tuple[SessionState, Message]] = []
+
+    async def run_turn(self, session: SessionState, user_msg: Message) -> TurnResult:
+        self.calls.append((session, user_msg))
+        if self.error is not None:
+            raise self.error
+        assert self.result is not None
+        return self.result
 
 
 def _parse_sse(body: str) -> list[dict]:
@@ -61,6 +86,103 @@ def client_with_agent(tmp_path):
 
         yield _install
         vector_module.reset_singletons()
+
+
+def test_chat_uses_existing_langgraph_stream_by_default(client_with_agent, monkeypatch):
+    monkeypatch.delenv("JUNE_CHAT_USE_HARNESS", raising=False)
+
+    def _unexpected_harness(_agent: Any):
+        raise AssertionError("harness path should not run by default")
+
+    monkeypatch.setattr("june_api.routes.chat.get_harness_loop", _unexpected_harness)
+
+    agent = _FakeAgent(
+        [
+            ("messages", (AIMessage(content="Hello "), {})),
+            ("messages", (AIMessage(content="there."), {})),
+        ]
+    )
+    client = client_with_agent(agent)
+    response = client.post("/chat", json={"user_id": "u", "message": "hi"})
+
+    assert response.status_code == 200
+    events = _parse_sse(response.text)
+    assert [event["type"] for event in events] == ["token", "token", "done"]
+    assert [event["content"] for event in events[:2]] == ["Hello ", "there."]
+    assert len(agent.states) == 1
+
+
+def test_chat_harness_opt_in_emits_token_provenance_and_done(
+    client_with_agent, monkeypatch
+):
+    monkeypatch.setenv("JUNE_CHAT_USE_HARNESS", "1")
+    result = TurnResult(
+        assistant_msg=Message(role="assistant", content="Harness reply."),
+        tool_calls=[],
+        provenance=TurnProvenance(
+            tiers_used=["local-fast"],
+            cloud_call=False,
+            model_ids=["mock-local"],
+            memories_recalled=2,
+            skills_called=["lookup"],
+            rationale="Handled by test harness.",
+        ),
+        tokens=TokenAccounting(input_tokens=7, output_tokens=3),
+        compacted=False,
+    )
+    loop = _FakeHarnessLoop(result=result)
+    agent = _FakeAgent([])
+
+    def _harness_loop(agent_arg: Any):
+        assert agent_arg is agent
+        return loop
+
+    monkeypatch.setattr("june_api.routes.chat.get_harness_loop", _harness_loop)
+
+    client = client_with_agent(agent)
+    response = client.post("/chat", json={"user_id": "u", "message": "hi"})
+
+    assert response.status_code == 200
+    events = _parse_sse(response.text)
+    assert [event["type"] for event in events] == ["token", "provenance", "done"]
+    assert events[0]["content"] == "Harness reply."
+
+    provenance = events[1]["provenance"]
+    assert provenance["provider"] == "local"
+    assert provenance["model"] == "mock-local"
+    assert provenance["model_ids"] == ["mock-local"]
+    assert provenance["tier"] == "local-fast"
+    assert provenance["tiers_used"] == ["local-fast"]
+    assert provenance["cloud_call"] is False
+    assert provenance["memories_recalled"] == 2
+    assert provenance["skills_called"] == ["lookup"]
+    assert provenance["input_tokens"] == 7
+    assert provenance["output_tokens"] == 3
+
+    assert agent.states == []
+    assert len(loop.calls) == 1
+    session, user_msg = loop.calls[0]
+    assert session.user_id == "u"
+    assert session.skill == "assistant"
+    assert session.messages == []
+    assert user_msg == Message(role="user", content="hi")
+
+
+def test_chat_harness_opt_in_emits_error_on_failure(client_with_agent, monkeypatch):
+    monkeypatch.setenv("JUNE_CHAT_USE_HARNESS", "1")
+    loop = _FakeHarnessLoop(error=RuntimeError("harness exploded"))
+    agent = _FakeAgent([])
+    monkeypatch.setattr("june_api.routes.chat.get_harness_loop", lambda _agent: loop)
+
+    client = client_with_agent(agent)
+    response = client.post("/chat", json={"user_id": "u", "message": "hi"})
+
+    assert response.status_code == 200
+    events = _parse_sse(response.text)
+    assert [event["type"] for event in events] == ["error"]
+    assert "harness exploded" in events[0]["content"]
+    assert agent.states == []
+    assert len(loop.calls) == 1
 
 
 def test_chat_streams_tokens_tool_calls_and_done(client_with_agent):

@@ -17,10 +17,9 @@ import json
 import threading
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
-from .memory.sqlite import _current_memory_dir, _get_connection
+from .memory.sqlite import _get_connection, db_path
 
 _MAX_ROWS = 1000
 _SCHEMA_SQL = """
@@ -83,9 +82,7 @@ class ActivityLog:
         with cls._lock:
             if cls._instance is None:
                 instance = super().__new__(cls)
-                db_dir = Path(_current_memory_dir())
-                db_dir.mkdir(parents=True, exist_ok=True)
-                instance._db_path = str(db_dir / "june.db")
+                instance._db_path = db_path()
                 conn = _get_connection(instance._db_path)
                 conn.executescript(_SCHEMA_SQL)
                 conn.commit()

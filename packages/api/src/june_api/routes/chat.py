@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import AsyncIterator, Iterable
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from june_brain import graph as brain_graph
+from june_brain.loop.interface import HarnessLoop, SessionState, TurnResult
 from june_brain.memory import Memory, MemoryManager
+from june_brain.providers.base import Message
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from starlette.background import BackgroundTask
 
@@ -26,6 +29,8 @@ def get_agent() -> Any:
     ``app.dependency_overrides[get_agent] = ...`` without touching
     process-global state.
     """
+    if _chat_use_harness():
+        return None
     try:
         return brain_graph.get_or_create_agent()
     except Exception as exc:  # noqa: BLE001
@@ -33,6 +38,27 @@ def get_agent() -> Any:
             status_code=503,
             detail=f"June agent failed to start: {brain_graph.startup_error or exc}",
         ) from exc
+
+
+def get_harness_loop(agent: Any | None = None) -> HarnessLoop:
+    """Resolve the live-chat HarnessLoop implementation.
+
+    Live chat explicitly uses the LangGraph-backed harness path for now. The
+    handwritten engine remains experiment-only until it has streaming/tool
+    parity with the existing chat route.
+    """
+    from june_brain.loop.langgraph_loop import LangGraphLoop
+
+    return LangGraphLoop(agent=agent)
+
+
+def _chat_use_harness() -> bool:
+    return os.getenv("JUNE_CHAT_USE_HARNESS", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 def _event_to_sse(event: ChatEvent) -> str:
@@ -107,6 +133,88 @@ def _messages_for_turn(user_id: str, user_text: str) -> list[Any]:
     except Exception:
         logger.exception("chat history load failed for user=%s", user_id)
         return [HumanMessage(content=user_text)]
+
+
+def _message_content_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(
+            item.get("text", "") if isinstance(item, dict) else str(item)
+            for item in content
+        )
+    return str(content)
+
+
+def _provider_message(message: Any) -> Message | None:
+    message_type = str(getattr(message, "type", "") or "")
+    raw_role = str(getattr(message, "role", "") or "")
+    role = {
+        "human": "user",
+        "ai": "assistant",
+        "system": "system",
+        "tool": "tool",
+    }.get(message_type, raw_role)
+    if role not in {"system", "user", "assistant", "tool"}:
+        return None
+    return Message(
+        role=role,
+        content=_message_content_text(getattr(message, "content", "")),
+    )
+
+
+def _harness_turn_inputs(request: ChatRequest) -> tuple[SessionState, Message]:
+    history = [
+        msg
+        for raw in _messages_for_turn(request.user_id, request.message)
+        if (msg := _provider_message(raw)) is not None
+    ]
+    if (
+        history
+        and history[-1].role == "user"
+        and history[-1].content == request.message
+    ):
+        history = history[:-1]
+    return (
+        SessionState(
+            user_id=request.user_id,
+            messages=history,
+            skill=request.skill,
+        ),
+        Message(role="user", content=request.message),
+    )
+
+
+def _turn_result_provenance(result: TurnResult) -> dict[str, Any]:
+    provenance = result.provenance
+    tiers = list(provenance.tiers_used)
+    models = list(provenance.model_ids)
+    return {
+        "provider": "cloud" if provenance.cloud_call else "local",
+        "model": models[0] if models else "",
+        "model_ids": models,
+        "tier": tiers[0] if tiers else "",
+        "tiers_used": tiers,
+        "latency_ms": 0,
+        "cloud_call": provenance.cloud_call,
+        "cloud_payload_summary": None,
+        "memories_recalled": provenance.memories_recalled,
+        "skills_called": provenance.skills_called,
+        "rationale": provenance.rationale,
+        "input_tokens": result.tokens.input_tokens,
+        "output_tokens": result.tokens.output_tokens,
+        "compacted": result.compacted,
+    }
+
+
+def _turn_result_events(result: TurnResult) -> Iterable[ChatEvent]:
+    content = result.assistant_msg.content
+    if content:
+        yield ChatEvent(type="token", content=content)
+    for call in result.tool_calls:
+        yield ChatEvent(type="tool_call", tool_name=call.name, tool_args=call.args)
+    yield ChatEvent(type="provenance", provenance=_turn_result_provenance(result))
+    yield ChatEvent(type="done")
 
 
 async def _iter_events(
@@ -184,6 +292,24 @@ async def _iter_events(
         yield _event_to_sse(ChatEvent(type="error", content=str(exc)))
 
 
+async def _iter_harness_events(
+    agent: Any,
+    request: ChatRequest,
+    assistant_buffer: list[str],
+) -> AsyncIterator[str]:
+    try:
+        loop = get_harness_loop(agent)
+        session, user_msg = _harness_turn_inputs(request)
+        result = await loop.run_turn(session, user_msg)
+        for event in _turn_result_events(result):
+            if event.type == "token" and event.content:
+                assistant_buffer.append(event.content)
+            yield _event_to_sse(event)
+    except Exception as exc:
+        logger.exception("harness chat stream failed for user=%s", request.user_id)
+        yield _event_to_sse(ChatEvent(type="error", content=str(exc)))
+
+
 def _run_post_chat(user_id: str, user_text: str, assistant_buffer: list[str]) -> None:
     """Post-stream background task: persist the answer and extract memory.
 
@@ -222,8 +348,13 @@ async def chat(
 ) -> StreamingResponse:
     """Stream June's reply as SSE. Each frame is a JSON-encoded ChatEvent."""
     assistant_buffer: list[str] = []
+    stream = (
+        _iter_harness_events(agent, request, assistant_buffer)
+        if _chat_use_harness()
+        else _iter_events(agent, request, assistant_buffer)
+    )
     return StreamingResponse(
-        _iter_events(agent, request, assistant_buffer),
+        stream,
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

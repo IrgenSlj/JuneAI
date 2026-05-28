@@ -11,10 +11,9 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
-from ..memory.sqlite import _current_memory_dir, _get_connection
+from ..memory.sqlite import _get_connection, db_path
 from .migration import ensure_tasks_migration
 from .models import Task, TaskStatus, TaskStep, TaskStepStatus
 
@@ -54,9 +53,7 @@ class TasksStore:
 
     def __init__(self, user_id: str = "default") -> None:
         self.user_id = user_id
-        db_dir = Path(_current_memory_dir())
-        db_dir.mkdir(parents=True, exist_ok=True)
-        self._db_path = str(db_dir / "june.db")
+        self._db_path = db_path()
         conn = _get_connection(self._db_path)
         conn.executescript(_SCHEMA_SQL)
         ensure_tasks_migration(conn)

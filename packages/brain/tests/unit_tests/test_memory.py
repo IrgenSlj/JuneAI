@@ -57,8 +57,8 @@ def test_memory_creates_nested_directories(tmp_path):
         memory = Memory("test_user")
         memory.save_message("user", "hello")
 
-    assert nested_dir.exists()
-    assert (nested_dir / "june.db").exists()
+    assert (nested_dir / "memory").exists()
+    assert (nested_dir / "memory" / "june.db").exists()
 
 
 def test_chat_history_capped_at_50(mem):
