@@ -1,205 +1,128 @@
 # Product Roadmap
 
 This is the detailed product roadmap. The short public summary lives at
-[`../../ROADMAP.md`](../../ROADMAP.md).
+[`../../ROADMAP.md`](../../ROADMAP.md). The authoritative, decision-by-decision
+build document is [`build-spec.md`](build-spec.md) — this roadmap sequences it and
+tracks status; where the two differ, the build spec wins.
 
 ## Direction
 
-June is becoming a local-first personal operating layer:
+June is a personal assistant whose center of gravity is the user, not the task.
+She remembers what matters, forgets what doesn't, tells the truth, knows when to
+stay quiet, and never does anything the user can't see.
 
-- capture natural input
-- classify it into useful categories
-- propose safe actions
-- ask approval when risk requires it
-- commit to memory, tasks, schedules, notifications, or skills
-- record the event
-- bring it back in daily use
+The UI should feel simple. The system should be technically rigorous, local-first,
+and visibly private. June is tuned for a known model roster (Gemma 4 + Gemini),
+not abstracted to be model-agnostic.
 
-The UI should feel simple. The system should be technically rigorous.
+This supersedes the earlier "personal operating layer / Quick Capture / Daily
+Home" framing (ADR 0013, ADR 0014, the agentic-pivot plan, the v0.1.1
+scheduled-development plan), which are retained as historical context only.
 
 ## Current Shipped Surface
 
 ### Web PWA
 
-The PWA remains the primary shared UI surface. It exposes chat, memory, tasks,
-skills, system activity, settings, and setup. It is installable through browser
-PWA support.
+The PWA remains the primary shared UI surface: chat, memory, tasks, skills,
+system activity, settings, and setup. Installable via browser PWA support.
 
 ### Desktop Shell
 
-The Tauri desktop shell now builds and has produced the v0.1.0 Apple Silicon
-DMG. It adds native process and OS capabilities that the browser cannot provide:
+The Tauri desktop shell builds and produced the v0.1.0 Apple Silicon DMG. It adds
+native capabilities the browser cannot: Ollama supervision, native notifications,
+system tray, global hotkey, autostart. The current public DMG is ad-hoc signed and
+not notarized; signed distribution is deferred until external users justify the
+Apple Developer Program cost. The desktop Python sidecar (so the `.app` runs a
+brain without a separately-started process) remains open.
 
-- Ollama supervision
-- native notifications
-- system tray
-- global hotkey
-- autostart
-- future background work and local file/app capabilities
+### Brain, memory, skills
 
-The current public DMG is ad-hoc signed and not notarized. Signed distribution
-is deferred until external users justify the Apple Developer Program cost and
-release-process work.
+LangGraph agent with SSE streaming and per-message provenance; three-store memory
+(SQLite + ChromaDB + graph) behind one `MemoryManager`; MCP skill supervisor with
+bundled skills; scheduler and notification bus.
 
-## Active Release: v0.1.1
+## Active Track — Tier 1: The Spine
 
-Theme: **Quick Capture + Daily Home + Durable Intent Ledger**
+Theme: **remember what matters, hold the thread, one honest voice, a visible cloud
+boundary — running on local Gemma 4.**
 
-Primary references:
+Build in order. Do not start Tier 2 until Tier 1 ships and has been *used*. Each
+operation that depends on model judgment ships with its fallback in the same PR.
 
-- [ADR 0014 — Personal Operating Layer](../decisions/0014-personal-operating-layer.md)
-- [v0.1.1 Scheduled Development Plan](../plans/v0.1.1-scheduled-development.md)
-- [Personal Operating Layer Research](personal-operating-layer-research.md)
+| Task | What it adds | Done when |
+|---|---|---|
+| **C.0** Portable data dir + manifest | One documented, versioned folder that *is* June | Round-trip (copy folder → reload → state intact); version mismatch migrates, never crashes; all paths resolve through `layout.py` |
+| **C.1** Model-specific provider layer | Gemma 4 + Gemini behind roles; clean seam for a third | All model access goes through a provider; role→model resolution is config-driven; no cloud call without provenance |
+| **C.2** Loop behind interface + CLEAR | Hand-written loop measured against LangGraph | Same suite passes on both engines; results in `docs/experiments/loop-clear.md`; default = winner; LangGraph not yet removed |
+| **C.3** Layered context + pinned state | Fixed assembly order; anchored compaction | Context never exceeds budget; pinned goal/commitments survive a 100-turn session; compaction merges, never blanks |
+| **C.4** Salience-scored recall | `recency × frequency × relevance` | A relevant-but-older memory outranks a similar-but-newer-irrelevant one; access bookkeeping updates on recall; weights config-driven |
+| **C.5** Honest character block | Self-authored persona, honesty immutable | Block persists/reloads; `character_update` cannot mutate `fixed`; sycophancy-drift check holds |
+| **C.6** Visible cloud boundary + trace | Provenance every turn; difficulty classifier | Cloud call ⇒ provenance `cloud=true`; local-only blocks egress (asserted); a one-line rationale every turn |
 
-### P0 — Repo Truth And Planning
+**Capability probe (D17)** is plumbed in Tier 1 (`capability/probe.py`) because
+the C.3 and C.5 fallbacks read it; its System-page display is Tier 2 (D.7).
 
-Align docs and codebase vocabulary around the new direction.
+**Tier 1 definition of done (the observable demo):** a user chats with June on
+local Gemma 4; June recalls a relevant older fact over a merely-similar recent one
+(C.4); a long conversation compacts mid-session without losing the user's stated
+goal (C.3); June answers in a consistent voice that will gently disagree when
+warranted (C.5); and nothing reaches the cloud without a visible provenance line,
+with local-only mode provably blocking egress (C.6).
 
-Done when:
+### Suggested first session
 
-- README, roadmap, docs index, desktop setup, and release docs are current.
-- Python version references are accurate.
-- Old plans are clearly historical or backlog.
+1. C.0 fully (the foundation everything writes into).
+2. C.1 fully (provider layer with tests).
+3. C.2 scaffold (interface + hand-written loop + CLEAR harness; keep LangGraph).
 
-### P1 — Shared Operating-Layer Models
+## Next Track — Tier 2: Differentiators
 
-Add shared primitives for the rest of the release:
+Trigger: Tier 1 is complete and has been used in real dogfooding. Build simple,
+observe, refine; do not over-specify the perfect rule in the abstract.
 
-- capture items
-- capture kinds
-- action intents
-- action risk
-- approval status
-- event kinds
+- **D.1** Temporal context layer — passive time-awareness folded into the
+  assembler; no process, no timer.
+- **D.2** Event-driven + deferred proactivity + OS-notification scheduler — June
+  never cold-starts a session; real-world events may wake her, the clock never
+  does; hard deadlines become pre-written OS notifications.
+- **D.3** Self-monitor + idle housekeeping + reference-context diffing — hygiene
+  (dedup/re-index/decay) when truly idle; idle inference forbidden.
+- **D.4** Conservative, reversible forgetting — relevance + decay budget biased
+  hard toward retention; reversible and visible in the memory browser.
+- **D.5** Durable task ledger built around continuity — append-only log; tasks
+  reconstructable after crash; modeled as promises, not terminating TODOs.
+- **D.6** Native memory graph — custom HTML5 canvas + ~40-line force simulation,
+  opened on demand in the Memory page; no graph library.
+- **D.7** System page — self-monitor + capability profile in plain language;
+  on-demand and calm, not an always-pulsing dashboard.
+- **D.8** Privacy Mode 2 — client-side-encrypted backup of the whole data dir;
+  OS keychain day-to-day, passphrase only when moving machines; vetted crypto.
+- **D.9** Privacy Mode 3 — Google (Gmail/Calendar/Drive/Maps) as per-service MCP
+  skills; granted once, revocable anytime, always visible; reads first, writes
+  per-action.
 
-Done when:
+## North Star — Tier 3 (design intent; not built yet)
 
-- Local low-risk actions and high-risk external actions are represented with
-  clear approval behavior.
-- Unit tests cover the invariants.
+- Full live brain map (only after D.6 proves the canvas approach).
+- Self-improvement Rungs 2–3 — **capability-blocked, not just safety-gated**;
+  revisit only when local models are demonstrably strong enough.
+- **Rung 4 (core self-modification): permanently excluded.**
+- Daily/weekly life loops — obey D.2/D.3 (run when the user shows up, never on a
+  timer).
+- Page IA rename (Memory / Tasks / Trust) — cosmetic until Tier 1–2 land.
+- CLEAR as standing practice — the 70% compaction threshold and salience weights
+  are guesses until measured.
 
-### P2 — Event Ledger
+## Explicitly Rejected
 
-Create the durable event record that underpins memory, tasks, reviews, and
-debugging.
+- **Heartbeat-as-cron** — waking every N minutes to scan and maybe act. (Reverses
+  the scheduler-driven proactivity that earlier exploratory work introduced.)
+- **Obsidian (or any external app)** as the place to view June's memory.
+- **A graph-visualization library** — the force layout is custom canvas code.
+- **Hand-rolled cryptography** — the one place to use a vetted library.
+- Copying competitor features wholesale — study patterns, write June's own.
 
-Done when:
+## Carried-over Non-Goals
 
-- SQLite stores events, captures, intents, approvals, and memory sources.
-- Export/import includes those records.
-- Tests prove migration idempotency and event ordering.
-
-### P3 — Quick Capture Backend
-
-Add the first real product loop: a universal input that turns messy thoughts
-into structured candidates.
-
-Done when:
-
-- Natural planning creates task/event candidates.
-- Promises are detected.
-- Feelings produce supportive, practical responses.
-- Privacy dial behavior is enforced.
-
-### P4 — Action Preview And Approval
-
-Turn action proposals into safe execution.
-
-Done when:
-
-- Calendar writes ask before committing.
-- Notifications ask if they interrupt later.
-- Message sending and deletion always ask.
-- Rejected intents are recorded and do not run.
-
-### P5 — Daily Home
-
-Make the first screen useful without turning it into a heavy dashboard.
-
-Done when the first screen has:
-
-- quick capture
-- today
-- open loops
-- promises
-- recent important memories
-- next best action
-- emotional check-in
-
-### P6 — Promise And Agenda Engine
-
-Make June remember commitments and suggest time placement.
-
-Done when:
-
-- June can answer "what did I promise?"
-- Dated tasks receive agenda suggestions.
-- Evening review can carry unfinished work forward.
-
-### P7 — Telegram Quick Capture
-
-Use Telegram as a cheap mobile surface before building native mobile.
-
-Done when:
-
-- Telegram messages enter the capture pipeline.
-- Approved reminders and daily briefings can be delivered through Telegram.
-- Sensitive actions still require approval in June.
-
-### P8 — Release Hardening
-
-Ship v0.1.1 cleanly.
-
-Done when:
-
-- Golden workflow tests pass.
-- `./tools/check.sh` passes.
-- `pnpm desktop:build` produces a DMG.
-- v0.1.1 release notes are honest about alpha limitations.
-
-## Later Feature Surfaces
-
-These are trigger-gated.
-
-### Signed Desktop Distribution
-
-Trigger: real external testers are blocked by macOS warnings. Until then, the
-unsigned/ad-hoc signed DMG is enough for alpha testing.
-
-### OAuth Gmail And Calendar
-
-Trigger: action preview and approval are solid. External service writes should
-not ship before June has a durable consent and audit model.
-
-### Browser And Computer Use
-
-Trigger: June needs to complete important tasks that cannot be done through
-APIs, local files, or MCP skills. This remains an escape hatch.
-
-### Voice
-
-Trigger: quick capture works and typing becomes the bottleneck. Likely first
-implementation is desktop local speech-to-text.
-
-### Mobile Shell
-
-Trigger: Telegram and the PWA are not enough for mobile capture, share
-extensions, or push notifications.
-
-### Skill Marketplace
-
-Trigger: at least three external contributors ship useful MCP skills.
-
-### Sync
-
-Trigger: export/import becomes a clear user pain and the privacy tradeoff is
-worth designing.
-
-## Not On The Roadmap
-
-- Account-required modes.
-- Cloud memory as the default.
-- Team workspaces.
-- A third model provider.
-- Paid hosting dependency.
-- Always-on audio capture.
+- No account-required modes. No cloud memory as the default. No team workspaces.
+- No third model provider. No paid hosting dependency. No always-on audio capture.

@@ -2,112 +2,107 @@
 
 ## Current Direction
 
-June is becoming a **local-first personal operating layer**:
+June is a **personal assistant whose center of gravity is the user, not the task**:
 
-> You talk naturally. June captures what matters, remembers it, proposes safe
-> actions, schedules what needs time, and returns at the right moment.
+> She remembers what matters, forgets what doesn't, tells the truth, knows when to
+> stay quiet, and never does anything the user can't see.
 
-The interface should stay calm and simple. The technical system underneath must
-be durable, inspectable, and privacy-preserving.
+This direction is defined in full by the canonical
+[build specification](docs/product/build-spec.md). The interface stays calm and
+simple; the system underneath is technically rigorous, local-first, and visibly
+private.
 
-## Principles
+## What Makes June June — Four Inversions
 
-1. **Memory is the product.** Memories are local, editable, source-linked,
-   portable, and scoped to the right life area.
-2. **Agency needs consent.** June can act in the background, but external
-   writes, sensitive actions, cloud calls, and deletions have visible approval
-   boundaries.
-3. **One quiet surface, serious backend.** The user gets Daily Home and quick
-   capture. The backend keeps the event ledger, tasks, schedules, skills,
-   approvals, and memory provenance.
-4. **Private by default.** Local Gemma/Ollama remains the default path. Gemini
-   is an optional capability with visible provenance and privacy-dial control.
-5. **No paid complexity before users.** Use the existing local stack until real
-   usage proves the need for paid infrastructure, app-store signing, or a
-   dedicated workflow engine.
+June borrows a coding agent's skeleton (loop, tools, tiered memory, compaction)
+and inverts its four core operations:
 
-## Shipped
+| Coding agent | June |
+|---|---|
+| Verifies against ground truth | **Defers** — verifies *with* the user (human-in-the-loop is core) |
+| Completes tasks (loop exits) | **Continues** — standing intentions modeled as promises |
+| Accumulates context (repo is truth) | **Forgets** gracefully (the user is truth) |
+| Acts fast | Knows when to **stay quiet** (surface vs defer is real code) |
+
+## Governing Principles
+
+1. **Efficiency and privacy are one axis.** Every cloud token is both a privacy
+   and an efficiency cost. Prefer local; never spend cycles on unrequested work.
+2. **The user never leaves June.** If a feature's value lives in another app,
+   embed it natively or don't ship it.
+3. **No dependency we can avoid.** Stdlib or a small custom implementation beats a
+   new package. The one exception is cryptography — always use a vetted library.
+4. **Visible, not promised.** Privacy and "what is June doing" are proven in the
+   UI and in code, not asserted in docs.
+5. **Respond to the user; don't perform.** June acts when the user speaks or the
+   world genuinely changes — never merely because time passed.
+6. **Model-specific, not model-agnostic.** June is tuned for a known roster
+   (Gemma 4 + Gemini) so the harness can be tuned the way real harnesses are.
+
+## Shipped (foundation we build on)
 
 - Web PWA with chat, memory, settings, skills, tasks, and system activity.
 - Tauri desktop shell with Ollama supervision, tray, hotkey, autostart, and
-  native notification capability.
-- Three-tier model routing with per-message provenance.
-- Tasks runtime with live SSE trace and cancel.
-- SQLite + Chroma + graph memory architecture.
+  native notification capability; v0.1.0 Apple Silicon macOS DMG.
+- SQLite + Chroma + graph memory behind one `MemoryManager`.
 - MCP skill supervisor and bundled skills.
-- Scheduler, notification bus, daily orchestration, and Telegram foundation.
-- v0.1.0 GitHub release with Apple Silicon macOS DMG.
+- LangGraph agent with SSE streaming and per-message model provenance.
 
-## Active Track: v0.1.1
+## Tier 1 — The Spine (build now, in order)
 
-Theme: **Quick Capture + Daily Home + Durable Intent Ledger**
+This is the active track. It delivers the one-sentence vision and nothing more.
+Do not start Tier 2 until Tier 1 ships and has been *used*.
 
-Detailed execution plan:
+- **C.0 Portable data directory + versioned manifest.** One documented folder that
+  is June; copy it to move machines.
+- **C.1 Model-specific provider layer.** Gemma 4 + Gemini behind roles
+  (`local-fast`, `local-deep`, `cloud-capable`); a clean seam for a third.
+- **C.2 Loop behind an interface, chosen by measurement.** Hand-written loop vs
+  LangGraph, scored on CLEAR (Cost, Latency, Efficacy, Assurance, Reliability).
+- **C.3 Layered context + pinned state.** Fixed assembly order; compaction that
+  merges into an anchor, never regenerates, so commitments survive trimming.
+- **C.4 Salience-scored recall.** `recency × frequency × relevance` — recall what
+  matters, not just what is textually similar.
+- **C.5 Honest character as a self-authored block.** One recognizable June,
+  deepening per user, with honesty as a fixed, non-editable core.
+- **C.6 Visible cloud boundary + decision trace.** A provenance line every turn;
+  local-only mode provably blocks egress; difficulty classifier feeds the router.
 
-- [ADR 0014 — Personal Operating Layer](docs/decisions/0014-personal-operating-layer.md)
-- [v0.1.1 Scheduled Development Plan](docs/plans/v0.1.1-scheduled-development.md)
-- [Personal Operating Layer Research](docs/product/personal-operating-layer-research.md)
+**Tier 1 is done when:** June runs on local Gemma 4, recalls a relevant older fact
+over a merely-similar recent one, compacts a long conversation without losing the
+stated goal, answers in a consistent voice that will gently disagree, and never
+reaches the cloud without a visible provenance line.
 
-### v0.1.1 Work Packages
+## Tier 2 — Differentiators (after Tier 1 ships and is used)
 
-1. **Repo truth and planning**
-   - Align README, docs, setup, roadmap, and release docs with the current
-     product state.
+Build simple, observe, refine — these need a working June to tune against.
 
-2. **Shared operating-layer models**
-   - Add typed models for capture items, action intents, approval status, risk,
-     and event kinds.
+- **D.1 Temporal context layer** — passive time-awareness, no timer.
+- **D.2 Event-driven, deferred proactivity** — June never cold-starts a session;
+  hard deadlines become OS notifications; the clock alone never wakes her.
+- **D.3 Self-monitor + idle housekeeping + reference-context diffing** — hygiene
+  yes, idle inference no.
+- **D.4 Conservative, reversible forgetting** — biased hard toward retention.
+- **D.5 Durable task ledger built around continuity** — tasks as promises.
+- **D.6 Native memory graph** — custom canvas, ~40-line force sim, no library.
+- **D.7 System page** — responsiveness + capability profile, calm not pulsing.
+- **D.8 Privacy Mode 2** — client-side-encrypted backup (keychain + passphrase).
+- **D.9 Privacy Mode 3** — Google as per-service skills, grant-once, revocable.
 
-3. **Event ledger**
-   - Add durable SQLite tables for events, captures, action intents, approvals,
-     and memory sources.
+## Tier 3 — North Star (design intent; not built yet)
 
-4. **Quick capture backend**
-   - Add an endpoint and classifier that turns messy input into tasks, events,
-     memories, decisions, promises, feelings, ideas, questions, and notes.
-
-5. **Action preview and approval**
-   - Gate calendar writes, notifications, messages, deletion, and cloud-required
-     actions behind visible approval rules.
-
-6. **Daily Home**
-   - Make the first screen a simple personal command center: quick capture,
-     today, open loops, promises, important memories, next action, and emotional
-     check-in.
-
-7. **Promise and agenda engine**
-   - Track commitments and suggest when dated work should happen.
-
-8. **Telegram quick capture**
-   - Use Telegram as the cheap mobile input and notification surface before
-     building a native mobile app.
-
-9. **Release hardening**
-   - Golden workflow tests, docs, DMG build, and v0.1.1 release notes.
-
-## Next Tracks
-
-These are trigger-gated. They are not started until v0.1.1 is useful in daily
-dogfooding.
-
-- **Signed and notarized desktop distribution.** Start when external users are
-  blocked by macOS warnings enough to justify the Apple Developer Program cost.
-- **Voice input/output.** Start when quick capture is useful and voice becomes
-  the main friction. Likely path: local desktop speech-to-text first.
-- **OAuth-backed Gmail/Calendar.** Start after the approval system is solid.
-- **Browser/computer use.** Keep as an escape hatch, not the front door.
-- **Mobile shell.** Start when Telegram and PWA are insufficient for capture,
-  share extensions, or push.
-- **Skill marketplace.** Start when external contributors have shipped useful
-  skills.
-- **Sync.** Start only when export/import is not enough for real users.
+Full live brain map; self-improvement Rungs 2–3 (capability-blocked, not just
+safety-gated); daily/weekly life loops (run when the user shows up, never on a
+timer); page IA rename (Memory / Tasks / Trust); CLEAR as standing practice.
+**Rung 4 (core self-modification) is permanently excluded** — the fixed engine is
+what makes June auditable.
 
 ## Explicit Non-Goals
 
-- No cloud account requirement.
-- No cloud memory service.
-- No team/collaboration layer.
-- No third model provider.
-- No paid hosting dependency.
-- No always-on audio.
-- No mobile app until usage proves the need.
+- No heartbeat-as-cron (waking on a timer to scan and maybe act).
+- No external app (Obsidian) as the place to view June's memory — native graph.
+- No graph-visualization library.
+- No hand-rolled cryptography.
+- No cloud account requirement, cloud memory service, or third model provider.
+- No paid hosting dependency. No always-on audio.
+- No core self-modification (Rung 4).
