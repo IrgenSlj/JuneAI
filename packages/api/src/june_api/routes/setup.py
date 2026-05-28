@@ -135,13 +135,6 @@ def apply_setup(request: SetupApplyRequest) -> SetupApplyResponse:
                 message=f"Provider verified, but June failed to reload: {brain_graph.startup_error}",
                 hint="Check the runtime logs, then try applying the provider again.",
             )
-        # Seed default orchestration schedules on first successful setup
-        try:
-            from june_brain.orchestration import create_default_schedules
-
-            create_default_schedules("default")
-        except Exception:  # noqa: BLE001
-            pass
     return SetupApplyResponse(
         ok=verified,
         provider=runtime.preset_key,

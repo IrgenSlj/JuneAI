@@ -49,8 +49,9 @@ def _run_notification(schedule: Schedule) -> None:
 def _run_agent_invoke(schedule: Schedule) -> None:
     """Invoke the agent with a system prompt built from the schedule config.
 
-    This is the core of the daily orchestration: morning briefings,
-    evening reviews, etc. are just schedules with different prompts.
+    Used for user-requested, deterministic scheduled jobs. June never creates
+    these on a timer for proactive engagement (see ADR 0016); a schedule exists
+    only because the user asked for it.
     """
     from ..graph import run_agent_sync
 
