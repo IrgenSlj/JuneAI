@@ -33,5 +33,8 @@ Status progression:
 | [0010](0010-agentic-core-tasks-oauth-computer-use.md) | Agentic core: tasks, OAuth skills, browser/computer use, MCP universal compatibility | Proposed; near-term sequencing superseded by ADR 0014 |
 | [0011](0011-python-version-upgrade.md) | Python 3.13 baseline | Accepted |
 | [0012](0012-api-key-auth.md) | Local API key auth | Accepted |
-| [0013](0013-personal-assistant-framework.md) | Personal assistant framework: scheduler, notifications, daemon skills, daily orchestration | Accepted |
-| [0014](0014-personal-operating-layer.md) | Personal operating layer: capture, events, approvals, memory provenance, scheduled work | Accepted |
+| [0013](0013-personal-assistant-framework.md) | Personal assistant framework: scheduler, notifications, daemon skills, daily orchestration | Accepted; daily orchestration superseded by ADR 0016 |
+| [0014](0014-personal-operating-layer.md) | Personal operating layer: capture, events, approvals, memory provenance, scheduled work | Superseded by ADR 0015 |
+| [0015](0015-center-of-gravity-four-inversions.md) | Center of gravity is the user; the four inversions | Accepted |
+| [0016](0016-event-driven-no-heartbeat.md) | Event-driven proactivity; no heartbeat-as-cron | Accepted |
+| [0017](0017-model-specific-provider-layer.md) | Model-specific provider layer (Gemma 4 + Gemini), roles from config | Accepted |

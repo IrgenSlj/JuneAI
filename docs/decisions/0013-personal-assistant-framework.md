@@ -2,7 +2,13 @@
 
 ## Status
 
-Accepted
+Accepted, with the **daily orchestration engine (section 5) superseded by**
+[ADR 0016](0016-event-driven-no-heartbeat.md). The scheduler, notification bus,
+daemon-skill support, and domain memory remain valid infrastructure for
+user-requested, deterministic jobs; the clock-driven proactive routines (morning
+briefing, mid-day check-in, evening review on a timer) are reversed — June acts on
+user input or real-world events, never on a bare timer. See also
+[ADR 0015](0015-center-of-gravity-four-inversions.md).
 
 ## Context
 

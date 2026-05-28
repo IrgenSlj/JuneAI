@@ -2,7 +2,12 @@
 
 ## Status
 
-Accepted
+Superseded by [ADR 0015](0015-center-of-gravity-four-inversions.md). Retained for
+historical context. The capture → classify → approve → commit operating-layer
+framing and the Daily Home surface are no longer the active product direction; the
+durable-ledger and approval ideas survive, reframed, in the build spec's Tier 2 task
+ledger and in approval-as-a-core-operation (ADR 0015). The scheduled background jobs
+described here are further constrained by [ADR 0016](0016-event-driven-no-heartbeat.md).
 
 ## Context
 
