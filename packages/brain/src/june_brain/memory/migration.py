@@ -124,103 +124,14 @@ def _migration_002(conn: Any) -> None:
 
 @MIGRATIONS.register(3, "Add shopping + chores tables")
 def _migration_003(conn: Any) -> None:
-    """Create tables for shopping and chores domain memory."""
-    conn.executescript("""
-        CREATE TABLE IF NOT EXISTS products (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id TEXT NOT NULL,
-            name TEXT NOT NULL,
-            category TEXT NOT NULL DEFAULT 'general',
-            preferred_price REAL,
-            preferred_store TEXT DEFAULT '',
-            notes TEXT DEFAULT '',
-            url TEXT DEFAULT '',
-            date_added TEXT NOT NULL,
-            active INTEGER DEFAULT 1
-        );
-        CREATE TABLE IF NOT EXISTS purchase_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id TEXT NOT NULL,
-            product_id INTEGER NOT NULL REFERENCES products(id),
-            price REAL,
-            store TEXT DEFAULT '',
-            date TEXT NOT NULL,
-            notes TEXT DEFAULT ''
-        );
-        CREATE TABLE IF NOT EXISTS price_alerts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id TEXT NOT NULL,
-            product_id INTEGER NOT NULL REFERENCES products(id),
-            target_price REAL NOT NULL,
-            active INTEGER DEFAULT 1,
-            created_at TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS chores (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id TEXT NOT NULL,
-            name TEXT NOT NULL,
-            category TEXT NOT NULL DEFAULT 'general',
-            interval_days INTEGER NOT NULL DEFAULT 7,
-            last_done TEXT,
-            next_due TEXT,
-            notes TEXT DEFAULT '',
-            estimated_minutes INTEGER DEFAULT 0,
-            active INTEGER DEFAULT 1,
-            created_at TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS chore_completions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id TEXT NOT NULL,
-            chore_id INTEGER NOT NULL REFERENCES chores(id),
-            completed_at TEXT NOT NULL,
-            note TEXT DEFAULT '',
-            skipped INTEGER DEFAULT 0
-        );
-    """)
+    # Tables removed in migration 6; see ADR 0016.
+    pass
 
 
 @MIGRATIONS.register(4, "Add operating-layer ledger: events, capture_items, action_intents")
 def _migration_004(conn: Any) -> None:
-    """Durable product record for the personal operating layer (ADR 0014).
-
-    events is append-only; insertion order is preserved by SQLite's implicit
-    rowid (stores order by rowid, not the ISO timestamp which can tie).
-    """
-    conn.executescript("""
-        CREATE TABLE IF NOT EXISTS events (
-            id TEXT PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            kind TEXT NOT NULL,
-            source TEXT NOT NULL DEFAULT '',
-            payload TEXT NOT NULL DEFAULT '{}',
-            created_at TEXT NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_events_user ON events(user_id);
-        CREATE TABLE IF NOT EXISTS capture_items (
-            id TEXT PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            source TEXT NOT NULL DEFAULT 'chat',
-            text TEXT NOT NULL,
-            kinds TEXT NOT NULL DEFAULT '[]',
-            metadata TEXT NOT NULL DEFAULT '{}',
-            created_at TEXT NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_capture_user ON capture_items(user_id);
-        CREATE TABLE IF NOT EXISTS action_intents (
-            id TEXT PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            kind TEXT NOT NULL,
-            title TEXT NOT NULL DEFAULT '',
-            summary TEXT NOT NULL DEFAULT '',
-            risk TEXT NOT NULL DEFAULT 'low',
-            source_capture_id TEXT,
-            payload TEXT NOT NULL DEFAULT '{}',
-            approval_status TEXT NOT NULL DEFAULT 'not_required',
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_intents_user ON action_intents(user_id);
-    """)
+    # Tables removed in migration 6; see ADR 0016.
+    pass
 
 
 @MIGRATIONS.register(5, "Add salience bookkeeping columns to semantic_facts")
@@ -239,6 +150,25 @@ def _migration_005(conn: Any) -> None:
         except Exception:
             pass
     conn.commit()
+
+
+@MIGRATIONS.register(6, "Drop abandoned shopping/chores + operating-layer ledger tables")
+def _migration_006(conn: Any) -> None:
+    """Remove tables introduced in migrations 003/004 and reversed by ADR 0016.
+
+    DROP TABLE IF EXISTS is safe to run twice (idempotent).
+    Children are dropped before parents to respect foreign-key constraints.
+    """
+    conn.executescript("""
+        DROP TABLE IF EXISTS chore_completions;
+        DROP TABLE IF EXISTS chores;
+        DROP TABLE IF EXISTS price_alerts;
+        DROP TABLE IF EXISTS purchase_history;
+        DROP TABLE IF EXISTS products;
+        DROP TABLE IF EXISTS action_intents;
+        DROP TABLE IF EXISTS capture_items;
+        DROP TABLE IF EXISTS events;
+    """)
 
 
 def ensure_schema(conn: Any) -> None:
