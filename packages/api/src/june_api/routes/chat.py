@@ -10,7 +10,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from june_brain import graph as brain_graph
-from june_brain.loop.interface import HarnessLoop, SessionState, TurnResult
+from june_brain.loop.interface import HarnessLoop, SessionState, TurnProvenance, TurnResult
 from june_brain.memory import Memory, MemoryManager
 from june_brain.providers.base import Message
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
@@ -38,11 +38,17 @@ def get_agent() -> Any:
         ) from exc
 
 
-def get_harness_loop(agent: Any | None = None) -> HarnessLoop:
-    """Resolve the live-chat HarnessLoop implementation."""
-    from june_brain.loop.langgraph_loop import LangGraphLoop
+def get_harness_loop() -> HarnessLoop:
+    """Resolve the live-chat HarnessLoop implementation.
 
-    return LangGraphLoop(agent=agent)
+    Exposed as a FastAPI dependency so tests can stub it via
+    ``app.dependency_overrides[get_harness_loop] = ...`` without touching
+    process-global state.  Returns the active engine from
+    ``june_brain.loop.engine.get_loop()`` (hand-written loop by default).
+    """
+    from june_brain.loop.engine import get_loop
+
+    return get_loop()
 
 
 def _chat_use_harness() -> bool:
@@ -178,26 +184,31 @@ def _harness_turn_inputs(request: ChatRequest) -> tuple[SessionState, Message]:
     )
 
 
-def _turn_result_provenance(result: TurnResult) -> dict[str, Any]:
-    provenance = result.provenance
-    tiers = list(provenance.tiers_used)
-    models = list(provenance.model_ids)
+def _turn_provenance_dict(prov: TurnProvenance) -> dict[str, Any]:
+    """Build the provenance payload dict from a TurnProvenance object."""
+    tiers = list(prov.tiers_used)
+    models = list(prov.model_ids)
     return {
-        "provider": "cloud" if provenance.cloud_call else "local",
+        "provider": "cloud" if prov.cloud_call else "local",
         "model": models[0] if models else "",
         "model_ids": models,
         "tier": tiers[0] if tiers else "",
         "tiers_used": tiers,
-        "latency_ms": provenance.latency_ms,
-        "cloud_call": provenance.cloud_call,
-        "cloud_payload_summary": provenance.cloud_payload_summary,
-        "memories_recalled": provenance.memories_recalled,
-        "skills_called": provenance.skills_called,
-        "rationale": provenance.rationale,
-        "input_tokens": result.tokens.input_tokens,
-        "output_tokens": result.tokens.output_tokens,
-        "compacted": result.compacted,
+        "latency_ms": prov.latency_ms,
+        "cloud_call": prov.cloud_call,
+        "cloud_payload_summary": prov.cloud_payload_summary,
+        "memories_recalled": prov.memories_recalled,
+        "skills_called": list(prov.skills_called),
+        "rationale": prov.rationale,
     }
+
+
+def _turn_result_provenance(result: TurnResult) -> dict[str, Any]:
+    d = _turn_provenance_dict(result.provenance)
+    d["input_tokens"] = result.tokens.input_tokens
+    d["output_tokens"] = result.tokens.output_tokens
+    d["compacted"] = result.compacted
+    return d
 
 
 def _turn_result_events(result: TurnResult) -> Iterable[ChatEvent]:
@@ -286,75 +297,43 @@ async def _iter_events(
 
 
 async def _iter_harness_events(
-    agent: Any,
+    loop: HarnessLoop,
     request: ChatRequest,
     assistant_buffer: list[str],
 ) -> AsyncIterator[str]:
-    state = {
-        "messages": _messages_for_turn(request.user_id, request.message),
-        "user_id": request.user_id,
-        "skill": request.skill,
-        "ui_state": _empty_ui_state(),
-        "tool_stats": {"requested": 0, "succeeded": 0, "failed": 0, "last_calls": []},
-    }
-
-    emitted_tool_call_ids: set[str] = set()
+    session, user_msg = _harness_turn_inputs(request)
     try:
-        async for mode, chunk in agent.astream(
-            state, stream_mode=["messages", "updates", "custom"]
-        ):
-            if mode == "messages":
-                message, _metadata = chunk
-                text = getattr(message, "content", "")
-                if isinstance(text, str) and text:
-                    assistant_buffer.append(text)
-                    yield _event_to_sse(ChatEvent(type="token", content=text))
-            elif mode == "updates":
-                for _node, update in chunk.items():
-                    for msg in update.get("messages") or []:
-                        if isinstance(msg, AIMessage):
-                            for call in msg.tool_calls or []:
-                                call_id = str(call.get("id") or "")
-                                if call_id and call_id in emitted_tool_call_ids:
-                                    continue
-                                if call_id:
-                                    emitted_tool_call_ids.add(call_id)
-                                yield _event_to_sse(
-                                    ChatEvent(
-                                        type="tool_call",
-                                        tool_name=str(call.get("name", "")),
-                                        tool_args=_safe_tool_args(call),
-                                    )
-                                )
-                        elif isinstance(msg, ToolMessage):
-                            yield _event_to_sse(_tool_result_event(msg))
-            elif mode == "custom":
-                if isinstance(chunk, dict) and chunk.get("event") == "recall":
-                    raw_hits = chunk.get("hits") or []
-                    hits = [RecallHit(**h) for h in raw_hits if isinstance(h, dict)]
-                    if hits:
-                        yield _event_to_sse(
-                            ChatEvent(type="recall", recall_hits=hits)
-                        )
-                elif isinstance(chunk, dict) and chunk.get("event") == "provenance":
-                    yield _event_to_sse(
-                        ChatEvent(
-                            type="provenance",
-                            provenance={
-                                "provider": chunk.get("provider", ""),
-                                "model": chunk.get("model", ""),
-                                "tier": chunk.get("tier", ""),
-                                "latency_ms": chunk.get("latency_ms", 0),
-                                "cloud_call": chunk.get("cloud_call", False),
-                                "cloud_payload_summary": chunk.get("cloud_payload_summary"),
-                                "memories_recalled": chunk.get("memories_recalled", 0),
-                                "skills_called": chunk.get("skills_called", []),
-                                "rationale": chunk.get("rationale", ""),
-                            },
-                        )
+        async for ev in loop.stream_turn(session, user_msg):
+            if ev.type == "token":
+                assistant_buffer.append(ev.content)
+                yield _event_to_sse(ChatEvent(type="token", content=ev.content))
+            elif ev.type == "tool_call":
+                yield _event_to_sse(
+                    ChatEvent(type="tool_call", tool_name=ev.tool_name, tool_args=ev.tool_args)
+                )
+            elif ev.type == "tool_result":
+                yield _event_to_sse(
+                    ChatEvent(type="tool_result", tool_name=ev.tool_name, tool_result=ev.tool_result)
+                )
+            elif ev.type == "recall":
+                hits: list[RecallHit] = []
+                for h in ev.recall_hits:
+                    if isinstance(h, dict):
+                        try:
+                            hits.append(RecallHit(**h))
+                        except Exception:
+                            pass
+                if hits:
+                    yield _event_to_sse(ChatEvent(type="recall", recall_hits=hits))
+            elif ev.type == "provenance" and ev.provenance is not None:
+                yield _event_to_sse(
+                    ChatEvent(
+                        type="provenance",
+                        provenance=_turn_provenance_dict(ev.provenance),
                     )
-
-        yield _event_to_sse(ChatEvent(type="done"))
+                )
+            elif ev.type == "done":
+                yield _event_to_sse(ChatEvent(type="done"))
     except Exception as exc:
         logger.exception("harness chat stream failed for user=%s", request.user_id)
         yield _event_to_sse(ChatEvent(type="error", content=str(exc)))
@@ -395,11 +374,12 @@ def _run_post_chat(user_id: str, user_text: str, assistant_buffer: list[str]) ->
 async def chat(
     request: ChatRequest,
     agent: Any = Depends(get_agent),
+    harness_loop: HarnessLoop = Depends(get_harness_loop),
 ) -> StreamingResponse:
     """Stream June's reply as SSE. Each frame is a JSON-encoded ChatEvent."""
     assistant_buffer: list[str] = []
     stream = (
-        _iter_harness_events(agent, request, assistant_buffer)
+        _iter_harness_events(harness_loop, request, assistant_buffer)
         if _chat_use_harness()
         else _iter_events(agent, request, assistant_buffer)
     )
