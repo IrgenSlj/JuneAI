@@ -2,9 +2,9 @@
 
 This historical plan turned June from a promising local alpha into a public
 alpha that people can clone, run, trust, and contribute to. It was written after
-the 2026-05-12 repository review. The active development track is now
-[v0.1.1 Scheduled Development](../plans/v0.1.1-scheduled-development.md), but
-the correctness checks here remain useful backlog.
+the 2026-05-12 repository review. The active development track is now the
+canonical [build specification](build-spec.md), but the correctness checks here
+remain useful backlog.
 
 The immediate goal is not to add another surface. The goal is to make the
 current product promise true:

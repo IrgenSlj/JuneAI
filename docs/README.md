@@ -44,7 +44,10 @@ docs/
 │   ├── roadmap.md                 # Tier 1/2/3, sequences the build spec
 │   ├── desktop-shell-plan.md      # status plan for the Tauri desktop shell
 │   ├── responsive-plan.md         # touch and tablet hardening
-│   └── (historical) agentic-pivot-plan.md, personal-operating-layer-research.md, ...
+│   └── (historical) agentic-pivot-plan.md, personal-operating-layer-research.md,
+│                    memory-skills-plan.md, open-source-readiness-plan.md
+├── plans/
+│   └── personal-assistant-framework.md   # (historical) scheduler/notification components
 ├── architecture/
 │   └── overview.md                # layered system architecture
 ├── decisions/                     # Architecture Decision Records (0001–0017)
