@@ -36,9 +36,9 @@ The seven spine modules are implemented, tested, and on `main`:
 
 Make the spine the live experience, then use it before starting Tier 2:
 
-1. ~~**Run the CLEAR experiment** against local Gemma and set the default loop engine~~
-   ~~(`docs/experiments/loop-clear.md`).~~ ✅ **Done — handwritten confirmed 3-17× faster
-   with equal efficacy. Default engine stays `handwritten`.**
+1. **Run the CLEAR experiment** against local Gemma and set the default loop engine
+   (`docs/experiments/loop-clear.md`). Done — the handwritten loop is 3-17x faster
+   with equal efficacy, so the default engine stays `handwritten`.
 2. **Wire the handwritten loop as the live chat path** — route the provider layer,
    layered context, character block, difficulty router, and capability probe
    through it. (Today the live chat still runs on the LangGraph agent; salience

@@ -1,8 +1,10 @@
 # Codebase Preparation Plan
 
-> **Status:** Historical/code-health backlog. Python 3.13 is now the runtime
-> baseline. Active feature preparation is tracked in
-> [v0.1.1 Scheduled Development](v0.1.1-scheduled-development.md).
+> **Status:** Historical/code-health backlog. Most items here shipped (Python 3.13
+> baseline, schema migrations, per-domain DAOs under `memory/daos/`, API-key auth,
+> data export/import, reactive agent rebuild on skill toggle). The active direction
+> is the canonical [build specification](../product/build-spec.md); the
+> v0.1.1 scheduled-development plan referenced elsewhere is itself superseded.
 
 Before any feature work begins, fix the architectural debt that blocks safe, rapid development.
 

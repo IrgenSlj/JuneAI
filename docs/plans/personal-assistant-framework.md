@@ -2,13 +2,16 @@
 
 The meta-feature that all personal-assistant capabilities build on. Architecture defined in ADR 0013.
 
-> **Status:** Foundation shipped in pieces: scheduler, notification bus, and
-> Telegram groundwork exist and remain valid for user-requested, deterministic
-> jobs. The **clock-driven daily orchestration is superseded by**
+> **Status:** Foundation shipped in pieces: the scheduler and notification bus
+> (Components 1-2) exist and remain valid for user-requested, deterministic jobs,
+> and daemon MCP skills (Component 3) underpin the skill supervisor. **Components 4
+> (shopping/chores domain memory) and 5 (clock-driven daily orchestration) are
+> superseded and removed** — the daily-orchestration cron model is reversed by
 > [ADR 0016](../decisions/0016-event-driven-no-heartbeat.md) (June acts on user
-> input or real-world events, never on a timer). The active direction is the
-> canonical [build specification](../product/build-spec.md) and
-> [ADR 0015](../decisions/0015-center-of-gravity-four-inversions.md).
+> input or real-world events, never on a timer), and the shopping/chores tables
+> were dropped with the operating-layer stack ([ADR 0015](../decisions/0015-center-of-gravity-four-inversions.md)).
+> The active direction is the canonical [build specification](../product/build-spec.md).
+> Retained for historical context; do not build Components 4-5 from this doc.
 
 ## Component 1: Scheduler Service
 

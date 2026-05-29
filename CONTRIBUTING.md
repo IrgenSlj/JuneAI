@@ -24,7 +24,7 @@ Run the main checks:
 ./tools/check.sh
 ```
 
-`check.sh` runs backend tests, frontend checks, and the OpenAPI codegen drift check. The broader Ruff/mypy policy is tracked in the open-source readiness plan and is not enforced yet.
+`check.sh` runs backend tests, frontend checks, the OpenAPI codegen drift check, Ruff lint, and a narrow mypy gate (the `operator` and `call-arg` real-bug classes must stay at zero). Run it before every push.
 
 When you want the provider sanity checks as well, use:
 
@@ -56,11 +56,18 @@ Open http://localhost:5173.
 
 ## Project Priorities
 
-Current v0.1.1 priorities:
+The authoritative direction is the [build specification](docs/product/build-spec.md)
+and [ADRs 0015-0017](docs/decisions/). June is built in tiers; the Tier 1 spine
+(C.0-C.6) is implemented and on `main`.
 
-- Quick capture: turn messy input into structured candidates.
-- Durable event ledger: record what June saw, proposed, and did.
-- Action preview and approvals: protect calendar writes, notifications,
-  messages, deletions, and cloud-required actions.
-- Daily Home: simple first screen over the serious backend.
-- Memory correctness and user control remain non-negotiable.
+Current priorities (finishing Tier 1):
+
+- Wire the hand-written loop as the live chat path — route the provider layer,
+  layered context, character block, difficulty router, and capability probe
+  through it, replacing the LangGraph agent as the live path (kept as a fallback).
+- Browser-verify the visible cloud boundary and per-turn rationale in the chat UI.
+- Then use the spine before starting Tier 2 differentiators.
+
+Non-negotiable throughout: privacy is visible in code (no silent egress; local-only
+blocks the cloud), honesty is not adjustable, and the harness core is fixed and
+never self-modified. June acts on user input or real-world events, never on a timer.

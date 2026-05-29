@@ -16,6 +16,13 @@ and roadmap have been realigned to this spec. Where the spec names file paths or
 not yet exist in the repo, they describe build *intent*; the decisions, data shapes, invariants, and
 ordering are what bind.
 
+**Build status (29 May 2026):** the Tier 1 spine (C.0-C.6 in Part C) is implemented, tested, and on
+`main`; the file paths it names now exist. The remaining Tier 1 work is to make the hand-written loop
+the live chat path (route the provider layer, layered context, character block, difficulty router, and
+capability probe through it, replacing the LangGraph agent as the live path while keeping it as a
+flagged fallback). Do not start Tier 2 until that lands and the spine has been used. Parts A, B, and
+the C.0-C.6 decisions remain authoritative.
+
 **Audience:** Claude Code. **Purpose:** everything needed to start implementing today.
 **Repo:** `IrgenSlj/JuneAI` — local-first personal AI agent. Brain = Python/LangGraph in
 `packages/brain`; API = FastAPI (REST + SSE) in `packages/api`; UI = SvelteKit in `apps/web` +

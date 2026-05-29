@@ -4,7 +4,7 @@ FastAPI boundary in front of `june-brain`. One HTTP surface that every shell (we
 
 ## Routes
 
-- `POST /chat` — SSE stream. Events: `token`, `tool_call`, `tool_result`, `done`, `error`. Runs `MemoryManager.extract` as a background task after the stream closes.
+- `POST /chat` — SSE stream. Events: `token`, `tool_call`, `tool_result`, `recall`, `provenance`, `done`, `error`. The `provenance` frame carries the visible cloud boundary (tiers used, cloud yes/no, model ids, memories recalled, one-line rationale). Runs `MemoryManager.extract` as a background task after the stream closes.
 - `GET /memory/{user_id}` — snapshot across SQLite (goals, open loops, calendar), ChromaDB (semantic facts), and the knowledge graph (entities). Each fact carries a stable `ref` so the UI can target deletes.
 - `POST /memory/{user_id}/fact` — write a structured, semantic, or graph fact.
 - `PATCH /memory/{user_id}/fact/{ref}` — update supported structured facts.

@@ -1,8 +1,13 @@
 # Telegram Integration Plan
 
-> **Status:** Telegram is the preferred cheap mobile surface for v0.1.1, but it
-> should route through the same quick-capture and approval pipeline as the main
-> app. Do not add Telegram-only behavior that bypasses the event ledger.
+> **Status: Historical — superseded.** This plan was written for the v0.1.1
+> "personal operating layer" direction (quick capture, event ledger, scheduler
+> polling for inbound messages). That framing is superseded by the canonical
+> [build specification](../product/build-spec.md), [ADR 0015](../decisions/0015-center-of-gravity-four-inversions.md)
+> (center of gravity = the user), and [ADR 0016](../decisions/0016-event-driven-no-heartbeat.md)
+> (no timer-driven loops). A future Telegram surface, if built, would arrive as a
+> Tier 2 per-service skill on the event-driven model, not the polling/quick-capture
+> design below. Retained for historical context only; do not build from it as-is.
 
 ## Overview
 
