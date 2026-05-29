@@ -91,7 +91,6 @@ def create_app() -> FastAPI:
         greeting,
         memory,
         notifications,
-        obsidian,
         schedules,
         settings,
         setup,
@@ -165,7 +164,6 @@ def create_app() -> FastAPI:
     app.include_router(greeting.router)
     app.include_router(memory.router)
     app.include_router(notifications.router)
-    app.include_router(obsidian.router)
     app.include_router(schedules.router)
     app.include_router(settings.router)
     app.include_router(setup.router)

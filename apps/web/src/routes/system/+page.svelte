@@ -198,7 +198,6 @@
           <li><code>GET /memory/{"{user}"}</code>, <code>POST /memory/{"{user}"}/fact</code>, <code>PATCH /memory/{"{user}"}/fact/{"{ref}"}</code>, <code>DELETE /memory/{"{user}"}/fact/{"{ref}"}</code></li>
           <li><code>POST /memory/{"{user}"}/feedback</code> — thumbs up / down on recalled memories</li>
           <li><code>GET /skills</code>, <code>POST /skills/{"{key}"}/toggle</code>, <code>POST /skills/{"{key}"}/tools/{"{tool}"}/toggle</code></li>
-          <li><code>GET /obsidian/{"{user}"}</code> — Markdown + Canvas vault export</li>
           <li><code>GET /system</code>, <code>GET /setup</code>, <code>POST /setup</code>, <code>GET /settings</code></li>
         </ul>
       </div>

@@ -491,49 +491,6 @@
         }
       }
     },
-    "/obsidian/{user_id}": {
-      "get": {
-        "tags": [
-          "obsidian"
-        ],
-        "summary": "Export Obsidian",
-        "description": "Return Markdown and Canvas files ready to write into an Obsidian vault.",
-        "operationId": "export_obsidian_obsidian__user_id__get",
-        "parameters": [
-          {
-            "name": "user_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "User Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ObsidianExportResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/schedules/{user_id}": {
       "get": {
         "tags": [
@@ -2372,54 +2329,6 @@
         ],
         "title": "MemoryWriteResponse",
         "description": "Result of POST /memory/{user_id}/fact."
-      },
-      "ObsidianExportResponse": {
-        "properties": {
-          "user_id": {
-            "type": "string",
-            "title": "User Id"
-          },
-          "files": {
-            "items": {
-              "$ref": "#/components/schemas/ObsidianFile"
-            },
-            "type": "array",
-            "title": "Files"
-          },
-          "count": {
-            "type": "integer",
-            "title": "Count",
-            "description": "Number of files in the export.",
-            "default": 0
-          }
-        },
-        "type": "object",
-        "required": [
-          "user_id"
-        ],
-        "title": "ObsidianExportResponse",
-        "description": "A vault-shaped export of June memory, skills, and architecture."
-      },
-      "ObsidianFile": {
-        "properties": {
-          "path": {
-            "type": "string",
-            "title": "Path",
-            "description": "Vault-relative POSIX path."
-          },
-          "content": {
-            "type": "string",
-            "title": "Content",
-            "description": "UTF-8 file contents."
-          }
-        },
-        "type": "object",
-        "required": [
-          "path",
-          "content"
-        ],
-        "title": "ObsidianFile",
-        "description": "One file to write into an Obsidian vault."
       },
       "PrivacyDialUpdateRequest": {
         "properties": {

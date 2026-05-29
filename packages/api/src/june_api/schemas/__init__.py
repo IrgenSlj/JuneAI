@@ -18,7 +18,6 @@ from .memory import (
     MemoryWriteRequest,
     MemoryWriteResponse,
 )
-from .obsidian import ObsidianExportResponse, ObsidianFile
 from .settings import (
     ForgetKeyResponse,
     PrivacyDial,
@@ -71,8 +70,6 @@ __all__ = [
     "MemoryUpdateResponse",
     "MemoryWriteRequest",
     "MemoryWriteResponse",
-    "ObsidianExportResponse",
-    "ObsidianFile",
     "SettingsView",
     "ForgetKeyResponse",
     "PrivacyDial",

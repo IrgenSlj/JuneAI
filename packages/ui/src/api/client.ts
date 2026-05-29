@@ -28,7 +28,6 @@ export type MemoryFeedbackRequest = components["schemas"]["MemoryFeedbackRequest
 export type MemoryFeedbackResponse = components["schemas"]["MemoryFeedbackResponse"];
 export type MemoryWriteRequest = components["schemas"]["MemoryWriteRequest"];
 export type MemoryWriteResponse = components["schemas"]["MemoryWriteResponse"];
-export type ObsidianExportResponse = components["schemas"]["ObsidianExportResponse"];
 export type SkillInfo = components["schemas"]["SkillInfo"];
 export type SkillToolInfo = components["schemas"]["SkillToolInfo"];
 export type SkillsResponse = components["schemas"]["SkillsResponse"];
@@ -388,13 +387,6 @@ export function createJuneClient(options: JuneClientOptions) {
       } finally {
         reader.releaseLock();
       }
-    },
-
-    /** GET /obsidian/{user_id} — Markdown and Canvas files for an Obsidian vault. */
-    getObsidianExport(userId: string): Promise<ObsidianExportResponse> {
-      return getJson<ObsidianExportResponse>(
-        `/obsidian/${encodeURIComponent(userId)}`,
-      );
     },
 
     /** POST /memory/{user_id}/fact — manually write a structured or semantic fact. */
