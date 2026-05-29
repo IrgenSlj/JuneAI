@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from langchain_core.messages import AIMessage
-
 from june_brain import graph
+from langchain_core.messages import AIMessage
 
 
 class _FakeModel:

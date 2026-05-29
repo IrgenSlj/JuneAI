@@ -61,6 +61,7 @@ class LangGraphLoop:
         separate non-streaming copy just for token counting.
         """
         from langchain_openai import ChatOpenAI
+
         from june_brain.config import resolve_runtime_config
 
         rc = resolve_runtime_config()

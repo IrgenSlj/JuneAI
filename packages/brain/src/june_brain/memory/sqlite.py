@@ -90,7 +90,13 @@ def _memory_store_exists(path: Path) -> bool:
 
 
 def _legacy_json_exists(path: Path) -> bool:
-    return any(path.glob(f"*_{suffix}.json") for suffix in _LEGACY_JSON_SUFFIXES)
+    # NB: ``path.glob(...)`` returns a generator, which is always truthy — so the
+    # match must be consumed with an inner ``any(...)``; testing the generator
+    # object itself would report "legacy data" for every directory, including
+    # fresh ones, and wrongly pin stores to the data-dir root.
+    return any(
+        any(path.glob(f"*_{suffix}.json")) for suffix in _LEGACY_JSON_SUFFIXES
+    )
 
 
 def _current_memory_dir() -> str:

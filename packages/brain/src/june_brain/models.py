@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from langchain_openai import ChatOpenAI
 from langchain_core.outputs.chat_generation import ChatGenerationChunk
+from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
 from .config import RuntimeConfig
