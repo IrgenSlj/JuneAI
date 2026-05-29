@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import AsyncIterator
 from typing import Any
 
 from june_brain.providers.base import Message
 
 from .interface import (
     SessionState,
+    StreamEvent,
     TokenAccounting,
     TurnProvenance,
     TurnResult,
@@ -135,3 +137,14 @@ class LangGraphLoop:
             tokens=tokens,
             compacted=False,
         )
+
+    async def stream_turn(
+        self, session: SessionState, user_msg: Message
+    ) -> AsyncIterator[StreamEvent]:
+        """Minimal streaming wrapper: delegates to run_turn then yields events."""
+        result = await self.run_turn(session, user_msg)
+        yield StreamEvent(type="token", content=result.assistant_msg.content)
+        for tc in result.tool_calls:
+            yield StreamEvent(type="tool_call", tool_name=tc.name, tool_args=tc.args)
+        yield StreamEvent(type="provenance", provenance=result.provenance)
+        yield StreamEvent(type="done")

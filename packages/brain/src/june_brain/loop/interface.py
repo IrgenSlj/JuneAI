@@ -7,8 +7,9 @@ must remain free of engine-specific deps so callers can import it independently.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 
 from june_brain.context.pinned_state import PinnedState
 from june_brain.providers.base import Message
@@ -65,8 +66,25 @@ class TurnResult:
     compacted: bool
 
 
+@dataclass
+class StreamEvent:
+    """A single event emitted by stream_turn; maps onto SSE frames in the API layer."""
+
+    type: Literal["token", "tool_call", "tool_result", "recall", "provenance", "done"]
+    content: str = ""
+    tool_name: str = ""
+    tool_args: dict = field(default_factory=dict)
+    tool_result: str = ""
+    recall_hits: list[dict] = field(default_factory=list)
+    provenance: TurnProvenance | None = None
+
+
 @runtime_checkable
 class HarnessLoop(Protocol):
     """The one stable interface both engines must satisfy."""
 
     async def run_turn(self, session: SessionState, user_msg: Message) -> TurnResult: ...
+
+    def stream_turn(
+        self, session: SessionState, user_msg: Message
+    ) -> AsyncIterator[StreamEvent]: ...

@@ -10,10 +10,10 @@ never changes and is never self-modified.
 from __future__ import annotations
 
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
-from june_brain.context.assembler import ContextAssembler
+from june_brain.context.assembler import ContextAssembler, estimate_tokens
 from june_brain.context.compactor import Compactor
 from june_brain.providers.base import GenerateRequest, GenerateResult, Message
 from june_brain.providers.registry import ProviderRegistry, get_registry
@@ -21,6 +21,7 @@ from june_brain.providers.registry import ProviderRegistry, get_registry
 from .interface import (
     HarnessLoop,
     SessionState,
+    StreamEvent,
     TokenAccounting,
     ToolCall,
     TurnProvenance,
@@ -102,15 +103,21 @@ class HandwrittenLoop:
 
         self._max_iterations = max_iterations
 
-    async def run_turn(self, session: SessionState, user_msg: Message) -> TurnResult:
-        _start = time.monotonic()
+    # ------------------------------------------------------------------
+    # Private helpers shared by run_turn and stream_turn
+    # ------------------------------------------------------------------
 
-        # Reset per-turn tracking
+    def _reset_per_turn(self) -> None:
+        """Reset per-turn tracking state."""
         self._dispatched_names.clear()
         self._recall_state["memories_recalled"] = 0
         self._recall_state["recall_hits"] = []
 
-        # --- difficulty-based role/tier routing ---
+    def _route_provider(self, user_msg: Message) -> tuple[Any, str]:
+        """Difficulty-based role/tier routing with registry fallback.
+
+        Returns (provider, chosen_role).
+        """
         try:
             from june_brain.router.difficulty import heuristic_difficulty, tier_for_difficulty
 
@@ -118,13 +125,64 @@ class HandwrittenLoop:
         except Exception:
             routed_role = self._role
 
-        # Fall back to self._role if the routed role is not in the registry
         try:
             provider = self._registry.get(routed_role)
             chosen_role = routed_role
         except Exception:
             provider = self._registry.get(self._role)
             chosen_role = self._role
+
+        return provider, chosen_role
+
+    def _build_provenance(
+        self,
+        provider: Any,
+        chosen_role: str,
+        all_tool_calls: list[ToolCall],
+        start_time: float,
+        tokens: TokenAccounting,
+    ) -> TurnProvenance:
+        """Build TurnProvenance from accumulated state."""
+        memories_recalled = self._recall_state.get("memories_recalled", 0)
+        skills_called = list(self._dispatched_names)
+        is_cloud = provider.tier == "cloud-capable"
+
+        if is_cloud:
+            rationale = f"Escalated to {provider.model_id} ({chosen_role})."
+            ctx_len = len(all_tool_calls) + 1
+            cloud_payload_summary: str | None = (
+                f"Sent {ctx_len} context messages"
+                + (f" + recalled {memories_recalled} memories" if memories_recalled else "")
+                + f" to {provider.model_id}."
+            )
+        else:
+            rationale = (
+                f"Handled locally via {provider.model_id} ({chosen_role});"
+                f" recalled {memories_recalled} memories."
+            )
+            cloud_payload_summary = None
+
+        return TurnProvenance(
+            tiers_used=[chosen_role],
+            cloud_call=is_cloud,
+            model_ids=[provider.model_id],
+            memories_recalled=memories_recalled,
+            skills_called=skills_called,
+            latency_ms=max(0, int((time.monotonic() - start_time) * 1000)),
+            rationale=rationale,
+            cloud_payload_summary=cloud_payload_summary,
+        )
+
+    # ------------------------------------------------------------------
+    # run_turn — non-streaming path (used by CLEAR experiment and callers
+    # that don't need streaming)
+    # ------------------------------------------------------------------
+
+    async def run_turn(self, session: SessionState, user_msg: Message) -> TurnResult:
+        _start = time.monotonic()
+
+        self._reset_per_turn()
+        provider, chosen_role = self._route_provider(user_msg)
 
         tokens = TokenAccounting()
         all_tool_calls: list[ToolCall] = []
@@ -152,38 +210,7 @@ class HandwrittenLoop:
         assert last_result is not None
         compacted = await self._maybe_compact(session)
 
-        # --- provenance enrichment ---
-        memories_recalled = self._recall_state.get("memories_recalled", 0)
-        skills_called = list(self._dispatched_names)
-        is_cloud = provider.tier == "cloud-capable"
-
-        if is_cloud:
-            rationale = (
-                f"Escalated to {provider.model_id} ({chosen_role})."
-            )
-            ctx_len = len(all_tool_calls) + 1  # rough context message count
-            cloud_payload_summary: str | None = (
-                f"Sent {ctx_len} context messages"
-                + (f" + recalled {memories_recalled} memories" if memories_recalled else "")
-                + f" to {provider.model_id}."
-            )
-        else:
-            rationale = (
-                f"Handled locally via {provider.model_id} ({chosen_role});"
-                f" recalled {memories_recalled} memories."
-            )
-            cloud_payload_summary = None
-
-        provenance = TurnProvenance(
-            tiers_used=[chosen_role],
-            cloud_call=is_cloud,
-            model_ids=[provider.model_id],
-            memories_recalled=memories_recalled,
-            skills_called=skills_called,
-            latency_ms=max(0, int((time.monotonic() - _start) * 1000)),
-            rationale=rationale,
-            cloud_payload_summary=cloud_payload_summary,
-        )
+        provenance = self._build_provenance(provider, chosen_role, all_tool_calls, _start, tokens)
 
         return TurnResult(
             assistant_msg=Message(role="assistant", content=last_result.text),
@@ -192,6 +219,148 @@ class HandwrittenLoop:
             tokens=tokens,
             compacted=compacted,
         )
+
+    # ------------------------------------------------------------------
+    # stream_turn — true token-streaming path
+    # ------------------------------------------------------------------
+
+    async def stream_turn(
+        self, session: SessionState, user_msg: Message
+    ) -> AsyncIterator[StreamEvent]:
+        _start = time.monotonic()
+
+        self._reset_per_turn()
+        try:
+            provider, chosen_role = self._route_provider(user_msg)
+        except Exception:
+            # Graceful degradation: no provider found
+            yield StreamEvent(type="token", content="error: no provider available")
+            yield StreamEvent(type="done")
+            return
+
+        tokens = TokenAccounting()
+        all_tool_calls: list[ToolCall] = []
+        first_iteration = True
+
+        for _ in range(self._max_iterations):
+            ctx = self._assemble_context(session, user_msg)
+
+            # Emit recall event once on the first iteration if we have hits
+            if first_iteration:
+                recall_hits = self._recall_state.get("recall_hits", [])
+                if recall_hits:
+                    yield StreamEvent(type="recall", recall_hits=list(recall_hits))
+                first_iteration = False
+
+            # --- stream the provider response ---
+            accumulated = ""
+            suppress_mode = False
+            emit_mode = False
+            buffered_head = ""
+
+            try:
+                async for delta in provider.stream(
+                    GenerateRequest(messages=ctx, max_tokens=512)
+                ):
+                    accumulated += delta
+
+                    if not emit_mode and not suppress_mode:
+                        # Still classifying: buffer until we see a non-whitespace char
+                        buffered_head += delta
+                        stripped = buffered_head.lstrip()
+
+                        # Strip optional leading code fence
+                        candidate = stripped
+                        if candidate.startswith("```"):
+                            # Remove the fence header line
+                            newline_pos = candidate.find("\n")
+                            if newline_pos != -1:
+                                candidate = candidate[newline_pos + 1:].lstrip()
+                            else:
+                                # Fence not yet complete — keep buffering
+                                continue
+
+                        if candidate:
+                            # Classify based on first meaningful character
+                            if candidate[0] in ("{", "["):
+                                suppress_mode = True
+                                # Do not emit; keep accumulating silently
+                            else:
+                                emit_mode = True
+                                # Emit the buffered head (the non-JSON text we collected)
+                                if buffered_head:
+                                    yield StreamEvent(type="token", content=buffered_head)
+                                buffered_head = ""
+                    elif emit_mode:
+                        yield StreamEvent(type="token", content=delta)
+                    # suppress_mode: accumulate silently (already done above)
+
+            except Exception:
+                # Stream failed — fall back to a single generate call
+                try:
+                    result = await provider.generate(
+                        GenerateRequest(messages=ctx, max_tokens=512)
+                    )
+                    accumulated = result.text
+                    tokens.input_tokens += result.input_tokens
+                    tokens.output_tokens += result.output_tokens
+                    suppress_mode = False
+                    emit_mode = True
+                    yield StreamEvent(type="token", content=accumulated)
+                except Exception:
+                    accumulated = ""
+
+            # Accumulate token estimates for the streamed response
+            tokens.input_tokens += estimate_tokens(" ".join(m.content for m in ctx))
+            tokens.output_tokens += estimate_tokens(accumulated)
+
+            # Build a GenerateResult-like object for tool-call extraction
+            pseudo_result = GenerateResult(
+                text=accumulated,
+                input_tokens=estimate_tokens(" ".join(m.content for m in ctx)),
+                output_tokens=estimate_tokens(accumulated),
+                latency_ms=0,
+                model_id=provider.model_id,
+                tier=provider.tier,
+            )
+
+            tool_calls = self._extract_tool_calls(pseudo_result)
+
+            if tool_calls and self._dispatch is not None:
+                all_tool_calls.extend(tool_calls)
+                for tc in tool_calls:
+                    yield StreamEvent(type="tool_call", tool_name=tc.name, tool_args=tc.args)
+
+                observations = await self._dispatch(tool_calls, session)
+
+                # Map observations back to tool names (best effort)
+                for i, obs_msg in enumerate(observations):
+                    tc_name = tool_calls[i].name if i < len(tool_calls) else ""
+                    yield StreamEvent(
+                        type="tool_result",
+                        tool_name=tc_name,
+                        tool_result=obs_msg.content,
+                    )
+
+                tool_turn = Message(role="assistant", content=accumulated)
+                session.messages.append(tool_turn)
+                session.messages.extend(observations)
+                # Reset classification state for next iteration
+                suppress_mode = False
+                emit_mode = False
+                buffered_head = ""
+            else:
+                # No tool calls — if we suppressed (looked like JSON but wasn't a real
+                # tool call), emit the accumulated text now so the user sees something
+                if suppress_mode and accumulated:
+                    yield StreamEvent(type="token", content=accumulated)
+                break
+
+        await self._maybe_compact(session)
+
+        provenance = self._build_provenance(provider, chosen_role, all_tool_calls, _start, tokens)
+        yield StreamEvent(type="provenance", provenance=provenance)
+        yield StreamEvent(type="done")
 
 
 # Satisfy the Protocol at import time (runtime_checkable check in tests).
