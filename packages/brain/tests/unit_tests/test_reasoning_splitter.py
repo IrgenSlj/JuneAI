@@ -7,10 +7,9 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
-
-from june_brain.loop.reasoning import ReasoningSplitter, split_reasoning
 from june_brain.loop.handwritten import HandwrittenLoop
 from june_brain.loop.interface import SessionState, StreamEvent
+from june_brain.loop.reasoning import ReasoningSplitter, split_reasoning
 from june_brain.providers.base import (
     GenerateRequest,
     GenerateResult,
@@ -18,7 +17,6 @@ from june_brain.providers.base import (
     ProviderHealth,
 )
 from june_brain.providers.registry import ProviderRegistry
-
 
 # ---------------------------------------------------------------------------
 # Helpers
