@@ -43,6 +43,16 @@ class RecallHit(BaseModel):
     )
 
 
+class ChatHistoryMessage(BaseModel):
+    role: str = Field(default="", description="'user' or 'assistant'.")
+    content: str = Field(default="", description="The message text.")
+    timestamp: str = Field(default="", description="ISO-ish timestamp the message was stored.")
+
+
+class ChatHistory(BaseModel):
+    messages: list[ChatHistoryMessage] = Field(default_factory=list, description="Persisted chat messages, oldest first.")
+
+
 class ChatEvent(BaseModel):
     """One item in the SSE stream returned by POST /chat.
 

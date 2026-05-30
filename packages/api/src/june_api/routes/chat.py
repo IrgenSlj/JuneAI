@@ -16,7 +16,7 @@ from june_brain.providers.base import Message
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from starlette.background import BackgroundTask
 
-from ..schemas import ChatEvent, ChatRequest, RecallHit
+from ..schemas import ChatEvent, ChatHistory, ChatHistoryMessage, ChatRequest, RecallHit
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["chat"])
@@ -359,6 +359,27 @@ def _run_post_chat(user_id: str, user_text: str, assistant_buffer: list[str]) ->
         manager.extract({"user": user_text, "assistant": assistant_text})
     except Exception:
         logger.exception("post-chat extract failed for user=%s", user_id)
+
+
+@router.get("/chat/history/{user_id}", response_model=ChatHistory)
+def chat_history(user_id: str) -> ChatHistory:
+    """Return the persisted chat transcript (oldest first) so the UI can rehydrate."""
+    try:
+        rows = Memory(user_id).load_chat()
+    except Exception:
+        logger.exception("chat history load failed for user=%s", user_id)
+        rows = []
+    return ChatHistory(
+        messages=[
+            ChatHistoryMessage(
+                role=str(r.get("role", "")),
+                content=str(r.get("content", "")),
+                timestamp=str(r.get("timestamp", "")),
+            )
+            for r in rows
+            if r.get("role") in ("user", "assistant")
+        ]
+    )
 
 
 @router.post(

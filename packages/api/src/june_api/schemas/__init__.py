@@ -4,7 +4,7 @@ These define the request/response shape on the wire and feed the
 OpenAPI spec that tools/codegen.sh converts to TypeScript for the UI.
 """
 
-from .chat import ChatEvent, ChatRequest, RecallHit
+from .chat import ChatEvent, ChatHistory, ChatHistoryMessage, ChatRequest, RecallHit
 from .memory import (
     MemoryDeleteResponse,
     MemoryFact,
@@ -57,6 +57,8 @@ from .tasks import (
 
 __all__ = [
     "ChatEvent",
+    "ChatHistory",
+    "ChatHistoryMessage",
     "ChatRequest",
     "RecallHit",
     "MemoryDeleteResponse",

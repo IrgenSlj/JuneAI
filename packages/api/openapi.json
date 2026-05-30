@@ -6,6 +6,49 @@
     "version": "0.2.0"
   },
   "paths": {
+    "/chat/history/{user_id}": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Chat History",
+        "description": "Return the persisted chat transcript (oldest first) so the UI can rehydrate.",
+        "operationId": "chat_history_chat_history__user_id__get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatHistory"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/chat": {
       "post": {
         "tags": [
@@ -1878,6 +1921,44 @@
         "type": "object",
         "title": "ActivityResponse",
         "description": "GET /system/activity payload."
+      },
+      "ChatHistory": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ChatHistoryMessage"
+            },
+            "type": "array",
+            "title": "Messages",
+            "description": "Persisted chat messages, oldest first."
+          }
+        },
+        "type": "object",
+        "title": "ChatHistory"
+      },
+      "ChatHistoryMessage": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "description": "'user' or 'assistant'.",
+            "default": ""
+          },
+          "content": {
+            "type": "string",
+            "title": "Content",
+            "description": "The message text.",
+            "default": ""
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "ISO-ish timestamp the message was stored.",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "ChatHistoryMessage"
       },
       "ChatRequest": {
         "properties": {

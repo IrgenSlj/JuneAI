@@ -7,6 +7,7 @@
     regenerateLast,
     toggleActivity,
     voteRecall,
+    loadHistory,
   } from "$lib/stores/chat.svelte.js";
   import { system, loadSystem } from "$lib/stores/system.svelte.js";
   import { onMount } from "svelte";
@@ -17,6 +18,7 @@
   let greeting = $state("");
 
   onMount(async () => {
+    await loadHistory(profileName.value);
     try {
       const res = await client.getGreeting(profileName.value, profileName.value);
       greeting = res.greeting;

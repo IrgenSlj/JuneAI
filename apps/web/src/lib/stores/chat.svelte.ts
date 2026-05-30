@@ -61,6 +61,23 @@ function pushActivity(step: Omit<ActivityStep, "id" | "ts">) {
   ];
 }
 
+export async function loadHistory(userId: string): Promise<void> {
+  if (chat.streaming || chat.messages.length > 0) return;
+  try {
+    const history = await client.getChatHistory(userId);
+    const mapped = (history.messages ?? []).map((m, i) => ({
+      id: `h-${i}`,
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    }));
+    if (mapped.length > 0) {
+      chat.messages = mapped;
+    }
+  } catch {
+    // Best-effort: brain-down state leaves the empty greeting.
+  }
+}
+
 export async function sendMessage(text: string): Promise<void> {
   if (chat.streaming) return;
 

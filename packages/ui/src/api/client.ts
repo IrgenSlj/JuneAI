@@ -63,6 +63,7 @@ export type TaskListResponse = components["schemas"]["TaskListResponse"];
 export type TaskCreateRequest = components["schemas"]["TaskCreateRequest"];
 export type TaskPatchRequest = components["schemas"]["TaskPatchRequest"];
 export type TaskDeleteResponse = components["schemas"]["TaskDeleteResponse"];
+export type ChatHistory = components["schemas"]["ChatHistory"];
 
 export interface JuneClientOptions {
   /** Base URL for the API, e.g. "http://localhost:8000". No trailing slash. */
@@ -292,6 +293,11 @@ export function createJuneClient(options: JuneClientOptions) {
       return getJson<GreetingResponse>(
         `/greeting/${encodeURIComponent(userId)}${qs ? `?${qs}` : ""}`,
       );
+    },
+
+    /** GET /chat/history/{user_id} — persisted chat transcript, oldest first. */
+    getChatHistory(userId: string): Promise<ChatHistory> {
+      return getJson<ChatHistory>(`/chat/history/${encodeURIComponent(userId)}`);
     },
 
     /** GET /tasks/{user_id} — list this user's tasks, newest first. */

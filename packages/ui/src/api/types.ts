@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/chat/history/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Chat History
+         * @description Return the persisted chat transcript (oldest first) so the UI can rehydrate.
+         */
+        get: operations["chat_history_chat_history__user_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/chat": {
         parameters: {
             query?: never;
@@ -764,6 +784,35 @@ export interface components {
              * @default 0
              */
             count: number;
+        };
+        /** ChatHistory */
+        ChatHistory: {
+            /**
+             * Messages
+             * @description Persisted chat messages, oldest first.
+             */
+            messages?: components["schemas"]["ChatHistoryMessage"][];
+        };
+        /** ChatHistoryMessage */
+        ChatHistoryMessage: {
+            /**
+             * Role
+             * @description 'user' or 'assistant'.
+             * @default
+             */
+            role: string;
+            /**
+             * Content
+             * @description The message text.
+             * @default
+             */
+            content: string;
+            /**
+             * Timestamp
+             * @description ISO-ish timestamp the message was stored.
+             * @default
+             */
+            timestamp: string;
         };
         /**
          * ChatRequest
@@ -2059,6 +2108,37 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    chat_history_chat_history__user_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatHistory"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     chat_chat_post: {
         parameters: {
             query?: never;
