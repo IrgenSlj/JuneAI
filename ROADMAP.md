@@ -32,23 +32,23 @@ The seven spine modules are implemented, tested, and on `main`:
 - **C.6** Difficulty classifier, capability probe, and the visible cloud boundary
   (per-turn provenance + plain-English rationale) — *provenance live in chat.*
 
-## Now — finish and ship Tier 1
+## Now — Tier 1 is shipped; use it, then tune
 
-Make the spine the live experience, then use it before starting Tier 2:
+The spine (C.0–C.6) is built and the **handwritten loop is the live chat path** —
+provider layer, layered context + anchored compaction, character block, salience
+recall, difficulty router, and capability probe all flow through it; LangGraph
+stays as a flagged fallback (`JUNE_CHAT_USE_HARNESS=0`). The CLEAR baseline is
+measured for both engines (`docs/experiments/loop-clear.md`): the handwritten loop
+is 3-17x faster at equal efficacy, so `handwritten` is the default.
 
-1. **Run the CLEAR experiment** against local Gemma and set the default loop engine
-   (`docs/experiments/loop-clear.md`). Done — the handwritten loop is 3-17x faster
-   with equal efficacy, so the default engine stays `handwritten`.
-2. **Wire the handwritten loop as the live chat path** — route the provider layer,
-   layered context, character block, difficulty router, and capability probe
-   through it. (Today the live chat still runs on the LangGraph agent; salience
-   recall and the provenance trust surface are already live.)
-3. **Browser-verify** the cloud-boundary badge and per-turn rationale in the chat UI.
+What "done" looks like — and now holds: June runs on local Gemma 4, recalls a
+relevant older fact over a merely-similar recent one, compacts a long conversation
+without losing the stated goal, answers in a consistent voice that will gently
+disagree, and never reaches the cloud without a visible provenance line.
 
-**Tier 1 is done when:** June runs on local Gemma 4, recalls a relevant older fact
-over a merely-similar recent one, compacts a long conversation without losing the
-stated goal, answers in a consistent voice that will gently disagree, and never
-reaches the cloud without a visible provenance line.
+The discipline for the next session: **use June against real conversations before
+opening Tier 2.** Tune salience weights, compaction triggers, and the difficulty
+classifier from what you observe — then pick the first Tier 2 differentiator below.
 
 ## Next — Tier 2 differentiators
 

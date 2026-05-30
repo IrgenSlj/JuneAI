@@ -615,23 +615,26 @@ of June's inner life (C.6, D.7, D.6). Build everything else in service of those 
 
 ---
 
-## PART J — SUGGESTED FIRST SESSION
+## PART J — STATUS AND NEXT SESSION
 
-1. **C.0 fully** — the portable data directory + manifest (small; everything else writes into it).
-2. **C.1 fully** — provider layer (Gemma 4 + Gemini) with tests.
-3. **C.2 scaffold** — Loop interface + hand-written loop + the CLEAR experiment harness (don't remove
-   LangGraph). Run the experiment; record results in `docs/experiments/loop-clear.md`.
+**Tier 1 spine (C.0–C.6) is built and live.** Portable data dir + manifest (C.0); Gemma 4 + Gemini
+provider layer (C.1); hand-written loop + CLEAR harness (C.2); layered context + anchored compaction
+(C.3); salience-scored recall (C.4); character block with immutable candor (C.5); cloud boundary +
+difficulty classifier + capability probe (C.6). The **hand-written loop is the default live chat
+path** (Task 8 from the Sprint 2 driver, originally deferred, now done); LangGraph remains a flagged
+fallback (`JUNE_CHAT_USE_HARNESS=0`). CLEAR numbers for both engines live in
+`docs/experiments/loop-clear.md`.
 
-This yields a clean, model-specific, measurable foundation on a portable data dir without
-destabilizing the brain, and the experiment result tells you which engine C.3–C.6 build on. Leave
-C.3–C.6 for following sessions. Run `./tools/check.sh` before pushing.
+**Definition of done — "Tier 1 complete" — now holds:** a user chats with June running on local
+Gemma 4; June recalls a relevant older fact over a merely-similar recent one (C.4); a long
+conversation compacts mid-session without losing the user's stated goal (C.3); June answers in a
+consistent voice that will gently disagree when warranted (C.5); and at no point does anything reach
+the cloud without a visible provenance line, with local-only mode provably blocking egress (C.6).
 
-**Definition of done — "Tier 1 complete" means this observable demo works:** a user chats with June
-running on local Gemma 4; June recalls a relevant older fact over a merely-similar recent one (C.4);
-a long conversation compacts mid-session without losing the user's stated goal (C.3); June answers in
-a consistent voice that will gently disagree when warranted (C.5); and at no point does anything reach
-the cloud without a visible provenance line, with local-only mode provably blocking egress (C.6). If
-that demo holds, Tier 1 is done — ship it and *use it* before touching Tier 2.
+**Next session.** Use June against real conversations and tune the spine (salience weights,
+compaction triggers, difficulty thresholds) from what you observe — *then* open the first Tier 2
+differentiator (Part D), starting with the temporal context layer (D.1). Do not begin Tier 2 before
+the spine has been used. Run `./tools/check.sh` before pushing.
 
 **Testing philosophy for judgment-heavy parts.** Deterministic pieces (salience math, path
 resolution, immutability of FixedTraits, "no cloud without provenance") get normal assertions. The

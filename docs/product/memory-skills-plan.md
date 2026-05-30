@@ -1,9 +1,12 @@
 # Memory and Skills Depth Plan
 
-> **Status:** Backlog and design reference. Its trust goals are still valid, but
-> active sequencing now flows through ADR 0014 and the v0.1.1 event-ledger,
-> capture, approval, and Daily Home plan. Memory edits, recall provenance, and
-> skill writes should use the durable source/event model when implemented.
+> **Status:** Backlog and design reference. Its trust goals (memory edits, recall
+> provenance, reversible skill writes) remain valid, but its sequencing is
+> superseded. The capture / approval / Daily Home framing it assumed was retired by
+> [ADR 0015](../decisions/0015-center-of-gravity-four-inversions.md); active
+> direction is the canonical [build specification](build-spec.md) (Tier 1 spine,
+> then Tier 2 memory graph and conservative forgetting). Read for the trust goals,
+> not the order.
 
 This document is the plan for deepening June's two load-bearing systems — memory and skills — across all shells. It is parallel to the desktop-shell track in [desktop-shell-plan.md](desktop-shell-plan.md): the desktop shell is how June reaches users, this plan is what June actually does for them once they arrive. Both can advance independently because they touch separate subsystems.
 
