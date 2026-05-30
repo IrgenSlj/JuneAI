@@ -54,6 +54,8 @@
           >
             <span class="dot" data-mode={s.mode}></span>
             <span class="runtime-text">{s.label} · {s.model}</span>
+            <span class="runtime-sep" aria-hidden="true">·</span>
+            <span class="privacy" data-mode={s.mode}>{s.privacy_label}</span>
             {#if s.provider === "gemma"}
               {#if s.ollama_reachable && s.ollama_has_model}
                 <span class="runtime-note">· ready</span>
@@ -132,7 +134,8 @@
   .site-header-inner {
     max-width: 980px;
     margin: 0 auto;
-    padding: var(--space-3) var(--space-4);
+    min-height: 56px;
+    padding: 0 var(--space-4);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -188,14 +191,27 @@
     align-items: center;
     gap: var(--space-2);
     font-family: var(--font-mono);
-    font-size: var(--size-xs);
+    font-size: 11.5px;
     color: var(--color-fg-muted);
-    max-width: 40ch;
+    max-width: 44ch;
   }
   .runtime-text {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: var(--color-fg-secondary);
+  }
+  .runtime-sep {
+    color: var(--color-fg-subtle);
+    opacity: 0.6;
+  }
+  .privacy {
+    color: var(--color-success);
+    text-transform: lowercase;
+    white-space: nowrap;
+  }
+  .privacy[data-mode="cloud"] {
+    color: var(--color-warn);
   }
   .runtime-note {
     color: var(--color-fg-subtle);
@@ -213,14 +229,20 @@
   }
 
   .dot {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: var(--radius-pill);
     background: var(--color-success);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-success) 20%, transparent);
     flex-shrink: 0;
+  }
+  .dot[data-mode="cloud"] {
+    background: var(--color-warn);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-warn) 20%, transparent);
   }
   .dot[data-mode="api"] {
     background: var(--color-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 20%, transparent);
   }
 
   .icon-btn {
@@ -250,6 +272,8 @@
   /* At narrow widths drop the runtime text to keep the header from wrapping. */
   @media (max-width: 640px) {
     .runtime-text,
+    .runtime-sep,
+    .privacy,
     .runtime-note {
       display: none;
     }

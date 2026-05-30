@@ -100,24 +100,31 @@
   }
 </script>
 
-<article class="bubble" data-role={role}>
-  {#if role === "tool"}
-    <header class="tool-header">
-      <span class="tool-dot" aria-hidden="true"></span>
-      <span class="tool-label">{toolName || "tool"}</span>
-    </header>
+<article class="turn" data-role={role}>
+  {#if role !== "tool"}
+    <div class="role-label">{role === "user" ? "you" : "june"}</div>
   {/if}
-  <div class="body" class:tool={role === "tool"}>
-    {#if showThinking}
-      <span class="thinking" aria-label="June is thinking">
-        <span class="pulse"></span>
-        <span class="pulse"></span>
-        <span class="pulse"></span>
-      </span>
-    {:else}
-      {content}
+  <div class="bubble" data-role={role}>
+    {#if role === "tool"}
+      <header class="tool-header">
+        <span class="tool-dot" aria-hidden="true"></span>
+        <span class="tool-label">{toolName || "tool"}</span>
+      </header>
     {/if}
-  </div>
+    <div class="body" class:tool={role === "tool"}>
+      {#if showThinking}
+        <span class="thinking" aria-label="June is thinking">
+          <span class="pulse"></span>
+          <span class="pulse"></span>
+          <span class="pulse"></span>
+        </span>
+      {:else}
+        {content}{#if pending && role === "assistant" && content.length > 0}<span
+            class="caret"
+            aria-hidden="true"
+          ></span>{/if}
+      {/if}
+    </div>
   {#if showCopy}
     <button
       type="button"
@@ -199,19 +206,47 @@
       {/if}
     </div>
   {/if}
+  </div>
 </article>
 
 <style>
+  .turn {
+    display: flex;
+    flex-direction: column;
+    max-width: 78%;
+    min-width: 0;
+  }
+  .turn[data-role="user"] {
+    align-self: flex-end;
+    align-items: flex-end;
+  }
+  .turn[data-role="assistant"],
+  .turn[data-role="tool"] {
+    align-self: flex-start;
+    align-items: flex-start;
+  }
+
+  .role-label {
+    font-family: var(--font-sans);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-fg-subtle);
+    margin-bottom: var(--space-2);
+  }
+  .turn[data-role="user"] .role-label {
+    padding-right: 4px;
+  }
+  .turn[data-role="assistant"] .role-label {
+    padding-left: 4px;
+  }
+
   .bubble {
     position: relative;
-    max-width: 72ch;
-    padding: var(--space-3) var(--space-4);
-    border-radius: var(--radius-lg);
-    font-size: var(--size-md);
-    line-height: var(--leading-relaxed);
+    font-size: 15.5px;
+    line-height: 1.62;
     white-space: pre-wrap;
     word-wrap: break-word;
-    box-shadow: var(--shadow-sm);
   }
 
   .copy {
@@ -237,34 +272,51 @@
     color: var(--color-fg-primary);
     border-color: var(--color-border-strong);
   }
-  .bubble[data-role="assistant"] .copy {
-    top: 0;
-    right: 0;
-  }
 
   .bubble[data-role="user"] {
-    align-self: flex-end;
-    background: var(--color-bg-raised);
-    color: var(--color-fg-primary);
-    border: 1px solid var(--color-border);
+    background: var(--color-user-bubble);
+    color: var(--color-fg-secondary);
+    border: 1px solid var(--color-user-bubble-line);
+    border-radius: var(--radius-bubble);
+    border-bottom-right-radius: 5px;
+    padding: 13px 17px;
   }
 
   .bubble[data-role="assistant"] {
-    align-self: flex-start;
-    background: transparent;
+    background: var(--color-bg-raised);
     color: var(--color-fg-primary);
-    padding-left: 0;
-    padding-right: 0;
-    box-shadow: none;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-bubble);
+    border-bottom-left-radius: 5px;
+    padding: 13px 17px;
+    box-shadow: 0 1px 0 var(--color-border);
   }
 
   .bubble[data-role="tool"] {
-    align-self: flex-start;
     background: var(--color-bg-sunken);
     color: var(--color-fg-muted);
     border: 1px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
     font-family: var(--font-mono);
     font-size: var(--size-xs);
+  }
+
+  .caret {
+    display: inline-block;
+    width: 7px;
+    height: 1.05em;
+    margin-left: 3px;
+    transform: translateY(2px);
+    background: var(--color-accent);
+    animation: june-caret var(--motion-pulse, 1100ms) var(--ease, cubic-bezier(0.4, 0, 0.2, 1)) infinite;
+  }
+  @keyframes june-caret {
+    0%, 100% { opacity: 0.15; }
+    50% { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .caret { animation: none; }
   }
 
   .tool-header {

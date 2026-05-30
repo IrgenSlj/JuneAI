@@ -89,7 +89,22 @@
       disabled={disabled || value.trim().length === 0}
       aria-label="Send message"
     >
-      Send
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        aria-hidden="true"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M8 13V3.5M4.5 7L8 3.5 11.5 7"
+          stroke="var(--color-accent-ink)"
+          stroke-width="1.7"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
     </button>
   {/if}
 </form>
@@ -97,19 +112,21 @@
 <style>
   .composer {
     display: flex;
-    align-items: flex-end;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
+    align-items: center;
+    gap: 10px;
+    min-height: 50px;
+    padding: 0 8px 0 16px;
     background: var(--color-bg-raised);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-md);
-    transition: border-color 120ms ease, box-shadow 120ms ease;
+    box-shadow: 0 1px 0 var(--color-border), var(--shadow-md);
+    transition: border-color var(--motion-base, 220ms) var(--ease, ease),
+      box-shadow var(--motion-base, 220ms) var(--ease, ease);
   }
   .composer:focus-within {
     border-color: var(--color-accent);
-    box-shadow: var(--shadow-md),
-      0 0 0 1px color-mix(in srgb, var(--color-accent) 60%, transparent);
+    box-shadow: 0 1px 0 var(--color-border),
+      0 0 0 1px color-mix(in srgb, var(--color-accent) 55%, transparent);
   }
 
   textarea {
@@ -120,10 +137,10 @@
     background: transparent;
     color: var(--color-fg-primary);
     font-family: var(--font-sans);
-    font-size: var(--size-md);
+    font-size: 15.5px;
     line-height: var(--leading-normal);
     max-height: 240px;
-    padding: var(--space-1) 0;
+    padding: var(--space-3) 0;
   }
 
   textarea::placeholder {
@@ -131,19 +148,20 @@
   }
 
   button {
-    padding: var(--space-2) var(--space-4);
-    border-radius: var(--radius-md);
+    flex-shrink: 0;
     border: none;
-    font-family: var(--font-sans);
-    font-size: var(--size-sm);
-    font-weight: 500;
     cursor: pointer;
-    transition: background 120ms ease, opacity 120ms ease;
+    transition: background 120ms ease, opacity 120ms ease, border-color 120ms ease;
   }
 
   .send {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-md);
     background: var(--color-accent);
-    color: var(--color-bg-base);
   }
   .send:hover:not(:disabled) {
     background: var(--color-accent-muted);
@@ -154,11 +172,16 @@
   }
 
   .stop {
-    background: var(--color-bg-sunken);
-    color: var(--color-fg-primary);
+    background: transparent;
+    color: var(--color-fg-secondary);
     border: 1px solid var(--color-border-strong);
+    border-radius: 9px;
+    padding: 7px 13px;
+    font-family: var(--font-sans);
+    font-size: 12.5px;
   }
   .stop:hover {
-    background: var(--color-border);
+    background: var(--color-bg-sunken);
+    color: var(--color-fg-primary);
   }
 </style>

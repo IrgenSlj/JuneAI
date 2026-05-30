@@ -17,6 +17,13 @@
   let focusComposer: (() => void) | undefined = $state();
   let greeting = $state("");
 
+  const hasActivity = $derived(chat.activity.length > 0);
+  // Show the platform-correct send-shortcut glyph in the composer hint.
+  const modKeyLabel =
+    typeof navigator !== "undefined" && /Mac|iP(hone|ad|od)/.test(navigator.platform)
+      ? "⌘"
+      : "Ctrl";
+
   onMount(async () => {
     await loadHistory(profileName.value);
     try {
@@ -108,9 +115,9 @@
         />
       </div>
     {:else if chat.messages.length === 0}
-      <div class="empty">
-        <p>{greeting || "Hi, I'm June. I'll remember what matters so you don't have to."}</p>
-        <p class="muted">Type below to chat.</p>
+      <div class="greeting">
+        <p class="greeting-line">{greeting || "Hi, I'm June."}</p>
+        <p class="greeting-sub">I'll remember what matters so you don't have to.</p>
       </div>
     {:else}
       <MessageList
@@ -148,32 +155,50 @@
         aria-label={chat.activityOpen ? "Hide activity" : "Show activity"}
         title={chat.activityOpen ? "Hide activity" : "Show activity"}
       >
-        <!-- Chevron SVG, rotates when open -->
+        <!-- Stacked-arrow glyph (rotates when open) + accent dot when activity awaits -->
         <svg
-          class="chevron"
-          width="14"
-          height="14"
-          viewBox="0 0 14 14"
+          class="glyph"
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
           fill="none"
           aria-hidden="true"
           xmlns="http://www.w3.org/2000/svg"
         >
-          <polyline
-            points="3,5 7,9 11,5"
+          <path
+            d="M8 2.5v7M5 6.5l3 3 3-3"
             stroke="currentColor"
             stroke-width="1.5"
             stroke-linecap="round"
             stroke-linejoin="round"
           />
+          <path
+            d="M3 13h10"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+          />
         </svg>
+        {#if hasActivity && !chat.activityOpen}
+          <span class="activity-dot" aria-hidden="true"></span>
+        {/if}
       </button>
       <div class="composer-wrap">
         <Composer
           streaming={chat.streaming}
+          placeholder={chat.streaming ? "June is replying…" : "Write to June…"}
           bind:focus={focusComposer}
           onSubmit={sendMessage}
           onCancel={cancelStream}
         />
+        <div class="composer-hint">
+          <kbd>{modKeyLabel} &#9166;</kbd>
+          <span>to send</span>
+          {#if chat.streaming}
+            <span class="hint-sep">·</span>
+            <span>Esc to stop</span>
+          {/if}
+        </div>
       </div>
     </div>
   </div>
@@ -228,6 +253,34 @@
     flex: 1 1 50%;
   }
 
+  .greeting {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    text-align: center;
+    padding: 0 var(--space-5) var(--space-5);
+  }
+  .greeting-line {
+    font-family: var(--font-sans);
+    font-size: 26px;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+    color: var(--color-fg-primary);
+    margin: 0;
+    max-width: 560px;
+  }
+  .greeting-sub {
+    font-family: var(--font-sans);
+    font-size: 18px;
+    line-height: 1.55;
+    color: var(--color-fg-muted);
+    margin: var(--space-2) 0 0;
+    max-width: 560px;
+  }
+
   .empty {
     margin: auto;
     max-width: 40ch;
@@ -252,7 +305,10 @@
   /* COMPOSER BAND */
   .compose-band {
     flex: 0 0 auto;
-    padding: var(--space-3) 0 var(--space-3);
+    padding: var(--space-4) 0;
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg-base);
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
@@ -281,8 +337,12 @@
 
   .composer-row {
     display: flex;
-    align-items: flex-end;
-    gap: var(--space-2);
+    align-items: flex-start;
+    gap: var(--space-3);
+    max-width: 820px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 0 var(--space-5);
   }
 
   .composer-wrap {
@@ -291,38 +351,68 @@
   }
 
   .activity-toggle {
+    position: relative;
     flex-shrink: 0;
-    width: 32px;
-    height: 32px;
+    width: 50px;
+    height: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: transparent;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    color: var(--color-fg-subtle);
+    background: var(--color-bg-raised);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 1px 0 var(--color-border), var(--shadow-md);
+    color: var(--color-fg-muted);
     cursor: pointer;
     transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
     padding: 0;
-    margin-bottom: var(--space-2);
   }
   .activity-toggle:hover {
-    color: var(--color-fg-muted);
-    border-color: var(--color-border-strong);
-    background: var(--color-bg-raised);
+    color: var(--color-fg-secondary);
+    border-color: var(--color-accent);
   }
   .activity-toggle.open {
-    color: var(--color-accent);
-    border-color: var(--color-accent);
-    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+    background: var(--color-bg-sunken);
+    color: var(--color-fg-secondary);
   }
 
-  .chevron {
+  .glyph {
     display: block;
-    transition: transform 200ms ease;
+    transition: transform var(--motion-base, 220ms) var(--ease, ease);
   }
-  .activity-toggle.open .chevron {
+  .activity-toggle.open .glyph {
     transform: rotate(180deg);
+  }
+
+  .activity-dot {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    width: 5px;
+    height: 5px;
+    border-radius: var(--radius-pill);
+    background: var(--color-accent);
+  }
+
+  .composer-hint {
+    margin-top: var(--space-2);
+    padding-left: var(--space-1);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-fg-subtle);
+  }
+  .composer-hint kbd {
+    font-family: var(--font-mono);
+    color: var(--color-fg-muted);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 1px 6px;
+  }
+  .hint-sep {
+    opacity: 0.5;
   }
 
   /* ACTIVITY TERMINAL */
