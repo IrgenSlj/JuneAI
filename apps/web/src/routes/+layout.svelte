@@ -5,6 +5,8 @@
   import "./app.css";
   import { system, loadSystem } from "$lib/stores/system.svelte.js";
   import { theme, toggleTheme } from "$lib/stores/theme.svelte.js";
+  import { chat } from "$lib/stores/chat.svelte.js";
+  import { Mascot } from "@june/ui";
 
   const { children } = $props();
 
@@ -32,7 +34,9 @@
   <header class="site-header">
     <div class="site-header-inner">
       <div class="left">
-        <a class="brand" href="/" aria-label="June — chat">June</a>
+        <a class="brand" href="/" aria-label="June — chat">
+          <Mascot busy={chat.streaming} />
+        </a>
         <nav class="nav-links" aria-label="Primary">
           <a href="/tasks" class:active={pathname.startsWith("/tasks")}>Tasks</a>
           <a href="/memory" class:active={pathname.startsWith("/memory")}>Memory</a>
@@ -137,20 +141,20 @@
 
   .left {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: var(--space-4);
     min-width: 0;
   }
 
   .brand {
-    font-size: var(--size-lg);
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: var(--color-fg-primary);
+    display: inline-flex;
+    align-items: center;
     text-decoration: none;
+    opacity: 1;
+    transition: opacity 150ms ease;
   }
   .brand:hover {
-    color: var(--color-accent);
+    opacity: 0.75;
   }
 
   .nav-links {
