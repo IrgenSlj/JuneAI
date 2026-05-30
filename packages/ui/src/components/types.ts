@@ -14,7 +14,7 @@ export interface ChatMessage {
 export interface ActivityStep {
   id: string;
   ts: number;            // Date.now()
-  kind: "recall" | "tool" | "tool_result" | "provenance" | "done" | "error";
+  kind: "recall" | "tool" | "tool_result" | "provenance" | "done" | "error" | "reasoning";
   label: string;         // short, June-voiced, lower-case, no emoji
   detail?: string;       // optional secondary line (args, rationale, snippet)
   cloud?: boolean;       // set on provenance steps: true=cloud, false=local

@@ -1933,10 +1933,10 @@ export interface components {
         ChatEvent: {
             /**
              * Type
-             * @description Discriminator that determines the meaning of the payload.
+             * @description Discriminator that determines the meaning of the payload. reasoning: June's chain-of-thought for this turn; shown selectively, not part of the answer.
              * @enum {string}
              */
-            type: "token" | "tool_call" | "tool_result" | "recall" | "provenance" | "done" | "error";
+            type: "token" | "tool_call" | "tool_result" | "recall" | "provenance" | "done" | "error" | "reasoning";
             /**
              * Content
              * @description Textual content for token and error events; empty otherwise.

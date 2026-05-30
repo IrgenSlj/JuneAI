@@ -332,6 +332,10 @@ async def _iter_harness_events(
                         provenance=_turn_provenance_dict(ev.provenance),
                     )
                 )
+            elif ev.type == "reasoning":
+                # Reasoning is NOT added to assistant_buffer — it is not the answer
+                # and must not be persisted or fed to memory extraction.
+                yield _event_to_sse(ChatEvent(type="reasoning", content=ev.content))
             elif ev.type == "done":
                 yield _event_to_sse(ChatEvent(type="done"))
     except Exception as exc:

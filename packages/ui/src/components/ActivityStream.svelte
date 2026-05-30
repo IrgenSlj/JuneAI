@@ -44,7 +44,9 @@
           ></span>
         {/if}
         <span class="label">{step.label}</span>
-        {#if step.detail}
+        {#if step.kind === "reasoning" && step.detail}
+          <span class="reasoning-detail">{step.detail}</span>
+        {:else if step.detail}
           <span class="detail">{step.detail}</span>
         {/if}
       </div>
@@ -126,5 +128,23 @@
     flex: 1;
     min-width: 0;
     padding-left: var(--space-3);
+  }
+
+  .step[data-kind="reasoning"] .label {
+    color: var(--color-fg-subtle);
+    font-style: italic;
+  }
+
+  .reasoning-detail {
+    color: var(--color-fg-subtle);
+    font-style: italic;
+    font-family: var(--font-sans);
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    flex: 1;
+    min-width: 0;
+    padding-left: var(--space-3);
+    opacity: 0.75;
   }
 </style>

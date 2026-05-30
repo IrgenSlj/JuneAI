@@ -61,8 +61,14 @@ class ChatEvent(BaseModel):
     """
 
     type: Literal[
-        "token", "tool_call", "tool_result", "recall", "provenance", "done", "error"
-    ] = Field(..., description="Discriminator that determines the meaning of the payload.")
+        "token", "tool_call", "tool_result", "recall", "provenance", "done", "error", "reasoning"
+    ] = Field(
+        ...,
+        description=(
+            "Discriminator that determines the meaning of the payload. "
+            "reasoning: June's chain-of-thought for this turn; shown selectively, not part of the answer."
+        ),
+    )
     content: str = Field(
         default="",
         description="Textual content for token and error events; empty otherwise.",

@@ -27,6 +27,7 @@ from .interface import (
     TurnProvenance,
     TurnResult,
 )
+from .reasoning import ReasoningSplitter, split_reasoning
 
 
 class HandwrittenLoop:
@@ -212,8 +213,10 @@ class HandwrittenLoop:
 
         provenance = self._build_provenance(provider, chosen_role, all_tool_calls, _start, tokens)
 
+        _, answer_text = split_reasoning(last_result.text)
+
         return TurnResult(
-            assistant_msg=Message(role="assistant", content=last_result.text),
+            assistant_msg=Message(role="assistant", content=answer_text),
             tool_calls=all_tool_calls,
             provenance=provenance,
             tokens=tokens,
@@ -257,6 +260,7 @@ class HandwrittenLoop:
             suppress_mode = False
             emit_mode = False
             buffered_head = ""
+            splitter = ReasoningSplitter()
 
             try:
                 async for delta in provider.stream(
@@ -264,36 +268,69 @@ class HandwrittenLoop:
                 ):
                     accumulated += delta
 
-                    if not emit_mode and not suppress_mode:
-                        # Still classifying: buffer until we see a non-whitespace char
-                        buffered_head += delta
-                        stripped = buffered_head.lstrip()
-
-                        # Strip optional leading code fence
-                        candidate = stripped
-                        if candidate.startswith("```"):
-                            # Remove the fence header line
-                            newline_pos = candidate.find("\n")
-                            if newline_pos != -1:
-                                candidate = candidate[newline_pos + 1:].lstrip()
-                            else:
-                                # Fence not yet complete — keep buffering
+                    # Feed delta through the reasoning splitter first.
+                    segments = splitter.feed(delta)
+                    for seg_kind, seg_text in segments:
+                        if seg_kind == "reasoning":
+                            if seg_text:
+                                yield StreamEvent(type="reasoning", content=seg_text)
+                        else:
+                            # seg_kind == "answer": pass through the
+                            # tool-call-suppression gate exactly as before.
+                            answer_delta = seg_text
+                            if not answer_delta:
                                 continue
 
-                        if candidate:
-                            # Classify based on first meaningful character
-                            if candidate[0] in ("{", "["):
-                                suppress_mode = True
-                                # Do not emit; keep accumulating silently
-                            else:
-                                emit_mode = True
-                                # Emit the buffered head (the non-JSON text we collected)
-                                if buffered_head:
-                                    yield StreamEvent(type="token", content=buffered_head)
-                                buffered_head = ""
-                    elif emit_mode:
-                        yield StreamEvent(type="token", content=delta)
-                    # suppress_mode: accumulate silently (already done above)
+                            if not emit_mode and not suppress_mode:
+                                buffered_head += answer_delta
+                                stripped = buffered_head.lstrip()
+
+                                candidate = stripped
+                                if candidate.startswith("```"):
+                                    newline_pos = candidate.find("\n")
+                                    if newline_pos != -1:
+                                        candidate = candidate[newline_pos + 1:].lstrip()
+                                    else:
+                                        continue
+
+                                if candidate:
+                                    if candidate[0] in ("{", "["):
+                                        suppress_mode = True
+                                    else:
+                                        emit_mode = True
+                                        if buffered_head:
+                                            yield StreamEvent(type="token", content=buffered_head)
+                                        buffered_head = ""
+                            elif emit_mode:
+                                yield StreamEvent(type="token", content=answer_delta)
+
+                # Flush any residual reasoning/answer at end-of-stream.
+                for seg_kind, seg_text in splitter.flush():
+                    if seg_kind == "reasoning":
+                        if seg_text:
+                            yield StreamEvent(type="reasoning", content=seg_text)
+                    else:
+                        answer_delta = seg_text
+                        if not answer_delta:
+                            continue
+                        if not emit_mode and not suppress_mode:
+                            buffered_head += answer_delta
+                            stripped = buffered_head.lstrip()
+                            candidate = stripped
+                            if candidate.startswith("```"):
+                                newline_pos = candidate.find("\n")
+                                if newline_pos != -1:
+                                    candidate = candidate[newline_pos + 1:].lstrip()
+                            if candidate:
+                                if candidate[0] in ("{", "["):
+                                    suppress_mode = True
+                                else:
+                                    emit_mode = True
+                                    if buffered_head:
+                                        yield StreamEvent(type="token", content=buffered_head)
+                                    buffered_head = ""
+                        elif emit_mode:
+                            yield StreamEvent(type="token", content=answer_delta)
 
             except Exception:
                 # Stream failed — fall back to a single generate call
@@ -306,7 +343,8 @@ class HandwrittenLoop:
                     tokens.output_tokens += result.output_tokens
                     suppress_mode = False
                     emit_mode = True
-                    yield StreamEvent(type="token", content=accumulated)
+                    _, fallback_answer = split_reasoning(accumulated)
+                    yield StreamEvent(type="token", content=fallback_answer)
                 except Exception:
                     accumulated = ""
 
@@ -353,7 +391,8 @@ class HandwrittenLoop:
                 # No tool calls — if we suppressed (looked like JSON but wasn't a real
                 # tool call), emit the accumulated text now so the user sees something
                 if suppress_mode and accumulated:
-                    yield StreamEvent(type="token", content=accumulated)
+                    _, suppressed_answer = split_reasoning(accumulated)
+                    yield StreamEvent(type="token", content=suppressed_answer)
                 break
 
         await self._maybe_compact(session)

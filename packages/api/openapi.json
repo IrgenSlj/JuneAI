@@ -3714,7 +3714,7 @@
         "description": "One item in the SSE stream returned by POST /chat.\n\nThe wire format is one ``data:`` frame per event carrying a JSON\nobject with this shape. ``type`` drives the UI.",
         "properties": {
           "type": {
-            "description": "Discriminator that determines the meaning of the payload.",
+            "description": "Discriminator that determines the meaning of the payload. reasoning: June's chain-of-thought for this turn; shown selectively, not part of the answer.",
             "enum": [
               "token",
               "tool_call",
@@ -3722,7 +3722,8 @@
               "recall",
               "provenance",
               "done",
-              "error"
+              "error",
+              "reasoning"
             ],
             "title": "Type",
             "type": "string"

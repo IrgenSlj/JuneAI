@@ -70,7 +70,7 @@ class TurnResult:
 class StreamEvent:
     """A single event emitted by stream_turn; maps onto SSE frames in the API layer."""
 
-    type: Literal["token", "tool_call", "tool_result", "recall", "provenance", "done"]
+    type: Literal["token", "tool_call", "tool_result", "recall", "provenance", "done", "reasoning"]
     content: str = ""
     tool_name: str = ""
     tool_args: dict = field(default_factory=dict)

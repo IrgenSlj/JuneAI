@@ -23,6 +23,9 @@ export const chat = $state({
   streamStartedAt: null as number | null,
 });
 
+/** Tracks the activity step id used to accumulate reasoning for the current turn. */
+let currentReasoningStepId: string | null = null;
+
 function appendToken(id: string, token: string) {
   chat.messages = chat.messages.map((m) =>
     m.id === id ? { ...m, content: m.content + token } : m,
@@ -98,6 +101,7 @@ export async function sendMessage(text: string): Promise<void> {
   chat.streaming = true;
   chat.streamStartedAt = Date.now();
   chat.abortController = new AbortController();
+  currentReasoningStepId = null;
 
   try {
     for await (const event of client.streamChat({
@@ -164,6 +168,27 @@ function handleEvent(event: ChatEvent, assistantId: string) {
         kind: "tool_result",
         label: `→ ${resultSnippet}`,
       });
+      break;
+    }
+    case "reasoning": {
+      if (currentReasoningStepId !== null) {
+        // Append to the existing reasoning step for this turn.
+        chat.activity = chat.activity.map((s) =>
+          s.id === currentReasoningStepId
+            ? { ...s, detail: (s.detail ?? "") + event.content }
+            : s,
+        );
+      } else {
+        const newStep: ActivityStep = {
+          id: `act-${Date.now()}-${Math.random()}`,
+          ts: Date.now(),
+          kind: "reasoning",
+          label: "thinking",
+          detail: event.content,
+        };
+        chat.activity = [...chat.activity, newStep];
+        currentReasoningStepId = newStep.id;
+      }
       break;
     }
     case "error":
