@@ -13,32 +13,40 @@
 
 export const color = {
   // Surfaces
-  bgBase: "#0b0d10",
-  bgRaised: "#14181d",
-  bgSunken: "#08090b",
+  bgBase: "#13110E",
+  bgRaised: "#1A1814",
+  bgSunken: "#22201B",
 
   // Foregrounds
-  fgPrimary: "#f5f6f7",
-  fgMuted: "#a3acb6",
-  fgSubtle: "#6a727d",
+  fgPrimary: "#F1EEE7",
+  fgSecondary: "#D8D3C9",
+  fgMuted: "#8E8778",
+  fgSubtle: "#5F5A50",
 
-  // Accents — June's identity color is a warm amber that reads as
+  // Accents — June's identity color is a warm clay-orange that reads as
   // attentive rather than clinical. The assistant-bubble uses it.
-  accent: "#f5a524",
-  accentMuted: "#b87917",
+  accent: "#F2AC6E",
+  accentMuted: "#E0945A",
+  accentInk: "#2A1B0E",
+  accentSoft: "rgba(242, 172, 110, 0.16)",
 
   // Semantic
-  success: "#3ecf8e",
-  danger: "#ef4146",
-  border: "#20262e",
-  borderStrong: "#2e3641",
+  success: "#8AA884",
+  danger: "#C88080",
+  warn: "#C8A260",
+  border: "rgba(255, 250, 240, 0.08)",
+  borderStrong: "rgba(255, 250, 240, 0.16)",
+
+  // UI chrome
+  termBg: "#0E0C09",
+  userBubble: "rgba(242, 172, 110, 0.16)",
+  userBubbleLine: "rgba(255, 255, 255, 0.04)",
 } as const;
 
 export const typography = {
-  fontSans:
-    '"Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  fontSans: '"Helvetica Neue", Helvetica, Arial, sans-serif',
   fontMono:
-    '"JetBrains Mono", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
+    'ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
   sizeXs: "0.75rem",
   sizeSm: "0.875rem",
   sizeMd: "1rem",
@@ -65,9 +73,11 @@ export const space = {
 } as const;
 
 export const radius = {
-  sm: "4px",
-  md: "8px",
+  sm: "6px",
+  md: "10px",
   lg: "14px",
+  xl: "22px",
+  bubble: "16px",
   pill: "999px",
 } as const;
 
@@ -84,6 +94,19 @@ export const breakpoint = {
   xl: "1280px",
 } as const;
 
+export const motion = {
+  fast: "120ms",
+  base: "220ms",
+  slow: "420ms",
+  enter: "320ms",
+  breath: "5200ms",
+  spin: "14s",
+  pulse: "1100ms",
+  ease: "cubic-bezier(0.4,0,0.2,1)",
+  easeOut: "cubic-bezier(0,0,0.2,1)",
+  easeIn: "cubic-bezier(0.4,0,1,1)",
+} as const;
+
 export const tokens = {
   color,
   typography,
@@ -91,6 +114,7 @@ export const tokens = {
   radius,
   shadow,
   breakpoint,
+  motion,
 } as const;
 
 export type Tokens = typeof tokens;
