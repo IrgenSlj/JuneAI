@@ -8,22 +8,20 @@
  * and when the user returns to / the chat page re-renders from the same
  * state.
  */
-import { type ChatEvent, type ChatMessage } from "@june/ui";
+import { type ChatEvent, type ChatMessage, type ActivityStep } from "@june/ui";
 import { client } from "$lib/api.js";
 import { profileName } from "$lib/stores/user.svelte.js";
 
 export const chat = $state({
   messages: [] as ChatMessage[],
+  activity: [] as ActivityStep[],
+  activityOpen: false,
   streaming: false,
   abortController: null as AbortController | null,
   /** When a stream is running, the timestamp it started — used to render
    * an elapsed-time hint if the model takes a while to emit its first token. */
   streamStartedAt: null as number | null,
 });
-
-function pushMessage(msg: ChatMessage) {
-  chat.messages = [...chat.messages, msg];
-}
 
 function appendToken(id: string, token: string) {
   chat.messages = chat.messages.map((m) =>
@@ -52,6 +50,17 @@ function formatToolCall(
   return `${name} ${argText}`;
 }
 
+export function toggleActivity(): void {
+  chat.activityOpen = !chat.activityOpen;
+}
+
+function pushActivity(step: Omit<ActivityStep, "id" | "ts">) {
+  chat.activity = [
+    ...chat.activity,
+    { ...step, id: `act-${Date.now()}-${Math.random()}`, ts: Date.now() },
+  ];
+}
+
 export async function sendMessage(text: string): Promise<void> {
   if (chat.streaming) return;
 
@@ -68,6 +77,7 @@ export async function sendMessage(text: string): Promise<void> {
   };
 
   chat.messages = [...chat.messages, userMsg, assistantMsg];
+  chat.activity = [];
   chat.streaming = true;
   chat.streamStartedAt = Date.now();
   chat.abortController = new AbortController();
@@ -99,35 +109,52 @@ function handleEvent(event: ChatEvent, assistantId: string) {
     case "token":
       appendToken(assistantId, event.content);
       break;
-    case "recall":
+    case "recall": {
       attachRecallHits(assistantId, event.recall_hits);
-      break;
-    case "provenance":
-      attachProvenance(assistantId, event.provenance);
-      break;
-    case "tool_call":
-      pushMessage({
-        id: `t-${Date.now()}-${Math.random()}`,
-        role: "tool",
-        content: formatToolCall(event.tool_name, event.tool_args),
-        toolName: event.tool_name,
+      const hits = event.recall_hits ?? [];
+      const n = hits.length;
+      pushActivity({
+        kind: "recall",
+        label: `recall · ${n} ${n === 1 ? "memory" : "memories"}`,
       });
       break;
-    case "tool_result":
-      // Attach onto the most recent tool bubble with the same name that
-      // hasn't already been answered, preserving transcript order.
-      chat.messages = chat.messages.map((m) =>
-        m.role === "tool" &&
-        m.toolName === event.tool_name &&
-        !m.content.includes("→")
-          ? { ...m, content: `${m.content}\n  → ${event.tool_result}` }
-          : m,
-      );
+    }
+    case "provenance": {
+      attachProvenance(assistantId, event.provenance);
+      const p = event.provenance;
+      const isCloud = !!p?.cloud_call;
+      const modelPart = p?.model ?? "";
+      const recalledPart = p?.memories_recalled ? ` · ${p.memories_recalled} recalled` : "";
+      const latencyPart = p?.latency_ms ? ` · ${p.latency_ms}ms` : "";
+      pushActivity({
+        kind: "provenance",
+        cloud: isCloud,
+        label: `${isCloud ? "cloud" : "local"} · ${modelPart}${recalledPart}${latencyPart}`,
+        detail: p?.rationale != null ? String(p.rationale) : undefined,
+      });
       break;
+    }
+    case "tool_call":
+      pushActivity({
+        kind: "tool",
+        label: event.tool_name,
+        detail: formatToolCall(event.tool_name, event.tool_args),
+      });
+      break;
+    case "tool_result": {
+      const resultSnippet = String(event.tool_result ?? "").slice(0, 120);
+      pushActivity({
+        kind: "tool_result",
+        label: `→ ${resultSnippet}`,
+      });
+      break;
+    }
     case "error":
+      pushActivity({ kind: "error", label: "error", detail: event.content });
       appendToken(assistantId, `\n\n[error: ${event.content}]`);
       break;
     case "done":
+      pushActivity({ kind: "done", label: "done" });
       break;
   }
 }
