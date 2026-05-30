@@ -201,6 +201,16 @@ def test_gemini_no_api_key_raises() -> None:
                 asyncio.run(provider.generate(_req()))
 
 
+def test_gemini_caches_client_across_calls() -> None:
+    """A fresh AsyncOpenAI per call would leak an httpx connection (FD) each turn."""
+    provider = GeminiProvider(model_id="gemini-2.0-flash", base_url="https://example.com/v1/")
+    c1 = provider._client("key-a")
+    c2 = provider._client("key-a")
+    assert c1 is c2  # reused across calls
+    c3 = provider._client("key-b")
+    assert c3 is not c1  # rebuilt only when the API key changes
+
+
 # ---------------------------------------------------------------------------
 # 5. GenerateResult.tier is correct per provider
 # ---------------------------------------------------------------------------

@@ -83,8 +83,35 @@ async def _lifespan(app: FastAPI):
     yield
 
 
+def _raise_fd_limit() -> None:
+    """Raise the open-file (descriptor) soft limit so long sessions don't hit
+    EMFILE ("Too many open files").
+
+    June legitimately holds many descriptors at once: ChromaDB index files,
+    per-worker-thread SQLite WAL connections, model/embedding files, and
+    keepalive sockets to Ollama. macOS ships a low default soft limit (often
+    256), which a busy session can brush against — a burst (streaming + the
+    fire-and-forget activity writes + a config save) then tips it over.
+
+    Best-effort and never fatal: no-op on platforms without ``resource``
+    (Windows) or when the limit cannot be changed.
+    """
+    try:
+        import resource
+    except ImportError:
+        return
+    try:
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        target = 65536 if hard == resource.RLIM_INFINITY else min(hard, 65536)
+        if soft < target:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (target, hard))
+    except (ValueError, OSError):
+        pass
+
+
 def create_app() -> FastAPI:
     """Assemble the FastAPI instance."""
+    _raise_fd_limit()
     from .routes import (
         chat,
         demo,

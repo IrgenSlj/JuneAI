@@ -46,9 +46,17 @@ class GeminiProvider:
         self.model_id = model_id
         self.base_url = base_url
         self.tier = "cloud-capable"
+        self._cached_client: AsyncOpenAI | None = None
+        self._cached_key: str | None = None
 
     def _client(self, api_key: str) -> AsyncOpenAI:
-        return AsyncOpenAI(base_url=self.base_url, api_key=api_key)
+        # Build once and reuse: a fresh AsyncOpenAI per call leaks an httpx
+        # connection (a file descriptor) every turn. Rebuild only if the key
+        # changes (e.g. the user rotates their API key in settings).
+        if self._cached_client is None or self._cached_key != api_key:
+            self._cached_client = AsyncOpenAI(base_url=self.base_url, api_key=api_key)
+            self._cached_key = api_key
+        return self._cached_client
 
     def _build_messages(self, messages: list[Message]) -> list[dict]:
         return [{"role": m.role, "content": m.content} for m in messages]
