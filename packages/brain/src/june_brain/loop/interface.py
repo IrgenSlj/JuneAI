@@ -68,15 +68,33 @@ class TurnResult:
 
 @dataclass
 class StreamEvent:
-    """A single event emitted by stream_turn; maps onto SSE frames in the API layer."""
+    """A single event emitted by stream_turn; maps onto SSE frames in the API layer.
 
-    type: Literal["token", "tool_call", "tool_result", "recall", "provenance", "done", "reasoning"]
+    ``detail`` carries the full, expandable content for glass-box trace kinds
+    (the rendered ``prompt``, per-``iteration`` internals, ``compaction``). For
+    ``token`` it stays empty — tokens are the foreground answer, not trace.
+    """
+
+    type: Literal[
+        "token",
+        "tool_call",
+        "tool_result",
+        "recall",
+        "provenance",
+        "done",
+        "reasoning",
+        "prompt",
+        "iteration",
+        "compaction",
+    ]
     content: str = ""
     tool_name: str = ""
     tool_args: dict = field(default_factory=dict)
     tool_result: str = ""
     recall_hits: list[dict] = field(default_factory=list)
     provenance: TurnProvenance | None = None
+    detail: str = ""
+    iteration: int = 0
 
 
 @runtime_checkable

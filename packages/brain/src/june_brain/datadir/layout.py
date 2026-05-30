@@ -17,6 +17,7 @@ EXPECTED_CONTENTS: list[str] = [
     "skills/",
     "tasks/",
     "config/",
+    "traces/",
 ]
 
 
@@ -72,6 +73,17 @@ def config_dir() -> Path:
     return _root() / "config"
 
 
+def traces_dir() -> Path:
+    """Directory for per-turn harness traces (the glass-box debug record).
+
+    Privacy note: trace files hold the fully assembled prompt for each turn —
+    recalled memories, character, and history in the clear. They are local-only,
+    live inside the data dir that local-only mode governs, and never leave the
+    machine. They are the most sensitive thing June writes to disk.
+    """
+    return _root() / "traces"
+
+
 def ensure_layout() -> Path:
     """Create all required subdirectories under data_dir() and return data_dir().
 
@@ -79,6 +91,6 @@ def ensure_layout() -> Path:
     """
     root = _root()
     root.mkdir(parents=True, exist_ok=True)
-    for subdir in ("memory", "character", "skills", "tasks", "config"):
+    for subdir in ("memory", "character", "skills", "tasks", "config", "traces"):
         (root / subdir).mkdir(parents=True, exist_ok=True)
     return root

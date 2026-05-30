@@ -9,7 +9,9 @@ never changes and is never self-modified.
 
 from __future__ import annotations
 
+import json
 import time
+import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
@@ -28,6 +30,7 @@ from .interface import (
     TurnResult,
 )
 from .reasoning import ReasoningSplitter, split_reasoning
+from .trace import TraceStore, TurnTrace
 
 
 class HandwrittenLoop:
@@ -103,10 +106,20 @@ class HandwrittenLoop:
             self._maybe_compact = _compactor.compact
 
         self._max_iterations = max_iterations
+        self._trace_store = TraceStore()
 
     # ------------------------------------------------------------------
     # Private helpers shared by run_turn and stream_turn
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _render_prompt(ctx: list[Message]) -> str:
+        """Render the assembled context exactly as the model receives it.
+
+        This is the "LLM factory" input — the full prompt including character,
+        recalled memories, pinned state, and history.
+        """
+        return "\n\n".join(f"[{m.role}]\n{m.content}" for m in ctx)
 
     def _reset_per_turn(self) -> None:
         """Reset per-turn tracking state."""
@@ -233,27 +246,60 @@ class HandwrittenLoop:
         _start = time.monotonic()
 
         self._reset_per_turn()
+        trace = TurnTrace(turn_id=uuid.uuid4().hex, user_id=session.user_id)
         try:
             provider, chosen_role = self._route_provider(user_msg)
         except Exception:
             # Graceful degradation: no provider found
             yield StreamEvent(type="token", content="error: no provider available")
+            trace.record("error", "no provider available")
+            self._trace_store.write(trace)
             yield StreamEvent(type="done")
             return
+
+        trace.record(
+            "iteration",
+            f"route -> {chosen_role} ({provider.model_id})",
+            detail=f"tier: {provider.tier}\nmodel: {provider.model_id}\nrole: {chosen_role}",
+        )
 
         tokens = TokenAccounting()
         all_tool_calls: list[ToolCall] = []
         first_iteration = True
 
-        for _ in range(self._max_iterations):
+        for iteration_idx in range(self._max_iterations):
             ctx = self._assemble_context(session, user_msg)
+
+            # Emit the rendered prompt — the "LLM factory" input — as a trace
+            # event. content stays empty; the full prompt rides in detail.
+            rendered_prompt = self._render_prompt(ctx)
+            yield StreamEvent(
+                type="prompt",
+                content=f"prompt assembled ({len(ctx)} messages)",
+                detail=rendered_prompt,
+                iteration=iteration_idx,
+            )
+            trace.record(
+                "prompt",
+                f"prompt assembled ({len(ctx)} messages)",
+                detail=rendered_prompt,
+            )
 
             # Emit recall event once on the first iteration if we have hits
             if first_iteration:
                 recall_hits = self._recall_state.get("recall_hits", [])
                 if recall_hits:
                     yield StreamEvent(type="recall", recall_hits=list(recall_hits))
+                    trace.record(
+                        "recall",
+                        f"recall · {len(recall_hits)} memories",
+                        detail="\n".join(
+                            str(h.get("text", h)) for h in recall_hits
+                        ),
+                    )
                 first_iteration = False
+
+            reasoning_accum = ""
 
             # --- stream the provider response ---
             accumulated = ""
@@ -273,6 +319,7 @@ class HandwrittenLoop:
                     for seg_kind, seg_text in segments:
                         if seg_kind == "reasoning":
                             if seg_text:
+                                reasoning_accum += seg_text
                                 yield StreamEvent(type="reasoning", content=seg_text)
                         else:
                             # seg_kind == "answer": pass through the
@@ -308,6 +355,7 @@ class HandwrittenLoop:
                 for seg_kind, seg_text in splitter.flush():
                     if seg_kind == "reasoning":
                         if seg_text:
+                            reasoning_accum += seg_text
                             yield StreamEvent(type="reasoning", content=seg_text)
                     else:
                         answer_delta = seg_text
@@ -364,10 +412,27 @@ class HandwrittenLoop:
 
             tool_calls = self._extract_tool_calls(pseudo_result)
 
+            # Record this iteration's internals: the raw intermediate model
+            # output and how many tool calls were parsed out of it.
+            trace.record(
+                "iteration",
+                f"iteration {iteration_idx} · {len(tool_calls)} tool call(s)",
+                detail=accumulated or "(no output)",
+            )
+            if reasoning_accum:
+                trace.record("reasoning", "reasoning", detail=reasoning_accum)
+
             if tool_calls and self._dispatch is not None:
                 all_tool_calls.extend(tool_calls)
                 for tc in tool_calls:
-                    yield StreamEvent(type="tool_call", tool_name=tc.name, tool_args=tc.args)
+                    args_detail = json.dumps(tc.args, ensure_ascii=False, indent=2)
+                    yield StreamEvent(
+                        type="tool_call",
+                        tool_name=tc.name,
+                        tool_args=tc.args,
+                        detail=args_detail,
+                    )
+                    trace.record("tool_call", f"tool · {tc.name}", detail=args_detail)
 
                 observations = await self._dispatch(tool_calls, session)
 
@@ -378,6 +443,10 @@ class HandwrittenLoop:
                         type="tool_result",
                         tool_name=tc_name,
                         tool_result=obs_msg.content,
+                        detail=obs_msg.content,
+                    )
+                    trace.record(
+                        "tool_result", f"result · {tc_name}", detail=obs_msg.content
                     )
 
                 tool_turn = Message(role="assistant", content=accumulated)
@@ -395,10 +464,42 @@ class HandwrittenLoop:
                     yield StreamEvent(type="token", content=suppressed_answer)
                 break
 
-        await self._maybe_compact(session)
+        compacted = await self._maybe_compact(session)
+        if compacted:
+            yield StreamEvent(
+                type="compaction",
+                content="conversation compacted",
+                detail="The conversation history was compacted into the pinned-state anchor.",
+            )
+            trace.record(
+                "compaction",
+                "conversation compacted",
+                detail="History compacted into the pinned-state anchor.",
+            )
 
         provenance = self._build_provenance(provider, chosen_role, all_tool_calls, _start, tokens)
         yield StreamEvent(type="provenance", provenance=provenance)
+        trace.record(
+            "provenance",
+            provenance.rationale,
+            detail=(
+                f"tiers: {', '.join(provenance.tiers_used)}\n"
+                f"models: {', '.join(provenance.model_ids)}\n"
+                f"cloud_call: {provenance.cloud_call}\n"
+                f"memories_recalled: {provenance.memories_recalled}\n"
+                f"skills_called: {', '.join(provenance.skills_called) or '(none)'}\n"
+                f"latency_ms: {provenance.latency_ms}\n"
+                f"tokens: in={tokens.input_tokens} out={tokens.output_tokens}"
+                + (
+                    f"\ncloud_payload: {provenance.cloud_payload_summary}"
+                    if provenance.cloud_payload_summary
+                    else ""
+                )
+            ),
+        )
+
+        trace.record("done", "done")
+        self._trace_store.write(trace)
         yield StreamEvent(type="done")
 
 
