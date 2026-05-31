@@ -186,6 +186,34 @@ def test_assembler_pinned_block_appears_as_system_message() -> None:
     assert any("my goal" in c for c in system_contents)
 
 
+def test_assembler_tools_block_appears_as_system_message() -> None:
+    assembler = ContextAssembler(
+        tools_block='You can call tools.\n{"tool_calls": [{"name": "web_search", "args": {}}]}'
+    )
+    session = SessionState(user_id="u1", messages=[])
+    user_msg = Message(role="user", content="search the web")
+    ctx = assembler.assemble(session, user_msg)
+    system_contents = [m.content for m in ctx if m.role == "system"]
+    assert any("web_search" in c for c in system_contents)
+
+
+def test_assembler_no_tools_block_when_none() -> None:
+    assembler = ContextAssembler()
+    session = SessionState(user_id="u1", messages=[])
+    user_msg = Message(role="user", content="hi")
+    ctx = assembler.assemble(session, user_msg)
+    # Only the section-1 system message — no tools block injected.
+    assert len([m for m in ctx if m.role == "system"]) == 1
+
+
+def test_make_tools_block_never_raises() -> None:
+    # Graceful degradation: returns a string (possibly empty) regardless of
+    # whether skills/runtime are resolvable in the test environment.
+    from june_brain.loop.wiring import make_tools_block
+
+    assert isinstance(make_tools_block(), str)
+
+
 def test_assembler_no_pinned_block_when_empty() -> None:
     assembler = ContextAssembler()
     session = SessionState(user_id="u1", messages=[])

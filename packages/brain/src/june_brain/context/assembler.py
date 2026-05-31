@@ -39,11 +39,13 @@ class ContextAssembler:
         character_block: str | None = None,
         recall: Callable[..., list[Message]] | None = None,
         token_budget: int = 6000,
+        tools_block: str | None = None,
     ) -> None:
         self._system_prompt = system_prompt
         self._character_block = character_block
         self._recall = recall
         self._token_budget = token_budget
+        self._tools_block = tools_block
 
     def assemble(self, session: object, user_msg: Message) -> list[Message]:
         """Return the ordered context list, trimming oldest raw turns to fit budget."""
@@ -55,6 +57,12 @@ class ContextAssembler:
         # Section 2 — character block (optional)
         if self._character_block:
             fixed.append(Message(role="system", content=self._character_block))
+
+        # Section 2.5 — tool advertisement (optional). Tells the model which
+        # tools it may call and the JSON to emit; without it the loop can
+        # dispatch tools but the model never knows they exist.
+        if self._tools_block:
+            fixed.append(Message(role="system", content=self._tools_block))
 
         # Section 3 — pinned state (only when non-empty)
         pinned = getattr(session, "pinned", None)

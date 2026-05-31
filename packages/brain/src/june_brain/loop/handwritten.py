@@ -71,12 +71,13 @@ class HandwrittenLoop:
             except Exception:
                 pass
 
-            from .wiring import make_recall_fn
+            from .wiring import make_recall_fn, make_tools_block
 
             recall_fn, self._recall_state = make_recall_fn()
             _assembler = ContextAssembler(
                 character_block=character_block,
                 recall=recall_fn,
+                tools_block=make_tools_block(),
             )
             self._assemble_context = _assembler.assemble
 

@@ -52,6 +52,56 @@ def make_recall_fn(
 
 
 # ---------------------------------------------------------------------------
+# Tool advertisement — tell the model which tools it may call
+# ---------------------------------------------------------------------------
+
+
+def make_tools_block() -> str:
+    """Build the system-prompt section that advertises callable tools.
+
+    The handwritten loop extracts tool calls from the model's *text* (it does
+    not bind structured tools through the provider API), so the model must be
+    told, in the prompt, which tools exist and the exact JSON it should emit
+    to call one. Without this block the model has no way to know a tool like
+    ``web_search`` is available.
+
+    Returns "" on any failure or when no tools are available — graceful
+    degradation: the loop still runs, just without tool access.
+    """
+    try:
+        from june_brain.config import resolve_runtime_config  # noqa: PLC0415
+        from june_brain.graph import _select_tools_for_runtime  # noqa: PLC0415
+
+        runtime = resolve_runtime_config()
+        tools = _select_tools_for_runtime(runtime)
+    except Exception:
+        return ""
+
+    if not tools:
+        return ""
+
+    lines = ["You can call tools to act or fetch fresh information. Available tools:"]
+    for t in tools:
+        name = getattr(t, "name", "")
+        if not name:
+            continue
+        desc = (getattr(t, "description", "") or "").strip().replace("\n", " ")
+        try:
+            arg_names = ", ".join((getattr(t, "args", {}) or {}).keys())
+        except Exception:
+            arg_names = ""
+        lines.append(f"- {name}({arg_names}): {desc}")
+
+    lines.append(
+        "\nTo call a tool, reply with ONLY this JSON and nothing else:\n"
+        '{"tool_calls": [{"name": "<tool_name>", "args": {<arguments>}}]}\n'
+        "When the tool result comes back, answer the user in plain language. "
+        "If no tool is needed, just answer normally — do not emit JSON."
+    )
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Tool-call extraction
 # ---------------------------------------------------------------------------
 
