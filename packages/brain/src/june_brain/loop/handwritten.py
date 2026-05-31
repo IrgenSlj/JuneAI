@@ -257,11 +257,10 @@ class HandwrittenLoop:
             yield StreamEvent(type="done")
             return
 
-        trace.record(
-            "iteration",
-            f"route -> {chosen_role} ({provider.model_id})",
-            detail=f"tier: {provider.tier}\nmodel: {provider.model_id}\nrole: {chosen_role}",
-        )
+        route_summary = f"route -> {chosen_role} ({provider.model_id})"
+        route_detail = f"tier: {provider.tier}\nmodel: {provider.model_id}\nrole: {chosen_role}"
+        yield StreamEvent(type="iteration", content=route_summary, detail=route_detail)
+        trace.record("iteration", route_summary, detail=route_detail)
 
         tokens = TokenAccounting()
         all_tool_calls: list[ToolCall] = []
@@ -412,13 +411,19 @@ class HandwrittenLoop:
 
             tool_calls = self._extract_tool_calls(pseudo_result)
 
-            # Record this iteration's internals: the raw intermediate model
-            # output and how many tool calls were parsed out of it.
-            trace.record(
-                "iteration",
-                f"iteration {iteration_idx} · {len(tool_calls)} tool call(s)",
-                detail=accumulated or "(no output)",
+            # Record + stream this iteration's internals: the raw intermediate
+            # model output (incl. any suppressed tool JSON / think blocks) and
+            # how many tool calls were parsed out of it. This is the glass box —
+            # the unedited model output behind the cleaned answer tokens.
+            iter_summary = f"iteration {iteration_idx} · {len(tool_calls)} tool call(s)"
+            iter_detail = accumulated or "(no output)"
+            yield StreamEvent(
+                type="iteration",
+                content=iter_summary,
+                detail=iter_detail,
+                iteration=iteration_idx,
             )
+            trace.record("iteration", iter_summary, detail=iter_detail)
             if reasoning_accum:
                 trace.record("reasoning", "reasoning", detail=reasoning_accum)
 
