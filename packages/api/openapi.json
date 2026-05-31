@@ -3333,6 +3333,12 @@
             "title": "Privacy Label",
             "description": "'local-only' or 'api-assisted'."
           },
+          "privacy_dial": {
+            "type": "string",
+            "title": "Privacy Dial",
+            "description": "The user's persistent privacy dial: 'local_only', 'private_by_default', or 'cloud_first'. This is the mode that gates networked tools.",
+            "default": "private_by_default"
+          },
           "base_url": {
             "type": "string",
             "title": "Base Url",
@@ -3946,7 +3952,8 @@
               "reasoning",
               "prompt",
               "iteration",
-              "compaction"
+              "compaction",
+              "tool_blocked"
             ],
             "title": "Type",
             "type": "string"

@@ -1774,6 +1774,12 @@ export interface components {
              */
             privacy_label: string;
             /**
+             * Privacy Dial
+             * @description The user's persistent privacy dial: 'local_only', 'private_by_default', or 'cloud_first'. This is the mode that gates networked tools.
+             * @default private_by_default
+             */
+            privacy_dial: string;
+            /**
              * Base Url
              * @description Endpoint the brain is talking to.
              * @default
@@ -2058,7 +2064,7 @@ export interface components {
              * @description Discriminator that determines the meaning of the payload. reasoning: June's chain-of-thought for this turn; shown selectively, not part of the answer. prompt/iteration/compaction: glass-box trace events; the collapsed line is in content, the full expandable body is in detail.
              * @enum {string}
              */
-            type: "token" | "tool_call" | "tool_result" | "recall" | "provenance" | "done" | "error" | "reasoning" | "prompt" | "iteration" | "compaction";
+            type: "token" | "tool_call" | "tool_result" | "recall" | "provenance" | "done" | "error" | "reasoning" | "prompt" | "iteration" | "compaction" | "tool_blocked";
             /**
              * Content
              * @description Textual content for token and error events; empty otherwise.

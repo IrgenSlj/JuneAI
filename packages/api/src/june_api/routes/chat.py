@@ -333,6 +333,18 @@ async def _iter_harness_events(
                 yield _event_to_sse(
                     ChatEvent(type=ev.type, content=ev.content, detail=ev.detail)
                 )
+            elif ev.type == "tool_blocked":
+                # A networked tool was blocked by Local-only mode. The UI renders
+                # the one-click "switch and retry" affordance from this.
+                yield _event_to_sse(
+                    ChatEvent(
+                        type="tool_blocked",
+                        tool_name=ev.tool_name,
+                        tool_args=ev.tool_args,
+                        detail=ev.detail,
+                        network=True,
+                    )
+                )
             elif ev.type == "recall":
                 hits: list[RecallHit] = []
                 for h in ev.recall_hits:

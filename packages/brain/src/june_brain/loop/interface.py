@@ -90,6 +90,7 @@ class StreamEvent:
         "prompt",
         "iteration",
         "compaction",
+        "tool_blocked",
     ]
     content: str = ""
     tool_name: str = ""

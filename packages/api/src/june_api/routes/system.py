@@ -31,6 +31,13 @@ def get_system_status() -> SystemStatus:
     is fine.
     """
     try:
+        from june_brain.config_store import get_privacy_dial
+
+        dial = get_privacy_dial().value
+    except Exception:
+        dial = "private_by_default"
+
+    try:
         runtime = resolve_runtime_config()
     except ValueError:
         return SystemStatus(
@@ -39,6 +46,7 @@ def get_system_status() -> SystemStatus:
             model="",
             mode="api",
             privacy_label="api-assisted",
+            privacy_dial=dial,
             base_url="",
             ollama_reachable=False,
             ollama_has_model=False,
@@ -58,6 +66,7 @@ def get_system_status() -> SystemStatus:
         model=runtime.model,
         mode=runtime.mode,
         privacy_label=runtime.privacy_label,
+        privacy_dial=dial,
         base_url=runtime.base_url,
         ollama_reachable=ollama_reachable,
         ollama_has_model=ollama_has_model,

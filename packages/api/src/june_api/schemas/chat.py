@@ -72,6 +72,7 @@ class ChatEvent(BaseModel):
         "prompt",
         "iteration",
         "compaction",
+        "tool_blocked",
     ] = Field(
         ...,
         description=(

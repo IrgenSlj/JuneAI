@@ -8,6 +8,7 @@
     toggleActivity,
     voteRecall,
     loadHistory,
+    switchToPrivateAndRetry,
   } from "$lib/stores/chat.svelte.js";
   import { system, loadSystem } from "$lib/stores/system.svelte.js";
   import { onMount } from "svelte";
@@ -138,6 +139,17 @@
 
   <!-- COMPOSER BAND (center fulcrum) -->
   <div class="compose-band">
+    {#if chat.blockedTool && !chat.streaming}
+      <div class="blocked-notice" role="status">
+        <span class="blocked-text">
+          June stopped before using <strong>{chat.blockedTool.name}</strong> — it
+          needs the internet, which <strong>Local-only</strong> mode blocks.
+        </span>
+        <button type="button" class="blocked-switch" onclick={switchToPrivateAndRetry}>
+          Switch to Private-by-default &amp; retry
+        </button>
+      </div>
+    {/if}
     {#if canRegenerate}
       <div class="actions">
         <button type="button" class="regenerate" onclick={regenerateLast}>
@@ -305,6 +317,41 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
+  }
+
+  .blocked-notice {
+    max-width: 820px;
+    width: 100%;
+    margin: 0 auto var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    border: 1px solid var(--color-warn);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--color-warn) 10%, transparent);
+    font-size: var(--size-sm);
+    color: var(--color-fg-secondary);
+  }
+  .blocked-text {
+    flex: 1;
+    min-width: 12rem;
+    line-height: var(--leading-normal);
+  }
+  .blocked-switch {
+    flex-shrink: 0;
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+    border: none;
+    border-radius: var(--radius-md);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--size-sm);
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .blocked-switch:hover {
+    background: var(--color-accent-muted);
   }
 
   .actions {

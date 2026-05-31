@@ -91,6 +91,52 @@ def test_stream_turn_flags_egress_for_network_tool() -> None:
     assert "web_search" in prov.egress
 
 
+def test_local_only_blocks_networked_tool(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Under a Local-only dial, web_search is blocked (not dispatched) and emits
+    a tool_blocked event; nothing egresses."""
+    import june_brain.config_store as cfg
+    from june_brain.routing import UserPrivacyDial
+
+    monkeypatch.setattr(cfg, "get_privacy_dial", lambda: UserPrivacyDial.LOCAL_ONLY)
+
+    class P:
+        model_id = "mock"
+        tier = "local-fast"
+
+        async def generate(self, req: GenerateRequest) -> GenerateResult:
+            return GenerateResult(text="", input_tokens=1, output_tokens=1, latency_ms=1,
+                                  model_id=self.model_id, tier=self.tier)
+
+        async def stream(self, req: GenerateRequest) -> AsyncIterator[str]:
+            yield '{"tool_calls": [{"name": "web_search", "args": {"query": "x"}}]}'
+
+        async def health(self) -> ProviderHealth:
+            return ProviderHealth(reachable=True)
+
+    dispatched: list[str] = []
+
+    async def dispatch(tool_calls: list[ToolCall], session: SessionState) -> list[Message]:
+        dispatched.extend(tc.name for tc in tool_calls)
+        return [Message(role="tool", content="should not run")]
+
+    loop = HandwrittenLoop(
+        registry=_registry_with("local-fast", P()),
+        role="local-fast",
+        assemble_context=lambda s, m: [m],
+        extract_tool_calls=lambda r: [ToolCall(name="web_search", args={"query": "x"})],
+        dispatch=dispatch,
+        maybe_compact=_noop_compact,
+    )
+
+    events = _collect(loop.stream_turn(SessionState(user_id="u1", messages=[]),
+                                       Message(role="user", content="search x")))
+
+    assert any(e.type == "tool_blocked" and e.tool_name == "web_search" for e in events)
+    assert "web_search" not in dispatched  # never ran
+    prov = next(e for e in events if e.type == "provenance").provenance
+    assert prov is not None and prov.egress == []  # nothing egressed
+
+
 def test_dispatch_injects_user_id(monkeypatch: pytest.MonkeyPatch) -> None:
     """A tool whose schema requires user_id gets the session user_id injected."""
     captured: dict[str, Any] = {}

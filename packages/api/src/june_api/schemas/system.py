@@ -15,6 +15,10 @@ class SystemStatus(BaseModel):
     model: str = Field(..., description="Active model identifier.")
     mode: str = Field(..., description="'local' when inference stays on-device, 'api' otherwise.")
     privacy_label: str = Field(..., description="'local-only' or 'api-assisted'.")
+    privacy_dial: str = Field(
+        default="private_by_default",
+        description="The user's persistent privacy dial: 'local_only', 'private_by_default', or 'cloud_first'. This is the mode that gates networked tools.",
+    )
     base_url: str = Field(default="", description="Endpoint the brain is talking to.")
     ollama_reachable: bool = Field(
         default=False,

@@ -122,6 +122,18 @@ class HandwrittenLoop:
     # ------------------------------------------------------------------
 
     @staticmethod
+    def _egress_blocked() -> bool:
+        """True when the user's privacy dial is Local-only — networked tools are
+        blocked and the loop offers to switch instead of silently egressing."""
+        try:
+            from june_brain.config_store import get_privacy_dial
+            from june_brain.routing import UserPrivacyDial
+
+            return get_privacy_dial() == UserPrivacyDial.LOCAL_ONLY
+        except Exception:
+            return False
+
+    @staticmethod
     def _render_prompt(ctx: list[Message]) -> str:
         """Render the assembled context exactly as the model receives it.
 
@@ -263,6 +275,7 @@ class HandwrittenLoop:
 
         self._reset_per_turn()
         trace = TurnTrace(turn_id=uuid.uuid4().hex, user_id=session.user_id)
+        block_egress = self._egress_blocked()
         try:
             provider, chosen_role = self._route_provider(user_msg)
         except Exception:
@@ -445,9 +458,40 @@ class HandwrittenLoop:
 
             if tool_calls and self._dispatch is not None:
                 all_tool_calls.extend(tool_calls)
+
+                # Partition: networked tools are blocked under a Local-only dial
+                # rather than silently egressing. Blocked calls are not dispatched;
+                # June is told (via an observation) to surface the choice to the user.
+                runnable: list[ToolCall] = []
+                observations: list[Message] = []
                 for tc in tool_calls:
                     args_detail = json.dumps(tc.args, ensure_ascii=False, indent=2)
                     networked = _is_network_tool(tc.name)
+                    if networked and block_egress:
+                        yield StreamEvent(
+                            type="tool_blocked",
+                            tool_name=tc.name,
+                            tool_args=tc.args,
+                            detail=args_detail,
+                            network=True,
+                        )
+                        trace.record(
+                            "tool_blocked",
+                            f"blocked · {tc.name} (local-only)",
+                            detail=args_detail,
+                        )
+                        observations.append(
+                            Message(
+                                role="tool",
+                                content=(
+                                    f"BLOCKED: '{tc.name}' needs the internet, which "
+                                    "Local-only mode does not allow. Tell the user you "
+                                    "could not do this in Local-only mode and that they "
+                                    "can switch to Private-by-default to enable it."
+                                ),
+                            )
+                        )
+                        continue
                     if networked:
                         self._network_calls.append(tc.name)
                     yield StreamEvent(
@@ -461,21 +505,22 @@ class HandwrittenLoop:
                     trace.record(
                         "tool_call", f"tool · {tc.name}{egress_note}", detail=args_detail
                     )
+                    runnable.append(tc)
 
-                observations = await self._dispatch(tool_calls, session)
-
-                # Map observations back to tool names (best effort)
-                for i, obs_msg in enumerate(observations):
-                    tc_name = tool_calls[i].name if i < len(tool_calls) else ""
-                    yield StreamEvent(
-                        type="tool_result",
-                        tool_name=tc_name,
-                        tool_result=obs_msg.content,
-                        detail=obs_msg.content,
-                    )
-                    trace.record(
-                        "tool_result", f"result · {tc_name}", detail=obs_msg.content
-                    )
+                if runnable:
+                    run_obs = await self._dispatch(runnable, session)
+                    for i, obs_msg in enumerate(run_obs):
+                        tc_name = runnable[i].name if i < len(runnable) else ""
+                        yield StreamEvent(
+                            type="tool_result",
+                            tool_name=tc_name,
+                            tool_result=obs_msg.content,
+                            detail=obs_msg.content,
+                        )
+                        trace.record(
+                            "tool_result", f"result · {tc_name}", detail=obs_msg.content
+                        )
+                    observations.extend(run_obs)
 
                 tool_turn = Message(role="assistant", content=accumulated)
                 session.messages.append(tool_turn)

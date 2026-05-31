@@ -11,6 +11,7 @@
 import { type ChatEvent, type ChatMessage, type ActivityStep } from "@june/ui";
 import { client } from "$lib/api.js";
 import { profileName } from "$lib/stores/user.svelte.js";
+import { loadSystem } from "$lib/stores/system.svelte.js";
 
 export const chat = $state({
   messages: [] as ChatMessage[],
@@ -21,6 +22,11 @@ export const chat = $state({
   /** When a stream is running, the timestamp it started — used to render
    * an elapsed-time hint if the model takes a while to emit its first token. */
   streamStartedAt: null as number | null,
+  /** Set when a networked tool was blocked by Local-only mode this turn, so the
+   * UI can offer a one-click switch + retry. Cleared on the next send. */
+  blockedTool: null as { name: string } | null,
+  /** The last user message, kept so a mode-switch can retry the same request. */
+  lastUserMessage: "" as string,
 });
 
 /** Tracks the activity step id used to accumulate reasoning for the current turn. */
@@ -81,6 +87,23 @@ export async function loadHistory(userId: string): Promise<void> {
   }
 }
 
+/**
+ * Accept June's offer: switch the privacy dial to Private-by-default and retry
+ * the last request. Surfaced as a one-click button when a tool was blocked.
+ */
+export async function switchToPrivateAndRetry(): Promise<void> {
+  const retry = chat.lastUserMessage;
+  try {
+    await client.updatePrivacyDial("private_by_default");
+  } catch {
+    // If the switch fails, leave the offer in place rather than silently retrying.
+    return;
+  }
+  chat.blockedTool = null;
+  void loadSystem(); // refresh the header's mode chip
+  if (retry) await sendMessage(retry);
+}
+
 export async function sendMessage(text: string): Promise<void> {
   if (chat.streaming) return;
 
@@ -101,6 +124,8 @@ export async function sendMessage(text: string): Promise<void> {
   chat.streaming = true;
   chat.streamStartedAt = Date.now();
   chat.abortController = new AbortController();
+  chat.blockedTool = null;
+  chat.lastUserMessage = text;
   currentReasoningStepId = null;
 
   try {
@@ -194,6 +219,15 @@ function handleEvent(event: ChatEvent, assistantId: string) {
       pushActivity({
         kind: "compaction",
         label: event.content || "conversation compacted",
+        detail: event.detail,
+      });
+      break;
+    case "tool_blocked":
+      chat.blockedTool = { name: event.tool_name };
+      pushActivity({
+        kind: "tool_blocked",
+        label: `blocked · ${event.tool_name} (local-only)`,
+        network: true,
         detail: event.detail,
       });
       break;

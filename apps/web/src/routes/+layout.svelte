@@ -16,6 +16,17 @@
   // full viewport until the user finishes.
   const showHeader = $derived(!pathname.startsWith("/setup"));
 
+  // The privacy dial is the mode that gates networked tools; show it in the header.
+  function dialLabel(dial: string): string {
+    return (
+      {
+        local_only: "local-only",
+        private_by_default: "private by default",
+        cloud_first: "cloud-first",
+      }[dial] ?? dial
+    );
+  }
+
   onMount(async () => {
     void loadSystem();
 
@@ -55,7 +66,7 @@
             <span class="dot" data-mode={s.mode}></span>
             <span class="runtime-text">{s.label} · {s.model}</span>
             <span class="runtime-sep" aria-hidden="true">·</span>
-            <span class="privacy" data-mode={s.mode}>{s.privacy_label}</span>
+            <span class="privacy" data-dial={s.privacy_dial} title="Privacy mode — gates networked tools. Change in Settings.">{dialLabel(s.privacy_dial)}</span>
             {#if s.provider === "gemma"}
               {#if s.ollama_reachable && s.ollama_has_model}
                 <span class="runtime-note">· ready</span>
@@ -210,7 +221,7 @@
     text-transform: lowercase;
     white-space: nowrap;
   }
-  .privacy[data-mode="cloud"] {
+  .privacy[data-dial="cloud_first"] {
     color: var(--color-warn);
   }
   .runtime-note {

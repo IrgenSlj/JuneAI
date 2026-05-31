@@ -24,7 +24,8 @@ export interface ActivityStep {
     | "reasoning"
     | "prompt"        // the rendered "LLM factory" input for an iteration
     | "iteration"     // a loop pass + its intermediate model output
-    | "compaction";   // conversation compacted into the pinned-state anchor
+    | "compaction"    // conversation compacted into the pinned-state anchor
+    | "tool_blocked"; // a networked tool blocked by Local-only mode
   label: string;         // short, June-voiced, lower-case, no emoji
   detail?: string;       // full expandable body (prompt, args, rationale, output)
   cloud?: boolean;       // set on provenance steps: true=cloud, false=local
