@@ -50,3 +50,45 @@ class ActivityResponse(BaseModel):
 
     entries: list[ActivityEntryView] = Field(default_factory=list)
     count: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Glass-box turn traces (GET /system/traces, /system/traces/{turn_id})
+# ---------------------------------------------------------------------------
+
+
+class TraceEventView(BaseModel):
+    """One recorded step in a persisted turn trace."""
+
+    seq: int = Field(..., description="Order within the turn, starting at 0.")
+    ts: float = Field(..., description="Epoch seconds when the step was recorded.")
+    kind: str = Field(
+        ...,
+        description="Step type: prompt, iteration, recall, tool_call, tool_result, reasoning, compaction, provenance, done, error.",
+    )
+    summary: str = Field(default="", description="Collapsed one-line label.")
+    detail: str = Field(default="", description="Full expandable body for this step.")
+
+
+class TraceSummary(BaseModel):
+    """Lightweight entry in the trace list — no event bodies."""
+
+    turn_id: str
+    started_at: float
+    event_count: int
+
+
+class TraceListResponse(BaseModel):
+    """GET /system/traces payload — recent turns, newest first."""
+
+    traces: list[TraceSummary] = Field(default_factory=list)
+    count: int = 0
+
+
+class TurnTraceView(BaseModel):
+    """GET /system/traces/{turn_id} payload — one turn's full trace."""
+
+    turn_id: str
+    user_id: str = ""
+    started_at: float = 0.0
+    events: list[TraceEventView] = Field(default_factory=list)

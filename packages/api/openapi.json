@@ -1430,6 +1430,93 @@
         }
       }
     },
+    "/system/traces": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "List Traces",
+        "description": "Recent persisted turn traces, newest first (summaries only, no bodies).",
+        "operationId": "list_traces_system_traces_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/traces/{turn_id}": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Get Trace",
+        "description": "The full glass-box trace for one turn: prompt, iterations, tools, reasoning.",
+        "operationId": "get_trace_system_traces__turn_id__get",
+        "parameters": [
+          {
+            "name": "turn_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Turn Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurnTraceView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/tasks/{user_id}/{task_id}/events": {
       "get": {
         "tags": [
@@ -3568,6 +3655,119 @@
         "title": "TaskView",
         "description": "A task as returned to the UI."
       },
+      "TraceEventView": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "description": "Order within the turn, starting at 0."
+          },
+          "ts": {
+            "type": "number",
+            "title": "Ts",
+            "description": "Epoch seconds when the step was recorded."
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Step type: prompt, iteration, recall, tool_call, tool_result, reasoning, compaction, provenance, done, error."
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary",
+            "description": "Collapsed one-line label.",
+            "default": ""
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "description": "Full expandable body for this step.",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "ts",
+          "kind"
+        ],
+        "title": "TraceEventView",
+        "description": "One recorded step in a persisted turn trace."
+      },
+      "TraceListResponse": {
+        "properties": {
+          "traces": {
+            "items": {
+              "$ref": "#/components/schemas/TraceSummary"
+            },
+            "type": "array",
+            "title": "Traces"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "TraceListResponse",
+        "description": "GET /system/traces payload \u2014 recent turns, newest first."
+      },
+      "TraceSummary": {
+        "properties": {
+          "turn_id": {
+            "type": "string",
+            "title": "Turn Id"
+          },
+          "started_at": {
+            "type": "number",
+            "title": "Started At"
+          },
+          "event_count": {
+            "type": "integer",
+            "title": "Event Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "turn_id",
+          "started_at",
+          "event_count"
+        ],
+        "title": "TraceSummary",
+        "description": "Lightweight entry in the trace list \u2014 no event bodies."
+      },
+      "TurnTraceView": {
+        "properties": {
+          "turn_id": {
+            "type": "string",
+            "title": "Turn Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id",
+            "default": ""
+          },
+          "started_at": {
+            "type": "number",
+            "title": "Started At",
+            "default": 0.0
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/TraceEventView"
+            },
+            "type": "array",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "turn_id"
+        ],
+        "title": "TurnTraceView",
+        "description": "GET /system/traces/{turn_id} payload \u2014 one turn's full trace."
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -3714,7 +3914,7 @@
         "description": "One item in the SSE stream returned by POST /chat.\n\nThe wire format is one ``data:`` frame per event carrying a JSON\nobject with this shape. ``type`` drives the UI.",
         "properties": {
           "type": {
-            "description": "Discriminator that determines the meaning of the payload. reasoning: June's chain-of-thought for this turn; shown selectively, not part of the answer.",
+            "description": "Discriminator that determines the meaning of the payload. reasoning: June's chain-of-thought for this turn; shown selectively, not part of the answer. prompt/iteration/compaction: glass-box trace events; the collapsed line is in content, the full expandable body is in detail.",
             "enum": [
               "token",
               "tool_call",
@@ -3723,7 +3923,10 @@
               "provenance",
               "done",
               "error",
-              "reasoning"
+              "reasoning",
+              "prompt",
+              "iteration",
+              "compaction"
             ],
             "title": "Type",
             "type": "string"
@@ -3773,6 +3976,12 @@
             "default": null,
             "description": "Per-turn model provenance. Carries provider/model/tier/latency_ms when type == 'provenance'.",
             "title": "Provenance"
+          },
+          "detail": {
+            "default": "",
+            "description": "Full, expandable body for glass-box trace events (prompt/iteration/compaction/tool_call/tool_result/reasoning). Empty for token events \u2014 tokens are the foreground answer, never the trace.",
+            "title": "Detail",
+            "type": "string"
           }
         },
         "required": [

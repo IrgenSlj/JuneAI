@@ -309,11 +309,27 @@ async def _iter_harness_events(
                 yield _event_to_sse(ChatEvent(type="token", content=ev.content))
             elif ev.type == "tool_call":
                 yield _event_to_sse(
-                    ChatEvent(type="tool_call", tool_name=ev.tool_name, tool_args=ev.tool_args)
+                    ChatEvent(
+                        type="tool_call",
+                        tool_name=ev.tool_name,
+                        tool_args=ev.tool_args,
+                        detail=ev.detail,
+                    )
                 )
             elif ev.type == "tool_result":
                 yield _event_to_sse(
-                    ChatEvent(type="tool_result", tool_name=ev.tool_name, tool_result=ev.tool_result)
+                    ChatEvent(
+                        type="tool_result",
+                        tool_name=ev.tool_name,
+                        tool_result=ev.tool_result,
+                        detail=ev.detail,
+                    )
+                )
+            elif ev.type in ("prompt", "iteration", "compaction"):
+                # Glass-box trace events: collapsed line in content, full body
+                # in detail. Never added to assistant_buffer (not the answer).
+                yield _event_to_sse(
+                    ChatEvent(type=ev.type, content=ev.content, detail=ev.detail)
                 )
             elif ev.type == "recall":
                 hits: list[RecallHit] = []

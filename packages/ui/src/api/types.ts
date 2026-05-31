@@ -633,6 +633,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/traces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Traces
+         * @description Recent persisted turn traces, newest first (summaries only, no bodies).
+         */
+        get: operations["list_traces_system_traces_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/traces/{turn_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Trace
+         * @description The full glass-box trace for one turn: prompt, iterations, tools, reasoning.
+         */
+        get: operations["get_trace_system_traces__turn_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tasks/{user_id}/{task_id}/events": {
         parameters: {
             query?: never;
@@ -1864,6 +1904,84 @@ export interface components {
             /** Finished At */
             finished_at?: string | null;
         };
+        /**
+         * TraceEventView
+         * @description One recorded step in a persisted turn trace.
+         */
+        TraceEventView: {
+            /**
+             * Seq
+             * @description Order within the turn, starting at 0.
+             */
+            seq: number;
+            /**
+             * Ts
+             * @description Epoch seconds when the step was recorded.
+             */
+            ts: number;
+            /**
+             * Kind
+             * @description Step type: prompt, iteration, recall, tool_call, tool_result, reasoning, compaction, provenance, done, error.
+             */
+            kind: string;
+            /**
+             * Summary
+             * @description Collapsed one-line label.
+             * @default
+             */
+            summary: string;
+            /**
+             * Detail
+             * @description Full expandable body for this step.
+             * @default
+             */
+            detail: string;
+        };
+        /**
+         * TraceListResponse
+         * @description GET /system/traces payload — recent turns, newest first.
+         */
+        TraceListResponse: {
+            /** Traces */
+            traces?: components["schemas"]["TraceSummary"][];
+            /**
+             * Count
+             * @default 0
+             */
+            count: number;
+        };
+        /**
+         * TraceSummary
+         * @description Lightweight entry in the trace list — no event bodies.
+         */
+        TraceSummary: {
+            /** Turn Id */
+            turn_id: string;
+            /** Started At */
+            started_at: number;
+            /** Event Count */
+            event_count: number;
+        };
+        /**
+         * TurnTraceView
+         * @description GET /system/traces/{turn_id} payload — one turn's full trace.
+         */
+        TurnTraceView: {
+            /** Turn Id */
+            turn_id: string;
+            /**
+             * User Id
+             * @default
+             */
+            user_id: string;
+            /**
+             * Started At
+             * @default 0
+             */
+            started_at: number;
+            /** Events */
+            events?: components["schemas"]["TraceEventView"][];
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -1933,10 +2051,10 @@ export interface components {
         ChatEvent: {
             /**
              * Type
-             * @description Discriminator that determines the meaning of the payload. reasoning: June's chain-of-thought for this turn; shown selectively, not part of the answer.
+             * @description Discriminator that determines the meaning of the payload. reasoning: June's chain-of-thought for this turn; shown selectively, not part of the answer. prompt/iteration/compaction: glass-box trace events; the collapsed line is in content, the full expandable body is in detail.
              * @enum {string}
              */
-            type: "token" | "tool_call" | "tool_result" | "recall" | "provenance" | "done" | "error" | "reasoning";
+            type: "token" | "tool_call" | "tool_result" | "recall" | "provenance" | "done" | "error" | "reasoning" | "prompt" | "iteration" | "compaction";
             /**
              * Content
              * @description Textual content for token and error events; empty otherwise.
@@ -1975,6 +2093,12 @@ export interface components {
             provenance: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Detail
+             * @description Full, expandable body for glass-box trace events (prompt/iteration/compaction/tool_call/tool_result/reasoning). Empty for token events — tokens are the foreground answer, never the trace.
+             * @default
+             */
+            detail: string;
             $defs: {
                 /**
                  * RecallHit
@@ -3094,6 +3218,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActivityResponse"];
+                };
+            };
+        };
+    };
+    list_traces_system_traces_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_trace_system_traces__turn_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                turn_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TurnTraceView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

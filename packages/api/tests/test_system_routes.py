@@ -47,6 +47,52 @@ def test_activity_list_starts_empty(client: TestClient) -> None:
     assert res.json() == {"entries": [], "count": 0}
 
 
+# ---------------------------------------------------------------------------
+# Glass-box turn traces
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def trace_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    """App with the data dir (and therefore traces/) pointed at a tmp path."""
+    import june_brain.config as config_pkg
+
+    monkeypatch.setattr(config_pkg, "MEMORY_DIR", str(tmp_path), raising=False)
+    return TestClient(create_app())
+
+
+def test_traces_list_starts_empty(trace_client: TestClient) -> None:
+    res = trace_client.get("/system/traces")
+    assert res.status_code == 200
+    assert res.json() == {"traces": [], "count": 0}
+
+
+def test_trace_roundtrip_through_api(trace_client: TestClient) -> None:
+    from june_brain.loop.trace import TraceStore, TurnTrace
+
+    trace = TurnTrace(turn_id="turn-xyz", user_id="u1")
+    trace.record("prompt", "prompt assembled (2 messages)", detail="[system]\nhi")
+    trace.record("iteration", "iteration 0 · 0 tool call(s)", detail="output")
+    trace.record("done", "done")
+    assert TraceStore().write(trace) is True
+
+    listing = trace_client.get("/system/traces").json()
+    assert listing["count"] == 1
+    assert listing["traces"][0]["turn_id"] == "turn-xyz"
+    assert listing["traces"][0]["event_count"] == 3
+
+    full = trace_client.get("/system/traces/turn-xyz")
+    assert full.status_code == 200
+    body = full.json()
+    assert body["user_id"] == "u1"
+    assert [e["kind"] for e in body["events"]] == ["prompt", "iteration", "done"]
+    assert body["events"][0]["detail"] == "[system]\nhi"
+
+
+def test_trace_missing_returns_404(trace_client: TestClient) -> None:
+    assert trace_client.get("/system/traces/nope").status_code == 404
+
+
 def test_activity_records_real_requests(client: TestClient) -> None:
     """A non-skipped request lands as an activity entry via the middleware.
 

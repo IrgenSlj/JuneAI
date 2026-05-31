@@ -61,12 +61,24 @@ class ChatEvent(BaseModel):
     """
 
     type: Literal[
-        "token", "tool_call", "tool_result", "recall", "provenance", "done", "error", "reasoning"
+        "token",
+        "tool_call",
+        "tool_result",
+        "recall",
+        "provenance",
+        "done",
+        "error",
+        "reasoning",
+        "prompt",
+        "iteration",
+        "compaction",
     ] = Field(
         ...,
         description=(
             "Discriminator that determines the meaning of the payload. "
-            "reasoning: June's chain-of-thought for this turn; shown selectively, not part of the answer."
+            "reasoning: June's chain-of-thought for this turn; shown selectively, not part of the answer. "
+            "prompt/iteration/compaction: glass-box trace events; the collapsed line is in content, "
+            "the full expandable body is in detail."
         ),
     )
     content: str = Field(
@@ -95,4 +107,12 @@ class ChatEvent(BaseModel):
     provenance: dict[str, Any] | None = Field(
         default=None,
         description="Per-turn model provenance. Carries provider/model/tier/latency_ms when type == 'provenance'.",
+    )
+    detail: str = Field(
+        default="",
+        description=(
+            "Full, expandable body for glass-box trace events (prompt/iteration/"
+            "compaction/tool_call/tool_result/reasoning). Empty for token events — "
+            "tokens are the foreground answer, never the trace."
+        ),
     )

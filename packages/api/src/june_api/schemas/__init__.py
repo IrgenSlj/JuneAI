@@ -44,7 +44,15 @@ from .skills import (
     SkillWriteRecord,
     SkillWritesResponse,
 )
-from .system import ActivityEntryView, ActivityResponse, SystemStatus
+from .system import (
+    ActivityEntryView,
+    ActivityResponse,
+    SystemStatus,
+    TraceEventView,
+    TraceListResponse,
+    TraceSummary,
+    TurnTraceView,
+)
 from .tasks import (
     TaskCreateRequest,
     TaskDeleteResponse,
@@ -99,6 +107,10 @@ __all__ = [
     "SystemStatus",
     "ActivityEntryView",
     "ActivityResponse",
+    "TraceEventView",
+    "TraceListResponse",
+    "TraceSummary",
+    "TurnTraceView",
     "TaskCreateRequest",
     "TaskDeleteResponse",
     "TaskEventFrame",

@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from june_brain.activity import ActivityLog
 from june_brain.config import resolve_runtime_config
+from june_brain.loop.trace import TraceStore
 from june_brain.ollama_manager import is_model_available, is_ollama_running
 
-from ..schemas import ActivityEntryView, ActivityResponse, SystemStatus
+from ..schemas import (
+    ActivityEntryView,
+    ActivityResponse,
+    SystemStatus,
+    TraceEventView,
+    TraceListResponse,
+    TraceSummary,
+    TurnTraceView,
+)
 
 router = APIRouter(tags=["system"])
 
@@ -86,3 +95,42 @@ def clear_activity() -> ActivityResponse:
     """Clear the activity log. Returns an empty response shape."""
     ActivityLog().clear()
     return ActivityResponse(entries=[], count=0)
+
+
+# ---------------------------------------------------------------------------
+# Glass-box turn traces — reopen a past turn's full harness operation
+# ---------------------------------------------------------------------------
+
+
+@router.get("/system/traces", response_model=TraceListResponse)
+def list_traces(limit: int = 50) -> TraceListResponse:
+    """Recent persisted turn traces, newest first (summaries only, no bodies)."""
+    recent = TraceStore().list_recent(limit=max(1, min(int(limit), 200)))
+    traces = [
+        TraceSummary(
+            turn_id=str(r["turn_id"]),
+            started_at=float(r["started_at"]),
+            event_count=int(r["event_count"]),
+        )
+        for r in recent
+    ]
+    return TraceListResponse(traces=traces, count=len(traces))
+
+
+@router.get("/system/traces/{turn_id}", response_model=TurnTraceView)
+def get_trace(turn_id: str) -> TurnTraceView:
+    """The full glass-box trace for one turn: prompt, iterations, tools, reasoning."""
+    trace = TraceStore().read(turn_id)
+    if trace is None:
+        raise HTTPException(status_code=404, detail="trace not found")
+    return TurnTraceView(
+        turn_id=trace.turn_id,
+        user_id=trace.user_id,
+        started_at=trace.started_at,
+        events=[
+            TraceEventView(
+                seq=e.seq, ts=e.ts, kind=e.kind, summary=e.summary, detail=e.detail
+            )
+            for e in trace.events
+        ],
+    )
