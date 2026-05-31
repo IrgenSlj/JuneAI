@@ -206,6 +206,22 @@ def test_assembler_no_tools_block_when_none() -> None:
     assert len([m for m in ctx if m.role == "system"]) == 1
 
 
+def test_assembler_reason_adds_think_instruction() -> None:
+    assembler = ContextAssembler(system_prompt="base", reason=True)
+    session = SessionState(user_id="u1", messages=[])
+    ctx = assembler.assemble(session, Message(role="user", content="hi"))
+    assert ctx[0].role == "system"
+    assert "base" in ctx[0].content
+    assert "<think>" in ctx[0].content
+
+
+def test_assembler_reason_off_by_default() -> None:
+    assembler = ContextAssembler(system_prompt="base")
+    session = SessionState(user_id="u1", messages=[])
+    ctx = assembler.assemble(session, Message(role="user", content="hi"))
+    assert ctx[0].content == "base"
+
+
 def test_make_tools_block_never_raises() -> None:
     # Graceful degradation: returns a string (possibly empty) regardless of
     # whether skills/runtime are resolvable in the test environment.

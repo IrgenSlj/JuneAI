@@ -84,6 +84,7 @@ class HandwrittenLoop:
                 character_block=character_block,
                 recall=recall_fn,
                 tools_block=make_tools_block(),
+                reason=True,
             )
             self._assemble_context = _assembler.assemble
 

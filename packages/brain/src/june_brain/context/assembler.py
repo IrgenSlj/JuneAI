@@ -20,6 +20,17 @@ _DEFAULT_SYSTEM_PROMPT = (
     "You remember what matters and tell the truth plainly and kindly."
 )
 
+# Asks the model to externalize its reasoning before answering. Works for any
+# model (Gemma, Gemini) — it is the model's own natural reasoning, surfaced via
+# <think> tags that the loop's ReasoningSplitter routes to the (hidable)
+# reasoning channel rather than the answer. Kept brief so it doesn't dominate
+# latency on simple turns.
+_REASONING_INSTRUCTION = (
+    "Think through the request first inside <think> and </think> tags — your own "
+    "reasoning, kept brief and focused. Then, after the closing </think> tag, write "
+    "your reply to the user. Do not mention the tags or that you are thinking."
+)
+
 
 def estimate_tokens(text: str) -> int:
     """Byte heuristic: ~4 chars per token.  Always returns at least 1."""
@@ -40,19 +51,25 @@ class ContextAssembler:
         recall: Callable[..., list[Message]] | None = None,
         token_budget: int = 6000,
         tools_block: str | None = None,
+        reason: bool = False,
     ) -> None:
         self._system_prompt = system_prompt
         self._character_block = character_block
         self._recall = recall
         self._token_budget = token_budget
         self._tools_block = tools_block
+        self._reason = reason
 
     def assemble(self, session: object, user_msg: Message) -> list[Message]:
         """Return the ordered context list, trimming oldest raw turns to fit budget."""
         fixed: list[Message] = []
 
-        # Section 1 — system / persona
-        fixed.append(Message(role="system", content=self._system_prompt))
+        # Section 1 — system / persona (+ reasoning instruction when enabled, so
+        # the model externalizes its own reasoning in <think> tags).
+        system_content = self._system_prompt
+        if self._reason:
+            system_content = f"{system_content}\n\n{_REASONING_INSTRUCTION}"
+        fixed.append(Message(role="system", content=system_content))
 
         # Section 2 — character block (optional)
         if self._character_block:

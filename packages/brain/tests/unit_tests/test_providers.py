@@ -97,8 +97,7 @@ def test_registry_roles_match_toml() -> None:
     reg = get_registry()
     roles = reg.roles()
     assert roles["local-fast"] == "gemma4:e2b"
-    # local-deep runs a thinking model so reasoning surfaces on hard/creative turns.
-    assert roles["local-deep"] == "qwen3:8b"
+    assert roles["local-deep"] == "gemma4:e4b"
     assert roles["cloud-capable"] == "gemini-2.0-flash"
     reset_registry()
 

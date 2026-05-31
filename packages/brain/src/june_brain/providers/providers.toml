@@ -1,10 +1,6 @@
 [roles]
 local-fast = "gemma-fast"
-# local-deep runs a thinking model (qwen3) so difficulty-routed hard/creative
-# turns emit <think> reasoning that surfaces in the activity trace. Simple
-# turns stay on the fast gemma model. Falls back to gemma-deep if qwen3 is
-# not pulled.
-local-deep = "qwen-deep"
+local-deep = "gemma-deep"
 cloud-capable = "gemini"
 
 [providers.gemma-fast]
@@ -12,12 +8,6 @@ type = "gemma"
 model = "gemma4:e2b"
 base_url = "http://localhost:11434/v1"
 tier = "local-fast"
-
-[providers.qwen-deep]
-type = "gemma"
-model = "qwen3:8b"
-base_url = "http://localhost:11434/v1"
-tier = "local-deep"
 
 [providers.gemma-deep]
 type = "gemma"
