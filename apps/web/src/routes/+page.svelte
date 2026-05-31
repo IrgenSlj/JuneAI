@@ -287,13 +287,6 @@
     text-align: center;
     color: var(--color-fg-muted);
   }
-  .empty p {
-    margin: var(--space-2) 0;
-  }
-  .empty .muted {
-    color: var(--color-fg-subtle);
-    font-size: var(--size-sm);
-  }
   .waiting {
     margin: var(--space-2) auto 0;
     font-size: var(--size-xs);

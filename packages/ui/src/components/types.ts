@@ -14,8 +14,18 @@ export interface ChatMessage {
 export interface ActivityStep {
   id: string;
   ts: number;            // Date.now()
-  kind: "recall" | "tool" | "tool_result" | "provenance" | "done" | "error" | "reasoning";
+  kind:
+    | "recall"
+    | "tool"
+    | "tool_result"
+    | "provenance"
+    | "done"
+    | "error"
+    | "reasoning"
+    | "prompt"        // the rendered "LLM factory" input for an iteration
+    | "iteration"     // a loop pass + its intermediate model output
+    | "compaction";   // conversation compacted into the pinned-state anchor
   label: string;         // short, June-voiced, lower-case, no emoji
-  detail?: string;       // optional secondary line (args, rationale, snippet)
+  detail?: string;       // full expandable body (prompt, args, rationale, output)
   cloud?: boolean;       // set on provenance steps: true=cloud, false=local
 }

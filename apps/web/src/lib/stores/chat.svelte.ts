@@ -158,8 +158,9 @@ function handleEvent(event: ChatEvent, assistantId: string) {
     case "tool_call":
       pushActivity({
         kind: "tool",
-        label: event.tool_name,
-        detail: formatToolCall(event.tool_name, event.tool_args),
+        label: `tool · ${event.tool_name}`,
+        // Prefer the brain's full args body; fall back to the formatted args.
+        detail: event.detail || formatToolCall(event.tool_name, event.tool_args),
       });
       break;
     case "tool_result": {
@@ -167,9 +168,31 @@ function handleEvent(event: ChatEvent, assistantId: string) {
       pushActivity({
         kind: "tool_result",
         label: `→ ${resultSnippet}`,
+        detail: event.detail || String(event.tool_result ?? ""),
       });
       break;
     }
+    case "prompt":
+      pushActivity({
+        kind: "prompt",
+        label: event.content || "prompt assembled",
+        detail: event.detail,
+      });
+      break;
+    case "iteration":
+      pushActivity({
+        kind: "iteration",
+        label: event.content || "iteration",
+        detail: event.detail,
+      });
+      break;
+    case "compaction":
+      pushActivity({
+        kind: "compaction",
+        label: event.content || "conversation compacted",
+        detail: event.detail,
+      });
+      break;
     case "reasoning": {
       if (currentReasoningStepId !== null) {
         // Append to the existing reasoning step for this turn.

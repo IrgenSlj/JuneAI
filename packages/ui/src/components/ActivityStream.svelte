@@ -9,6 +9,16 @@
   const { steps, open }: Props = $props();
 
   let scrollEl: HTMLDivElement | undefined = $state();
+  // Step ids whose full detail is expanded. Reassigned (not mutated) so Svelte
+  // tracks the change.
+  let expanded = $state<Set<string>>(new Set());
+
+  function toggle(id: string): void {
+    const next = new Set(expanded);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    expanded = next;
+  }
 
   function formatTime(ts: number): string {
     const d = new Date(ts);
@@ -18,7 +28,13 @@
     return `${hh}:${mm}:${ss}`;
   }
 
-  // Auto-scroll to newest step whenever steps change.
+  function lineCount(detail: string | undefined): number {
+    if (!detail) return 0;
+    return detail.split("\n").length;
+  }
+
+  // Auto-scroll to newest step whenever steps change (but not when the user is
+  // expanding an older row).
   $effect(() => {
     void steps.length;
     if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
@@ -36,27 +52,45 @@
     </div>
     <div class="stream" bind:this={scrollEl} role="log" aria-label="June activity">
       {#each steps as step (step.id)}
-        {#if step.kind === "provenance"}
-          <!-- The cloud/local boundary — the trust anchor of the terminal. -->
-          <div class="boundary" class:cloud={step.cloud} class:local={!step.cloud}>
-            <span class="boundary-tag">{step.cloud ? "cloud" : "local"}</span>
+        {@const hasDetail = !!step.detail}
+        {@const isOpen = expanded.has(step.id)}
+        {@const isBoundary = step.kind === "provenance"}
+        <div
+          class="row"
+          class:boundary={isBoundary}
+          class:cloud={isBoundary && step.cloud}
+          class:local={isBoundary && !step.cloud}
+          data-kind={step.kind}
+        >
+          <button
+            type="button"
+            class="line"
+            class:clickable={hasDetail}
+            disabled={!hasDetail}
+            aria-expanded={hasDetail ? isOpen : undefined}
+            onclick={() => hasDetail && toggle(step.id)}
+          >
             <span class="ts">{formatTime(step.ts)}</span>
-            <span class="label">{step.label}</span>
-            {#if step.detail}
-              <span class="detail">{step.detail}</span>
+            {#if isBoundary}
+              <span class="boundary-tag">{step.cloud ? "cloud" : "local"}</span>
             {/if}
-          </div>
-        {:else}
-          <div class="step" data-kind={step.kind}>
-            <span class="ts">{formatTime(step.ts)}</span>
             <span class="label">{step.label}</span>
-            {#if step.kind === "reasoning" && step.detail}
-              <span class="reasoning-detail">{step.detail}</span>
-            {:else if step.detail}
-              <span class="detail">{step.detail}</span>
+            {#if hasDetail}
+              <span class="expand">
+                {#if isOpen}
+                  collapse
+                {:else}
+                  +{lineCount(step.detail)} line{lineCount(step.detail) === 1 ? "" : "s"}
+                {/if}
+              </span>
             {/if}
-          </div>
-        {/if}
+          </button>
+          {#if hasDetail && isOpen}
+            <pre
+              class="detail"
+              class:reasoning={step.kind === "reasoning"}>{step.detail}</pre>
+          {/if}
+        </div>
       {/each}
     </div>
   </div>
@@ -109,10 +143,10 @@
     padding: var(--space-2) var(--space-4) var(--space-3);
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
     font-family: var(--font-mono);
     font-size: var(--size-xs);
-    line-height: 1.4;
+    line-height: 1.5;
   }
 
   .stream::-webkit-scrollbar {
@@ -123,12 +157,33 @@
     border-radius: var(--radius-pill);
   }
 
-  .step {
+  .row {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .line {
     display: flex;
     align-items: baseline;
     gap: var(--space-2);
+    width: 100%;
     min-width: 0;
-    flex-wrap: wrap;
+    border: none;
+    background: transparent;
+    padding: 1px 0;
+    margin: 0;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    cursor: default;
+    border-radius: var(--radius-sm);
+  }
+  .line.clickable {
+    cursor: pointer;
+  }
+  .line.clickable:hover {
+    background: color-mix(in srgb, var(--color-fg-muted) 8%, transparent);
   }
 
   .ts {
@@ -139,62 +194,70 @@
 
   .label {
     color: var(--color-fg-muted);
-    flex-shrink: 0;
-  }
-
-  .step[data-kind="error"] .label {
-    color: var(--color-danger);
-  }
-
-  .step[data-kind="done"] .label {
-    color: var(--color-fg-subtle);
-  }
-
-  .detail {
-    color: var(--color-fg-subtle);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     flex: 1;
     min-width: 0;
-    padding-left: var(--space-3);
   }
 
-  .step[data-kind="reasoning"] .label {
+  .expand {
+    flex-shrink: 0;
+    color: var(--color-accent);
+    opacity: 0.8;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .row[data-kind="error"] .label {
+    color: var(--color-danger);
+  }
+  .row[data-kind="done"] .label {
+    color: var(--color-fg-subtle);
+  }
+  .row[data-kind="prompt"] .label,
+  .row[data-kind="iteration"] .label {
+    color: var(--color-fg-subtle);
+  }
+  .row[data-kind="reasoning"] .label {
     color: var(--color-fg-subtle);
     font-style: italic;
   }
 
-  .reasoning-detail {
-    color: var(--color-fg-subtle);
-    font-style: italic;
-    font-family: var(--font-sans);
+  .detail {
+    margin: var(--space-1) 0 var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: color-mix(in srgb, var(--color-fg-muted) 7%, transparent);
+    border-left: 2px solid var(--color-border-strong);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    max-height: 320px;
+    overflow: auto;
     white-space: pre-wrap;
     word-break: break-word;
-    overflow-wrap: break-word;
-    flex: 1;
-    min-width: 0;
-    padding-left: var(--space-3);
-    opacity: 0.75;
+    color: var(--color-fg-secondary);
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    line-height: 1.5;
+  }
+  .detail.reasoning {
+    font-family: var(--font-sans);
+    font-style: italic;
+    color: var(--color-fg-muted);
   }
 
   /* Boundary line — the cloud/local trust anchor. */
-  .boundary {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-2);
-    flex-wrap: wrap;
+  .row.boundary {
     margin: 2px 0;
-    padding: var(--space-2) var(--space-3);
+    padding: var(--space-1) var(--space-3);
     border-left: 2px solid var(--color-success);
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     background: color-mix(in srgb, var(--color-success) 10%, transparent);
   }
-  .boundary.cloud {
+  .row.boundary.cloud {
     border-left-color: var(--color-warn);
     background: var(--color-accent-soft);
   }
-
   .boundary-tag {
     flex-shrink: 0;
     text-transform: uppercase;
@@ -202,11 +265,10 @@
     font-size: 10px;
     color: var(--color-success);
   }
-  .boundary.cloud .boundary-tag {
+  .row.boundary.cloud .boundary-tag {
     color: var(--color-warn);
   }
-
-  .boundary .label {
+  .row.boundary .label {
     color: var(--color-fg-secondary);
   }
 </style>
