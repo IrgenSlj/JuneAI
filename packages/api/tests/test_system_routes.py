@@ -93,6 +93,18 @@ def test_trace_missing_returns_404(trace_client: TestClient) -> None:
     assert trace_client.get("/system/traces/nope").status_code == 404
 
 
+def test_clear_traces_empties_the_store(trace_client: TestClient) -> None:
+    from june_brain.loop.trace import TraceStore, TurnTrace
+
+    TraceStore().write(TurnTrace(turn_id="gone", user_id="u1"))
+    assert trace_client.get("/system/traces").json()["count"] == 1
+
+    res = trace_client.delete("/system/traces")
+    assert res.status_code == 200
+    assert res.json() == {"traces": [], "count": 0}
+    assert trace_client.get("/system/traces").json()["count"] == 0
+
+
 def test_activity_records_real_requests(client: TestClient) -> None:
     """A non-skipped request lands as an activity entry via the middleware.
 

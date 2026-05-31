@@ -647,7 +647,11 @@ export interface paths {
         get: operations["list_traces_system_traces_get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Clear Traces
+         * @description Delete all persisted turn traces. Returns the now-empty list.
+         */
+        delete: operations["clear_traces_system_traces_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2099,6 +2103,12 @@ export interface components {
              * @default
              */
             detail: string;
+            /**
+             * Network
+             * @description True on tool_call events for tools that reach the network. The UI flags these as egress even when the LLM tier is local, so a query leaving the machine is never silent.
+             * @default false
+             */
+            network: boolean;
             $defs: {
                 /**
                  * RecallHit
@@ -3249,6 +3259,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_traces_system_traces_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceListResponse"];
                 };
             };
         };

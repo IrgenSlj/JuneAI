@@ -117,6 +117,13 @@ def list_traces(limit: int = 50) -> TraceListResponse:
     return TraceListResponse(traces=traces, count=len(traces))
 
 
+@router.delete("/system/traces", response_model=TraceListResponse)
+def clear_traces() -> TraceListResponse:
+    """Delete all persisted turn traces. Returns the now-empty list."""
+    TraceStore().clear()
+    return TraceListResponse(traces=[], count=0)
+
+
 @router.get("/system/traces/{turn_id}", response_model=TurnTraceView)
 def get_trace(turn_id: str) -> TurnTraceView:
     """The full glass-box trace for one turn: prompt, iterations, tools, reasoning."""

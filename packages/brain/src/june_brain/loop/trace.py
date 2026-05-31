@@ -18,8 +18,14 @@ must never break a turn (see :meth:`TraceStore.write`).
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import asdict, dataclass, field
+
+# Keep at most this many trace files. Traces hold sensitive prompts, so they are
+# capped and pruned oldest-first rather than allowed to grow without bound —
+# "forgets, not accumulates". Override with JUNE_TRACE_MAX (0 disables capture).
+TRACE_MAX: int = int(os.environ.get("JUNE_TRACE_MAX", "100"))
 
 # Event kinds a trace can record. Superset of StreamEvent types — a trace is the
 # durable record, StreamEvents are the live wire.
@@ -102,16 +108,52 @@ class TraceStore:
         return layout.traces_dir()
 
     def write(self, trace: TurnTrace) -> bool:
-        """Persist a trace. Returns True on success, False on any failure."""
+        """Persist a trace, then prune to the retention cap.
+
+        Returns True on success, False on any failure. When ``TRACE_MAX`` is 0,
+        capture is disabled and nothing is written.
+        """
+        if TRACE_MAX <= 0:
+            return False
         try:
             d = self._dir()
             d.mkdir(parents=True, exist_ok=True)
             path = d / f"{trace.turn_id}.json"
             path.write_text(json.dumps(trace.to_dict(), ensure_ascii=False, indent=2))
+            self._prune(d)
             return True
         except Exception:
             # Trace persistence is a debug convenience, never load-bearing.
             return False
+
+    def _prune(self, d) -> None:
+        """Delete oldest traces beyond TRACE_MAX. Best-effort."""
+        try:
+            files = sorted(d.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+            for stale in files[TRACE_MAX:]:
+                try:
+                    stale.unlink()
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    def clear(self) -> int:
+        """Delete all persisted traces. Returns the count removed (best-effort)."""
+        removed = 0
+        try:
+            d = self._dir()
+            if not d.exists():
+                return 0
+            for p in d.glob("*.json"):
+                try:
+                    p.unlink()
+                    removed += 1
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return removed
 
     def read(self, turn_id: str) -> TurnTrace | None:
         try:

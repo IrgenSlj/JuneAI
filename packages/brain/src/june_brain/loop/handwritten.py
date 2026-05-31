@@ -31,6 +31,7 @@ from .interface import (
 )
 from .reasoning import ReasoningSplitter, split_reasoning
 from .trace import TraceStore, TurnTrace
+from .wiring import is_network_tool as _is_network_tool
 
 
 class HandwrittenLoop:
@@ -91,6 +92,7 @@ class HandwrittenLoop:
 
         # --- dispatch ---
         self._dispatched_names: list[str] = []
+        self._network_calls: list[str] = []
         if dispatch is not None:
             self._dispatch: Callable[[list[ToolCall], SessionState], Awaitable[list[Message]]] | None = dispatch
         else:
@@ -125,6 +127,7 @@ class HandwrittenLoop:
     def _reset_per_turn(self) -> None:
         """Reset per-turn tracking state."""
         self._dispatched_names.clear()
+        self._network_calls.clear()
         self._recall_state["memories_recalled"] = 0
         self._recall_state["recall_hits"] = []
 
@@ -160,10 +163,15 @@ class HandwrittenLoop:
         """Build TurnProvenance from accumulated state."""
         memories_recalled = self._recall_state.get("memories_recalled", 0)
         skills_called = list(self._dispatched_names)
+        egress = list(dict.fromkeys(self._network_calls))  # de-dupe, keep order
         is_cloud = provider.tier == "cloud-capable"
 
+        egress_note = (
+            f" Network egress via {', '.join(egress)}." if egress else ""
+        )
+
         if is_cloud:
-            rationale = f"Escalated to {provider.model_id} ({chosen_role})."
+            rationale = f"Escalated to {provider.model_id} ({chosen_role})." + egress_note
             ctx_len = len(all_tool_calls) + 1
             cloud_payload_summary: str | None = (
                 f"Sent {ctx_len} context messages"
@@ -173,7 +181,7 @@ class HandwrittenLoop:
         else:
             rationale = (
                 f"Handled locally via {provider.model_id} ({chosen_role});"
-                f" recalled {memories_recalled} memories."
+                f" recalled {memories_recalled} memories." + egress_note
             )
             cloud_payload_summary = None
 
@@ -186,6 +194,7 @@ class HandwrittenLoop:
             latency_ms=max(0, int((time.monotonic() - start_time) * 1000)),
             rationale=rationale,
             cloud_payload_summary=cloud_payload_summary,
+            egress=egress,
         )
 
     # ------------------------------------------------------------------
@@ -432,13 +441,20 @@ class HandwrittenLoop:
                 all_tool_calls.extend(tool_calls)
                 for tc in tool_calls:
                     args_detail = json.dumps(tc.args, ensure_ascii=False, indent=2)
+                    networked = _is_network_tool(tc.name)
+                    if networked:
+                        self._network_calls.append(tc.name)
                     yield StreamEvent(
                         type="tool_call",
                         tool_name=tc.name,
                         tool_args=tc.args,
                         detail=args_detail,
+                        network=networked,
                     )
-                    trace.record("tool_call", f"tool · {tc.name}", detail=args_detail)
+                    egress_note = " [egress: leaves your machine]" if networked else ""
+                    trace.record(
+                        "tool_call", f"tool · {tc.name}{egress_note}", detail=args_detail
+                    )
 
                 observations = await self._dispatch(tool_calls, session)
 
@@ -494,6 +510,7 @@ class HandwrittenLoop:
                 f"cloud_call: {provenance.cloud_call}\n"
                 f"memories_recalled: {provenance.memories_recalled}\n"
                 f"skills_called: {', '.join(provenance.skills_called) or '(none)'}\n"
+                f"egress: {', '.join(provenance.egress) or '(none)'}\n"
                 f"latency_ms: {provenance.latency_ms}\n"
                 f"tokens: in={tokens.input_tokens} out={tokens.output_tokens}"
                 + (

@@ -109,6 +109,42 @@ def test_trace_store_read_missing_returns_none(
     assert TraceStore().read("nope") is None
 
 
+def test_trace_store_caps_retention(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _point_datadir(monkeypatch, tmp_path)
+    import june_brain.loop.trace as trace_mod
+
+    monkeypatch.setattr(trace_mod, "TRACE_MAX", 2)
+    store = TraceStore()
+    for i in range(5):
+        t = TurnTrace(turn_id=f"t{i}", user_id="u")
+        t.record("done", "done")
+        store.write(t)
+    # Only the 2 most recent survive the cap.
+    assert len(list((layout.traces_dir()).glob("*.json"))) == 2
+
+
+def test_trace_store_clear(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _point_datadir(monkeypatch, tmp_path)
+    store = TraceStore()
+    for i in range(3):
+        t = TurnTrace(turn_id=f"c{i}", user_id="u")
+        store.write(t)
+    removed = store.clear()
+    assert removed == 3
+    assert store.list_recent() == []
+
+
+def test_trace_capture_disabled_when_max_zero(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _point_datadir(monkeypatch, tmp_path)
+    import june_brain.loop.trace as trace_mod
+
+    monkeypatch.setattr(trace_mod, "TRACE_MAX", 0)
+    assert TraceStore().write(TurnTrace(turn_id="x", user_id="u")) is False
+    assert TraceStore().list_recent() == []
+
+
 # ---------------------------------------------------------------------------
 # stream_turn captures prompt + iteration trace events and persists a file
 # ---------------------------------------------------------------------------

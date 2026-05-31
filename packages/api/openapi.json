@@ -1472,6 +1472,26 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Clear Traces",
+        "description": "Delete all persisted turn traces. Returns the now-empty list.",
+        "operationId": "clear_traces_system_traces_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceListResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/system/traces/{turn_id}": {
@@ -3982,6 +4002,12 @@
             "description": "Full, expandable body for glass-box trace events (prompt/iteration/compaction/tool_call/tool_result/reasoning). Empty for token events \u2014 tokens are the foreground answer, never the trace.",
             "title": "Detail",
             "type": "string"
+          },
+          "network": {
+            "default": false,
+            "description": "True on tool_call events for tools that reach the network. The UI flags these as egress even when the LLM tier is local, so a query leaving the machine is never silent.",
+            "title": "Network",
+            "type": "boolean"
           }
         },
         "required": [

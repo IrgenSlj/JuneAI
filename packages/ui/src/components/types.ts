@@ -28,4 +28,5 @@ export interface ActivityStep {
   label: string;         // short, June-voiced, lower-case, no emoji
   detail?: string;       // full expandable body (prompt, args, rationale, output)
   cloud?: boolean;       // set on provenance steps: true=cloud, false=local
+  network?: boolean;     // set on tool steps: true when the tool reaches the network (egress)
 }

@@ -116,3 +116,11 @@ class ChatEvent(BaseModel):
             "tokens are the foreground answer, never the trace."
         ),
     )
+    network: bool = Field(
+        default=False,
+        description=(
+            "True on tool_call events for tools that reach the network. The UI "
+            "flags these as egress even when the LLM tier is local, so a query "
+            "leaving the machine is never silent."
+        ),
+    )

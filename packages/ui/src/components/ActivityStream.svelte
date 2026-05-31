@@ -60,6 +60,7 @@
           class:boundary={isBoundary}
           class:cloud={isBoundary && step.cloud}
           class:local={isBoundary && !step.cloud}
+          class:egress={step.network}
           data-kind={step.kind}
         >
           <button
@@ -212,6 +213,18 @@
 
   .row[data-kind="error"] .label {
     color: var(--color-danger);
+  }
+
+  /* Egress — a tool reached the network. Surfaced amber so a query leaving the
+     machine in local-only mode is never silent. */
+  .row.egress:not(.boundary) {
+    border-left: 2px solid var(--color-warn);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    padding-left: var(--space-2);
+    background: color-mix(in srgb, var(--color-warn) 9%, transparent);
+  }
+  .row.egress .label {
+    color: var(--color-warn);
   }
   .row[data-kind="done"] .label {
     color: var(--color-fg-subtle);

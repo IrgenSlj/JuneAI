@@ -53,6 +53,10 @@ class TurnProvenance:
     rationale: str = ""
     latency_ms: int = 0
     cloud_payload_summary: str | None = None
+    # Networked tools dispatched this turn (e.g. web_search). The LLM stayed
+    # local, but these tools sent data off the machine — surfaced separately
+    # from cloud_call so local-only egress is never silent.
+    egress: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -95,6 +99,9 @@ class StreamEvent:
     provenance: TurnProvenance | None = None
     detail: str = ""
     iteration: int = 0
+    # True on tool_call events for tools that reach the network — lets the UI
+    # flag the call as egress even when the LLM tier is local.
+    network: bool = False
 
 
 @runtime_checkable

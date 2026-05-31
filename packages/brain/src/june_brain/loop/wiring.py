@@ -14,6 +14,18 @@ from june_brain.providers.base import Message
 
 from .interface import SessionState, ToolCall
 
+# Tools that reach the network when invoked. Dispatching one of these sends
+# data off the machine, so the loop surfaces it as egress even when the LLM
+# tier is local. Keep this in sync as networked skills are added.
+NETWORK_TOOLS: frozenset[str] = frozenset(
+    {"web_search", "fetch_url", "read_webpage"}
+)
+
+
+def is_network_tool(name: str) -> bool:
+    """True when invoking ``name`` reaches the network (egress)."""
+    return name in NETWORK_TOOLS
+
 # ---------------------------------------------------------------------------
 # Recall wiring
 # ---------------------------------------------------------------------------
@@ -142,7 +154,8 @@ def make_dispatch_fn(dispatched_names: list[str]) -> Any:
 
     ``dispatched_names`` is a mutable list owned by the caller; this function
     appends each successfully-dispatched tool name so the loop can report
-    ``skills_called`` in provenance.
+    ``skills_called`` in provenance. (Egress tracking lives in the loop, which
+    flags networked tool calls regardless of which dispatch implementation runs.)
     """
 
     # Build the tool map once at construction time (lazy import)
@@ -175,8 +188,18 @@ def make_dispatch_fn(dispatched_names: list[str]) -> Any:
                     )
                 )
                 continue
+            # Inject the session user_id when the tool requires it and the model
+            # didn't supply one — the model can't know the partition key, and
+            # most native/skill tools key their writes on it.
+            args = dict(tc.args)
             try:
-                result = tool.invoke(tc.args)
+                schema = getattr(tool, "args", {}) or {}
+                if "user_id" in schema and not args.get("user_id"):
+                    args["user_id"] = getattr(session, "user_id", "") or ""
+            except Exception:
+                pass
+            try:
+                result = tool.invoke(args)
                 content = str(result)[:4000]
                 dispatched_names.append(tc.name)
             except Exception as exc:  # noqa: BLE001

@@ -147,10 +147,13 @@ function handleEvent(event: ChatEvent, assistantId: string) {
       const modelPart = p?.model ?? "";
       const recalledPart = p?.memories_recalled ? ` · ${p.memories_recalled} recalled` : "";
       const latencyPart = p?.latency_ms ? ` · ${p.latency_ms}ms` : "";
+      const egress = (p as { egress?: string[] })?.egress ?? [];
+      const egressPart = egress.length ? ` · egress: ${egress.join(", ")}` : "";
       pushActivity({
         kind: "provenance",
         cloud: isCloud,
-        label: `${isCloud ? "cloud" : "local"} · ${modelPart}${recalledPart}${latencyPart}`,
+        network: egress.length > 0,
+        label: `${isCloud ? "cloud" : "local"} · ${modelPart}${recalledPart}${latencyPart}${egressPart}`,
         detail: p?.rationale != null ? String(p.rationale) : undefined,
       });
       break;
@@ -158,7 +161,8 @@ function handleEvent(event: ChatEvent, assistantId: string) {
     case "tool_call":
       pushActivity({
         kind: "tool",
-        label: `tool · ${event.tool_name}`,
+        label: `tool · ${event.tool_name}${event.network ? " · egress" : ""}`,
+        network: event.network,
         // Prefer the brain's full args body; fall back to the formatted args.
         detail: event.detail || formatToolCall(event.tool_name, event.tool_args),
       });

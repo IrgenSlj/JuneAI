@@ -200,6 +200,7 @@ def _turn_provenance_dict(prov: TurnProvenance) -> dict[str, Any]:
         "memories_recalled": prov.memories_recalled,
         "skills_called": list(prov.skills_called),
         "rationale": prov.rationale,
+        "egress": list(getattr(prov, "egress", []) or []),
     }
 
 
@@ -314,6 +315,7 @@ async def _iter_harness_events(
                         tool_name=ev.tool_name,
                         tool_args=ev.tool_args,
                         detail=ev.detail,
+                        network=ev.network,
                     )
                 )
             elif ev.type == "tool_result":
