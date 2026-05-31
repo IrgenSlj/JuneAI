@@ -33,6 +33,11 @@ from .reasoning import ReasoningSplitter, split_reasoning
 from .trace import TraceStore, TurnTrace
 from .wiring import is_network_tool as _is_network_tool
 
+# Per-call token cap. A cap, not a target — short answers still finish early.
+# Set high enough that thinking models (qwen3) can reason AND answer within one
+# call rather than spending the whole budget in <think> and emitting nothing.
+_MAX_TOKENS = 2048
+
 
 class HandwrittenLoop:
     """A plain async while-loop implementing the fixed harness shape.
@@ -215,7 +220,7 @@ class HandwrittenLoop:
         for _ in range(self._max_iterations):
             ctx = self._assemble_context(session, user_msg)
             result = await provider.generate(
-                GenerateRequest(messages=ctx, max_tokens=512)
+                GenerateRequest(messages=ctx, max_tokens=_MAX_TOKENS)
             )
             last_result = result
             tokens.input_tokens += result.input_tokens
@@ -319,7 +324,7 @@ class HandwrittenLoop:
 
             try:
                 async for delta in provider.stream(
-                    GenerateRequest(messages=ctx, max_tokens=512)
+                    GenerateRequest(messages=ctx, max_tokens=_MAX_TOKENS)
                 ):
                     accumulated += delta
 
@@ -393,7 +398,7 @@ class HandwrittenLoop:
                 # Stream failed — fall back to a single generate call
                 try:
                     result = await provider.generate(
-                        GenerateRequest(messages=ctx, max_tokens=512)
+                        GenerateRequest(messages=ctx, max_tokens=_MAX_TOKENS)
                     )
                     accumulated = result.text
                     tokens.input_tokens += result.input_tokens

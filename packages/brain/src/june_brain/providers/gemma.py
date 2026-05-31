@@ -40,6 +40,26 @@ class GemmaProvider:
     def _build_messages(self, messages: list[Message]) -> list[dict]:
         return [{"role": m.role, "content": m.content} for m in messages]
 
+    @staticmethod
+    def _reasoning_of(obj: object) -> str:
+        """Pull a thinking model's separate reasoning field, if present.
+
+        Ollama's OpenAI-compatible endpoint returns qwen3's chain-of-thought in
+        a separate ``reasoning_content`` (or ``reasoning``) field rather than
+        inline ``<think>`` tags. Return it so callers can re-wrap it as
+        ``<think>...</think>`` for the reasoning splitter. Returns "" if absent.
+        """
+        for attr in ("reasoning_content", "reasoning"):
+            val = getattr(obj, attr, None)
+            if isinstance(val, str) and val:
+                return val
+        extra = getattr(obj, "model_extra", None) or {}
+        for key in ("reasoning_content", "reasoning"):
+            val = extra.get(key)
+            if isinstance(val, str) and val:
+                return val
+        return ""
+
     async def generate(self, req: GenerateRequest) -> GenerateResult:
         client = self._client()
         kwargs: dict = {
@@ -59,7 +79,14 @@ class GemmaProvider:
         response = await client.chat.completions.create(**kwargs)
         latency_ms = int((time.monotonic() - t0) * 1000)
 
-        text = response.choices[0].message.content or ""
+        message = response.choices[0].message
+        text = message.content or ""
+        # Thinking models (qwen3) return reasoning in a separate field; re-wrap
+        # it as <think>...</think> so split_reasoning / ReasoningSplitter handle
+        # it uniformly with models that emit inline think tags.
+        reasoning = self._reasoning_of(message)
+        if reasoning:
+            text = f"<think>{reasoning}</think>{text}"
         usage = response.usage
         return GenerateResult(
             text=text,
@@ -84,10 +111,28 @@ class GemmaProvider:
             kwargs["stop"] = req.stop
 
         response = await client.chat.completions.create(**kwargs)
+        # Thinking models stream reasoning in a separate field before the answer.
+        # Bridge it into inline <think>...</think> so the loop's ReasoningSplitter
+        # routes it to the reasoning channel rather than the answer.
+        in_think = False
         async for chunk in response:
-            delta = chunk.choices[0].delta.content if chunk.choices else None
-            if delta:
-                yield delta
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta
+            reasoning = self._reasoning_of(delta)
+            if reasoning:
+                if not in_think:
+                    yield "<think>"
+                    in_think = True
+                yield reasoning
+            content = delta.content
+            if content:
+                if in_think:
+                    yield "</think>"
+                    in_think = False
+                yield content
+        if in_think:
+            yield "</think>"
 
     async def health(self) -> ProviderHealth:
         """Probe Ollama reachability with a short timeout. Never raises."""
