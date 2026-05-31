@@ -59,7 +59,12 @@ Toggle `MODEL_PROVIDER` between `gemma` and `gemini`. Both can be configured at 
 
 Privacy boundary: memory files stay in `JUNE_DATA_DIR` for both providers. With `MODEL_PROVIDER=gemini`, June sends the current prompt plus relevant recalled memory context to Google's API for inference. Use `MODEL_PROVIDER=gemma` when inference must remain local.
 
-Tool egress: `local-only` governs the **LLM**, not networked tools. A tool such as `web_search`/`fetch_url` reaches the internet even when inference is local. The current policy is **allow-but-surface**: these tools run, but the loop tags them as network egress (`TurnProvenance.egress`, an amber row in the activity terminal, and the persisted trace), so a query leaving the machine is never silent. A strict "block networked tools in local-only" mode is a deliberate future option, not yet implemented. Networked tools are listed in `loop/wiring.py:NETWORK_TOOLS` — extend it as networked skills are added.
+Tool egress is gated by the **privacy dial** (`local_only` / `private_by_default` / `cloud_first`), which is the mode shown in the header and changed in Settings:
+
+- **`local_only`** — networked tools (`web_search`/`fetch_url`/`read_webpage`) are **blocked**, not dispatched. June explains in her reply and the UI offers a one-click switch to `private_by_default` that retries. Nothing egresses.
+- **`private_by_default` (default) / `cloud_first`** — networked tools run, but the loop tags them as egress (`TurnProvenance.egress`, an amber row in the activity terminal, and the persisted trace), so a query leaving the machine is never silent.
+
+Networked tools are listed in `loop/wiring.py:NETWORK_TOOLS` — extend it as networked skills are added. Note the privacy dial is distinct from `MODEL_PROVIDER`: the dial gates tool egress; `MODEL_PROVIDER` selects which LLM runs.
 
 ## Persistent User Choices
 

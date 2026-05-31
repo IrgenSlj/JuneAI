@@ -60,22 +60,24 @@ classifier from what you observe — then pick the first Tier 2 differentiator b
 - **Tools advertised to the model.** The handwritten loop now tells the model which
   tools exist + the JSON call format (`loop/wiring.py:make_tools_block`), so
   `web_search` etc. are actually callable. `user_id` is injected when a tool needs it.
-- **Tool egress surfaced.** Networked tools (`NETWORK_TOOLS`) are tagged as egress in
-  provenance + the activity terminal (allow-but-surface; see
-  `docs/setup/environment.md`).
-- **Reasoning visible.** `local-deep` runs `qwen3:8b`; its `reasoning_content` is
-  bridged to `<think>` and shown in the trace on difficulty-routed hard/creative turns.
+- **Tool egress gated by the privacy dial.** `local_only` blocks networked tools and
+  June offers a one-click switch to `private_by_default` (which allows them, still
+  surfaced as egress). The header shows the dial as the mode. See
+  `docs/setup/environment.md`.
+- **Reasoning visible.** The active model (Gemma 4, Gemini) is asked to externalize its
+  own reasoning in `<think>` tags, routed to the hidable reasoning channel — no separate
+  thinking model.
 
 ### Open knobs for next sessions (small, optional)
 
-- **Strict egress mode** — option to *block* networked tools in local-only, not just
-  surface them. Policy decision; allow-but-surface is the current default.
 - **`BRAVE_SEARCH_API_KEY`** — set it for reliable `web_search`; the DuckDuckGo HTML
   fallback is flaky.
 - **Traces "clear" button** — the `DELETE /system/traces` endpoint exists; no UI control
   yet (clearing is API-only / auto-capped today).
-- **qwen3 deep latency** — the thinking model is slower; only hard/creative turns route
-  to it, but revisit if it feels heavy.
+- **Reasoning latency** — the `<think>` instruction adds a thinking pass to every turn;
+  if it feels heavy on trivial queries, gate it by difficulty.
+- **Switch-and-retry edge** — the one-click switch resends the last user message; revisit
+  if a turn had tool side effects before the block.
 
 ## Next — Tier 2 differentiators
 
