@@ -50,6 +50,33 @@ The discipline for the next session: **use June against real conversations befor
 opening Tier 2.** Tune salience weights, compaction triggers, and the difficulty
 classifier from what you observe — then pick the first Tier 2 differentiator below.
 
+### Shipped on top of the spine (this work)
+
+- **Glass-box trace.** Every turn records the rendered prompt, per-iteration model
+  output, full tool I/O, reasoning, and compaction; persisted to
+  `JUNE_DATA_DIR/traces/` (capped by `JUNE_TRACE_MAX`, `DELETE /system/traces` to
+  clear). The activity terminal is the live, expandable view; the System page is
+  unchanged.
+- **Tools advertised to the model.** The handwritten loop now tells the model which
+  tools exist + the JSON call format (`loop/wiring.py:make_tools_block`), so
+  `web_search` etc. are actually callable. `user_id` is injected when a tool needs it.
+- **Tool egress surfaced.** Networked tools (`NETWORK_TOOLS`) are tagged as egress in
+  provenance + the activity terminal (allow-but-surface; see
+  `docs/setup/environment.md`).
+- **Reasoning visible.** `local-deep` runs `qwen3:8b`; its `reasoning_content` is
+  bridged to `<think>` and shown in the trace on difficulty-routed hard/creative turns.
+
+### Open knobs for next sessions (small, optional)
+
+- **Strict egress mode** — option to *block* networked tools in local-only, not just
+  surface them. Policy decision; allow-but-surface is the current default.
+- **`BRAVE_SEARCH_API_KEY`** — set it for reliable `web_search`; the DuckDuckGo HTML
+  fallback is flaky.
+- **Traces "clear" button** — the `DELETE /system/traces` endpoint exists; no UI control
+  yet (clearing is API-only / auto-capped today).
+- **qwen3 deep latency** — the thinking model is slower; only hard/creative turns route
+  to it, but revisit if it feels heavy.
+
 ## Next — Tier 2 differentiators
 
 Build simple, observe, refine — these need a working June to tune against.
