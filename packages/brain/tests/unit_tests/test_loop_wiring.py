@@ -149,7 +149,7 @@ def test_default_dispatcher_executes_tool() -> None:
             return f"Hello, {args.get('name', 'world')}!"
 
     # Monkeypatch the tool map by replacing _get_tool_map via closure trick:
-    # instead of that, we inject via the wiring path by patching graph imports.
+    # instead of that, we inject via the wiring path by patching agent_helpers imports.
     # Use a simpler approach: directly test via a loop with injected dispatch.
     # For make_dispatch_fn, we need to intercept _select_tools_for_runtime.
     # Let's do it via monkeypatching in a separate test using the full loop path.
@@ -194,7 +194,7 @@ def test_default_dispatcher_with_mock_tool(monkeypatch: pytest.MonkeyPatch) -> N
     def fake_resolve_runtime() -> Any:
         return SimpleNamespace(preset_key="gemma")
 
-    monkeypatch.setattr("june_brain.graph._select_tools_for_runtime", fake_select_tools, raising=False)
+    monkeypatch.setattr("june_brain.loop.agent_helpers._select_tools_for_runtime", fake_select_tools, raising=False)
     monkeypatch.setattr("june_brain.config.resolve_runtime_config", fake_resolve_runtime, raising=False)
 
     dispatched_names: list[str] = []
@@ -421,7 +421,7 @@ def test_provenance_skills_called_populated(monkeypatch: pytest.MonkeyPatch) -> 
     def fake_resolve_runtime() -> Any:
         return SimpleNamespace(preset_key="gemma")
 
-    monkeypatch.setattr("june_brain.graph._select_tools_for_runtime", fake_select_tools, raising=False)
+    monkeypatch.setattr("june_brain.loop.agent_helpers._select_tools_for_runtime", fake_select_tools, raising=False)
     monkeypatch.setattr("june_brain.config.resolve_runtime_config", fake_resolve_runtime, raising=False)
 
     call_count = [0]

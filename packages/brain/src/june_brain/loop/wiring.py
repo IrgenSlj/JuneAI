@@ -39,9 +39,9 @@ def make_recall_fn(
     The shared_state_dict is mutated by each call so the loop can read back
     ``memories_recalled`` and ``recall_hits`` after assemble_context runs.
     """
-    # lazy import to avoid circular dependency (graph.py is heavy)
+    # lazy import keeps the loop import-light; helpers live in agent_helpers.
     if recall_with_hits_fn is None:
-        from june_brain.graph import _recall_with_hits  # type: ignore[attr-defined]
+        from .agent_helpers import _recall_with_hits
 
         recall_with_hits_fn = _recall_with_hits
 
@@ -82,7 +82,8 @@ def make_tools_block() -> str:
     """
     try:
         from june_brain.config import resolve_runtime_config  # noqa: PLC0415
-        from june_brain.graph import _select_tools_for_runtime  # noqa: PLC0415
+
+        from .agent_helpers import _select_tools_for_runtime
 
         runtime = resolve_runtime_config()
         tools = _select_tools_for_runtime(runtime)
@@ -122,12 +123,8 @@ def make_extract_tool_calls_fn() -> Any:
     """Return a callable that parses model text into ToolCall list."""
 
     def extract(result: Any) -> list[ToolCall]:
-        # lazy import to avoid heavy graph import at module load
         try:
-            from june_brain.graph import (  # type: ignore[attr-defined]
-                _coerce_tool_calls,
-                _extract_json_payload,
-            )
+            from .agent_helpers import _coerce_tool_calls, _extract_json_payload
         except Exception:
             return []
 
@@ -165,8 +162,9 @@ def make_dispatch_fn(dispatched_names: list[str]) -> Any:
         nonlocal _tool_map
         if _tool_map is None:
             try:
-                from june_brain.config import resolve_runtime_config  # type: ignore[attr-defined]
-                from june_brain.graph import _select_tools_for_runtime  # type: ignore[attr-defined]
+                from june_brain.config import resolve_runtime_config
+
+                from .agent_helpers import _select_tools_for_runtime
 
                 runtime = resolve_runtime_config()
                 tools = _select_tools_for_runtime(runtime)

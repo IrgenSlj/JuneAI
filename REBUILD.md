@@ -16,7 +16,12 @@ Baseline: tag `v0.2.0-prereshape`, metrics in
 
 ### S1 — Dead weight removal and repo reshape  (ADR 0018)
 - [ ] S1.1 Delete LangGraph path (graph.py, langgraph_loop.py, flags); port/rewrite loop integration tests
+  - [x] S1.1a Relocate shared graph.py helpers -> loop/agent_helpers.py; repoint wiring.py
+  - [ ] S1.1b Rewire scheduler off graph.run_agent_sync onto provider stack
+  - [ ] S1.1c Delete LangGraph engine (graph.py agent, langgraph_loop.py, engine branch, flags, chat-route fallback); port/delete tests
 - [ ] S1.2 Drop langgraph/langchain* deps; re-lock; record install delta
+  - [ ] S1.2a Replace langchain @tool/StructuredTool/Command with custom Tool abstraction (tools.py, skills loader/supervisor, models.py)
+  - [ ] S1.2b Drop the four deps; re-lock; record install delta
 - [ ] S1.3 Move `packages/june-skill-telegram` -> `skills/telegram`
 - [ ] S1.4 Repo hygiene: logo -> assets/, dev.sh -> preflight.sh (shim), docs/archive/ + INDEX.md, CLAUDE.md update
 - [ ] S1.5 Update README architecture + tech stack (LangGraph/LangChain removed)

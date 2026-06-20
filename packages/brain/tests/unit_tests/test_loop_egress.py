@@ -149,9 +149,9 @@ def test_dispatch_injects_user_id(monkeypatch: pytest.MonkeyPatch) -> None:
             captured.update(a)
             return "ok"
 
-    import june_brain.graph as graph_mod
+    import june_brain.loop.agent_helpers as helpers_mod
 
-    monkeypatch.setattr(graph_mod, "_select_tools_for_runtime", lambda rt: [FakeTool()])
+    monkeypatch.setattr(helpers_mod, "_select_tools_for_runtime", lambda rt: [FakeTool()])
 
     dispatch = make_dispatch_fn([])
     obs = asyncio.run(
