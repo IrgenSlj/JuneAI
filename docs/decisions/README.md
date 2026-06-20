@@ -38,3 +38,4 @@ Status progression:
 | [0015](0015-center-of-gravity-four-inversions.md) | Center of gravity is the user; the four inversions | Accepted |
 | [0016](0016-event-driven-no-heartbeat.md) | Event-driven proactivity; no heartbeat-as-cron | Accepted |
 | [0017](0017-model-specific-provider-layer.md) | Model-specific provider layer (Gemma 4 + Gemini), roles from config | Accepted |
+| [0018](0018-one-loop-engine.md) | One loop engine (hand-written); LangGraph engine removed | Accepted |

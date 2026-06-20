@@ -28,7 +28,7 @@ Baseline: tag `v0.2.0-prereshape`, metrics in
 - [ ] S1.3 Move `packages/june-skill-telegram` -> `skills/telegram`
 - [ ] S1.4 Repo hygiene: logo -> assets/, dev.sh -> preflight.sh (shim), docs/archive/ + INDEX.md, CLAUDE.md update
 - [ ] S1.5 Update README architecture + tech stack (LangGraph/LangChain removed)
-- [ ] S1 ADR 0018 — One loop engine
+- [x] S1 ADR 0018 — One loop engine
 
 ### S2 — One storage engine: ChromaDB -> sqlite-vec  (ADR 0019)
 - [ ] S2.1 Add sqlite-vec; implement store_vector.py (same interface, vec0 table)
