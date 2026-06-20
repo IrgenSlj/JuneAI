@@ -6,7 +6,9 @@ build spec for the duration of the rebuild. Check a line off as its commit
 lands. Every slice ends with `./tools/check.sh` green and one commit.
 
 Baseline: tag `v0.2.0-prereshape`, metrics in
-`docs/experiments/baseline-2026-06.md`.
+`docs/experiments/baseline-2026-06.md`. Execution playbook for S2 onward
+(sizing, dependencies, decisions, tomorrow's actions):
+`docs/product/rebuild-sessions.md`.
 
 ## Phase 1 — Trust + Distribution
 
