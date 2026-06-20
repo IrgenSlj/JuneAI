@@ -27,7 +27,7 @@ class _HashEmbedder(EmbeddingFunction):
     """
 
     def __init__(self) -> None:
-        super().__init__()
+        pass
 
     def __call__(self, input):  # chroma protocol
         # chromadb 1.5+ sometimes passes a single string to embed_query

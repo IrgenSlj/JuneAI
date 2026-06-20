@@ -22,7 +22,7 @@ class _HashEmbedder(EmbeddingFunction):
     """Deterministic embedder — matches the brain test fixture."""
 
     def __init__(self) -> None:
-        super().__init__()
+        pass
 
     def __call__(self, input):
         if isinstance(input, str):

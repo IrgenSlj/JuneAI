@@ -157,7 +157,7 @@ def test_skill_writes_returns_only_that_skills_facts(client, tmp_path, monkeypat
 
     class _HashEmbedder(EmbeddingFunction):
         def __init__(self) -> None:
-            super().__init__()
+            pass
 
         def __call__(self, input):
             texts = [input] if isinstance(input, str) else list(input)

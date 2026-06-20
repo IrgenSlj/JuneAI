@@ -142,7 +142,7 @@ class _HashEmbedder(_EmbeddingFunction):
     """Deterministic 64-dim embedder used across memory tests."""
 
     def __init__(self) -> None:
-        super().__init__()
+        pass
 
     def __call__(self, input):
         if isinstance(input, str):
