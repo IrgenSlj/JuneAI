@@ -102,12 +102,14 @@ differentiators below — this is keeping the spine honest, not adding scope.
 3. **[SHIPPED] Build/version surface.** `build_version()` (JUNE_BUILD_SHA override,
    git short-SHA fallback) is exposed as `SystemStatus.version` and shown as a
    quiet "build <sha>" tag in the runtime chip.
-4. **Localhost API auth (later — needs a design decision).** Even with the CORS
-   allowlist restored, the API is unauthenticated; anything that can reach
-   `127.0.0.1:8000` (including JS on any site the user visits) can read memory. A
-   per-session token closes drive-by / DNS-rebinding access. Deferred: the token
-   scheme, where it is minted, and how the shells carry it are a security-model
-   decision to make deliberately, not autonomously.
+4. **[SHIPPED] Loopback API hardening (DNS-rebinding).** Closed via Host-header
+   validation (`TrustedHostMiddleware`, allowlist `localhost`/`127.0.0.1`/
+   `testserver`, `JUNE_API_ALLOWED_HOSTS` override) rather than a per-session
+   token: the project already has opt-in api-key auth (`JUNE_API_AUTH_ENABLED`)
+   for exposed deployments, and a token "adds breakage but no security" for the
+   single-user loopback case. CORS blocks cross-origin reads; Host validation
+   blocks DNS-rebinding. A rebinding request carries the attacker domain in Host
+   and is rejected 400.
 5. **PWA-in-dev verification (needs a browser).** Confirm `devOptions.enabled =
    true` does not serve stale assets via the service worker during development;
    document the trade-off or gate it behind a flag. Requires driving a real
