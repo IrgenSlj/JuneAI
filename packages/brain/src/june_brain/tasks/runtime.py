@@ -1,12 +1,11 @@
-"""Minimal task runtime — runs a task's goal through the existing chat agent
-and records the trace as TaskStep entries.
+"""Minimal task runtime — runs a task's goal through the hand-written loop and
+records the trace as TaskStep entries.
 
 This is the *vessel-filling* version of the runtime. Rather than reinvent a
-planner-executor loop, it asks the LangGraph agent in ``june_brain.graph`` to
-handle the goal as if it were a chat message. Every tool call the agent makes
-becomes one TaskStep; the final assistant message becomes a final step labeled
-"response". The runtime owns provenance — each step records which model
-handled the chat-side call when known.
+planner-executor loop, it streams the goal through ``june_brain.loop`` (the one
+engine, ADR 0018) as if it were a chat turn. Every tool call the loop makes
+becomes one TaskStep; the streamed assistant text becomes a final step labeled
+"Final response".
 
 A richer multi-step planner with intermediate user approvals comes later. The
 contract that matters now: the user clicks Start, June actually does
@@ -17,32 +16,30 @@ result.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from datetime import UTC
 from typing import Any
 
+from ..providers.base import Message
 from .models import Task, TaskStatus, TaskStep, TaskStepStatus
 from .store import TasksStore
 
 logger = logging.getLogger(__name__)
 
-_MAX_STEPS = 25  # Safety: a runaway agent should stop here.
+_MAX_STEPS = 25  # Safety: a runaway loop should stop here.
 
 
 class TaskRuntime:
-    """Executes one task by feeding its goal to the chat agent."""
+    """Executes one task by streaming its goal through the hand-written loop."""
 
     def __init__(
         self,
         store: TasksStore,
         *,
-        agent_factory: Any | None = None,
-        message_factory: Any | None = None,
+        loop_factory: Any | None = None,
     ) -> None:
         self.store = store
-        self._agent_factory = agent_factory
-        self._message_factory = message_factory
+        self._loop_factory = loop_factory
 
     async def execute(self, task_id: str) -> Task:
         """Run the task to completion. Raises if the task is missing."""
@@ -59,26 +56,23 @@ class TaskRuntime:
 
         self.store.set_status(task_id, TaskStatus.RUNNING)
         try:
-            agent = self._resolve_agent()
-            HumanMessage = self._resolve_message_class()
-            input_state = {"messages": [HumanMessage(content=task.goal)]}
-            result = await self._invoke(agent, input_state)
+            events = await self._stream_events(task)
         except Exception as exc:  # noqa: BLE001
-            # Honour a cancel even when the agent invoke raised — a cancelled
-            # task that errored after the cancel is still cancelled, not failed.
+            # Honour a cancel even when the loop raised — a cancelled task that
+            # errored after the cancel is still cancelled, not failed.
             if self._was_cancelled(task_id):
-                logger.info("task %s ended in cancelled state after invoke error", task_id)
+                logger.info("task %s ended in cancelled state after stream error", task_id)
                 refreshed = self.store.get(task_id)
                 assert refreshed is not None
                 return refreshed
             self.store.set_status(task_id, TaskStatus.FAILED, error=str(exc))
-            logger.exception("task %s failed during agent invoke", task_id)
+            logger.exception("task %s failed during loop stream", task_id)
             raise
 
         try:
-            self._record_trace(task_id, result)
+            self._record_trace(task_id, events)
             # Cooperative cancel: if the user PATCHed status=cancelled while
-            # the agent was running, preserve that state instead of forcing
+            # the loop was running, preserve that state instead of forcing
             # the row to COMPLETED. The trace we just recorded still lands so
             # the user can see how far the task got before being stopped.
             if self._was_cancelled(task_id):
@@ -95,7 +89,7 @@ class TaskRuntime:
         return refreshed
 
     def _was_cancelled(self, task_id: str) -> bool:
-        """Re-read the task to see whether the user cancelled it during invoke."""
+        """Re-read the task to see whether the user cancelled it during the run."""
         current = self.store.get(task_id)
         return current is not None and current.status == TaskStatus.CANCELLED
 
@@ -103,87 +97,87 @@ class TaskRuntime:
     # Internals
     # ------------------------------------------------------------------
 
-    def _resolve_agent(self) -> Any:
-        if self._agent_factory is not None:
-            return self._agent_factory()
-        from .. import graph as brain_graph
+    def _resolve_loop(self) -> Any:
+        if self._loop_factory is not None:
+            return self._loop_factory()
+        from ..loop.engine import get_loop
 
-        return brain_graph.get_or_create_agent()
+        return get_loop()
 
-    def _resolve_message_class(self) -> Any:
-        if self._message_factory is not None:
-            return self._message_factory
-        from langchain_core.messages import HumanMessage  # type: ignore[import-untyped]
+    async def _stream_events(self, task: Task) -> list[Any]:
+        """Drive the loop and collect every StreamEvent it emits."""
+        from ..loop.interface import SessionState
 
-        return HumanMessage
+        loop = self._resolve_loop()
+        session = SessionState(user_id=task.user_id, messages=[], skill="default")
+        user_msg = Message(role="user", content=task.goal)
+        events: list[Any] = []
+        async for ev in loop.stream_turn(session, user_msg):
+            events.append(ev)
+        return events
 
-    async def _invoke(self, agent: Any, input_state: dict[str, Any]) -> dict[str, Any]:
-        """Call the agent with whichever of ainvoke/invoke it supports."""
-        if hasattr(agent, "ainvoke"):
-            return await agent.ainvoke(input_state)
-        if hasattr(agent, "invoke"):
-            return await asyncio.to_thread(agent.invoke, input_state)
-        raise TypeError("agent does not expose invoke/ainvoke")
+    def _record_trace(self, task_id: str, events: list[Any]) -> None:
+        """Translate StreamEvents into TaskStep entries.
 
-    def _record_trace(self, task_id: str, result: Any) -> None:
-        """Walk the resulting message list and record each tool call as a step."""
-        messages = self._extract_messages(result)
+        The loop emits a ``tool_call`` event when it requests a tool and a
+        ``tool_result`` event when that tool returns; they arrive in dispatch
+        order, so we pair them FIFO. ``token`` events accumulate into the final
+        assistant response.
+        """
         steps_added = 0
-        pending_calls: dict[str, dict[str, Any]] = {}
+        pending: list[dict[str, Any]] = []
+        final_parts: list[str] = []
 
-        for message in messages:
-            tool_calls = self._extract_tool_calls(message)
-            if tool_calls:
-                for call in tool_calls:
-                    call_id = str(call.get("id") or call.get("name") or steps_added)
-                    pending_calls[call_id] = {
-                        "name": str(call.get("name") or "unknown"),
-                        "args": call.get("args") or {},
+        for ev in events:
+            etype = getattr(ev, "type", "")
+            if etype == "tool_call":
+                pending.append(
+                    {
+                        "name": str(getattr(ev, "tool_name", "") or "unknown"),
+                        "args": dict(getattr(ev, "tool_args", None) or {}),
                     }
-                continue
-
-            tool_result = self._extract_tool_result(message)
-            if tool_result is not None:
-                call_id = str(tool_result.get("tool_call_id") or "")
-                pending = pending_calls.pop(call_id, None)
-                tool_name = pending["name"] if pending else str(
-                    tool_result.get("name") or "tool"
                 )
-                tool_args = pending["args"] if pending else None
+            elif etype == "tool_result":
+                if steps_added >= _MAX_STEPS:
+                    continue
+                call = pending.pop(0) if pending else {
+                    "name": str(getattr(ev, "tool_name", "") or "tool"),
+                    "args": None,
+                }
                 self.store.append_step(
                     task_id,
                     TaskStep(
-                        description=f"Called {tool_name}",
-                        tool_name=tool_name,
-                        tool_args=tool_args,
-                        tool_result=tool_result.get("content"),
+                        description=f"Called {call['name']}",
+                        tool_name=call["name"],
+                        tool_args=call["args"],
+                        tool_result=getattr(ev, "tool_result", "") or "",
                         status=TaskStepStatus.COMPLETED,
                         finished_at=self._now(),
                     ),
                 )
                 steps_added += 1
-                if steps_added >= _MAX_STEPS:
-                    break
+            elif etype == "token":
+                final_parts.append(getattr(ev, "content", "") or "")
 
-        # Drain any tool_calls that the agent issued without a matching result —
-        # they were proposed but never executed; record as failed steps so the
+        # Drain any tool_calls that were requested without a matching result —
+        # they were proposed but never executed; record as skipped steps so the
         # user can see what was attempted.
-        for call_id, pending in pending_calls.items():
+        for call in pending:
             if steps_added >= _MAX_STEPS:
                 break
             self.store.append_step(
                 task_id,
                 TaskStep(
-                    description=f"Proposed {pending['name']} (no result)",
-                    tool_name=pending["name"],
-                    tool_args=pending["args"],
+                    description=f"Proposed {call['name']} (no result)",
+                    tool_name=call["name"],
+                    tool_args=call["args"],
                     status=TaskStepStatus.SKIPPED,
                     finished_at=self._now(),
                 ),
             )
             steps_added += 1
 
-        final_text = self._extract_final_assistant_text(messages)
+        final_text = "".join(final_parts).strip()
         if final_text:
             self.store.append_step(
                 task_id,
@@ -194,67 +188,6 @@ class TaskRuntime:
                     finished_at=self._now(),
                 ),
             )
-
-    @staticmethod
-    def _extract_messages(result: Any) -> list[Any]:
-        if isinstance(result, dict):
-            messages = result.get("messages")
-            if isinstance(messages, list):
-                return messages
-        if isinstance(result, list):
-            return result
-        return []
-
-    @staticmethod
-    def _extract_tool_calls(message: Any) -> list[dict[str, Any]]:
-        tool_calls = getattr(message, "tool_calls", None)
-        if tool_calls:
-            return [
-                {
-                    "id": tc.get("id") if isinstance(tc, dict) else getattr(tc, "id", None),
-                    "name": tc.get("name") if isinstance(tc, dict) else getattr(tc, "name", None),
-                    "args": tc.get("args") if isinstance(tc, dict) else getattr(tc, "args", None),
-                }
-                for tc in tool_calls
-            ]
-        return []
-
-    @staticmethod
-    def _extract_tool_result(message: Any) -> dict[str, Any] | None:
-        msg_type = getattr(message, "type", None) or message.__class__.__name__
-        if msg_type not in ("tool", "ToolMessage"):
-            return None
-        content = getattr(message, "content", "")
-        if not isinstance(content, str):
-            try:
-                content = json.dumps(content)
-            except (TypeError, ValueError):
-                content = str(content)
-        return {
-            "tool_call_id": getattr(message, "tool_call_id", None),
-            "name": getattr(message, "name", None),
-            "content": content,
-        }
-
-    @staticmethod
-    def _extract_final_assistant_text(messages: list[Any]) -> str:
-        for message in reversed(messages):
-            msg_type = getattr(message, "type", None) or message.__class__.__name__
-            if msg_type in ("ai", "AIMessage"):
-                content = getattr(message, "content", "")
-                if isinstance(content, str) and content.strip():
-                    return content
-                if isinstance(content, list):
-                    parts: list[str] = []
-                    for chunk in content:
-                        if isinstance(chunk, dict) and chunk.get("type") == "text":
-                            parts.append(str(chunk.get("text", "")))
-                        elif isinstance(chunk, str):
-                            parts.append(chunk)
-                    text = "\n".join(p for p in parts if p).strip()
-                    if text:
-                        return text
-        return ""
 
     @staticmethod
     def _now() -> str:
