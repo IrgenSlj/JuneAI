@@ -2,9 +2,13 @@
 
 ChromaDB runs in embedded mode (no server process) and persists to
 ``<data>/memory/chroma``. Embeddings are generated locally with
-``all-MiniLM-L6-v2`` (≈90 MB, downloaded once and cached). The model
-loads lazily so startup stays fast — first recall/extract pays the
-model-load cost; subsequent operations don't.
+``all-MiniLM-L6-v2`` (≈90 MB, downloaded once and cached). Once cached,
+the model is loaded with ``local_files_only=True`` so steady-state recall
+never touches the network (no silent egress, no unauthenticated Hub
+requests). In Local-only mode an uncached model disables semantic recall
+rather than downloading — structured memory still works. The model loads
+lazily so startup stays fast — first recall/extract pays the model-load
+cost; subsequent operations don't.
 
 Per ADR 0004, this is the "find me memories like this" layer. SQLite
 answers "what goals do I have"; the vector store answers "what did I
@@ -35,6 +39,9 @@ logger = logging.getLogger(__name__)
 _client: Any = None
 _embedding_function: Any = None
 
+_MODEL_NAME = "all-MiniLM-L6-v2"
+_MODEL_REPO = "sentence-transformers/all-MiniLM-L6-v2"
+
 
 def _db_path() -> str:
     return db_path()
@@ -60,15 +67,78 @@ def _get_client() -> Any:
     return _client
 
 
+def _model_is_cached() -> bool:
+    """True when the embedding model is already in the local HF cache."""
+    try:
+        from huggingface_hub import try_to_load_from_cache
+    except Exception:  # noqa: BLE001
+        return False
+    for fname in ("config.json", "modules.json", "config_sentence_transformers.json"):
+        try:
+            hit = try_to_load_from_cache(_MODEL_REPO, fname)
+        except Exception:  # noqa: BLE001
+            continue
+        if isinstance(hit, str):
+            return True
+    return False
+
+
+def _egress_blocked() -> bool:
+    """True when the privacy dial is Local-only — no model may be fetched."""
+    try:
+        from june_brain.config_store import get_privacy_dial
+        from june_brain.routing import UserPrivacyDial
+
+        return get_privacy_dial() == UserPrivacyDial.LOCAL_ONLY
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _build_embedder(local_files_only: bool) -> Any:
+    from chromadb.utils import embedding_functions  # heavy import — deferred
+
+    return embedding_functions.SentenceTransformerEmbeddingFunction(
+        model_name=_MODEL_NAME,
+        local_files_only=local_files_only,
+    )
+
+
 def _get_embedding_function() -> Any:
-    """Lazy-load the sentence-transformer embedder."""
+    """Lazy-load the local sentence-transformer embedder.
+
+    When the model is already cached, it is loaded with ``local_files_only`` so
+    the Hub is never contacted (no silent egress, no unauthenticated update
+    check). When the model is not cached and the privacy dial is Local-only,
+    returns None so the caller degrades gracefully instead of downloading —
+    structured memory still works; only semantic recall is disabled until a
+    model is cached. Any load failure (partial cache, offline, etc.) also
+    degrades to None rather than raising.
+    """
     global _embedding_function
     if _embedding_function is None:
-        from chromadb.utils import embedding_functions  # heavy import — deferred
-
-        _embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name="all-MiniLM-L6-v2",
-        )
+        cached = _model_is_cached()
+        if not cached and _egress_blocked():
+            logger.warning(
+                "embedding model %s is not cached and the privacy dial is "
+                "Local-only; semantic recall disabled until a model is cached "
+                "(structured memory still works).",
+                _MODEL_NAME,
+            )
+            return None
+        if not cached:
+            logger.info(
+                "downloading embedding model %s (one-time local-infra fetch)",
+                _MODEL_NAME,
+            )
+        try:
+            _embedding_function = _build_embedder(local_files_only=cached)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "embedding model %s unavailable (%s); semantic recall disabled",
+                _MODEL_NAME,
+                exc,
+            )
+            return None
     return _embedding_function
 
 
@@ -101,6 +171,10 @@ class VectorStore:
     @property
     def _collection(self) -> Any:
         embedder = self._injected_embedder or _get_embedding_function()
+        if embedder is None:
+            raise RuntimeError(
+                "semantic embedder unavailable (local-only, model not cached)"
+            )
         return _get_client().get_or_create_collection(
             name=_collection_name(self.user_id),
             embedding_function=embedder,
@@ -125,11 +199,19 @@ class VectorStore:
         fact_id = fact_id or uuid.uuid4().hex
         metadata = {k: _flatten_for_chroma(v) for k, v in (metadata or {}).items()}
         metadata.setdefault("source", source)
-        self._collection.upsert(
-            ids=[fact_id],
-            documents=[text],
-            metadatas=[metadata],
-        )
+        try:
+            self._collection.upsert(
+                ids=[fact_id],
+                documents=[text],
+                metadatas=[metadata],
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "vector upsert skipped (semantic index unavailable) for "
+                "user=%s: %s",
+                self.user_id,
+                exc,
+            )
         self._write_shadow(fact_id, text, source, metadata)
         return {"fact_id": fact_id, "text": text, "metadata": metadata, "source": source}
 
@@ -263,8 +345,14 @@ class VectorStore:
         """Remove a fact from both Chroma and the shadow table."""
         try:
             self._collection.delete(ids=[fact_id])
-        except Exception:
-            logger.exception("vector delete failed for user=%s id=%s", self.user_id, fact_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "vector delete skipped (semantic index unavailable) for "
+                "user=%s id=%s: %s",
+                self.user_id,
+                fact_id,
+                exc,
+            )
         _get_connection(_db_path()).execute(
             "DELETE FROM semantic_facts WHERE user_id=? AND fact_id=?",
             (self.user_id, fact_id),
