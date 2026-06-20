@@ -30,16 +30,25 @@ apply_stored_config_to_env()
 
 
 def _cors_origins() -> list[str]:
-    """Resolve allowed origins from env.
+    """Resolve allowed origins for the browser CORS layer.
 
-    Defaults cover the SvelteKit dev server (apps/web) plus the Tauri
-    desktop shell and Capacitor mobile shell which load the built app
-    from custom schemes. Override with ``JUNE_API_CORS_ORIGINS``
-    (comma-separated) in production.
+    The API binds to ``127.0.0.1`` by default, but that only keeps it off the
+    network — it does *not* keep it away from the user's own browser. Any site
+    the user visits can issue ``fetch("http://127.0.0.1:8000/...")`; the CORS
+    allowlist is what decides whether that site may *read* the response from
+    this unauthenticated, memory-bearing API. So the default is an explicit
+    allowlist of June's own shells, never ``*``.
+
+    Override with ``JUNE_API_CORS_ORIGINS`` (comma-separated) for deployment
+    behind a reverse proxy. Set ``JUNE_API_DEV_OPEN_CORS=1`` to opt into a
+    wide-open ``*`` allowlist for local debugging — opt-in and visible, never
+    the default.
     """
     raw = os.getenv("JUNE_API_CORS_ORIGINS", "").strip()
     if raw:
         return [origin.strip() for origin in raw.split(",") if origin.strip()]
+    if os.getenv("JUNE_API_DEV_OPEN_CORS", "").lower() in ("1", "true", "yes"):
+        return ["*"]
     return [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
