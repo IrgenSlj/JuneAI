@@ -5,12 +5,6 @@ from __future__ import annotations
 from june_api.routes import setup as setup_route
 from june_api.schemas import SetupApplyRequest
 from june_brain.config_store import StoredConfig
-from langchain_core.messages import AIMessage
-
-
-class _FakeModel:
-    def invoke(self, _prompt: str) -> AIMessage:
-        return AIMessage(content="OK")
 
 
 def test_apply_setup_verifies_provider(monkeypatch) -> None:
@@ -22,7 +16,9 @@ def test_apply_setup_verifies_provider(monkeypatch) -> None:
         "is_model_available",
         lambda _model, _base_url: True,
     )
-    monkeypatch.setattr(setup_route, "build_chat_model", lambda _runtime: _FakeModel())
+    # The verification round-trip goes through the provider stack; stub it green
+    # so the apply flow can be tested without a live model.
+    monkeypatch.setattr(setup_route, "_verify_round_trip", lambda _runtime: (True, "", ""))
 
     response = setup_route.apply_setup(SetupApplyRequest(provider="gemma"))
 

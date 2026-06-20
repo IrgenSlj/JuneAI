@@ -17,7 +17,6 @@ from june_brain.config_store import (
     load_stored_config,
     save_stored_config,
 )
-from june_brain.models import build_chat_model
 from june_brain.ollama_manager import is_model_available, is_ollama_running
 
 from ..schemas import SetupApplyRequest, SetupApplyResponse, SetupStatus
@@ -141,16 +140,45 @@ def _apply_to_env(stored: StoredConfig) -> None:
     os.environ.setdefault("MODEL_PROVIDER", stored.provider or DEFAULT_RUNTIME_PRESET)
 
 
+def _provider_for_runtime(runtime):
+    """Build the concrete provider for a runtime, ready for a one-shot generate.
+
+    Uses the same provider classes the loop uses (no LangChain). The cloud
+    provider resolves its key from env/keyring at call time, so the key applied
+    earlier in apply_setup is picked up here.
+    """
+    from june_brain.providers.gemini import GeminiProvider
+    from june_brain.providers.gemma import GemmaProvider
+
+    if runtime.is_api:
+        return GeminiProvider(model_id=runtime.model, base_url=runtime.base_url)
+    return GemmaProvider(
+        model_id=runtime.model, base_url=runtime.base_url, tier="local-fast"
+    )
+
+
 def _verify_round_trip(runtime) -> tuple[bool, str, str]:
     """Ask the configured model to reply once. Any response at all counts as verified."""
+    import asyncio
+
+    from june_brain.providers.base import GenerateRequest, Message
+
     try:
-        model = build_chat_model(runtime)
-        reply = model.invoke("Reply with the single word OK.")
+        provider = _provider_for_runtime(runtime)
+        result = asyncio.run(
+            provider.generate(
+                GenerateRequest(
+                    messages=[
+                        Message(role="user", content="Reply with the single word OK.")
+                    ],
+                    max_tokens=16,
+                )
+            )
+        )
     except Exception as exc:  # noqa: BLE001 — the UI needs a message, not a stack trace
         return False, f"Verification failed: {exc}", _error_hint(runtime, exc)
 
-    text = getattr(reply, "content", "") or ""
-    if not str(text).strip():
+    if not str(result.text).strip():
         return False, "Provider returned an empty response.", "Try a different model tag."
     return True, "", ""
 

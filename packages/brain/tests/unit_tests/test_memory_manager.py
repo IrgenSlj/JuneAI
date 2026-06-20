@@ -173,18 +173,14 @@ def test_default_extract_uses_local_provider_when_runtime_is_gemini(manager, mon
     cloud_events = []
     set_cloud_call_recorder(cloud_events.append)
     try:
-        with patch(
-            "june_brain.models.build_chat_model",
-            side_effect=AssertionError("default extractor must not build chat model"),
-        ) as build_chat_model:
-            result = manager.extract(
-                {"user": "I prefer tea.", "assistant": "I'll remember that."}
-            )
+        result = manager.extract(
+            {"user": "I prefer tea.", "assistant": "I'll remember that."}
+        )
     finally:
         reset_cloud_call_recorder()
 
     assert result == {"facts": 1, "entities": 0, "relations": 0}
-    assert build_chat_model.call_count == 0
+    # Extraction goes through the provider registry only — no cloud fallback.
     assert cloud_events == []
     assert len(provider.requests) == 1
     assert provider.requests[0].response_format == "json"
@@ -197,13 +193,9 @@ def test_default_extract_skips_when_local_extractor_unavailable(manager, monkeyp
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     monkeypatch.setattr("june_brain.providers.registry.get_registry", lambda: registry)
 
-    with patch(
-        "june_brain.models.build_chat_model",
-        side_effect=AssertionError("default extractor must not fall back to cloud"),
-    ) as build_chat_model:
-        result = manager.extract(
-            {"user": "Please remember this.", "assistant": "Done."}
-        )
+    result = manager.extract(
+        {"user": "Please remember this.", "assistant": "Done."}
+    )
 
     assert {k: result[k] for k in ("facts", "entities", "relations")} == {
         "facts": 0,
@@ -213,7 +205,6 @@ def test_default_extract_skips_when_local_extractor_unavailable(manager, monkeyp
     assert "Local memory extractor unavailable" in result["error"]
     assert "ollama down" in result["error"]
     assert provider.requests == []
-    assert build_chat_model.call_count == 0
 
 
 def test_two_turn_recall_surfaces_extracted_fact(manager):

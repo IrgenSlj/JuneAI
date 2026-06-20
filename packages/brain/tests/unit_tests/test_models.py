@@ -1,8 +1,6 @@
 from unittest.mock import patch
 
 from june_brain.config import resolve_runtime_config, runtime_preset_options
-from june_brain.models import build_chat_model
-from pydantic import SecretStr
 
 
 def test_resolve_runtime_config_for_gemma():
@@ -58,57 +56,3 @@ def test_runtime_preset_options_expose_known_presets():
     assert "gemini" in option_keys
     assert len(option_keys) == 2
 
-
-def test_build_chat_model_uses_current_openai_signature():
-    runtime = resolve_runtime_config()
-    captured = {}
-
-    class FakeChatOpenAI:
-        def __init__(self, **kwargs):
-            captured.update(kwargs)
-
-    with patch("june_brain.models.ChatOpenAI", FakeChatOpenAI):
-        build_chat_model(runtime)
-
-    assert captured["model"] == runtime.model
-    assert isinstance(captured["api_key"], SecretStr)
-    assert captured["api_key"].get_secret_value() == runtime.api_key
-    assert captured["base_url"] == runtime.base_url
-    assert captured["max_completion_tokens"] == runtime.max_tokens
-    assert captured["streaming"] is True
-    assert captured["timeout"] == 120
-
-
-def test_build_chat_model_pins_keep_alive_for_local():
-    runtime = resolve_runtime_config("gemma")
-    captured = {}
-
-    class FakeChatOpenAI:
-        def __init__(self, **kwargs):
-            captured.update(kwargs)
-
-    with patch("june_brain.models.ChatOpenAI", FakeChatOpenAI):
-        build_chat_model(runtime)
-
-    # Local Ollama gets keep_alive=-1 so the model stays resident between turns.
-    assert captured.get("extra_body") == {"keep_alive": -1}
-
-
-def test_build_chat_model_omits_keep_alive_for_cloud():
-    with patch.dict(
-        "os.environ",
-        {"MODEL_PROVIDER": "gemini", "GEMINI_API_KEY": "test-key"},
-        clear=False,
-    ):
-        runtime = resolve_runtime_config()
-    captured = {}
-
-    class FakeChatOpenAI:
-        def __init__(self, **kwargs):
-            captured.update(kwargs)
-
-    with patch("june_brain.models.ChatOpenAI", FakeChatOpenAI):
-        build_chat_model(runtime)
-
-    # Cloud providers must not receive Ollama's keep_alive field.
-    assert "extra_body" not in captured

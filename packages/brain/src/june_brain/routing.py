@@ -9,7 +9,7 @@ policy.
 This module owns the routing decision. It does not own the actual model call;
 that stays in the LangGraph agent and the existing provider clients in
 ``models.py``. The router returns the resolved tier and a ``RuntimeConfig``
-that callers feed to ``build_chat_model``. Provenance is recorded around the
+that callers feed to the provider stack. Provenance is recorded around the
 call by the caller and emitted on the chat-event stream in a separate slice.
 """
 
@@ -151,7 +151,7 @@ class ModelRouter:
         return ResolvedTier.CLOUD if self._cloud_available() else ResolvedTier.LOCAL
 
     def select_runtime(self, tier: ResolvedTier) -> RuntimeConfig:
-        """Resolve the ``RuntimeConfig`` for a tier, ready for ``build_chat_model``."""
+        """Resolve the ``RuntimeConfig`` for a tier."""
         if tier == ResolvedTier.UNAVAILABLE:
             raise ValueError("Cannot select a runtime for ResolvedTier.UNAVAILABLE")
         preset_key = _LOCAL_PRESET if tier == ResolvedTier.LOCAL else _CLOUD_PRESET

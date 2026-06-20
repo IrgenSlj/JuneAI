@@ -23,7 +23,7 @@ Baseline: tag `v0.2.0-prereshape`, metrics in
   - [x] S1.1c-3 Rewire tasks/runtime.py off get_or_create_agent onto provider stack
   - [x] S1.1c-4 Delete graph.py engine + langgraph_loop.py + engine branch + loop/__init__/experiment refs + __init__ exports; repoint/delete ~10 tests
 - [ ] S1.2 Drop langgraph/langchain* deps; re-lock; record install delta
-  - [ ] S1.2a Replace langchain @tool/StructuredTool/Command with custom Tool abstraction (tools.py, skills loader/supervisor, models.py)
+  - [x] S1.2a Replace langchain @tool/StructuredTool/Command with custom Tool abstraction (tools.py, skills loader/supervisor, models.py)
         DESIGN: new `tools_base.py` — a `Tool` dataclass (name, description, args:dict, func, injected:set)
         with `.invoke(dict)`, plus a `@tool` decorator that introspects the signature (inspect) to build
         name/description(docstring)/args, treating `Annotated[T, Inject]` params (replacing langgraph
