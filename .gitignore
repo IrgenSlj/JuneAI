@@ -26,6 +26,9 @@ node_modules/
 .svelte-kit/
 .pnpm-store/
 
+# PWA dev service-worker output (vite-plugin-pwa devOptions)
+apps/web/dev-dist/
+
 # Rust / Tauri
 target/
 apps/desktop/src-tauri/target/

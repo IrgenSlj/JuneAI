@@ -52,7 +52,9 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api\//],
       },
       devOptions: {
-        enabled: false,
+        enabled: true,
+        suppressWarnings: true,
+        type: "module",
       },
     }),
   ],
