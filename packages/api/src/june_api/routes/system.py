@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 from june_brain.activity import ActivityLog
+from june_brain.build_info import build_version
 from june_brain.config import resolve_runtime_config
 from june_brain.loop.trace import TraceStore
 from june_brain.ollama_manager import is_model_available, is_ollama_running
@@ -51,6 +52,7 @@ def get_system_status() -> SystemStatus:
             ollama_reachable=False,
             ollama_has_model=False,
             api_key_present=False,
+            version=build_version(),
         )
 
     ollama_reachable = False
@@ -71,6 +73,7 @@ def get_system_status() -> SystemStatus:
         ollama_reachable=ollama_reachable,
         ollama_has_model=ollama_has_model,
         api_key_present=bool(runtime.api_key) and runtime.api_key != "ollama",
+        version=build_version(),
     )
 
 

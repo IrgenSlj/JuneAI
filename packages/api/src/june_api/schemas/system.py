@@ -32,6 +32,10 @@ class SystemStatus(BaseModel):
         default=False,
         description="True when the active runtime has the credentials it needs. Only meaningful for the gemini preset.",
     )
+    version: str = Field(
+        default="unknown",
+        description="Short git SHA (or JUNE_BUILD_SHA) identifying the running build.",
+    )
 
 
 class ActivityEntryView(BaseModel):

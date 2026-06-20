@@ -98,6 +98,9 @@
             {:else if !s.api_key_present}
               <a class="warn-link" href="/settings">· key missing</a>
             {/if}
+            {#if s.version && s.version !== "unknown"}
+              <span class="runtime-build" title="Build (git SHA)">· build {s.version}</span>
+            {/if}
           </span>
         {:else if system.error}
           <span class="runtime offline">
@@ -246,6 +249,11 @@
   }
   .runtime-note {
     color: var(--color-fg-subtle);
+  }
+  .runtime-build {
+    color: var(--color-fg-subtle);
+    opacity: 0.7;
+    font-size: 10.5px;
   }
   .runtime.offline {
     color: var(--color-danger);

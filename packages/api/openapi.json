@@ -3362,6 +3362,12 @@
             "title": "Api Key Present",
             "description": "True when the active runtime has the credentials it needs. Only meaningful for the gemini preset.",
             "default": false
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "description": "Short git SHA (or JUNE_BUILD_SHA) identifying the running build.",
+            "default": "unknown"
           }
         },
         "type": "object",

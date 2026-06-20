@@ -1803,6 +1803,12 @@ export interface components {
              * @default false
              */
             api_key_present: boolean;
+            /**
+             * Version
+             * @description Short git SHA (or JUNE_BUILD_SHA) identifying the running build.
+             * @default unknown
+             */
+            version: string;
         };
         /** TaskCreateRequest */
         TaskCreateRequest: {
