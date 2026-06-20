@@ -1392,6 +1392,20 @@ JUNE_TOOLS_CORE = [
     clear_ui_workspace,
 ]
 
+# ---------------------------------------------------------------------------
+# Diagnostics
+# ---------------------------------------------------------------------------
+
+
+@tool
+def run_diagnostics() -> str:
+    """Run system diagnostics: check providers, memory, tools, skills, router, and scheduler. Reports what works and what doesn't."""
+    from june_brain.self_test import format_markdown, run_all
+
+    results = run_all()
+    return format_markdown(results)
+
+
 # Trimmed tool set for small local models (gemma4 4B, etc.).
 # Keeps write-heavy capture tools and one summary read.
 # Drops list_*, weekly_summary, and multi-step reasoning tools
@@ -1420,8 +1434,8 @@ JUNE_TOOLS_GEMMA = [
     set_ui_chapter,
     set_ui_focus,
     set_ui_layout,
+    run_diagnostics,
 ]
-
 
 # ---------------------------------------------------------------------------
 # Scheduler tools
@@ -1562,4 +1576,5 @@ JUNE_TOOLS = [
     create_schedule,
     list_schedules,
     delete_schedule,
+    run_diagnostics,
 ]
