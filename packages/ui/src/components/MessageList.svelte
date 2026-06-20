@@ -32,7 +32,9 @@
 
   $effect(() => {
     void stickyTrigger;
-    if (scrollEl && pinned) scrollEl.scrollTop = scrollEl.scrollHeight;
+    if (scrollEl && pinned) {
+      scrollEl.scrollTop = scrollEl.scrollHeight;
+    }
   });
 </script>
 
@@ -59,7 +61,7 @@
       type="button"
       class="jump"
       onclick={() => {
-        if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
+        if (scrollEl) scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: "smooth" });
       }}
       aria-label="Scroll to bottom"
     >
@@ -77,7 +79,6 @@
     flex-direction: column;
     gap: var(--space-4);
     padding: var(--space-5) var(--space-4);
-    scroll-behavior: smooth;
     position: relative;
   }
 

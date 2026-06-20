@@ -27,6 +27,22 @@
     );
   }
 
+  // The dial governs egress (networked tools / cloud), which is a SEPARATE axis
+  // from where the model runs. Spell out the egress consequence so "private by
+  // default" never reads as contradicting an on-device "(local)" model label.
+  function dialTooltip(dial: string): string {
+    return (
+      {
+        local_only:
+          "Privacy dial: local-only — networked tools are blocked; nothing leaves your machine. Change in Settings.",
+        private_by_default:
+          "Privacy dial: private by default — answers on-device, but networked tools (e.g. web search) are allowed when a request needs them. Change in Settings.",
+        cloud_first:
+          "Privacy dial: cloud-first — prefers the cloud model; networked tools allowed. Change in Settings.",
+      }[dial] ?? "Privacy dial — gates networked tools. Change in Settings."
+    );
+  }
+
   onMount(async () => {
     void loadSystem();
 
@@ -61,12 +77,16 @@
           {@const s = system.data}
           <span
             class="runtime"
-            title="{s.base_url || 'no endpoint'} · privacy: {s.privacy_label}"
+            title="Endpoint: {s.base_url || 'none'}"
           >
             <span class="dot" data-mode={s.mode}></span>
-            <span class="runtime-text">{s.label} · {s.model}</span>
+            <span
+              class="runtime-text"
+              title={s.mode === "local"
+                ? "Model — runs on your device"
+                : "Model — runs in the cloud"}>{s.label} · {s.model}</span>
             <span class="runtime-sep" aria-hidden="true">·</span>
-            <span class="privacy" data-dial={s.privacy_dial} title="Privacy mode — gates networked tools. Change in Settings.">{dialLabel(s.privacy_dial)}</span>
+            <span class="privacy" data-dial={s.privacy_dial} title={dialTooltip(s.privacy_dial)}>privacy: {dialLabel(s.privacy_dial)}</span>
             {#if s.provider === "gemma"}
               {#if s.ollama_reachable && s.ollama_has_model}
                 <span class="runtime-note">· ready</span>
