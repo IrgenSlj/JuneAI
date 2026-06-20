@@ -33,7 +33,7 @@ Baseline: tag `v0.2.0-prereshape`, metrics in
         Skill loader/supervisor: replace StructuredTool wrappers with the same Tool type. models.py:
         replace ChatOpenAI build_chat_model (only _verify_round_trip uses it) with a provider-stack call.
   - [x] S1.2b Drop the four deps; re-lock; record install delta
-- [ ] S1.3 Move `packages/june-skill-telegram` -> `skills/telegram`
+- [x] S1.3 Move `packages/june-skill-telegram` -> `skills/telegram`
 - [ ] S1.4 Repo hygiene: logo -> assets/, dev.sh -> preflight.sh (shim), docs/archive/ + INDEX.md, CLAUDE.md update
 - [ ] S1.5 Update README architecture + tech stack (LangGraph/LangChain removed)
 - [x] S1 ADR 0018 — One loop engine
