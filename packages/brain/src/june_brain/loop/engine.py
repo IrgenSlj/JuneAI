@@ -1,34 +1,20 @@
-"""Engine selection: reads JUNE_LOOP_ENGINE to pick which HarnessLoop to use."""
+"""Engine selection: returns the hand-written HarnessLoop."""
 
 from __future__ import annotations
-
-import os
 
 from .interface import HarnessLoop
 
 
-def active_engine_name() -> str:
-    """Return the name of the active loop engine from env (default 'handwritten')."""
-    return os.environ.get("JUNE_LOOP_ENGINE", "handwritten").strip() or "handwritten"
-
-
 def get_loop(name: str | None = None) -> HarnessLoop:
-    """Return the HarnessLoop for *name* (or the active engine if name is None).
+    """Return the HarnessLoop for *name* (defaults to the hand-written loop).
 
-    Raises ValueError for unknown names.
+    Raises ValueError for any explicit name other than 'handwritten'.
     """
-    resolved = name if name is not None else active_engine_name()
-
-    if resolved == "handwritten":
+    if name is None or name == "handwritten":
         from .handwritten import HandwrittenLoop
 
         return HandwrittenLoop()
 
-    if resolved == "langgraph":
-        from .langgraph_loop import LangGraphLoop
-
-        return LangGraphLoop()
-
     raise ValueError(
-        f"Unknown loop engine {resolved!r}. Known engines: 'handwritten', 'langgraph'."
+        f"Unknown loop engine {name!r}. Known engines: 'handwritten'."
     )

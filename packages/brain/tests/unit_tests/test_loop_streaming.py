@@ -1,4 +1,4 @@
-"""Tests for HandwrittenLoop.stream_turn and LangGraphLoop.stream_turn (Slice 2b).
+"""Tests for HandwrittenLoop.stream_turn (Slice 2b).
 
 All tests are synchronous (asyncio.run). No Ollama or network required.
 """
@@ -7,12 +7,10 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
-from types import SimpleNamespace
 from typing import Any
 
 from june_brain.loop.handwritten import HandwrittenLoop
-from june_brain.loop.interface import HarnessLoop, SessionState, StreamEvent, ToolCall
-from june_brain.loop.langgraph_loop import LangGraphLoop
+from june_brain.loop.interface import SessionState, StreamEvent, ToolCall
 from june_brain.providers.base import (
     GenerateRequest,
     GenerateResult,
@@ -304,39 +302,4 @@ def test_stream_turn_provenance_fields() -> None:
     assert prov is not None
     assert prov.memories_recalled == 1
     assert prov.cloud_call is True
-
-
-# ---------------------------------------------------------------------------
-# Test 5: LangGraphLoop satisfies HarnessLoop and stream_turn yields token+done
-# ---------------------------------------------------------------------------
-
-
-def test_langgraph_satisfies_harness_loop_with_stream_turn() -> None:
-    """LangGraphLoop still satisfies isinstance(loop, HarnessLoop)."""
-    fake_agent = SimpleNamespace(
-        invoke=lambda state: {"messages": [SimpleNamespace(content="lg reply")]}
-    )
-    loop = LangGraphLoop(agent=fake_agent)
-    assert isinstance(loop, HarnessLoop)
-
-
-def test_langgraph_stream_turn_yields_token_then_done() -> None:
-    """LangGraphLoop.stream_turn yields a token event then done."""
-    fake_agent = SimpleNamespace(
-        invoke=lambda state: {"messages": [SimpleNamespace(content="langgraph answer")]}
-    )
-    loop = LangGraphLoop(agent=fake_agent)
-
-    session = SessionState(user_id="lg-user", messages=[])
-    events = _collect_stream(
-        loop.stream_turn(session, Message(role="user", content="hi"))
-    )
-
-    event_types = [e.type for e in events]
-    assert "token" in event_types
-    assert event_types[-1] == "done"
-
-    token_events = [e for e in events if e.type == "token"]
-    assert token_events[0].content == "langgraph answer"
-
 

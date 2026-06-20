@@ -8,7 +8,7 @@ silently regress a shape we already accept.
 
 from __future__ import annotations
 
-from june_brain.graph import _coerce_tool_calls, _normalize_tool_call
+from june_brain.loop.agent_helpers import _coerce_tool_calls, _normalize_tool_call
 
 # ---------------------------------------------------------------------- coerce
 

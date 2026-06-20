@@ -219,7 +219,6 @@ def main() -> None:
 
     engines = {
         "handwritten": get_loop("handwritten"),
-        "langgraph": get_loop("langgraph"),
     }
     results = asyncio.run(run_clear(engines, CLEAR_TASKS, runs=5))
     write_report(results, "docs/experiments/loop-clear.md")

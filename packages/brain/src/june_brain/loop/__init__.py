@@ -2,12 +2,12 @@
 
 Public API:
   Interface types: SessionState, ToolCall, TokenAccounting, TurnProvenance, TurnResult, HarnessLoop
-  Engines:         HandwrittenLoop, LangGraphLoop
-  Selection:       get_loop(), active_engine_name()
+  Engines:         HandwrittenLoop
+  Selection:       get_loop()
   Experiment:      ClearTask, CLEAR_TASKS, run_clear, write_report
 """
 
-from .engine import active_engine_name, get_loop
+from .engine import get_loop
 from .experiment import CLEAR_TASKS, ClearTask, run_clear, write_report
 from .handwritten import HandwrittenLoop
 from .interface import (
@@ -18,7 +18,6 @@ from .interface import (
     TurnProvenance,
     TurnResult,
 )
-from .langgraph_loop import LangGraphLoop
 
 __all__ = [
     "HarnessLoop",
@@ -28,9 +27,7 @@ __all__ = [
     "TurnProvenance",
     "TurnResult",
     "HandwrittenLoop",
-    "LangGraphLoop",
     "get_loop",
-    "active_engine_name",
     "ClearTask",
     "CLEAR_TASKS",
     "run_clear",

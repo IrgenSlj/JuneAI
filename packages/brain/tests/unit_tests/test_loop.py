@@ -9,11 +9,10 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from june_brain.loop.engine import active_engine_name, get_loop
+from june_brain.loop.engine import get_loop
 from june_brain.loop.experiment import CLEAR_TASKS, run_clear, write_report
 from june_brain.loop.handwritten import HandwrittenLoop
 from june_brain.loop.interface import (
@@ -24,7 +23,6 @@ from june_brain.loop.interface import (
     TurnProvenance,
     TurnResult,
 )
-from june_brain.loop.langgraph_loop import LangGraphLoop
 from june_brain.providers.base import (
     GenerateRequest,
     GenerateResult,
@@ -90,14 +88,6 @@ def test_handwritten_satisfies_protocol() -> None:
     mock = MockProvider()
     reg = _registry_with("local-fast", mock)
     loop = HandwrittenLoop(registry=reg)
-    assert isinstance(loop, HarnessLoop)
-
-
-def test_langgraph_satisfies_protocol() -> None:
-    fake_agent = SimpleNamespace(
-        invoke=lambda state: {"messages": [SimpleNamespace(content="lg reply")]}
-    )
-    loop = LangGraphLoop(agent=fake_agent)
     assert isinstance(loop, HarnessLoop)
 
 
@@ -271,24 +261,6 @@ def test_fixed_shape_order() -> None:
 
 
 # ---------------------------------------------------------------------------
-# LangGraphLoop — fake agent
-# ---------------------------------------------------------------------------
-
-
-def test_langgraph_fake_agent() -> None:
-    fake_agent = SimpleNamespace(
-        invoke=lambda state: {"messages": [SimpleNamespace(content="lg reply")]}
-    )
-    loop = LangGraphLoop(agent=fake_agent)
-    session = SessionState(user_id="u6", messages=[])
-    result = asyncio.run(loop.run_turn(session, Message(role="user", content="hi")))
-
-    assert result.assistant_msg.content == "lg reply"
-    assert result.tool_calls == []
-    assert result.compacted is False
-
-
-# ---------------------------------------------------------------------------
 # Engine selection
 # ---------------------------------------------------------------------------
 
@@ -298,24 +270,9 @@ def test_get_loop_handwritten() -> None:
     assert isinstance(loop, HandwrittenLoop)
 
 
-def test_get_loop_langgraph() -> None:
-    loop = get_loop("langgraph")
-    assert isinstance(loop, LangGraphLoop)
-
-
 def test_get_loop_unknown_raises() -> None:
     with pytest.raises(ValueError, match="nope"):
         get_loop("nope")
-
-
-def test_active_engine_name_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("JUNE_LOOP_ENGINE", raising=False)
-    assert active_engine_name() == "handwritten"
-
-
-def test_active_engine_name_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("JUNE_LOOP_ENGINE", "langgraph")
-    assert active_engine_name() == "langgraph"
 
 
 # ---------------------------------------------------------------------------

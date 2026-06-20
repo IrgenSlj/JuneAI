@@ -1,8 +1,8 @@
-"""Loop interface types for C.2.
+"""Loop interface types for the harness loop.
 
-These are the stable boundary types shared by both harness engines.
-Do NOT import from handwritten.py or langgraph_loop.py here — this module
-must remain free of engine-specific deps so callers can import it independently.
+These are the stable boundary types the loop is built on. Do NOT import from
+handwritten.py here — this module must remain free of engine-specific deps so
+callers can import it independently.
 """
 
 from __future__ import annotations

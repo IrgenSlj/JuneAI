@@ -1,7 +1,7 @@
-"""Integration: agent fires memory-writing tool calls; SQLite is the source of truth.
+"""Integration: native memory-writing tools persist to SQLite.
 
-Each test runs the full LangGraph turn with a fake LLM that returns a native
-tool_calls payload.  After the turn we read back from a fresh Memory instance
+Each test invokes a native tool directly with an injected ``state`` carrying
+the user_id. After the call we read back from a fresh Memory instance
 (different object, same db file) to confirm the write really landed.
 """
 
@@ -9,74 +9,31 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
-from june_brain.graph import create_june_agent
 from june_brain.memory import Memory
-from langchain_core.messages import AIMessage, HumanMessage
+from june_brain.tools import JUNE_TOOLS
 
-pytestmark = pytest.mark.anyio
-
-_BASE_STATE = {
-    "skill": "assistant",
-    "ui_state": {
-        "layout": "split",
-        "selected_chapter": "",
-        "focus_title": "Workspace",
-        "focus_body": "",
-        "checklist_title": "Next steps",
-        "checklist_items": [],
-        "notice": "",
-    },
-    "tool_stats": {"requested": 0, "succeeded": 0, "failed": 0, "last_calls": []},
-}
+_TOOLS = {t.name: t for t in JUNE_TOOLS}
 
 
-class _ToolLLM:
-    """Fake LLM: first call returns a native tool_calls list, second call replies."""
-
-    def __init__(self, tool_name: str, tool_args: dict, call_id: str = "c1"):
-        self._tool_name = tool_name
-        self._tool_args = tool_args
-        self._call_id = call_id
-        self.calls = 0
-
-    def bind_tools(self, _tools):
-        return self
-
-    def invoke(self, _messages):
-        self.calls += 1
-        if self.calls == 1:
-            return AIMessage(
-                content="",
-                tool_calls=[
-                    {
-                        "name": self._tool_name,
-                        "args": self._tool_args,
-                        "id": self._call_id,
-                        "type": "tool_call",
-                    }
-                ],
-            )
-        return AIMessage(content="Done.")
+def _invoke(name: str, args: dict, user_id: str):
+    return _TOOLS[name].invoke({**args, "state": {"user_id": user_id}})
 
 
-async def test_save_calendar_item_persists_to_sqlite(tmp_path):
-    """A calendar save tool call written in one agent turn is readable afterwards."""
+def test_save_calendar_item_persists_to_sqlite(tmp_path):
+    """A calendar save tool call is readable afterwards."""
     user_id = "cal_user"
-    agent = create_june_agent(llm=_ToolLLM("save_calendar_item", {
-        "title": "Doctor appointment",
-        "date": "2026-05-15",
-        "time": "10:00",
-        "details": "Annual check-up",
-    }))
 
     with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
-        await agent.ainvoke({
-            **_BASE_STATE,
-            "messages": [HumanMessage(content="Doctor appointment May 15 at 10am.")],
-            "user_id": user_id,
-        })
-        # Fresh instance — reads from same db file
+        _invoke(
+            "save_calendar_item",
+            {
+                "title": "Doctor appointment",
+                "date": "2026-05-15",
+                "time": "10:00",
+                "details": "Annual check-up",
+            },
+            user_id,
+        )
         mem = Memory(user_id)
         items = mem.get_calendar_items(status="", limit=10)
 
@@ -86,22 +43,21 @@ async def test_save_calendar_item_persists_to_sqlite(tmp_path):
     assert match["time"] == "10:00"
 
 
-async def test_track_goal_persists_to_sqlite(tmp_path):
+def test_track_goal_persists_to_sqlite(tmp_path):
     """A track_goal tool call is readable from a separate Memory instance."""
     user_id = "goal_user"
-    agent = create_june_agent(llm=_ToolLLM("track_goal", {
-        "title": "Run a half marathon",
-        "next_step": "Sign up for a local 5k first",
-        "target_date": "2026-09-01",
-        "category": "fitness",
-    }))
 
     with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
-        await agent.ainvoke({
-            **_BASE_STATE,
-            "messages": [HumanMessage(content="I want to run a half marathon by September.")],
-            "user_id": user_id,
-        })
+        _invoke(
+            "track_goal",
+            {
+                "title": "Run a half marathon",
+                "next_step": "Sign up for a local 5k first",
+                "target_date": "2026-09-01",
+                "category": "fitness",
+            },
+            user_id,
+        )
         mem = Memory(user_id)
         goals = mem.get_goals(status="", limit=10)
 
@@ -111,23 +67,22 @@ async def test_track_goal_persists_to_sqlite(tmp_path):
     assert match["category"] == "fitness"
 
 
-async def test_log_workout_session_persists_to_sqlite(tmp_path):
+def test_log_workout_session_persists_to_sqlite(tmp_path):
     """A log_workout_session tool call is readable from a separate Memory instance."""
     user_id = "workout_user"
-    agent = create_june_agent(llm=_ToolLLM("log_workout_session", {
-        "plan_name": "Push Day",
-        "exercises": "Bench press 4x8, OHP 3x10, Tricep dips 3x12",
-        "duration_min": 55,
-        "energy_rating": 4,
-        "notes": "Felt strong today",
-    }))
 
     with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
-        await agent.ainvoke({
-            **_BASE_STATE,
-            "messages": [HumanMessage(content="Just finished push day — bench, OHP, dips.")],
-            "user_id": user_id,
-        })
+        _invoke(
+            "log_workout_session",
+            {
+                "plan_name": "Push Day",
+                "exercises": "Bench press 4x8, OHP 3x10, Tricep dips 3x12",
+                "duration_min": 55,
+                "energy_rating": 4,
+                "notes": "Felt strong today",
+            },
+            user_id,
+        )
         mem = Memory(user_id)
         sessions = mem.get_workout_sessions(limit=10)
 
@@ -137,69 +92,47 @@ async def test_log_workout_session_persists_to_sqlite(tmp_path):
     assert sessions[0]["energy_rating"] == 4
 
 
-async def test_tool_stats_are_updated_after_successful_call(tmp_path):
-    """tool_stats.succeeded increments when a memory tool completes without error."""
+def test_save_open_loop_persists_to_sqlite(tmp_path):
+    """A save_open_loop tool call is readable from a separate Memory instance."""
     user_id = "stats_user"
-    agent = create_june_agent(llm=_ToolLLM("save_open_loop", {
-        "topic": "Follow up with landlord",
-        "next_step": "Send email by Friday",
-    }))
 
     with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
-        result = await agent.ainvoke({
-            **_BASE_STATE,
-            "messages": [HumanMessage(content="I need to follow up with the landlord.")],
-            "user_id": user_id,
-        })
+        _invoke(
+            "save_open_loop",
+            {
+                "topic": "Follow up with landlord",
+                "next_step": "Send email by Friday",
+            },
+            user_id,
+        )
+        mem = Memory(user_id)
+        loops = mem.get_open_loops(status="", limit=10)
 
-    assert result["tool_stats"]["requested"] >= 1
-    assert result["tool_stats"]["succeeded"] >= 1
-    assert result["tool_stats"]["failed"] == 0
+    assert any(loop_item["topic"] == "Follow up with landlord" for loop_item in loops)
+    match = next(loop_item for loop_item in loops if loop_item["topic"] == "Follow up with landlord")
+    assert match["next_step"] == "Send email by Friday"
 
 
-async def test_ui_state_and_memory_update_in_same_turn(tmp_path):
-    """set_ui_chapter + save_calendar_item can both fire in one turn."""
-
-    class _TwoToolLLM:
-        def __init__(self):
-            self.calls = 0
-
-        def bind_tools(self, _tools):
-            return self
-
-        def invoke(self, _messages):
-            self.calls += 1
-            if self.calls == 1:
-                return AIMessage(
-                    content="",
-                    tool_calls=[
-                        {
-                            "name": "save_calendar_item",
-                            "args": {"title": "Team lunch", "date": "2026-05-20"},
-                            "id": "c1",
-                            "type": "tool_call",
-                        },
-                        {
-                            "name": "set_ui_chapter",
-                            "args": {"chapter": "calendar"},
-                            "id": "c2",
-                            "type": "tool_call",
-                        },
-                    ],
-                )
-            return AIMessage(content="Saved and panel updated.")
-
+def test_two_tools_write_in_same_user(tmp_path):
+    """save_calendar_item and set_ui_chapter both fire for the same user."""
     user_id = "combo_user"
-    agent = create_june_agent(llm=_TwoToolLLM())
 
     with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
-        result = await agent.ainvoke({
-            **_BASE_STATE,
-            "messages": [HumanMessage(content="Team lunch on May 20.")],
-            "user_id": user_id,
-        })
+        _invoke(
+            "save_calendar_item",
+            {"title": "Team lunch", "date": "2026-05-20"},
+            user_id,
+        )
+        command = _TOOLS["set_ui_chapter"].invoke(
+            {
+                "args": {"chapter": "calendar", "state": {"user_id": user_id}},
+                "name": "set_ui_chapter",
+                "type": "tool_call",
+                "id": "c2",
+            }
+        )
         mem = Memory(user_id)
         items = mem.get_calendar_items(status="", limit=10)
 
-    assert result["ui_state"]["selected_chapter"] == "calendar"
     assert any(i["title"] == "Team lunch" for i in items)
+    assert command.update["ui_state"]["selected_chapter"] == "calendar"
