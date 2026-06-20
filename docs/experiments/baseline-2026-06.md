@@ -76,6 +76,16 @@ Conclusion (closing evidence for ADR 0018): handwritten wins on latency 3-17x
 at equal efficacy. Worst handwritten reliability is recall_question at cv 75.6%
 — the regression target for S5 (structured tool calls) is recall cv < 25%.
 
+## Realized deltas (updated as sessions land)
+
+- **S1.2b (drop LangGraph/LangChain):** removed `langgraph`, `langchain`,
+  `langchain-core`, `langchain-openai` and their transitive tree (langgraph-*,
+  tiktoken, langsmith, ...). Brain `site-packages` 1301 MB -> 1282 MB (~19 MB
+  freed in the existing venv; a fresh install avoids the whole tree). The bulk
+  of the venv mass (torch/onnxruntime/transformers ~575 MB) is pulled by
+  chromadb + sentence-transformers and drops in S2. The gate passes with
+  langchain physically uninstalled — the source tree is LangChain-free.
+
 ## Targets derived from this baseline
 
 - S2: install footprint drops by the bulk of ~575 MB (torch/onnxruntime/transformers).

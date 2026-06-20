@@ -15,14 +15,14 @@ Baseline: tag `v0.2.0-prereshape`, metrics in
 - [x] S0.2 Baseline metrics snapshot (`docs/experiments/baseline-2026-06.md`)
 
 ### S1 — Dead weight removal and repo reshape  (ADR 0018)
-- [ ] S1.1 Delete LangGraph path (graph.py, langgraph_loop.py, flags); port/rewrite loop integration tests
+- [x] S1.1 Delete LangGraph path (graph.py, langgraph_loop.py, flags); port/rewrite loop integration tests
   - [x] S1.1a Relocate shared graph.py helpers -> loop/agent_helpers.py; repoint wiring.py
   - [x] S1.1b Rewire scheduler off graph.run_agent_sync onto provider stack
   - [x] S1.1c-1 Remove LangGraph chat-route fallback (_iter_events, get_agent, USE_HARNESS flag)
   - [x] S1.1c-2 Drop agent-lifecycle hooks in settings/setup; reconcile supervisor directly in skills route
   - [x] S1.1c-3 Rewire tasks/runtime.py off get_or_create_agent onto provider stack
   - [x] S1.1c-4 Delete graph.py engine + langgraph_loop.py + engine branch + loop/__init__/experiment refs + __init__ exports; repoint/delete ~10 tests
-- [ ] S1.2 Drop langgraph/langchain* deps; re-lock; record install delta
+- [x] S1.2 Drop langgraph/langchain* deps; re-lock; record install delta
   - [x] S1.2a Replace langchain @tool/StructuredTool/Command with custom Tool abstraction (tools.py, skills loader/supervisor, models.py)
         DESIGN: new `tools_base.py` — a `Tool` dataclass (name, description, args:dict, func, injected:set)
         with `.invoke(dict)`, plus a `@tool` decorator that introspects the signature (inspect) to build
@@ -32,7 +32,7 @@ Baseline: tag `v0.2.0-prereshape`, metrics in
         returns -> plain string returns (UI-state Command is already inert in the handwritten dispatch).
         Skill loader/supervisor: replace StructuredTool wrappers with the same Tool type. models.py:
         replace ChatOpenAI build_chat_model (only _verify_round_trip uses it) with a provider-stack call.
-  - [ ] S1.2b Drop the four deps; re-lock; record install delta
+  - [x] S1.2b Drop the four deps; re-lock; record install delta
 - [ ] S1.3 Move `packages/june-skill-telegram` -> `skills/telegram`
 - [ ] S1.4 Repo hygiene: logo -> assets/, dev.sh -> preflight.sh (shim), docs/archive/ + INDEX.md, CLAUDE.md update
 - [ ] S1.5 Update README architecture + tech stack (LangGraph/LangChain removed)
