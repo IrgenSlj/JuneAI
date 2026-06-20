@@ -78,6 +78,10 @@ classifier from what you observe — then pick the first Tier 2 differentiator b
   if it feels heavy on trivial queries, gate it by difficulty.
 - **Switch-and-retry edge** — the one-click switch resends the last user message; revisit
   if a turn had tool side effects before the block.
+- **Hardening backlog (2026-06-20)** — ordered near-term slices surfaced while dogfooding
+  the live local stack (local-first egress audit, first-token latency UX, build/version
+  surface, localhost API auth, PWA-in-dev verification). See
+  `docs/product/roadmap.md` -> "Hardening backlog (2026-06-20)".
 
 ## Next — Tier 2 differentiators
 

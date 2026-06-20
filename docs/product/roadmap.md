@@ -84,6 +84,31 @@ with local-only mode provably blocking egress (C.6).
 2. C.1 fully (provider layer with tests).
 3. C.2 scaffold (interface + hand-written loop + CLEAR harness; keep LangGraph).
 
+## Hardening backlog (2026-06-20)
+
+Concrete near-term work surfaced while dogfooding the live local stack. Ordered;
+each item is a small, independently shippable slice. Distinct from the Tier 2
+differentiators below — this is keeping the spine honest, not adding scope.
+
+1. **Local-first egress audit (near-term, privacy).** API startup logs an
+   unauthenticated Hugging Face Hub request (the embedding model behind ChromaDB
+   recall). Pin/cache the model so first run and local-only mode never touch the
+   network, and add a test asserting local-only blocks it. Upholds the
+   no-silent-egress invariant.
+2. **First-token latency UX (near-term).** ~8s to first token on `gemma4:e2b`.
+   Drive a visible "thinking locally..." state from the existing `iteration` SSE
+   event; consider routing quick factual turns to a faster tier when the privacy
+   dial permits.
+3. **Build/version surface (quick win).** Expose the git SHA in `GET /system` and
+   show it in the runtime chip, so a running instance is identifiable when
+   debugging.
+4. **Localhost API auth (later).** Even with the CORS allowlist restored, the API
+   is unauthenticated; a per-session token closes drive-by / DNS-rebinding access
+   to memory from the user's own browser. Sequence after the CORS fix (shipped).
+5. **PWA-in-dev verification (quick).** Confirm `devOptions.enabled = true` does
+   not serve stale assets via the service worker during development; document the
+   trade-off or gate it behind a flag.
+
 ## Next Track — Tier 2: Differentiators
 
 Trigger: Tier 1 is complete and has been used in real dogfooding. Build simple,
