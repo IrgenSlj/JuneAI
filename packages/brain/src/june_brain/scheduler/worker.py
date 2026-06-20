@@ -53,7 +53,7 @@ def _run_agent_invoke(schedule: Schedule) -> None:
     these on a timer for proactive engagement (see ADR 0016); a schedule exists
     only because the user asked for it.
     """
-    from ..graph import run_agent_sync
+    from .agent import run_agent_sync
 
     config = schedule.action_config
     prompt = config.get("prompt", "")
