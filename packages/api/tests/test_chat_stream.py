@@ -1,9 +1,6 @@
 """Integration test for POST /chat.
 
-The LangGraph fallback path (JUNE_CHAT_USE_HARNESS=0) uses a fake agent that
-yields ``(mode, chunk)`` pairs via ``astream``.
-
-The harness path (JUNE_CHAT_USE_HARNESS=1, the default) overrides
+There is one chat engine (ADR 0018): the hand-written loop. The test overrides
 ``get_harness_loop`` with a fake loop whose ``stream_turn`` yields
 ``StreamEvent`` objects — matching the real hand-written loop interface.
 """
@@ -18,29 +15,13 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 from june_api.app import create_app
-from june_api.routes.chat import get_agent, get_harness_loop
+from june_api.routes.chat import get_harness_loop
 from june_brain.loop.interface import StreamEvent, TurnProvenance
 from june_brain.memory import vector as vector_module
-from langchain_core.messages import AIMessage
 
 # ---------------------------------------------------------------------------
 # Fake helpers
 # ---------------------------------------------------------------------------
-
-class _FakeAgent:
-    """Replays a scripted sequence of (mode, chunk) pairs via astream."""
-
-    def __init__(self, script: list[tuple[str, Any]]) -> None:
-        self._script = script
-        self.states: list[dict[str, Any]] = []
-
-    async def astream(
-        self, state: dict, stream_mode: list[str] | None = None
-    ) -> AsyncIterator[tuple[str, Any]]:
-        self.states.append(state)
-        for item in self._script:
-            yield item
-
 
 class _FakeLoop:
     """Replays a scripted sequence of StreamEvents via stream_turn."""
@@ -80,24 +61,6 @@ def _parse_sse(body: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def client_with_agent(tmp_path):
-    """Build a TestClient whose /chat uses a caller-supplied fake agent (LangGraph path)."""
-    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)), patch(
-        "june_api.routes.chat.MemoryManager.extract",
-        return_value={"facts": 0, "entities": 0, "relations": 0},
-    ):
-        vector_module.reset_singletons()
-        app = create_app()
-
-        def _install(agent: Any) -> TestClient:
-            app.dependency_overrides[get_agent] = lambda: agent
-            return TestClient(app)
-
-        yield _install
-        vector_module.reset_singletons()
-
-
-@pytest.fixture
 def harness_client(tmp_path):
     """Build a TestClient whose /chat uses a caller-supplied fake harness loop."""
     with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)), patch(
@@ -107,9 +70,7 @@ def harness_client(tmp_path):
         vector_module.reset_singletons()
         app = create_app()
 
-        def _install(loop: Any, agent: Any | None = None) -> TestClient:
-            if agent is not None:
-                app.dependency_overrides[get_agent] = lambda: agent
+        def _install(loop: Any) -> TestClient:
             app.dependency_overrides[get_harness_loop] = lambda: loop
             return TestClient(app)
 
@@ -118,30 +79,7 @@ def harness_client(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# LangGraph fallback path (JUNE_CHAT_USE_HARNESS=0)
-# ---------------------------------------------------------------------------
-
-def test_chat_uses_existing_langgraph_stream_by_default(client_with_agent, monkeypatch):
-    monkeypatch.setenv("JUNE_CHAT_USE_HARNESS", "0")
-
-    agent = _FakeAgent(
-        [
-            ("messages", (AIMessage(content="Hello "), {})),
-            ("messages", (AIMessage(content="there."), {})),
-        ]
-    )
-    client = client_with_agent(agent)
-    response = client.post("/chat", json={"user_id": "u", "message": "hi"})
-
-    assert response.status_code == 200
-    events = _parse_sse(response.text)
-    assert [event["type"] for event in events] == ["token", "token", "done"]
-    assert [event["content"] for event in events[:2]] == ["Hello ", "there."]
-    assert len(agent.states) == 1
-
-
-# ---------------------------------------------------------------------------
-# Harness path (JUNE_CHAT_USE_HARNESS=1, the default)
+# Chat path — the one hand-written engine
 # ---------------------------------------------------------------------------
 
 def _make_provenance(
@@ -168,10 +106,7 @@ def _make_provenance(
     )
 
 
-def test_chat_harness_opt_in_emits_token_provenance_and_done(
-    harness_client, monkeypatch
-):
-    monkeypatch.setenv("JUNE_CHAT_USE_HARNESS", "1")
+def test_chat_harness_opt_in_emits_token_provenance_and_done(harness_client):
     prov = _make_provenance(
         provider="local",
         model="mock-local",
@@ -205,9 +140,7 @@ def test_chat_harness_opt_in_emits_token_provenance_and_done(
     assert provenance["rationale"] == "Handled by test harness."
 
 
-def test_chat_harness_opt_in_emits_error_on_failure(harness_client, monkeypatch):
-    monkeypatch.setenv("JUNE_CHAT_USE_HARNESS", "1")
-
+def test_chat_harness_opt_in_emits_error_on_failure(harness_client):
     loop = _BrokenLoop()
     client = harness_client(loop)
     response = client.post("/chat", json={"user_id": "u", "message": "hi"})

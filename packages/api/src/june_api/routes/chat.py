@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 import logging
-import os
 from collections.abc import AsyncIterator, Iterable
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from june_brain import graph as brain_graph
 from june_brain.loop.interface import HarnessLoop, SessionState, TurnProvenance, TurnResult
 from june_brain.memory import Memory, MemoryManager
 from june_brain.providers.base import Message
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import HumanMessage
 from starlette.background import BackgroundTask
 
 from ..schemas import ChatEvent, ChatHistory, ChatHistoryMessage, ChatRequest, RecallHit
@@ -22,103 +20,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["chat"])
 
 
-def get_agent() -> Any:
-    """Resolve the LangGraph agent.
-
-    Exposed as a FastAPI dependency so tests can stub it via
-    ``app.dependency_overrides[get_agent] = ...`` without touching
-    process-global state.
-    """
-    try:
-        return brain_graph.get_or_create_agent()
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(
-            status_code=503,
-            detail=f"June agent failed to start: {brain_graph.startup_error or exc}",
-        ) from exc
-
-
 def get_harness_loop() -> HarnessLoop:
     """Resolve the live-chat HarnessLoop implementation.
 
     Exposed as a FastAPI dependency so tests can stub it via
     ``app.dependency_overrides[get_harness_loop] = ...`` without touching
-    process-global state.  Returns the active engine from
-    ``june_brain.loop.engine.get_loop()`` (hand-written loop by default).
+    process-global state.  Returns the hand-written loop — the one engine
+    (ADR 0018).
     """
     from june_brain.loop.engine import get_loop
 
     return get_loop()
 
 
-def _chat_use_harness() -> bool:
-    return os.getenv("JUNE_CHAT_USE_HARNESS", "1").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
-
-
 def _event_to_sse(event: ChatEvent) -> str:
     """Format a ChatEvent as one SSE data frame."""
     return f"data: {event.model_dump_json()}\n\n"
-
-
-def _safe_tool_args(call: Any) -> dict[str, Any]:
-    """Coerce a tool-call ``args`` blob into a dict, never raising.
-
-    LangChain typically yields a dict here, but a fragile local model
-    can emit ``args`` as a JSON string, a list, or ``None``. The chat
-    SSE loop must not die on one bad call — surface the best-effort
-    dict (possibly empty) so the rest of the turn still streams.
-    """
-    raw = call.get("args") if isinstance(call, dict) else getattr(call, "args", None)
-    if isinstance(raw, dict):
-        return raw
-    if isinstance(raw, str):
-        import json
-
-        try:
-            parsed = json.loads(raw)
-            return parsed if isinstance(parsed, dict) else {}
-        except (TypeError, ValueError):
-            return {}
-    return {}
-
-
-def _empty_ui_state() -> dict[str, Any]:
-    return {
-        "layout": "split",
-        "focus_title": "Workspace",
-        "focus_body": "",
-        "checklist_title": "Next steps",
-        "checklist_items": [],
-        "notice": "",
-    }
-
-
-def _tool_call_events(message: AIMessage) -> Iterable[ChatEvent]:
-    for call in getattr(message, "tool_calls", None) or []:
-        yield ChatEvent(
-            type="tool_call",
-            tool_name=str(call.get("name", "")),
-            tool_args=_safe_tool_args(call),
-        )
-
-
-def _tool_result_event(message: ToolMessage) -> ChatEvent:
-    content = message.content
-    if isinstance(content, list):
-        content = "".join(
-            item.get("text", "") if isinstance(item, dict) else str(item)
-            for item in content
-        )
-    return ChatEvent(
-        type="tool_result",
-        tool_name=str(getattr(message, "name", "") or ""),
-        tool_result=str(content)[:4000],
-    )
 
 
 def _messages_for_turn(user_id: str, user_text: str) -> list[Any]:
@@ -221,80 +138,6 @@ def _turn_result_events(result: TurnResult) -> Iterable[ChatEvent]:
     yield ChatEvent(type="provenance", provenance=_turn_result_provenance(result))
     yield ChatEvent(type="done")
 
-
-async def _iter_events(
-    agent: Any,
-    request: ChatRequest,
-    assistant_buffer: list[str],
-) -> AsyncIterator[str]:
-    state = {
-        "messages": _messages_for_turn(request.user_id, request.message),
-        "user_id": request.user_id,
-        "skill": request.skill,
-        "ui_state": _empty_ui_state(),
-        "tool_stats": {"requested": 0, "succeeded": 0, "failed": 0, "last_calls": []},
-    }
-
-    emitted_tool_call_ids: set[str] = set()
-    try:
-        async for mode, chunk in agent.astream(
-            state, stream_mode=["messages", "updates", "custom"]
-        ):
-            if mode == "messages":
-                message, _metadata = chunk
-                text = getattr(message, "content", "")
-                if isinstance(text, str) and text:
-                    assistant_buffer.append(text)
-                    yield _event_to_sse(ChatEvent(type="token", content=text))
-            elif mode == "updates":
-                for _node, update in chunk.items():
-                    for msg in update.get("messages") or []:
-                        if isinstance(msg, AIMessage):
-                            for call in msg.tool_calls or []:
-                                call_id = str(call.get("id") or "")
-                                if call_id and call_id in emitted_tool_call_ids:
-                                    continue
-                                if call_id:
-                                    emitted_tool_call_ids.add(call_id)
-                                yield _event_to_sse(
-                                    ChatEvent(
-                                        type="tool_call",
-                                        tool_name=str(call.get("name", "")),
-                                        tool_args=_safe_tool_args(call),
-                                    )
-                                )
-                        elif isinstance(msg, ToolMessage):
-                            yield _event_to_sse(_tool_result_event(msg))
-            elif mode == "custom":
-                if isinstance(chunk, dict) and chunk.get("event") == "recall":
-                    raw_hits = chunk.get("hits") or []
-                    hits = [RecallHit(**h) for h in raw_hits if isinstance(h, dict)]
-                    if hits:
-                        yield _event_to_sse(
-                            ChatEvent(type="recall", recall_hits=hits)
-                        )
-                elif isinstance(chunk, dict) and chunk.get("event") == "provenance":
-                    yield _event_to_sse(
-                        ChatEvent(
-                            type="provenance",
-                            provenance={
-                                "provider": chunk.get("provider", ""),
-                                "model": chunk.get("model", ""),
-                                "tier": chunk.get("tier", ""),
-                                "latency_ms": chunk.get("latency_ms", 0),
-                                "cloud_call": chunk.get("cloud_call", False),
-                                "cloud_payload_summary": chunk.get("cloud_payload_summary"),
-                                "memories_recalled": chunk.get("memories_recalled", 0),
-                                "skills_called": chunk.get("skills_called", []),
-                                "rationale": chunk.get("rationale", ""),
-                            },
-                        )
-                    )
-
-        yield _event_to_sse(ChatEvent(type="done"))
-    except Exception as exc:
-        logger.exception("chat stream failed for user=%s", request.user_id)
-        yield _event_to_sse(ChatEvent(type="error", content=str(exc)))
 
 
 async def _iter_harness_events(
@@ -428,16 +271,11 @@ def chat_history(user_id: str) -> ChatHistory:
 )
 async def chat(
     request: ChatRequest,
-    agent: Any = Depends(get_agent),
     harness_loop: HarnessLoop = Depends(get_harness_loop),
 ) -> StreamingResponse:
     """Stream June's reply as SSE. Each frame is a JSON-encoded ChatEvent."""
     assistant_buffer: list[str] = []
-    stream = (
-        _iter_harness_events(harness_loop, request, assistant_buffer)
-        if _chat_use_harness()
-        else _iter_events(agent, request, assistant_buffer)
-    )
+    stream = _iter_harness_events(harness_loop, request, assistant_buffer)
     return StreamingResponse(
         stream,
         media_type="text/event-stream",
