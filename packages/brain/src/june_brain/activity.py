@@ -14,6 +14,7 @@ table never grows unbounded.
 from __future__ import annotations
 
 import json
+import sqlite3
 import threading
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -71,30 +72,27 @@ class ActivityLog:
     _instance: ActivityLog | None = None
     _lock = threading.Lock()
 
+    _db_path: str = ""
+    _initialised: bool = False
+
     def __new__(cls) -> ActivityLog:
-        # One instance per process. The connection pool below is shared with
-        # memory, so this is just a tidy entry point.
-        #
-        # All initialization happens inside __new__ under the lock so that
-        # concurrent threads never race on the schema DDL. __init__ is a
-        # no-op because everything is already set up by the time the lock
-        # is released.
         with cls._lock:
             if cls._instance is None:
                 instance = super().__new__(cls)
-                instance._db_path = db_path()
-                conn = _get_connection(instance._db_path)
-                conn.executescript(_SCHEMA_SQL)
-                conn.commit()
-                instance._initialised = True
                 cls._instance = instance
             return cls._instance
 
     def __init__(self) -> None:
-        pass
+        if self._initialised:
+            return
+        self._db_path = db_path()
+        conn = _get_connection(self._db_path)
+        conn.executescript(_SCHEMA_SQL)
+        conn.commit()
+        self._initialised = True
 
     @property
-    def _conn(self):  # type: ignore[no-untyped-def]
+    def _conn(self) -> sqlite3.Connection:
         return _get_connection(self._db_path)
 
     def record(
@@ -153,7 +151,7 @@ class ActivityLog:
     def clear(self) -> int:
         cur = self._conn.execute("DELETE FROM activity_log")
         self._conn.commit()
-        return cur.rowcount
+        return int(cur.rowcount or 0)
 
 
 def _row_to_entry(row) -> ActivityEntry:  # type: ignore[no-untyped-def]
