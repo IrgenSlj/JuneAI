@@ -24,6 +24,14 @@ Baseline: tag `v0.2.0-prereshape`, metrics in
   - [x] S1.1c-4 Delete graph.py engine + langgraph_loop.py + engine branch + loop/__init__/experiment refs + __init__ exports; repoint/delete ~10 tests
 - [ ] S1.2 Drop langgraph/langchain* deps; re-lock; record install delta
   - [ ] S1.2a Replace langchain @tool/StructuredTool/Command with custom Tool abstraction (tools.py, skills loader/supervisor, models.py)
+        DESIGN: new `tools_base.py` — a `Tool` dataclass (name, description, args:dict, func, injected:set)
+        with `.invoke(dict)`, plus a `@tool` decorator that introspects the signature (inspect) to build
+        name/description(docstring)/args, treating `Annotated[T, Inject]` params (replacing langgraph
+        InjectedState) as injected (excluded from advertised args, filled at dispatch). Matches the surface
+        wiring.py already uses (.name/.description/.args/.invoke). Command/ToolMessage/InjectedToolCallId
+        returns -> plain string returns (UI-state Command is already inert in the handwritten dispatch).
+        Skill loader/supervisor: replace StructuredTool wrappers with the same Tool type. models.py:
+        replace ChatOpenAI build_chat_model (only _verify_round_trip uses it) with a provider-stack call.
   - [ ] S1.2b Drop the four deps; re-lock; record install delta
 - [ ] S1.3 Move `packages/june-skill-telegram` -> `skills/telegram`
 - [ ] S1.4 Repo hygiene: logo -> assets/, dev.sh -> preflight.sh (shim), docs/archive/ + INDEX.md, CLAUDE.md update
