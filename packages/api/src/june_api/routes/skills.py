@@ -2,18 +2,18 @@
 
 The supervisor in ``june_brain.skills.loader`` owns the lifecycle of each
 skill subprocess. These routes are a thin HTTP facade over that
-supervisor plus an agent reload after any toggle so the next chat turn
+supervisor plus a supervisor reload after any toggle so the next chat turn
 actually sees the updated tool surface.
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
-from june_brain import graph as brain_graph
 from june_brain.memory import VectorStore
 from june_brain.skills.loader import (
     call_skill_tool,
     list_status,
+    reload_skills,
     set_skill_enabled,
     set_skill_tool_enabled,
 )
@@ -47,22 +47,22 @@ router = APIRouter(tags=["skills"])
 
 
 def _reload_agent_or_500(context: str) -> None:
-    """Reload the agent after a skills mutation and 500 if the rebuild failed.
+    """Reconcile skill subprocesses after a mutation and 500 if reload failed.
 
-    ``reload_agent`` swallows exceptions and records them on
-    ``brain_graph.startup_error``. The mutation that caller already made
-    (toggle, install, uninstall) is persisted, but the next chat turn will
-    fail until the user fixes the underlying problem. Surfacing the error
-    here means the UI can tell them immediately rather than letting them
-    discover it from a broken chat.
+    The hand-written loop reads the tool surface fresh each turn, so there is
+    no compiled agent to rebuild (ADR 0018). What still must happen eagerly is
+    a supervisor reload: it starts/stops MCP subprocesses to match the new
+    enabled set. The mutation the caller made is already persisted; surfacing a
+    reload failure here lets the UI report it immediately rather than letting
+    the user discover it from a broken chat turn.
     """
-    brain_graph.reload_agent()
-    err = brain_graph.startup_error
-    if err:
+    try:
+        reload_skills()
+    except Exception as exc:  # noqa: BLE001 — the UI needs a message, not a stack trace
         raise HTTPException(
             status_code=500,
-            detail=f"{context} saved, but the agent failed to reload: {err}",
-        )
+            detail=f"{context} saved, but skills failed to reload: {exc}",
+        ) from exc
 
 
 def _status_to_info(payload: dict) -> SkillInfo:

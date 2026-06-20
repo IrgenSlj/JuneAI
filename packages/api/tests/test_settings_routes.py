@@ -10,22 +10,15 @@ from june_api.routes import settings as settings_route
 from june_api.schemas import PrivacyDialUpdateRequest
 
 
-def test_forget_key_scrubs_env_and_invalidates_agent(monkeypatch) -> None:
-    calls: list[str] = []
-
+def test_forget_key_scrubs_env(monkeypatch) -> None:
     monkeypatch.setenv("GEMINI_API_KEY", "secret")
     monkeypatch.setattr(settings_route, "forget_gemini_key", lambda: "file")
-    monkeypatch.setattr(
-        settings_route.brain_graph,
-        "invalidate_agent",
-        lambda: calls.append("invalidate"),
-    )
 
     response = settings_route.forget_key()
 
     assert response.cleared_from == "file"
+    # No agent to invalidate: the provider re-resolves its key on the next call.
     assert "GEMINI_API_KEY" not in os.environ
-    assert calls == ["invalidate"]
 
 
 def test_update_privacy_dial_persists_value(

@@ -94,10 +94,13 @@ def supervisor(monkeypatch):
     monkeypatch.setattr(skills_route, "set_skill_enabled", fake.set_enabled)
     monkeypatch.setattr(skills_route, "set_skill_tool_enabled", fake.set_tool_enabled)
 
-    # Swallow brain_graph.reload_agent() — it would rebuild the real agent.
-    from june_brain import graph as brain_graph
-
-    monkeypatch.setattr(brain_graph, "reload_agent", lambda: setattr(fake, "reload_calls", fake.reload_calls + 1))
+    # The route reconciles skill subprocesses via reload_skills() after a
+    # mutation; count the calls instead of touching the real supervisor.
+    monkeypatch.setattr(
+        skills_route,
+        "reload_skills",
+        lambda: setattr(fake, "reload_calls", fake.reload_calls + 1),
+    )
     return fake
 
 

@@ -17,11 +17,11 @@ def isolated_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    # The skills route calls brain_graph.reload_agent() on every mutation; stub
-    # it out so the test does not have to bring up the full LangGraph agent.
+    # The skills route reconciles skill subprocesses via reload_skills() on
+    # every mutation; stub it so the test does not touch the real supervisor.
     from june_api.routes import skills as skills_route
 
-    monkeypatch.setattr(skills_route.brain_graph, "reload_agent", lambda: None)
+    monkeypatch.setattr(skills_route, "reload_skills", lambda: None)
     return TestClient(create_app())
 
 

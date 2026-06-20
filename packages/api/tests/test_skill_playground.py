@@ -12,7 +12,7 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     """A fresh app with the supervisor stubbed so no real subprocess is spawned."""
     from june_api.routes import skills as skills_route
 
-    monkeypatch.setattr(skills_route.brain_graph, "reload_agent", lambda: None)
+    monkeypatch.setattr(skills_route, "reload_skills", lambda: None)
 
     # Pretend the supervisor knows about a single skill with one tool.
     monkeypatch.setattr(
