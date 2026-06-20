@@ -147,7 +147,7 @@ class Compactor:
                 )
                 kwargs = _parse_summary(result.text)
                 pinned.merge(**kwargs)  # type: ignore[arg-type]
-                session.messages[:] = rest  # type: ignore[union-attr]
+                session.messages[:] = rest  # type: ignore[attr-defined]
                 return True
             except Exception:  # noqa: BLE001
                 pass
@@ -164,13 +164,13 @@ class Compactor:
                 if remaining_tokens + t <= threshold:
                     keep_set.add(id(msg))
                     remaining_tokens += t
-            session.messages[:] = [m for m in messages if id(m) in keep_set]  # type: ignore[union-attr]
+            session.messages[:] = [m for m in messages if id(m) in keep_set]  # type: ignore[attr-defined]
         else:
             kept = list(messages)
             total = sum(estimate_tokens(m.role + m.content) for m in kept)
             while kept and total >= threshold:
                 dropped = kept.pop(0)
                 total -= estimate_tokens(dropped.role + dropped.content)
-            session.messages[:] = kept  # type: ignore[union-attr]
+            session.messages[:] = kept  # type: ignore[attr-defined]
 
         return True

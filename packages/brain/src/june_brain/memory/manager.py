@@ -1154,7 +1154,7 @@ def _run_async_blocking(coro_factory: Callable[[], Awaitable[Any]]) -> Any:
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(coro_factory())
+        return asyncio.run(coro_factory())  # type: ignore[arg-type]
 
     with ThreadPoolExecutor(max_workers=1) as executor:
-        return executor.submit(lambda: asyncio.run(coro_factory())).result()
+        return executor.submit(lambda: asyncio.run(coro_factory())).result()  # type: ignore[arg-type]

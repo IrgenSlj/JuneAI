@@ -37,10 +37,10 @@ class Manifest:
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> Manifest:
         return cls(
-            schema_version=int(data["schema_version"]),  # type: ignore[arg-type]
+            schema_version=int(data["schema_version"]),  # type: ignore[call-overload]
             created_at=str(data["created_at"]),
             june_version=str(data["june_version"]),
-            contents=list(data.get("contents", [])),  # type: ignore[arg-type]
+            contents=list(data.get("contents", [])),  # type: ignore[call-overload]
         )
 
 

@@ -213,7 +213,7 @@ def apply_stored_config_to_env() -> StoredConfig:
 def is_configured(stored: StoredConfig | None = None) -> bool:
     """A setup is complete once a provider is chosen and its minimum inputs are present."""
     stored = stored if stored is not None else load_stored_config()
-    provider = (stored.provider or os.getenv("MODEL_PROVIDER", "")).strip().lower()
+    provider = (stored.provider or os.getenv("MODEL_PROVIDER", "") or "").strip().lower()
     if provider == "gemini":
         return bool(stored.gemini_api_key or os.getenv("GEMINI_API_KEY"))
     if provider == "gemma":

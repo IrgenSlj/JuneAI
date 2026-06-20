@@ -713,7 +713,7 @@ def create_june_agent(llm: Any = None, runtime: RuntimeConfig | None = None) -> 
                 payload={"tool_call_id": call.get("id", "")},
             )
         result = _normalize_tool_node_result(
-            tool_node._func(state, {}, Runtime(stream_writer=writer)),
+            tool_node._func(state, {}, Runtime(stream_writer=writer)),  # type: ignore[arg-type]
             state.get("ui_state") or {},
         )
         tool_messages = [

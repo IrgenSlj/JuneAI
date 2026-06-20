@@ -1,5 +1,7 @@
 """Chat DAO — chat_messages table."""
 
+from __future__ import annotations
+
 from datetime import UTC, datetime
 
 
@@ -46,7 +48,7 @@ class ChatDAO:
     def load_chat_messages(self) -> list:
         from langchain_core.messages import AIMessage, HumanMessage
 
-        messages = []
+        messages: list = []
         for item in self.load_chat():
             role = item.get("role")
             content = item.get("content", "")

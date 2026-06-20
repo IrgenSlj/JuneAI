@@ -34,9 +34,9 @@ def _parse_cron(cron: str) -> list[int] | None:
     for token in raw_minutes.split(","):
         token = token.strip()
         if "/" in token:
-            base, step = token.split("/", 1)
+            base, step_str = token.split("/", 1)
             base = base.strip()
-            step = int(step)
+            step = int(step_str)
             start = 0 if base == "*" else int(base)
             minutes.extend(range(start, 60, step))
         else:

@@ -69,7 +69,7 @@ class LangGraphLoop:
         rc = resolve_runtime_config()
         return ChatOpenAI(
             model=rc.model,
-            api_key=rc.api_key or "unused",
+            api_key=rc.api_key or "unused",  # type: ignore[arg-type]
             base_url=rc.base_url,
             temperature=rc.temperature,
             max_completion_tokens=rc.max_tokens,

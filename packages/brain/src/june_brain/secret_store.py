@@ -82,8 +82,8 @@ def keyring_available() -> bool:
 def _load_keyring():
     """Import ``keyring`` lazily so the brain starts even if it's uninstalled."""
     try:
-        import keyring  # type: ignore[import-not-found]
-        from keyring.backends import fail  # type: ignore[import-not-found]
+        import keyring
+        from keyring.backends import fail
     except ImportError:
         return None
 

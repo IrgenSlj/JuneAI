@@ -79,7 +79,7 @@ class LearnedTraits:
                 kwargs[f.name] = list(raw) if isinstance(raw, list) else []
             else:
                 kwargs[f.name] = str(raw)
-        return cls(**{k: v for k, v in kwargs.items() if k in known})
+        return cls(**{k: v for k, v in kwargs.items() if k in known})  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------
@@ -113,7 +113,7 @@ class CharacterBlock:
         learned_raw = data.get("learned")
         fixed = FixedTraits.from_dict(fixed_raw if isinstance(fixed_raw, dict) else {})
         learned = LearnedTraits.from_dict(learned_raw if isinstance(learned_raw, dict) else {})
-        version = int(data["version"]) if "version" in data else 1  # type: ignore[arg-type]
+        version = int(data["version"]) if "version" in data else 1  # type: ignore[call-overload]
         return cls(fixed=fixed, learned=learned, version=version)
 
     def to_block(self) -> str:
