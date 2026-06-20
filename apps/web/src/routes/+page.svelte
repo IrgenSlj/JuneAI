@@ -128,9 +128,9 @@
       />
       {#if awaitingFirstToken && elapsedSec >= 4}
         <p class="waiting" aria-live="polite">
-          Still thinking… {elapsedSec}s
-          {#if elapsedSec >= 15}
-            · Gemma sometimes takes a moment to warm up.
+          {system.data?.mode === "local" ? "Thinking locally" : "Thinking"}… {elapsedSec}s
+          {#if elapsedSec >= 15 && system.data?.mode === "local"}
+            · the on-device model sometimes takes a moment to warm up.
           {/if}
         </p>
       {/if}
