@@ -7,7 +7,7 @@
 #   3. The API (uvicorn, june_api)
 #   4. The web dev server (SvelteKit)
 #
-# For health checks WITHOUT starting anything, use tools/dev.sh instead.
+# For health checks WITHOUT starting anything, use tools/preflight.sh instead.
 #
 # Run from anywhere: ./tools/run.sh
 

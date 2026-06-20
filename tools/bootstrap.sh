@@ -3,7 +3,7 @@
 #
 # This installs the Python workspace into packages/brain/.venv and runs
 # pnpm install when node_modules is missing. It does not verify Ollama/Gemini;
-# use tools/dev.sh for provider checks.
+# use tools/preflight.sh for provider checks.
 
 set -euo pipefail
 

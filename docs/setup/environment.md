@@ -89,7 +89,7 @@ Cloud-only users skip Ollama entirely and set `MODEL_PROVIDER=gemini` with a `GE
 Developers who only need to run the automated test suite can skip provider verification:
 
 ```bash
-JUNE_SKIP_MODEL_CHECK=1 ./tools/dev.sh
+JUNE_SKIP_MODEL_CHECK=1 ./tools/preflight.sh
 ```
 
 For fresh clones, prefer the split developer commands:

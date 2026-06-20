@@ -29,7 +29,7 @@ Run the main checks:
 When you want the provider sanity checks as well, use:
 
 ```bash
-./tools/dev.sh
+./tools/preflight.sh
 ```
 
 `JUNE_SKIP_MODEL_CHECK=1` is useful for contributors who only need backend tests through `dev.sh`. Remove it when you want `dev.sh` to verify Ollama/Gemini readiness.

@@ -20,7 +20,7 @@ PYTHON_BIN="${PYTHON_BIN:-$REPO_ROOT/packages/brain/.venv/bin/python}"
 
 if [[ ! -x "$PYTHON_BIN" ]]; then
   echo "error: no usable python at $PYTHON_BIN" >&2
-  echo "       run ./tools/dev.sh once to bootstrap the venv." >&2
+  echo "       run ./tools/preflight.sh once to bootstrap the venv." >&2
   exit 1
 fi
 
