@@ -7,8 +7,7 @@ supervisor internals. Names here are stable; supervisor internals are not.
 
 from __future__ import annotations
 
-from langchain_core.tools import StructuredTool
-
+from ..tools_base import Tool
 from .manifest import (
     SkillManifest,
     SkillManifestEntry,
@@ -62,7 +61,7 @@ def reload_skills() -> None:
     get_supervisor().reload()
 
 
-def available_tools() -> list[StructuredTool]:
+def available_tools() -> list[Tool]:
     """Alias of :func:`load_skill_tools` for symmetry with ``available_*`` helpers."""
     return load_skill_tools()
 

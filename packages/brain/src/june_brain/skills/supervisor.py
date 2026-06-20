@@ -1,4 +1,4 @@
-"""MCP skill supervisor — spawns skill subprocesses and bridges their tools to LangGraph.
+"""MCP skill supervisor — spawns skill subprocesses and bridges their tools to the loop.
 
 The supervisor speaks MCP over stdio (newline-delimited JSON-RPC 2.0). It:
 
@@ -8,10 +8,9 @@ The supervisor speaks MCP over stdio (newline-delimited JSON-RPC 2.0). It:
 3. **Discovers** each skill's tools via ``tools/list``.
 4. **Executes** tool calls via ``tools/call`` with a single retry after
    respawn if the subprocess has died between calls.
-5. **Bridges** each MCP tool to a LangChain ``StructuredTool`` so the
-   existing ``ToolNode`` in ``graph.py`` can dispatch to it like any other
-   tool. ``user_id`` is injected from the agent state — skills that touch
-   memory receive it as a regular argument.
+5. **Bridges** each MCP tool to a June ``Tool`` so the hand-written loop can
+   dispatch to it like any other tool. ``user_id`` is injected from the
+   session state — skills that touch memory receive it as a regular argument.
 
 We deliberately do not use the ``mcp`` SDK here. The protocol surface we
 need (initialize + tools/list + tools/call) is small, and a sync,
@@ -36,12 +35,9 @@ import threading
 import time
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Annotated, Any
+from typing import Any
 
-from langchain_core.tools import StructuredTool
-from langgraph.prebuilt import InjectedState
-from pydantic import BaseModel, Field, create_model
-
+from ..tools_base import Tool
 from .manifest import (
     DEFAULT_RESPONSE_TIMEOUT_SECONDS,
     SkillManifest,
@@ -168,12 +164,11 @@ class SkillSupervisor:
     ) -> SkillProcess | None:
         """Toggle one tool of a skill on/off; persist; no respawn.
 
-        Per-tool gates apply at agent-build time: the skill subprocess
-        keeps running and continues to advertise the tool, but the
-        supervisor filters it out of ``enabled_tools()`` so the agent
-        never binds it. The caller is responsible for rebuilding the
-        agent (e.g. ``brain_graph.reload_agent()``) after a successful
-        flip.
+        Per-tool gates apply when the loop next reads the tool surface: the
+        skill subprocess keeps running and continues to advertise the tool,
+        but the supervisor filters it out of ``enabled_tools()`` so the loop
+        never dispatches it. The caller reloads the supervisor
+        (``reload_skills()``) after a successful flip.
         """
         entry = self._manifest.set_tool_enabled(key, tool_name, enabled)
         if entry is None:
@@ -233,15 +228,15 @@ class SkillSupervisor:
             )
         return out
 
-    def enabled_tools(self) -> list[StructuredTool]:
-        """Return LangChain tools for every running, enabled skill.
+    def enabled_tools(self) -> list[Tool]:
+        """Return June tools for every running, enabled skill.
 
         Per-tool gates from the manifest's ``disabled_tools`` are honored
         here: a tool whose name appears in its skill's disabled list is
         excluded from the agent's bound tools, even if the skill itself
         is enabled and running.
         """
-        tools: list[StructuredTool] = []
+        tools: list[Tool] = []
         for skill in self._skills.values():
             if not skill.entry.enabled or skill.status != SkillStatus.RUNNING:
                 continue
@@ -526,36 +521,32 @@ class SkillSupervisor:
                         return f"Skill '{skill_key}' tool '{tool_name}' failed: {exc}"
         return f"Skill '{skill_key}' tool '{tool_name}' failed unexpectedly."
 
-    def _bridge_tool(self, skill: SkillProcess, mcp_tool: _MCPTool) -> StructuredTool:
-        """Wrap an MCP tool as a LangChain StructuredTool with user_id injected from state."""
-        args_model = _build_args_model(
-            f"{skill.key}_{mcp_tool.name}_Args", mcp_tool.input_schema
-        )
+    def _bridge_tool(self, skill: SkillProcess, mcp_tool: _MCPTool) -> Tool:
+        """Wrap an MCP tool as a June Tool with user_id injected from state."""
+        args_schema = _build_args_schema(mcp_tool.input_schema)
         wants_user_id = "user_id" in (mcp_tool.input_schema.get("properties") or {})
         skill_key = skill.key
         tool_name = mcp_tool.name
         supervisor_ref = self
 
-        def _run(
-            state: Annotated[Any, InjectedState] = None,
-            **kwargs: Any,
-        ) -> str:
+        def _run(state: Any = None, **kwargs: Any) -> str:
             if wants_user_id and state is not None:
                 user_id = state.get("user_id") if isinstance(state, dict) else None
                 if user_id and "user_id" not in kwargs:
                     kwargs["user_id"] = user_id
             return supervisor_ref._call_tool(skill_key, tool_name, kwargs)
 
-        return StructuredTool.from_function(
-            func=_run,
+        return Tool(
             name=mcp_tool.name,
             description=mcp_tool.description or f"Tool from skill '{skill.key}'.",
-            args_schema=args_model,
+            args=args_schema,
+            func=_run,
+            injected=("state",),
         )
 
 
 def _stringify_tool_result(result: Any) -> str:
-    """Flatten an MCP ``tools/call`` result into a single string for LangGraph."""
+    """Flatten an MCP tools/call result into a single string."""
     if result is None:
         return ""
     if isinstance(result, dict):
@@ -586,17 +577,20 @@ _JSON_TO_PY = {
 }
 
 
-def _build_args_model(name: str, schema: dict[str, Any]) -> type[BaseModel]:
-    """Turn a JSON Schema object into a pydantic model LangChain can use."""
+def _build_args_schema(schema: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Turn an MCP JSON-Schema object into a June Tool ``args`` dict.
+
+    ``user_id`` is excluded — it is injected from the session state, never
+    supplied by the model (same policy the LangChain bridge used).
+    """
     properties = schema.get("properties") if isinstance(schema, dict) else None
     required = set(schema.get("required") or []) if isinstance(schema, dict) else set()
     if not isinstance(properties, dict):
-        return create_model(name)
+        return {}
 
-    fields: dict[str, Any] = {}
+    args: dict[str, dict[str, Any]] = {}
     for prop_name, prop_schema in properties.items():
         if prop_name == "user_id":
-            # injected from agent state — don't expose to the model
             continue
         py_type = _JSON_TO_PY.get(
             str(prop_schema.get("type")) if isinstance(prop_schema, dict) else "",
@@ -605,14 +599,16 @@ def _build_args_model(name: str, schema: dict[str, Any]) -> type[BaseModel]:
         description = (
             prop_schema.get("description", "") if isinstance(prop_schema, dict) else ""
         )
-        if prop_name in required:
-            fields[prop_name] = (py_type, Field(..., description=description))
-        else:
-            default = (
-                prop_schema.get("default") if isinstance(prop_schema, dict) else None
-            )
-            fields[prop_name] = (py_type, Field(default=default, description=description))
-    return create_model(name, **fields)  # type: ignore[call-overload]
+        is_required = prop_name in required
+        args[prop_name] = {
+            "type": getattr(py_type, "__name__", str(py_type)),
+            "required": is_required,
+            "default": None
+            if is_required
+            else (prop_schema.get("default") if isinstance(prop_schema, dict) else None),
+            "description": description,
+        }
+    return args
 
 
 # ---------------------------------------------------------------------- public API
@@ -652,7 +648,7 @@ def reset_supervisor_for_tests() -> None:
         _singleton = None
 
 
-def load_skill_tools() -> list[StructuredTool]:
+def load_skill_tools() -> list[Tool]:
     """Convenience: start (if needed) and return all enabled-skill tools."""
     return get_supervisor().enabled_tools()
 
