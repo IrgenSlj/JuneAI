@@ -269,10 +269,8 @@ def test_ui_chapter_tool(tool_state):
     result = set_ui_chapter.func(
         chapter="plans",
         state=tool_state,
-        tool_call_id="tool_ui_chapter",
     )
-    assert result.update["ui_state"]["selected_chapter"] == "plans"
-    assert result.update["messages"][0].content == "UI focus switched to 'plans'."
+    assert result == "UI focus switched to 'plans'."
 
 
 def test_calendar_and_favorites_tools(tool_state):
@@ -333,10 +331,8 @@ def test_ui_tools_update_ui_state(tool_state):
         body="Capture open loops, schedule priorities, and clear friction.",
         footer="Return here after the next planning pass.",
         state=tool_state,
-        tool_call_id="call_1",
-    ).update
-    assert result["ui_state"]["focus_title"] == "Weekly review"
-    assert result["ui_state"]["notice"] == "Return here after the next planning pass."
+    )
+    assert result == "Workspace focus updated to 'Weekly review'."
 
 
 def test_ui_checklist_and_layout_tools(tool_state):
@@ -344,21 +340,18 @@ def test_ui_checklist_and_layout_tools(tool_state):
         title="Next actions",
         items="- Book trainer\n- Save meal rhythm\n- Add Friday dinner",
         state=tool_state,
-        tool_call_id="call_1",
-    ).update
+    )
     layout_result = set_ui_layout.func(
         layout="focus",
         notice="Surface the highest leverage moves.",
         state=tool_state,
-        tool_call_id="call_1",
-    ).update
-    assert checklist_result["ui_state"]["checklist_items"][1] == "Save meal rhythm"
-    assert layout_result["ui_state"]["layout"] == "focus"
+    )
+    assert checklist_result == "Workspace checklist updated with 3 items."
+    assert layout_result == "Workspace layout set to 'focus'."
 
 
 def test_clear_ui_workspace_tool(tool_state):
     result = clear_ui_workspace.func(
         state=tool_state,
-        tool_call_id="call_1",
-    ).update
-    assert result["ui_state"]["focus_title"] == "Workspace"
+    )
+    assert result == "Workspace reset to its default state."

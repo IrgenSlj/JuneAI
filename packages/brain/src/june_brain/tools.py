@@ -1,16 +1,10 @@
-"""JuneAI tools exposed to the LangGraph agent."""
+"""JuneAI native tools exposed to the hand-written loop."""
 
 from __future__ import annotations
 
 import logging
 from datetime import UTC
 from typing import Annotated, Any
-
-from langchain_core.messages import ToolMessage
-from langchain_core.tools import tool
-from langchain_core.tools.base import InjectedToolCallId
-from langgraph.prebuilt import InjectedState
-from langgraph.types import Command
 
 from .config import apply_runtime_preset_switch
 from .context_intelligence import (
@@ -26,24 +20,13 @@ from .runtime_privacy import (
     format_runtime_preset_switch_plan,
     format_runtime_privacy_status,
 )
+from .tools_base import Inject, tool
 
 logger = logging.getLogger(__name__)
 
 type AgentPayload = dict[str, Any]
 type AgentState = dict[str, Any] | None
-InjectedAgentState = Annotated[AgentState, InjectedState]
-type ToolCommand = Command[str]
-
-DEFAULT_UI_STATE: dict[str, Any] = {
-    "layout": "split",
-    "show_right_panel": True,
-    "selected_chapter": "",
-    "focus_title": "Workspace",
-    "focus_body": "June can pin structured notes, plans, and highlights here.",
-    "checklist_title": "Next steps",
-    "checklist_items": [],
-    "notice": "",
-}
+InjectedAgentState = Annotated[AgentState, Inject]
 
 UI_CHAPTERS = {
     "calendar",
@@ -69,20 +52,11 @@ def _memory_for_state(state: AgentState) -> Memory:
     return Memory(state["user_id"])
 
 
-def _merge_ui_state(current: dict[str, Any] | None, updates: dict[str, Any]) -> dict[str, Any]:
-    """Merge UI state updates onto defaults and current state."""
-    merged = dict(DEFAULT_UI_STATE)
-    if current:
-        merged.update(current)
-    merged.update(updates)
-    return merged
-
-
 @tool
 def log_mood(
     mood: str,
     note: str = "",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Log the user's emotional state when they describe how they feel."""
     memory = _memory_for_state(state)
@@ -92,7 +66,7 @@ def log_mood(
 
 @tool
 def get_mood_history(
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Retrieve recent mood history for pattern recognition."""
     memory = _memory_for_state(state)
@@ -110,7 +84,7 @@ def get_mood_history(
 @tool
 def save_journal_entry(
     entry: str,
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Save an important reflection or conversation note."""
     memory = _memory_for_state(state)
@@ -120,7 +94,7 @@ def save_journal_entry(
 
 @tool
 def get_journal(
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Retrieve recent journal entries."""
     memory = _memory_for_state(state)
@@ -140,7 +114,7 @@ def save_relationship_profile(
     summary: str,
     user_needs: str = "",
     cautions: str = "",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Save structured context about a person in the user's life."""
     memory = _memory_for_state(state)
@@ -157,7 +131,7 @@ def save_relationship_profile(
 @tool
 def get_relationship_context(
     person: str = "",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Retrieve relationship context for one person or all saved people."""
     memory = _memory_for_state(state)
@@ -187,7 +161,7 @@ def track_goal(
     target_date: str = "",
     next_step: str = "",
     status: str = "active",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Create or update a goal."""
     memory = _memory_for_state(state)
@@ -204,7 +178,7 @@ def track_goal(
 @tool
 def list_goals(
     status: str = "active",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """List saved goals, optionally filtered by status."""
     memory = _memory_for_state(state)
@@ -226,7 +200,7 @@ def list_goals(
 def update_goal_status(
     title: str,
     status: str,
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Update an existing goal's status."""
     memory = _memory_for_state(state)
@@ -242,7 +216,7 @@ def save_open_loop(
     next_step: str = "",
     due_date: str = "",
     status: str = "open",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Track an unresolved issue, follow-up, or decision."""
     memory = _memory_for_state(state)
@@ -258,7 +232,7 @@ def save_open_loop(
 @tool
 def list_open_loops(
     status: str = "open",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """List unresolved issues or follow-ups."""
     memory = _memory_for_state(state)
@@ -280,7 +254,7 @@ def list_open_loops(
 def update_open_loop_status(
     topic: str,
     status: str,
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Update an open loop's status."""
     memory = _memory_for_state(state)
@@ -295,7 +269,7 @@ def save_user_preference(
     category: str,
     value: str,
     context: str = "",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Save a stable user preference such as favorite genres, routines, or tastes.
 
@@ -310,7 +284,7 @@ def save_user_preference(
 @tool
 def get_user_preferences(
     category: str = "",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Retrieve saved user preferences."""
     memory = _memory_for_state(state)
@@ -336,7 +310,7 @@ def save_calendar_item(
     details: str = "",
     status: str = "planned",
     source: str = "conversation",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Save a calendar item when a concrete plan, event, or reminder appears.
 
@@ -358,7 +332,7 @@ def save_calendar_item(
 @tool
 def list_calendar_items(
     status: str = "",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """List saved calendar items."""
     memory = _memory_for_state(state)
@@ -385,7 +359,7 @@ def update_calendar_item_status(
     status: str,
     date: str = "",
     time: str = "",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Update a calendar item's status."""
     memory = _memory_for_state(state)
@@ -408,7 +382,7 @@ def save_favorite_recommendation(
     reason: str = "",
     creator: str = "",
     status: str = "saved",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Save a movie, book, show, or other recommendation to the favorites shelf.
 
@@ -429,7 +403,7 @@ def save_favorite_recommendation(
 @tool
 def list_favorites(
     category: str = "",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """List saved favorites and recommendations."""
     memory = _memory_for_state(state)
@@ -456,7 +430,7 @@ def save_gym_plan(
     goal: str = "",
     notes: str = "",
     status: str = "active",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Save a workout schedule or gym program for the user."""
     memory = _memory_for_state(state)
@@ -473,7 +447,7 @@ def save_gym_plan(
 @tool
 def list_gym_plans(
     status: str = "active",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """List saved workout schedules and gym programs."""
     memory = _memory_for_state(state)
@@ -498,7 +472,7 @@ def save_food_program(
     daily_structure: str,
     notes: str = "",
     status: str = "active",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Save a meal plan or nutrition program."""
     memory = _memory_for_state(state)
@@ -515,7 +489,7 @@ def save_food_program(
 @tool
 def list_food_programs(
     status: str = "active",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """List saved meal plans and nutrition programs."""
     memory = _memory_for_state(state)
@@ -536,7 +510,7 @@ def list_food_programs(
 
 @tool
 def summarize_progress(
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Summarize the user's recent activity across assistant surfaces."""
     memory = _memory_for_state(state)
@@ -644,26 +618,10 @@ def set_ui_focus(
     body: str,
     footer: str = "",
     state: InjectedAgentState = None,
-    tool_call_id: Annotated[str, InjectedToolCallId] = "",
-) -> ToolCommand:
+) -> str:
     """Update the workspace focus panel with a title and body."""
-    next_ui_state = _merge_ui_state(
-        state.get("ui_state", {}) if state else {},
-        {
-            "focus_title": title.strip() or "Workspace",
-            "focus_body": body.strip(),
-            "notice": footer.strip(),
-        },
-    )
-    return Command(update={
-        "ui_state": next_ui_state,
-        "messages": [
-            ToolMessage(
-                content=f"Workspace focus updated to '{next_ui_state['focus_title']}'.",
-                tool_call_id=tool_call_id,
-            )
-        ],
-    })
+    focus_title = title.strip() or "Workspace"
+    return f"Workspace focus updated to '{focus_title}'."
 
 
 @tool
@@ -671,30 +629,14 @@ def set_ui_checklist(
     title: str,
     items: str,
     state: InjectedAgentState = None,
-    tool_call_id: Annotated[str, InjectedToolCallId] = "",
-) -> ToolCommand:
+) -> str:
     """Update the workspace checklist with newline-separated items."""
     checklist_items = [
         item.strip("- ").strip()
         for item in items.splitlines()
         if item.strip()
     ]
-    next_ui_state = _merge_ui_state(
-        state.get("ui_state", {}) if state else {},
-        {
-            "checklist_title": title.strip() or "Next steps",
-            "checklist_items": checklist_items,
-        },
-    )
-    return Command(update={
-        "ui_state": next_ui_state,
-        "messages": [
-            ToolMessage(
-                content=f"Workspace checklist updated with {len(checklist_items)} items.",
-                tool_call_id=tool_call_id,
-            )
-        ],
-    })
+    return f"Workspace checklist updated with {len(checklist_items)} items."
 
 
 @tool
@@ -702,25 +644,12 @@ def set_ui_layout(
     layout: str,
     notice: str = "",
     state: InjectedAgentState = None,
-    tool_call_id: Annotated[str, InjectedToolCallId] = "",
-) -> ToolCommand:
+) -> str:
     """Set the workspace layout mode. Allowed values: split, focus, chat."""
     chosen = layout.strip().lower()
     if chosen not in {"split", "focus", "chat"}:
         chosen = "split"
-    next_ui_state = _merge_ui_state(
-        state.get("ui_state", {}) if state else {},
-        {"layout": chosen, "notice": notice.strip()},
-    )
-    return Command(update={
-        "ui_state": next_ui_state,
-        "messages": [
-            ToolMessage(
-                content=f"Workspace layout set to '{chosen}'.",
-                tool_call_id=tool_call_id,
-            )
-        ],
-    })
+    return f"Workspace layout set to '{chosen}'."
 
 
 @tool
@@ -728,47 +657,21 @@ def set_ui_chapter(
     chapter: str = "",
     notice: str = "",
     state: InjectedAgentState = None,
-    tool_call_id: Annotated[str, InjectedToolCallId] = "",
-) -> ToolCommand:
+) -> str:
     """Open a chapter in the single-page right panel, or clear it to return to workspace."""
     chosen = chapter.strip().lower()
     if chosen and chosen not in UI_CHAPTERS:
         chosen = ""
-    next_ui_state = _merge_ui_state(
-        state.get("ui_state", {}) if state else {},
-        {"selected_chapter": chosen, "notice": notice.strip()},
-    )
     label = chosen or "workspace"
-    return Command(update={
-        "ui_state": next_ui_state,
-        "messages": [
-            ToolMessage(
-                content=f"UI focus switched to '{label}'.",
-                tool_call_id=tool_call_id,
-            )
-        ],
-    })
+    return f"UI focus switched to '{label}'."
 
 
 @tool
 def clear_ui_workspace(
     state: InjectedAgentState = None,
-    tool_call_id: Annotated[str, InjectedToolCallId] = "",
-) -> ToolCommand:
+) -> str:
     """Reset the workspace panel to its default state."""
-    next_ui_state = _merge_ui_state(
-        state.get("ui_state", {}) if state else {},
-        DEFAULT_UI_STATE,
-    )
-    return Command(update={
-        "ui_state": next_ui_state,
-        "messages": [
-            ToolMessage(
-                content="Workspace reset to its default state.",
-                tool_call_id=tool_call_id,
-            )
-        ],
-    })
+    return "Workspace reset to its default state."
 
 
 @tool
@@ -778,7 +681,7 @@ def log_workout_session(
     duration_min: int = 0,
     notes: str = "",
     energy_rating: int = 0,
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Log a completed workout session with exercises and duration in minutes."""
     memory = _memory_for_state(state)
@@ -843,7 +746,7 @@ def create_habit(
     name: str,
     category: str = "health",
     target_days: str = "daily",
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Create or update a tracked habit. Category: health, sport, focus, nutrition."""
     memory = _memory_for_state(state)
@@ -854,7 +757,7 @@ def create_habit(
 @tool
 def log_habit_completion(
     habit_name: str,
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Mark a habit as completed for today. Auto-creates the habit if it does not exist."""
     memory = _memory_for_state(state)
@@ -865,7 +768,7 @@ def log_habit_completion(
 
 @tool
 def get_habits_with_streaks(
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Get all tracked habits with current streaks and today's completion status."""
     memory = _memory_for_state(state)
@@ -888,7 +791,7 @@ def log_nutrition(
     description: str,
     calories_est: int = 0,
     protein_est: int = 0,
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Log a meal. Meal should be: breakfast, lunch, dinner, or snack. Estimates in kcal/g."""
     memory = _memory_for_state(state)
@@ -904,7 +807,7 @@ def log_nutrition(
 @tool
 def log_water(
     glasses: int = 1,
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Log glasses of water consumed today. Increments today's running count."""
     memory = _memory_for_state(state)
@@ -914,7 +817,7 @@ def log_water(
 
 @tool
 def get_today_summary(
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Get a full summary of today: habits, workout, body metrics, water, and nutrition."""
     memory = _memory_for_state(state)
@@ -961,7 +864,7 @@ def get_today_summary(
 
 @tool
 def get_recovery_readiness_summary(
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Get June's derived recovery and readiness summary."""
     memory = _memory_for_state(state)
@@ -971,7 +874,7 @@ def get_recovery_readiness_summary(
 
 @tool
 def get_active_commitments_summary(
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Get June's unified active commitments summary."""
     memory = _memory_for_state(state)
@@ -981,7 +884,7 @@ def get_active_commitments_summary(
 
 @tool
 def check_chapter_completeness(
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Check which of June's chapters have data and which are empty.
 
@@ -1102,7 +1005,7 @@ _CHAPTER_INTAKE_PROMPTS: dict[str, str] = {
 @tool
 def ask_about_chapter(
     chapter: str,
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Get a structured intake prompt to gather missing data for a specific chapter.
 
@@ -1120,7 +1023,7 @@ def ask_about_chapter(
 @tool
 def get_personal_context(
     topic: str,
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Return a natural-language summary of what June knows about a given topic.
 
@@ -1271,7 +1174,7 @@ def get_personal_context(
 
 @tool
 def generate_weekly_summary(
-    state: Annotated[AgentState, InjectedState] = None,
+    state: InjectedAgentState = None,
 ) -> str:
     """Generate a personal weekly review covering workouts, habits, goals, body metrics, mood, and calendar.
 

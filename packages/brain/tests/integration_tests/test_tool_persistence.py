@@ -123,16 +123,13 @@ def test_two_tools_write_in_same_user(tmp_path):
             {"title": "Team lunch", "date": "2026-05-20"},
             user_id,
         )
-        command = _TOOLS["set_ui_chapter"].invoke(
-            {
-                "args": {"chapter": "calendar", "state": {"user_id": user_id}},
-                "name": "set_ui_chapter",
-                "type": "tool_call",
-                "id": "c2",
-            }
+        result = _invoke(
+            "set_ui_chapter",
+            {"chapter": "calendar"},
+            user_id,
         )
         mem = Memory(user_id)
         items = mem.get_calendar_items(status="", limit=10)
 
     assert any(i["title"] == "Team lunch" for i in items)
-    assert command.update["ui_state"]["selected_chapter"] == "calendar"
+    assert result == "UI focus switched to 'calendar'."
