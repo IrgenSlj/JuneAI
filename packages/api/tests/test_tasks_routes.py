@@ -14,8 +14,8 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     """A fresh app with a tmp data dir so tasks land in an isolated SQLite file.
 
     Also stubs the TaskRuntime trigger so PATCH status=running does not try to
-    spin up the real LangGraph agent inside the test process. Runtime behaviour
-    has its own test module under packages/brain.
+    run the real loop inside the test process. Runtime behaviour has its own
+    test module under packages/brain.
     """
     import june_api.routes.tasks as tasks_route
     import june_brain.memory as memory_pkg

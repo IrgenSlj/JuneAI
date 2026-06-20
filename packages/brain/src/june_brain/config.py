@@ -1,8 +1,8 @@
 """Configuration and runtime profiles for June.
 
 Per ADR 0002, June supports exactly two model providers: Gemma 4 (local via
-Ollama) and Gemini (cloud via Google's OpenAI-compatible endpoint). Both use
-the same LangChain OpenAI-compatible client under the hood.
+Ollama) and Gemini (cloud via Google's OpenAI-compatible endpoint). Both are
+reached through the model-specific provider layer (ADR 0017).
 """
 
 from __future__ import annotations

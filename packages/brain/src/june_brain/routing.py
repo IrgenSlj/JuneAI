@@ -7,10 +7,10 @@ run in the cloud, or refuse the request as unavailable under the current
 policy.
 
 This module owns the routing decision. It does not own the actual model call;
-that stays in the LangGraph agent and the existing provider clients in
-``models.py``. The router returns the resolved tier and a ``RuntimeConfig``
-that callers feed to the provider stack. Provenance is recorded around the
-call by the caller and emitted on the chat-event stream in a separate slice.
+that lives in the hand-written loop and the provider stack. The router returns
+the resolved tier and a ``RuntimeConfig`` that callers feed to the provider
+stack. Provenance is recorded around the call by the caller and emitted on the
+chat-event stream in a separate slice.
 """
 
 from __future__ import annotations

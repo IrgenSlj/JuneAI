@@ -35,7 +35,7 @@ Baseline: tag `v0.2.0-prereshape`, metrics in
   - [x] S1.2b Drop the four deps; re-lock; record install delta
 - [x] S1.3 Move `packages/june-skill-telegram` -> `skills/telegram`
 - [x] S1.4 Repo hygiene: logo -> assets/, dev.sh -> preflight.sh (shim), docs/archive/ + INDEX.md, CLAUDE.md update
-- [ ] S1.5 Update README architecture + tech stack (LangGraph/LangChain removed)
+- [x] S1.5 Update README architecture + tech stack (LangGraph/LangChain removed)
 - [x] S1 ADR 0018 — One loop engine
 
 ### S2 — One storage engine: ChromaDB -> sqlite-vec  (ADR 0019)

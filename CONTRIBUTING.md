@@ -60,13 +60,11 @@ The authoritative direction is the [build specification](docs/product/build-spec
 and [ADRs 0015-0017](docs/decisions/). June is built in tiers; the Tier 1 spine
 (C.0-C.6) is implemented and on `main`.
 
-Current priorities (finishing Tier 1):
-
-- Wire the hand-written loop as the live chat path — route the provider layer,
-  layered context, character block, difficulty router, and capability probe
-  through it, replacing the LangGraph agent as the live path (kept as a fallback).
-- Browser-verify the visible cloud boundary and per-turn rationale in the chat UI.
-- Then use the spine before starting Tier 2 differentiators.
+Current priorities live in the [rebuild plan](docs/product/rebuild-plan.md) and
+its living checklist [`REBUILD.md`](REBUILD.md). The Tier 1 spine is built and
+the hand-written loop is the one live engine (ADR 0018). The active work is the
+reshape + targeted rewrite: one storage engine (sqlite-vec), the guard layer,
+memory bootstrap, and desktop distribution.
 
 Non-negotiable throughout: privacy is visible in code (no silent egress; local-only
 blocks the cloud), honesty is not adjustable, and the harness core is fixed and

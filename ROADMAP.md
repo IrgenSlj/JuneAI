@@ -34,12 +34,11 @@ The seven spine modules are implemented, tested, and on `main`:
 
 ## Now — Tier 1 is shipped; use it, then tune
 
-The spine (C.0–C.6) is built and the **handwritten loop is the live chat path** —
+The spine (C.0–C.6) is built and the **handwritten loop is the one engine** —
 provider layer, layered context + anchored compaction, character block, salience
-recall, difficulty router, and capability probe all flow through it; LangGraph
-stays as a flagged fallback (`JUNE_CHAT_USE_HARNESS=0`). The CLEAR baseline is
-measured for both engines (`docs/experiments/loop-clear.md`): the handwritten loop
-is 3-17x faster at equal efficacy, so `handwritten` is the default.
+recall, difficulty router, and capability probe all flow through it. The CLEAR
+baseline (`docs/experiments/loop-clear.md`) measured the handwritten loop at
+3-17x faster at equal efficacy, so the LangGraph engine was removed (ADR 0018).
 
 What "done" looks like — and now holds: June runs on local Gemma 4, recalls a
 relevant older fact over a merely-similar recent one, compacts a long conversation

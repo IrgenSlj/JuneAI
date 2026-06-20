@@ -1,6 +1,6 @@
 # june-brain
 
-June's intelligence layer. A Python package that wraps a LangGraph agent, a three-store memory system, an MCP skills loader, and the Gemma/Gemini model providers.
+June's intelligence layer. A Python package built around a hand-written harness loop (one engine, no agent framework), a three-store memory system, an MCP skills loader, and the Gemma/Gemini model providers.
 
 ## Install
 

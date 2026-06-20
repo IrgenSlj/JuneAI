@@ -177,14 +177,14 @@ JuneAI/
 │   └── design/       Design tokens
 ├── skills/           MCP skill servers: calendar, health, research, files, daily
 ├── docs/             Vision, architecture, ADRs, product plans, setup guides
-└── tools/            run.sh (launch), bootstrap.sh, check.sh, dev.sh, codegen.sh
+└── tools/            run.sh (launch), bootstrap.sh, check.sh, preflight.sh, codegen.sh
 ```
 
 ## Tech stack
 
-- **Brain:** Python, [LangGraph](https://langchain-ai.github.io/langgraph/),
-  LangChain, ChromaDB, SQLite, and a model-specific provider layer (Gemma 4 +
-  Gemini) behind a measured harness loop.
+- **Brain:** Python with a hand-written harness loop (one engine, no agent
+  framework — see ADR 0018), three-store memory (SQLite + ChromaDB + a graph),
+  and a model-specific provider layer (Gemma 4 + Gemini).
 - **API:** [FastAPI](https://fastapi.tiangolo.com) with SSE streaming. Pydantic
   schemas are the single source of truth; the TypeScript client is generated
   from the OpenAPI spec.

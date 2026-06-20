@@ -52,8 +52,8 @@ piece slots into the turn above.
   versioned folder. Move machines by copying it.
 - **Model-specific provider layer** — Gemma 4 and Gemini behind roles
   (`local-fast`, `local-deep`, `cloud-capable`), with a clean seam for a third.
-- **Loop behind an interface** — a fixed loop whose engine (hand-written vs
-  LangGraph) is chosen by measurement, not taste.
+- **Loop behind an interface** — a fixed loop with one hand-written engine,
+  chosen by measurement, not taste (ADR 0018).
 - **Layered context + pinned state** — a stable assembly order that protects the
   prefix cache, and compaction that merges into an anchor instead of regenerating.
 - **Salience-scored recall** — `recency × frequency × relevance`, so June recalls
@@ -146,8 +146,8 @@ This is core to the product, not boilerplate.
 
 June ships today as a web application and an experimental macOS desktop DMG. The
 brain, API, three-store memory, model routing, tasks, scheduler, notification bus,
-and skills system are implemented on the LangGraph agent. The active priority is
-**Tier 1 — the spine**: the portable data directory, the model-specific provider
-layer, and the measured loop, followed by layered context, salience recall, the
-character block, and the visible cloud boundary. See [roadmap.md](roadmap.md) for
-the Tier 2 and Tier 3 surfaces beyond it.
+and skills system run on the hand-written harness loop (ADR 0018). The Tier 1
+spine is built: the portable data directory, the model-specific provider layer,
+the measured loop, layered context, salience recall, the character block, and
+the visible cloud boundary. See [roadmap.md](roadmap.md) for the Tier 2 and
+Tier 3 surfaces beyond it.

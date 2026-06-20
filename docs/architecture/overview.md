@@ -5,11 +5,12 @@ toward. For the rationale behind each choice, see the Architecture Decision Reco
 under `docs/decisions/`. For the authoritative, decision-by-decision plan, see
 [build-spec.md](../product/build-spec.md).
 
-The brain runs today on a LangGraph agent. Tier 1 (the spine) introduces a
-model-specific provider layer, a fixed loop behind an interface, layered context
-with anchored compaction, salience recall, an honest character block, and a visible
-cloud boundary. LangGraph is kept behind the loop interface until the CLEAR
-experiment (C.2) chooses the default engine. Sections below mark what is shipped
+The brain runs on a hand-written harness loop — the one engine (ADR 0018). The
+Tier 1 spine introduced a model-specific provider layer, a fixed loop behind an
+interface, layered context with anchored compaction, salience recall, an honest
+character block, and a visible cloud boundary. The CLEAR experiment (C.2) chose
+the hand-written loop; the LangGraph engine has since been removed. Sections
+below mark what is shipped
 versus in-progress.
 
 ## Layered View
@@ -85,9 +86,9 @@ Harness modules (Tier 1 target shape):
 
 - **`loop/`** — a fixed loop behind a `HarnessLoop` interface:
   `assemble_context → call_provider → (tool calls? dispatch → observe → repeat :
-  done) → maybe_compact`. `handwritten.py` and `langgraph_loop.py` both implement
-  it; the CLEAR experiment chooses the default. The loop never mutates its own
-  structure — dynamic choices flow as data, not as new control-flow nodes.
+  done) → maybe_compact`. `handwritten.py` is the one implementation (ADR 0018).
+  The loop never mutates its own structure — dynamic choices flow as data, not as
+  new control-flow nodes.
 - **`context/`** — `assembler.py` composes a fixed 5-part order (system/persona →
   character → pinned state → recalled memory → recent raw turns) so the stable
   prefix is cache-friendly. `pinned_state.py` is a small structured anchor (goal,
@@ -110,10 +111,10 @@ Harness modules (Tier 1 target shape):
   and self-edit fallbacks read. Plumbed in Tier 1; surfaced on the System page in
   Tier 2.
 
-Shipped today: the LangGraph agent (`graph.py`), the three-store memory, the model
-config/clients, the MCP skills client, and pattern/context detection. These are
-migrated under the harness modules above as Tier 1 lands; nothing is removed before
-the experiment justifies it.
+Shipped: the hand-written loop (`loop/`), the three-store memory, the model
+provider layer, the MCP skills client, and pattern/context detection. The
+LangGraph agent that the brain originally ran on has been removed, justified by
+the CLEAR experiment (ADR 0018).
 
 ## The API
 

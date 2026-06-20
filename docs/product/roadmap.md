@@ -41,20 +41,20 @@ Three-store memory (SQLite + ChromaDB + graph) behind one `MemoryManager`; MCP s
 supervisor with bundled skills; scheduler and notification bus. The Tier 1 spine
 (below) is built: model-specific providers, salience recall, layered context with
 anchored compaction, the honest character block, and per-turn provenance with a
-visible cloud boundary. The live chat path still runs the LangGraph agent; the
-hand-written loop cutover is the remaining Tier 1 step.
+visible cloud boundary. The hand-written loop is the one live engine (ADR 0018);
+the LangGraph engine has been removed.
 
-## Active Track — Tier 1: The Spine (built; wiring the live loop)
+## Active Track — Tier 1: The Spine (built)
 
 Theme: **remember what matters, hold the thread, one honest voice, a visible cloud
 boundary — running on local Gemma 4.**
 
 The seven spine modules (C.0-C.6) are implemented, tested, and on `main`; each shipped
-with its model-judgment fallback in the same PR. The one remaining Tier 1 step is to
-**wire the hand-written loop as the live chat path** (route the provider layer, layered
-context, character block, difficulty router, and capability probe through it, replacing
-the LangGraph agent as the live path while keeping it as a flagged fallback). Do not
-start Tier 2 until that lands and the spine has been *used*.
+with its model-judgment fallback in the same PR. The hand-written loop is the live
+chat path — provider layer, layered context, character block, difficulty router, and
+capability probe flow through it; the LangGraph engine was removed (ADR 0018). The
+active work is the reshape + targeted rewrite tracked in
+[rebuild-plan.md](rebuild-plan.md).
 
 The C.0-C.6 acceptance criteria below are all met; they remain as the regression bar:
 
@@ -82,7 +82,7 @@ with local-only mode provably blocking egress (C.6).
 
 1. C.0 fully (the foundation everything writes into).
 2. C.1 fully (provider layer with tests).
-3. C.2 scaffold (interface + hand-written loop + CLEAR harness; keep LangGraph).
+3. C.2 (interface + hand-written loop + CLEAR harness; LangGraph since removed, ADR 0018).
 
 ## Hardening backlog (2026-06-20)
 
