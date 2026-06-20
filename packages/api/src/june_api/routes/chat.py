@@ -11,7 +11,6 @@ from fastapi.responses import StreamingResponse
 from june_brain.loop.interface import HarnessLoop, SessionState, TurnProvenance, TurnResult
 from june_brain.memory import Memory, MemoryManager
 from june_brain.providers.base import Message
-from langchain_core.messages import HumanMessage
 from starlette.background import BackgroundTask
 
 from ..schemas import ChatEvent, ChatHistory, ChatHistoryMessage, ChatRequest, RecallHit
@@ -39,16 +38,16 @@ def _event_to_sse(event: ChatEvent) -> str:
 
 
 def _messages_for_turn(user_id: str, user_text: str) -> list[Any]:
-    """Persist the user turn and return the conversation context for the agent."""
+    """Persist the user turn and return the conversation context for the loop."""
     if not user_text.strip():
-        return [HumanMessage(content=user_text)]
+        return [Message(role="user", content=user_text)]
     try:
         memory = Memory(user_id)
         memory.save_message("user", user_text)
         return memory.load_chat_messages()
     except Exception:
         logger.exception("chat history load failed for user=%s", user_id)
-        return [HumanMessage(content=user_text)]
+        return [Message(role="user", content=user_text)]
 
 
 def _message_content_text(content: Any) -> str:

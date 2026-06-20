@@ -46,14 +46,15 @@ class ChatDAO:
         return [dict(r) for r in rows]
 
     def load_chat_messages(self) -> list:
-        from langchain_core.messages import AIMessage, HumanMessage
+        """Return the persisted transcript as provider Messages (oldest first)."""
+        from ...providers.base import Message
 
         messages: list = []
         for item in self.load_chat():
             role = item.get("role")
             content = item.get("content", "")
             if role == "user":
-                messages.append(HumanMessage(content=content))
+                messages.append(Message(role="user", content=content))
             elif role == "assistant":
-                messages.append(AIMessage(content=content))
+                messages.append(Message(role="assistant", content=content))
         return messages
