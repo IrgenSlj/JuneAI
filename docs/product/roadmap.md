@@ -110,10 +110,14 @@ differentiators below — this is keeping the spine honest, not adding scope.
    single-user loopback case. CORS blocks cross-origin reads; Host validation
    blocks DNS-rebinding. A rebinding request carries the attacker domain in Host
    and is rejected 400.
-5. **PWA-in-dev verification (needs a browser).** Confirm `devOptions.enabled =
-   true` does not serve stale assets via the service worker during development;
-   document the trade-off or gate it behind a flag. Requires driving a real
-   browser to observe service-worker caching.
+5. **[SHIPPED] PWA-in-dev verification.** Verified safe by inspecting the
+   generated dev service worker (`dev-dist/sw.js`): it precaches only the
+   navigation shell (`"/"`), not the client JS/CSS bundles, so Vite serves
+   modules fresh and HMR is unaffected. `registerType: "autoUpdate"` runs
+   skipWaiting + clientsClaim + cleanupOutdatedCaches, so the one cached shell
+   self-updates (worst case: a single full reload of `/` serves the prior shell
+   before the new SW takes over). No flag/gate needed; rationale recorded in
+   `apps/web/vite.config.ts`.
 
 ## Next Track — Tier 2: Differentiators
 

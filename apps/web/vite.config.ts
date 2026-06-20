@@ -51,6 +51,14 @@ export default defineConfig({
         // shell and hit the network.
         navigateFallbackDenylist: [/^\/api\//],
       },
+      // PWA enabled in dev so the service worker can be exercised locally.
+      // Verified safe for HMR: the generated dev SW (dev-dist/sw.js) precaches
+      // only the navigation shell ("/") — not the client JS/CSS bundles — so
+      // Vite still serves modules fresh and hot-reload is unaffected. With
+      // registerType "autoUpdate" the SW runs skipWaiting + clientsClaim +
+      // cleanupOutdatedCaches, so that single cached shell self-updates; at
+      // worst one full reload of "/" can serve the prior shell before the new
+      // SW takes over. dev-dist/ is gitignored.
       devOptions: {
         enabled: true,
         suppressWarnings: true,
