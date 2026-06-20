@@ -94,9 +94,28 @@ def _egress_blocked() -> bool:
         return False
 
 
+def _quiet_transformers() -> None:
+    """Silence transformers' weight-load report and tqdm progress bar.
+
+    The sentence-transformer load otherwise prints a "BertModel LOAD REPORT"
+    with a scary-looking but benign "UNEXPECTED embeddings.position_ids" line,
+    plus a progress bar, to stderr on every cold load — noise in the API logs
+    for an app that values clean, glass-box output. Best-effort; transformers
+    internals vary by version.
+    """
+    try:
+        from transformers.utils import logging as hf_logging
+
+        hf_logging.set_verbosity_error()
+        hf_logging.disable_progress_bar()
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _build_embedder(local_files_only: bool) -> Any:
     from chromadb.utils import embedding_functions  # heavy import — deferred
 
+    _quiet_transformers()
     return embedding_functions.SentenceTransformerEmbeddingFunction(
         model_name=_MODEL_NAME,
         local_files_only=local_files_only,

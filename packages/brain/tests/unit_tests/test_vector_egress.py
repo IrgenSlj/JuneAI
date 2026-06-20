@@ -180,3 +180,16 @@ def test_delete_local_only_degrades_shadow_removed(tmp_path, monkeypatch):
 
     # Shadow row must be gone.
     assert store.get(fact_id) is None
+
+
+# ---------------------------------------------------------------------------
+# Test 7: the embedder load quiets transformers' console noise
+# ---------------------------------------------------------------------------
+
+
+def test_quiet_transformers_sets_error_verbosity():
+    # Best-effort and version-tolerant: it must never raise.
+    vector._quiet_transformers()
+    from transformers.utils import logging as hf_logging
+
+    assert hf_logging.get_verbosity() >= hf_logging.ERROR
