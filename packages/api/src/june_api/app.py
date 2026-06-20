@@ -17,6 +17,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from june_brain.activity import ActivityLog
 from june_brain.config_store import apply_stored_config_to_env
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .middleware.auth import api_key_middleware
 from .schemas import ChatEvent, RecallHit, TaskEventFrame, TaskStepView
@@ -59,6 +60,26 @@ def _cors_origins() -> list[str]:
         "tauri://localhost",
         "capacitor://localhost",
     ]
+
+
+def _allowed_hosts() -> list[str]:
+    """Host-header allowlist — the DNS-rebinding defense for the loopback API.
+
+    A malicious site cannot read our responses cross-origin (CORS handles that),
+    but a DNS-rebinding attack can make the browser treat an attacker domain as
+    same-origin against 127.0.0.1. Validating the Host header closes that: a
+    rebinding request still carries the attacker's domain in Host and is
+    rejected here.
+
+    Default covers the loopback names plus ``testserver`` (the in-process
+    Starlette TestClient host — unreachable by any browser, so safe to allow).
+    Override with ``JUNE_API_ALLOWED_HOSTS`` (comma-separated) when deploying
+    behind a real domain; set it to ``*`` to disable host checking.
+    """
+    raw = os.getenv("JUNE_API_ALLOWED_HOSTS", "").strip()
+    if raw:
+        return [h.strip() for h in raw.split(",") if h.strip()]
+    return ["localhost", "127.0.0.1", "testserver"]
 
 
 def _maybe_warm_local_model() -> None:
@@ -151,6 +172,10 @@ def create_app() -> FastAPI:
         allow_credentials=False,
         allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
+    )
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=_allowed_hosts(),
     )
 
     @app.middleware("http")
