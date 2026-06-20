@@ -26,9 +26,9 @@ This directory is the documentation root. Everything you need to understand, con
 - [**Roadmap**](product/roadmap.md) — what ships next, sequencing the build spec
 - [**Architecture overview**](architecture/overview.md) — how the system is layered
 - [**Architecture decisions**](decisions/README.md) — the ADRs that justify the design
+- [**Rebuild plan**](product/rebuild-plan.md) — the current reshape + targeted rewrite (wins for the rebuild's duration)
 - [**Experiments**](experiments/loop-clear.md) — CLEAR measurements (e.g. loop engine)
-- [**Desktop shell plan**](product/desktop-shell-plan.md) — status and remaining distribution work
-- [**Responsive and touch plan**](product/responsive-plan.md) — the UI on every screen size
+- [**Archived plans**](archive/INDEX.md) — superseded planning docs, kept for history
 - [**Environment**](setup/environment.md) — runtime configuration reference
 - [**Desktop setup**](setup/desktop.md) — Rust toolchain, run/build commands for the desktop shell
 - [**Design brief**](design/claude-design-prompt.md) — the prompt for iterating on June's UI
@@ -40,12 +40,10 @@ docs/
 ├── vision.md                      # product north star
 ├── product/
 │   ├── build-spec.md              # canonical, decision-by-decision build plan
+│   ├── rebuild-plan.md            # current reshape + targeted rewrite (wins for the rebuild)
 │   ├── overview.md                # what June is
-│   ├── roadmap.md                 # Tier 1/2/3, sequences the build spec
-│   ├── desktop-shell-plan.md      # status plan for the Tauri desktop shell
-│   ├── responsive-plan.md         # touch and tablet hardening
-│   └── (historical) agentic-pivot-plan.md, personal-operating-layer-research.md,
-│                    memory-skills-plan.md, open-source-readiness-plan.md
+│   └── roadmap.md                 # Tier 1/2/3, sequences the build spec
+├── archive/                       # superseded plans, kept for history (see INDEX.md)
 ├── plans/
 │   └── personal-assistant-framework.md   # (historical) scheduler/notification components
 ├── architecture/

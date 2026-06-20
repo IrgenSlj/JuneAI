@@ -1,6 +1,6 @@
 # Desktop Shell Setup
 
-This file documents how to run, build, and develop the June desktop shell at `apps/desktop/`. The shell is a Tauri 2.x wrapper around the SvelteKit build that already powers the PWA. The strategic plan lives in [`docs/product/desktop-shell-plan.md`](../product/desktop-shell-plan.md); this doc is the operational reference.
+This file documents how to run, build, and develop the June desktop shell at `apps/desktop/`. The shell is a Tauri 2.x wrapper around the SvelteKit build that already powers the PWA. The original strategic plan is archived at [`docs/archive/desktop-shell-plan.md`](../archive/desktop-shell-plan.md); current distribution direction is rebuild plan S8. This doc is the operational reference.
 
 ## Prerequisites
 
@@ -118,6 +118,6 @@ If any of the above doesn't work on your machine, the most likely cause is a mis
 | 2. Capability layer | Shipped |
 | 3. Ollama supervision | Shipped (bootstrap opens OS installer URL; in-process download deferred to 3.5) |
 | 4. Native affordances | Shipped (hidden-inset title bar deferred to 4.5) |
-| 5. Touch + responsive hardening | Backlog — see [responsive-plan.md](../product/responsive-plan.md) |
+| 5. Touch + responsive hardening | Backlog — see [responsive-plan.md](../archive/responsive-plan.md) |
 | 6. Distribution | Partial — v0.1.0 Apple Silicon DMG published; signing/notarization pending |
 | 7. Migration + polish | Backlog |
