@@ -57,6 +57,10 @@ class ContextAssembler:
         self._tools_block = tools_block
         self._reason = reason
 
+    def set_reason(self, reason: bool) -> None:
+        """Per-turn override of the reasoning instruction (difficulty-gated)."""
+        self._reason = reason
+
     def assemble(self, session: object, user_msg: Message) -> list[Message]:
         """Return the ordered context list, trimming oldest raw turns to fit budget."""
         fixed: list[Message] = []

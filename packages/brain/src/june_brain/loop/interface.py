@@ -57,6 +57,11 @@ class TurnProvenance:
     # local, but these tools sent data off the machine — surfaced separately
     # from cloud_call so local-only egress is never silent.
     egress: list[str] = field(default_factory=list)
+    # Difficulty classification that drove routing + reasoning gating (S4):
+    # the label (trivial/standard/hard/creative) and whether it came from the
+    # model classifier, its cache, or the heuristic fallback.
+    difficulty: str = ""
+    difficulty_source: str = ""
 
 
 @dataclass

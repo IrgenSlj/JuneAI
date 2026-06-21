@@ -56,14 +56,23 @@ class HandwrittenLoop:
             Callable[[list[ToolCall], SessionState], Awaitable[list[Message]]] | None
         ) = None,
         maybe_compact: Callable[[SessionState], Awaitable[bool]] | None = None,
+        classify: Callable[[str], Awaitable[Any]] | None = None,
         max_iterations: int = 6,
     ) -> None:
         self._registry = registry if registry is not None else get_registry()
         self._role = role
+        # Difficulty classifier seam: defaults to the registry-backed model
+        # classifier; injectable so tests with scripted provider responses are
+        # not perturbed by the routing classification call.
+        self._classify = classify
 
         # --- recall state (shared mutable dict populated by each assemble call) ---
         self._recall_state: dict[str, Any] = {"memories_recalled": 0, "recall_hits": []}
 
+        # The real assembler instance (None when assemble_context is injected),
+        # so reasoning can be gated per turn via set_reason without changing the
+        # injected callable's signature.
+        self._assembler: ContextAssembler | None = None
         if assemble_context is not None:
             self._assemble_context = assemble_context
             self._recall_state_external = True  # caller owns recall tracking
@@ -85,8 +94,9 @@ class HandwrittenLoop:
                 character_block=character_block,
                 recall=recall_fn,
                 tools_block=make_tools_block(),
-                reason=True,
+                reason=False,  # gated per turn by difficulty (S4.3)
             )
+            self._assembler = _assembler
             self._assemble_context = _assembler.assemble
 
         # --- tool-call extraction ---
@@ -150,15 +160,34 @@ class HandwrittenLoop:
         self._recall_state["memories_recalled"] = 0
         self._recall_state["recall_hits"] = []
 
-    def _route_provider(self, user_msg: Message) -> tuple[Any, str]:
+    async def _route(self, user_msg: Message) -> tuple[Any, str, Any]:
         """Difficulty-based role/tier routing with registry fallback.
 
-        Returns (provider, chosen_role).
+        Classifies difficulty with the model classifier (cached, time-boxed,
+        heuristic fallback), picks the tier, and resolves the provider.
+        Returns (provider, chosen_role, DifficultyResult).
         """
-        try:
-            from june_brain.router.difficulty import heuristic_difficulty, tier_for_difficulty
+        from june_brain.router.difficulty import (
+            DifficultyResult,
+            classify_difficulty_detailed,
+            heuristic_difficulty,
+            tier_for_difficulty,
+        )
 
-            routed_role = tier_for_difficulty(heuristic_difficulty(user_msg.content))
+        try:
+            if self._classify is not None:
+                difficulty = await self._classify(user_msg.content)
+            else:
+                difficulty = await classify_difficulty_detailed(
+                    user_msg.content, registry=self._registry
+                )
+        except Exception:
+            difficulty = DifficultyResult(
+                heuristic_difficulty(user_msg.content), "heuristic"
+            )
+
+        try:
+            routed_role = tier_for_difficulty(difficulty.label)
         except Exception:
             routed_role = self._role
 
@@ -169,7 +198,16 @@ class HandwrittenLoop:
             provider = self._registry.get(self._role)
             chosen_role = self._role
 
-        return provider, chosen_role
+        return provider, chosen_role, difficulty
+
+    def _apply_reason(self, label: str) -> None:
+        """Gate the <think> reasoning instruction by difficulty.
+
+        Trivial/standard turns skip the thinking pass (latency win); hard and
+        creative keep it. No-op when the assembler is injected (tests own it).
+        """
+        if self._assembler is not None:
+            self._assembler.set_reason(label in ("hard", "creative"))
 
     def _build_provenance(
         self,
@@ -178,8 +216,11 @@ class HandwrittenLoop:
         all_tool_calls: list[ToolCall],
         start_time: float,
         tokens: TokenAccounting,
+        difficulty: Any = None,
     ) -> TurnProvenance:
         """Build TurnProvenance from accumulated state."""
+        difficulty_label = getattr(difficulty, "label", "") or ""
+        difficulty_source = getattr(difficulty, "source", "") or ""
         memories_recalled = self._recall_state.get("memories_recalled", 0)
         skills_called = list(self._dispatched_names)
         egress = list(dict.fromkeys(self._network_calls))  # de-dupe, keep order
@@ -204,6 +245,10 @@ class HandwrittenLoop:
             )
             cloud_payload_summary = None
 
+        if difficulty_label:
+            src = f" via {difficulty_source}" if difficulty_source else ""
+            rationale = f"{rationale} Difficulty: {difficulty_label}{src}."
+
         return TurnProvenance(
             tiers_used=[chosen_role],
             cloud_call=is_cloud,
@@ -214,6 +259,8 @@ class HandwrittenLoop:
             rationale=rationale,
             cloud_payload_summary=cloud_payload_summary,
             egress=egress,
+            difficulty=difficulty_label,
+            difficulty_source=difficulty_source,
         )
 
     # ------------------------------------------------------------------
@@ -225,7 +272,8 @@ class HandwrittenLoop:
         _start = time.monotonic()
 
         self._reset_per_turn()
-        provider, chosen_role = self._route_provider(user_msg)
+        provider, chosen_role, difficulty = await self._route(user_msg)
+        self._apply_reason(difficulty.label)
 
         tokens = TokenAccounting()
         all_tool_calls: list[ToolCall] = []
@@ -253,7 +301,9 @@ class HandwrittenLoop:
         assert last_result is not None
         compacted = await self._maybe_compact(session)
 
-        provenance = self._build_provenance(provider, chosen_role, all_tool_calls, _start, tokens)
+        provenance = self._build_provenance(
+            provider, chosen_role, all_tool_calls, _start, tokens, difficulty
+        )
 
         _, answer_text = split_reasoning(last_result.text)
 
@@ -278,7 +328,7 @@ class HandwrittenLoop:
         trace = TurnTrace(turn_id=uuid.uuid4().hex, user_id=session.user_id)
         block_egress = self._egress_blocked()
         try:
-            provider, chosen_role = self._route_provider(user_msg)
+            provider, chosen_role, difficulty = await self._route(user_msg)
         except Exception:
             # Graceful degradation: no provider found
             yield StreamEvent(type="token", content="error: no provider available")
@@ -287,8 +337,13 @@ class HandwrittenLoop:
             yield StreamEvent(type="done")
             return
 
+        self._apply_reason(difficulty.label)
+
         route_summary = f"route -> {chosen_role} ({provider.model_id})"
-        route_detail = f"tier: {provider.tier}\nmodel: {provider.model_id}\nrole: {chosen_role}"
+        route_detail = (
+            f"tier: {provider.tier}\nmodel: {provider.model_id}\nrole: {chosen_role}\n"
+            f"difficulty: {difficulty.label} ({difficulty.source})"
+        )
         yield StreamEvent(type="iteration", content=route_summary, detail=route_detail)
         trace.record("iteration", route_summary, detail=route_detail)
 
@@ -551,7 +606,9 @@ class HandwrittenLoop:
                 detail="History compacted into the pinned-state anchor.",
             )
 
-        provenance = self._build_provenance(provider, chosen_role, all_tool_calls, _start, tokens)
+        provenance = self._build_provenance(
+            provider, chosen_role, all_tool_calls, _start, tokens, difficulty
+        )
         yield StreamEvent(type="provenance", provenance=provenance)
         trace.record(
             "provenance",

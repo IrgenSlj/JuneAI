@@ -458,12 +458,20 @@ def test_provenance_skills_called_populated(monkeypatch: pytest.MonkeyPatch) -> 
 
     reg = _registry_with("local-fast", TwoPassProvider())
 
-    # Use the default extract + dispatch so the wiring is real
+    async def _fixed_classify(_text: str):
+        from june_brain.router.difficulty import DifficultyResult
+
+        return DifficultyResult("standard", "heuristic")
+
+    # Use the default extract + dispatch so the wiring is real. Inject a fixed
+    # classifier so the routing classification doesn't consume a scripted
+    # provider response.
     loop = HandwrittenLoop(
         registry=reg,
         role="local-fast",
         assemble_context=lambda s, m: [m],
         maybe_compact=_noop_compact,
+        classify=_fixed_classify,
     )
     session = SessionState(user_id="skills-user", messages=[])
     result: TurnResult = asyncio.run(
