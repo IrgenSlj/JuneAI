@@ -26,7 +26,7 @@ the C.0-C.6 decisions remain authoritative.
 **Audience:** Claude Code. **Purpose:** everything needed to start implementing today.
 **Repo:** `IrgenSlj/JuneAI` — local-first personal AI agent. Brain = Python/LangGraph in
 `packages/brain`; API = FastAPI (REST + SSE) in `packages/api`; UI = SvelteKit in `apps/web` +
-`packages/ui`; skills = MCP servers in `skills/`. Stores: SQLite + ChromaDB + a graph, behind one
+`packages/ui`; skills = MCP servers in `skills/`. Stores: one SQLite db (structured rows + a sqlite-vec vector index + a graph), behind one
 `MemoryManager`. Gate: `./tools/check.sh` (pytest, svelte-check, OpenAPI drift). Codegen:
 `./tools/codegen.sh` after any Pydantic schema/route change.
 
@@ -159,7 +159,7 @@ config (e.g. `~/.june/` or an OS app-data path).
 ```
 <datadir>/
   manifest.json            # {schema_version, created_at, june_version, contents[]}
-  memory/                  # SQLite db + ChromaDB store + graph
+  memory/                  # one SQLite june.db: facts + sqlite-vec vectors + graph
   character/persona.json   # CharacterBlock (C.5)
   skills/                  # installed skill configs
   tasks/ledger.jsonl       # append-only event ledger (D.5)
@@ -347,7 +347,7 @@ synthetic 100-turn session; compaction merges (doesn't blank) existing pinned fi
 **Score.**
 ```python
 def salience(mem, now, query_embedding, weights) -> float:
-    relevance = cosine(mem.embedding, query_embedding)              # 0..1 (ChromaDB)
+    relevance = cosine(mem.embedding, query_embedding)              # 0..1 (sqlite-vec)
     recency   = exp(-LAMBDA * hours_since(mem.last_accessed, now))  # 0..1 decay
     frequency = log1p(mem.access_count) / log1p(MAX_ACCESS)         # 0..1 normalized
     return weights.rel*relevance + weights.rec*recency + weights.freq*frequency
@@ -570,7 +570,7 @@ not an always-pulsing dashboard.
 | **Client-side encryption (Mode 2)** | **vetted lib: Python `cryptography`, Web Crypto API** | **Justified — the ONE thing never hand-rolled** |
 | Key storage (Mode 2) | OS keychain + portability passphrase | platform keychain |
 | Google APIs (Mode 3) | official Google client libs, per-service, opt-in | **Justified, gated, revocable** |
-| Memory stores | Existing SQLite + ChromaDB + graph | already present |
+| Memory stores | Existing SQLite (+ sqlite-vec) + graph | already present |
 | Obsidian | **Dropped** (replaced by native graph D.6) | **Removed** |
 
 **Crypto rule:** never hand-roll encryption — the single exception to "implement customly."

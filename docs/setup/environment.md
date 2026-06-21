@@ -11,7 +11,7 @@ This file is the canonical reference for June's runtime configuration. Per [ADR 
 | `OLLAMA_BASE_URL` | No | `http://localhost:11434/v1` | Base URL for the local Ollama server |
 | `GEMINI_API_KEY` | For `gemini` | — | API key from https://aistudio.google.com |
 | `GEMINI_MODEL` | No | `gemini-2.0-flash` | Gemini model identifier |
-| `JUNE_DATA_DIR` | No | platform default | Directory for `june.db` and ChromaDB index |
+| `JUNE_DATA_DIR` | No | platform default | Directory for `june.db` (facts + sqlite-vec vectors + graph) |
 | `JUNE_LOG_DIR` | No | platform default | Directory for structured logs |
 | `MODEL_TEMPERATURE` | No | `0.4` | Applied to both providers |
 | `MODEL_MAX_TOKENS` | No | `4096` | Applied to both providers |

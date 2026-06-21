@@ -24,7 +24,7 @@ Status progression:
 | [0001](0001-monorepo-structure.md) | Monorepo structure with apps/packages/skills separation | Accepted |
 | [0002](0002-gemma-gemini-only.md) | Gemma 4 and Gemini as the only supported models | Accepted |
 | [0003](0003-streamlit-to-sveltekit.md) | Retire Streamlit, adopt SvelteKit frontend over FastAPI | Accepted |
-| [0004](0004-memory-architecture.md) | SQLite for structured memory, ChromaDB for semantic recall | Accepted |
+| [0004](0004-memory-architecture.md) | SQLite for structured memory, ChromaDB for semantic recall | Vector backend superseded by ADR 0019 |
 | [0005](0005-skills-as-mcp.md) | Skills as Model Context Protocol servers | Accepted |
 | [0006](0006-desktop-and-mobile-shells.md) | Tauri for desktop, Capacitor for mobile | Accepted |
 | [0007](0007-sse-over-websockets.md) | SSE over WebSockets for chat streaming | Accepted |
@@ -39,3 +39,4 @@ Status progression:
 | [0016](0016-event-driven-no-heartbeat.md) | Event-driven proactivity; no heartbeat-as-cron | Accepted |
 | [0017](0017-model-specific-provider-layer.md) | Model-specific provider layer (Gemma 4 + Gemini), roles from config | Accepted |
 | [0018](0018-one-loop-engine.md) | One loop engine (hand-written); LangGraph engine removed | Accepted |
+| [0019](0019-single-engine-storage-sqlite-vec.md) | Single-engine storage (sqlite-vec) + Ollama-served embeddings | Accepted |

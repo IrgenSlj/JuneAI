@@ -95,8 +95,7 @@ harness is tuned for its model, because abstraction would block that tuning.
 
 ## Memory Model
 
-Three stores, one facade (`MemoryManager`): SQLite for deterministic rows, ChromaDB
-for semantic recall, a graph for entities and relationships. Recall is ranked by
+Three stores, one facade (`MemoryManager`), all in one SQLite `june.db`: structured rows, a sqlite-vec index for semantic recall, and a graph for entities and relationships (ADR 0019). Recall is ranked by
 *salience*, not similarity alone. The pinned state is a small structured anchor
 (goal, constraints, confirmed facts, open questions) that compaction merges into,
 so trimming a long conversation never drops a commitment. Forgetting (Tier 2) is

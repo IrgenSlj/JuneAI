@@ -24,7 +24,7 @@ The four inversions of a coding agent (ADR 0015) define her:
 
 ## Repo layout
 
-Monorepo. `packages/brain` (Python "Brain": loop, providers, memory, context, character, router, scheduler, skills), `packages/api` (FastAPI REST+SSE), `packages/ui` + `apps/web` (SvelteKit PWA), `apps/desktop` (Tauri shell), `skills/` (MCP servers). Stores: SQLite + ChromaDB + a graph behind one `MemoryManager`, under `<datadir>/memory/`.
+Monorepo. `packages/brain` (Python "Brain": loop, providers, memory, context, character, router, scheduler, skills), `packages/api` (FastAPI REST+SSE), `packages/ui` + `apps/web` (SvelteKit PWA), `apps/desktop` (Tauri shell), `skills/` (MCP servers). Stores: one SQLite `june.db` (structured rows + a sqlite-vec vector index + a graph) behind one `MemoryManager`, under `<datadir>/memory/` (ADR 0019); embeddings via local Ollama.
 
 The brain's harness loop lives in `packages/brain/src/june_brain/loop/`. The hand-written loop (`handwritten.py`) is the one engine and the live chat path (ADR 0018; the LangGraph engine and its flags were removed in the rebuild). Loop choices (tier, tools) flow as data through a fixed shape; the shape itself is never self-modified. Tools use June's own abstraction in `tools_base.py` (no LangChain).
 

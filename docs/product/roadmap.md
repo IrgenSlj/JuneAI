@@ -37,7 +37,7 @@ brain without a separately-started process) remains open.
 
 ### Brain, memory, skills
 
-Three-store memory (SQLite + ChromaDB + graph) behind one `MemoryManager`; MCP skill
+Three-store memory (one SQLite db: structured rows + a sqlite-vec vector index + a graph) behind one `MemoryManager`; MCP skill
 supervisor with bundled skills; scheduler and notification bus. The Tier 1 spine
 (below) is built: model-specific providers, salience recall, layered context with
 anchored compaction, the honest character block, and per-turn provenance with a
@@ -94,7 +94,7 @@ differentiators below — this is keeping the spine honest, not adding scope.
    (`all-MiniLM-L6-v2`) pinged the HF Hub on every load and could download
    silently. Now loaded with `local_files_only=True` once cached (never contacts
    the Hub), and in Local-only mode an uncached model disables semantic recall
-   instead of egressing — structured memory still works. Tested.
+   instead of egressing — structured memory still works. Tested. (Moot since ADR 0019: the in-process sentence-transformer is gone; embeddings now come from local Ollama.)
 2. **[SHIPPED] First-token latency UX.** The pre-first-token wait hint now reads
    "Thinking locally…" when the runtime is on-device, surfacing the privacy story
    at the moment of doubt. (Tier-routing of quick factual turns to a faster model

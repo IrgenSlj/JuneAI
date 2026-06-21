@@ -51,7 +51,7 @@ folder," and "reload" is "read the manifest and rehydrate."
 ```
 <datadir>/
   manifest.json            # {schema_version, created_at, june_version, contents[]}
-  memory/                  # SQLite db + ChromaDB store + graph
+  memory/                  # one SQLite june.db: facts + sqlite-vec vectors + graph
   character/persona.json   # the character block
   skills/                  # installed skill configs
   tasks/ledger.jsonl       # append-only event ledger (Tier 2)
@@ -207,7 +207,7 @@ turn emits provenance (tiers, cloud y/n + payload summary,
                         memories recalled, skills, rationale)
         │
         ▼
-post-turn: MemoryManager.extract → sqlite / chromadb / graph
+post-turn: MemoryManager.extract → sqlite / sqlite-vec / graph
 ```
 
 ## Where User Data Lives

@@ -1,8 +1,9 @@
 """June's memory system — three complementary stores behind one facade.
 
-Per ADR 0004:
+Per ADR 0004 (vector backend updated by ADR 0019 — one SQLite engine):
 - ``Memory`` — SQLite, structured domain tables (goals, journal, body, …)
-- ``VectorStore`` — ChromaDB, semantic recall via a local embedder
+- ``VectorStore`` — sqlite-vec (vec0) index in the same june.db, semantic
+  recall via Ollama-served embeddings
 - ``KnowledgeGraph`` — SQLite graph tables (nodes + edges), entity/relation memory
 - ``MemoryManager`` — the facade that recalls across all three and
   extracts new memory from each exchange

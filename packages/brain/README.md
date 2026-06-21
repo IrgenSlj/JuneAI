@@ -22,7 +22,7 @@ memory = MemoryManager(user_id="me")
 hits = memory.recall("what did I say about ramen", k=5)
 ```
 
-The three stores (`Memory` for SQLite, `VectorStore` for ChromaDB, `KnowledgeGraph` for entities) live behind `MemoryManager`. Direct access is available for scripts and migrations — see `packages/brain/src/june_brain/memory/`.
+The three stores (`Memory` for SQLite rows, `VectorStore` for the sqlite-vec index, `KnowledgeGraph` for entities), all in one `june.db`, live behind `MemoryManager`. Direct access is available for scripts and migrations — see `packages/brain/src/june_brain/memory/`.
 
 ## See Also
 

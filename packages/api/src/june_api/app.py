@@ -133,9 +133,9 @@ def _raise_fd_limit() -> None:
     """Raise the open-file (descriptor) soft limit so long sessions don't hit
     EMFILE ("Too many open files").
 
-    June legitimately holds many descriptors at once: ChromaDB index files,
-    per-worker-thread SQLite WAL connections, model/embedding files, and
-    keepalive sockets to Ollama. macOS ships a low default soft limit (often
+    June legitimately holds many descriptors at once: per-worker-thread SQLite
+    WAL connections (now also holding the sqlite-vec index), the embedding
+    cache, and keepalive sockets to Ollama. macOS ships a low default soft limit (often
     256), which a busy session can brush against — a burst (streaming + the
     fire-and-forget activity writes + a config save) then tips it over.
 

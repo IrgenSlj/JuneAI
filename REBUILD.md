@@ -41,11 +41,12 @@ Baseline: tag `v0.2.0-prereshape`, metrics in
 - [x] S1 ADR 0018 — One loop engine
 
 ### S2 — One storage engine: ChromaDB -> sqlite-vec  (ADR 0019)
-- [ ] S2.1 Add sqlite-vec; implement store_vector.py (same interface, vec0 table)
-- [ ] S2.2 Embedding provider via Ollama /api/embed + hash cache + keyword fallback
-- [ ] S2.3 Migration tools/migrate_chroma_to_sqlitevec.py (auto on first start)
-- [ ] S2.4 Remove chromadb + sentence-transformers; re-lock; record install delta
-- [ ] S2.5 ADR 0019 — Single-engine storage + Ollama embeddings
+- [x] S2.1 Add sqlite-vec; vec_index.py (vec0 load/upsert/KNN/delete) + extension loading + embedding_cache
+- [x] S2.2 EmbeddingService (Ollama /api/embed via GemmaProvider.embed) + hash cache + degrade
+- [x] S2.3 Swap VectorStore onto vec0 + EmbeddingService; rewrite test embedder contract
+- [x] S2.4 Migration: manifest v1->v2 chroma archival + vec backfill + tools/migrate_chroma_to_sqlitevec.py
+- [x] S2.5 Remove chromadb + sentence-transformers; re-lock; venv 1.3G -> 653M (~647M freed)
+- [x] S2.6 ADR 0019 — Single-engine storage + Ollama embeddings; purge stale ChromaDB doc claims
 
 ### S3 — Decompose the memory god module
 - [x] S3.1 Extract paraphrase.py, writers.py, recall.py, extractor.py from manager.py

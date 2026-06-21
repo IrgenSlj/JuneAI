@@ -39,7 +39,7 @@ def manifest_path() -> Path:
 
 
 def memory_dir() -> Path:
-    """Directory for SQLite db, ChromaDB store, and graph."""
+    """Directory for the june.db SQLite store (facts + vec0 vectors + graph)."""
     return _root() / "memory"
 
 

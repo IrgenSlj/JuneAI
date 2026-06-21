@@ -67,7 +67,7 @@ shouldn't have to. Five principles are enforced in code, not just promised:
 On `main` today:
 
 - **Memory that remembers what matters.** Three stores behind one `MemoryManager`
-  — SQLite facts, [ChromaDB](https://www.trychroma.com) semantic recall, and an
+  — SQLite facts, a sqlite-vec semantic index, and an
   entity graph. Recall is ranked by *salience* (recency × frequency × relevance),
   not similarity alone. Browse, search, edit, and forget anything at `/memory`.
 - **A visible cloud boundary.** Every turn carries a provenance line — which model
@@ -183,7 +183,7 @@ JuneAI/
 ## Tech stack
 
 - **Brain:** Python with a hand-written harness loop (one engine, no agent
-  framework — see ADR 0018), three-store memory (SQLite + ChromaDB + a graph),
+  framework — see ADR 0018), three-store memory (one SQLite db: structured rows + a sqlite-vec vector index + a graph),
   and a model-specific provider layer (Gemma 4 + Gemini).
 - **API:** [FastAPI](https://fastapi.tiangolo.com) with SSE streaming. Pydantic
   schemas are the single source of truth; the TypeScript client is generated
