@@ -252,3 +252,50 @@ def set_privacy_dial(dial) -> Path:  # type: ignore[no-untyped-def]
     stored = load_stored_config()
     stored.privacy_dial = dial.value
     return save_stored_config(stored)
+
+
+_SALIENCE_KEYS = ("rel", "rec", "freq")
+
+
+def get_salience_weights() -> dict[str, float]:
+    """Read runtime salience weights from config.json (empty when unset).
+
+    Keys: ``rel``, ``rec``, ``freq``. These are the user-tunable recall weights
+    (S5.4); ``SalienceWeights.load`` layers them over env and defaults.
+    """
+    path = config_path()
+    if not path.exists():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, float] = {}
+    for key in _SALIENCE_KEYS:
+        value = raw.get(f"salience_{key}")
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            out[key] = float(value)
+    return out
+
+
+def set_salience_weights(
+    *, rel: float | None = None, rec: float | None = None, freq: float | None = None
+) -> Path:
+    """Persist salience weights into config.json, merging with existing config."""
+    path = config_path()
+    raw: dict[str, object] = {}
+    if path.exists():
+        try:
+            parsed = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(parsed, dict):
+                raw = parsed
+        except (OSError, json.JSONDecodeError):
+            raw = {}
+    for key, value in (("rel", rel), ("rec", rec), ("freq", freq)):
+        if value is not None:
+            raw[f"salience_{key}"] = float(value)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(raw, indent=2, sort_keys=True), encoding="utf-8")
+    return path

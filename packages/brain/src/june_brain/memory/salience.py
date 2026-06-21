@@ -40,6 +40,34 @@ class SalienceWeights:
         freq = float(os.environ.get("JUNE_SALIENCE_FREQ", "0.15"))
         return cls(rel=rel, rec=rec, freq=freq)
 
+    @classmethod
+    def load(cls) -> SalienceWeights:
+        """Resolve weights with precedence env > config store > default (S5.4).
+
+        Runtime-tunable: the config store is written by the settings surface, so
+        re-tuning takes effect on the next recall without a restart. An explicit
+        ``JUNE_SALIENCE_*`` env var still wins (deploy/test override).
+        """
+        try:
+            from june_brain.config_store import get_salience_weights
+
+            cfg = get_salience_weights()
+        except Exception:  # noqa: BLE001 — config is a convenience layer
+            cfg = {}
+
+        def pick(env_key: str, cfg_key: str, default: float) -> float:
+            if env_key in os.environ:
+                return float(os.environ[env_key])
+            if cfg_key in cfg:
+                return cfg[cfg_key]
+            return default
+
+        return cls(
+            rel=pick("JUNE_SALIENCE_REL", "rel", 0.6),
+            rec=pick("JUNE_SALIENCE_REC", "rec", 0.25),
+            freq=pick("JUNE_SALIENCE_FREQ", "freq", 0.15),
+        )
+
 
 def relevance_from_distance(distance: float | None) -> float:
     """Convert a cosine distance (lower = closer) to a 0..1 relevance score."""

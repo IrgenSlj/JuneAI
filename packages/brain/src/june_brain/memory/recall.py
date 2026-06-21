@@ -215,7 +215,7 @@ def _salience_rerank(
     semantic_facts shadow row, compute the salience score, sort DESC, take
     top-k, then UPDATE each returned row's access counters.
     """
-    weights = SalienceWeights.from_env()
+    weights = SalienceWeights.load()
     conn = _get_connection(_db_path())
     now = datetime.now()
 
