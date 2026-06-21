@@ -48,8 +48,12 @@ Baseline: tag `v0.2.0-prereshape`, metrics in
 - [ ] S2.5 ADR 0019 — Single-engine storage + Ollama embeddings
 
 ### S3 — Decompose the memory god module
-- [ ] S3.1 Extract paraphrase.py, writers.py, recall.py, extractor.py from manager.py
-- [ ] S3.2 No behavior change; manager.py < 250 ln tripwire test
+- [x] S3.1 Extract paraphrase.py, writers.py, recall.py, extractor.py from manager.py
+  - [x] S3.1a paraphrase.py (six row renderers + node/edge formatters)
+  - [x] S3.1b recall.py (gather_hits, sqlite keyword scan, salience rerank, feedback helpers)
+  - [x] S3.1c writers.py (nine write paths, vector sync, forget/update, WRITE_HANDLERS)
+  - [x] S3.1d extractor.py (extract pipeline, prompt render, JSON parse, async bridge)
+- [x] S3.2 No behavior change; manager.py 199 ln (< 250 tripwire test)
 
 ### S4 — Router v2, language-aware tokens, gated reasoning
 - [ ] S4.1 context/tokens.py calibrated per-script counter; replace estimate_tokens
