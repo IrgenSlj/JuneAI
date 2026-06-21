@@ -40,3 +40,4 @@ Status progression:
 | [0017](0017-model-specific-provider-layer.md) | Model-specific provider layer (Gemma 4 + Gemini), roles from config | Accepted |
 | [0018](0018-one-loop-engine.md) | One loop engine (hand-written); LangGraph engine removed | Accepted |
 | [0019](0019-single-engine-storage-sqlite-vec.md) | Single-engine storage (sqlite-vec) + Ollama-served embeddings | Accepted |
+| [0020](0020-provider-native-tool-calling.md) | Provider-native structured tool calling, prose-JSON fallback | Accepted |

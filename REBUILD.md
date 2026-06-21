@@ -63,11 +63,11 @@ Baseline: tag `v0.2.0-prereshape`, metrics in
 - [x] S4.4 Provenance carries difficulty + source (rationale + chip); no codegen drift (dict payload)
 
 ### S5 — Structured tool calling + salience tunability  (ADR 0020)
-- [ ] S5.1 providers/base.py tool-call support; Gemma + Gemini native
-- [ ] S5.2 Loop prefers native tool calls; prose JSON fallback retained
-- [ ] S5.3 Reliability harness (10 runs, cv%); record vs baseline (target recall cv < 25%)
-- [ ] S5.4 Runtime-tunable salience weights; settings field + /memory feedback view
-- [ ] S5 ADR 0020 — Provider-native structured tool calling
+- [x] S5.1 providers/base.py ToolSpec/ToolCall + tools/tool_calls; Gemma + Gemini native
+- [x] S5.2 run_turn prefers native tool calls; prose JSON fallback retained (stream_turn = follow-up)
+- [x] S5.3 Reliability harness (experiments/reliability + tools/reliability_harness.py); cv math tested, numbers pending live run
+- [~] S5.4 Salience weights config-backed + env override (brain done); settings form + /memory feedback view = follow-up
+- [x] S5 ADR 0020 — Provider-native structured tool calling (+ scoped follow-ups)
 
 ### S6 — Guard layer  (ADR 0021)
 - [ ] S6.1 guard/framing.py untrusted-content frame + red-team tests
