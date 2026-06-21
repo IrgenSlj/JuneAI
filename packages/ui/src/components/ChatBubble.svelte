@@ -27,7 +27,7 @@
      */
     onVote?: (ref: string, vote: "up" | "down" | "clear") => void | Promise<void>;
     /** Model provenance for this assistant turn. */
-    provenance?: { provider?: string; model?: string; tier?: string; latency_ms?: number; cloud_call?: boolean; cloud_payload_summary?: string; memories_recalled?: number; skills_called?: string[]; rationale?: string };
+    provenance?: { provider?: string; model?: string; tier?: string; latency_ms?: number; cloud_call?: boolean; cloud_payload_summary?: string; memories_recalled?: number; skills_called?: string[]; rationale?: string; difficulty?: string; difficulty_source?: string };
   }
 
   const {
@@ -196,6 +196,10 @@
         <span class="provenance-tier">{provenance!.tier}</span>
         <span class="provenance-sep">·</span>
         <span class="provenance-model">{provenance!.model}</span>
+        {#if provenance!.difficulty}
+          <span class="provenance-sep">·</span>
+          <span class="provenance-difficulty" title={`difficulty classified by ${provenance!.difficulty_source ?? "model"}`}>{provenance!.difficulty}</span>
+        {/if}
         {#if provenance!.latency_ms}
           <span class="provenance-sep">·</span>
           <span class="provenance-latency">{provenance!.latency_ms}ms</span>
@@ -501,6 +505,7 @@
 
   .provenance-tier,
   .provenance-model,
+  .provenance-difficulty,
   .provenance-latency {
     color: var(--color-fg-subtle);
   }

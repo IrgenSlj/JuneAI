@@ -8,7 +8,7 @@ export interface ChatMessage {
   /** Memories June drew on to compose this message. Only set on assistant messages. */
   recallHits?: RecallHit[];
   /** Model provenance for this assistant turn. */
-  provenance?: { provider?: string; model?: string; tier?: string; latency_ms?: number; cloud_call?: boolean; cloud_payload_summary?: string; memories_recalled?: number; skills_called?: string[]; rationale?: string };
+  provenance?: { provider?: string; model?: string; tier?: string; latency_ms?: number; cloud_call?: boolean; cloud_payload_summary?: string; memories_recalled?: number; skills_called?: string[]; rationale?: string; difficulty?: string; difficulty_source?: string };
 }
 
 export interface ActivityStep {

@@ -117,6 +117,8 @@ def _turn_provenance_dict(prov: TurnProvenance) -> dict[str, Any]:
         "skills_called": list(prov.skills_called),
         "rationale": prov.rationale,
         "egress": list(getattr(prov, "egress", []) or []),
+        "difficulty": getattr(prov, "difficulty", "") or "",
+        "difficulty_source": getattr(prov, "difficulty_source", "") or "",
     }
 
 

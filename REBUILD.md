@@ -57,10 +57,10 @@ Baseline: tag `v0.2.0-prereshape`, metrics in
 - [x] S3.2 No behavior change; manager.py 199 ln (< 250 tripwire test)
 
 ### S4 — Router v2, language-aware tokens, gated reasoning
-- [ ] S4.1 context/tokens.py calibrated per-script counter; replace estimate_tokens
-- [ ] S4.2 router/classifier.py model-based (enum, LRU, 300ms timeout, heuristic fallback)
-- [ ] S4.3 Gate `<think>` by difficulty; wire ContextAssembler(reason=...) per turn
-- [ ] S4.4 Provenance shows difficulty + model/fallback (codegen)
+- [x] S4.1 context/tokens.py calibrated per-script counter (Latin/Greek/Cyrillic/CJK); replace estimate_tokens
+- [x] S4.2 difficulty classifier: LRU cache + 300ms timeout + JSON output + source; multilingual heuristic
+- [x] S4.3 Gate `<think>` by difficulty (set_reason per turn); model classifier in loop via injectable seam
+- [x] S4.4 Provenance carries difficulty + source (rationale + chip); no codegen drift (dict payload)
 
 ### S5 — Structured tool calling + salience tunability  (ADR 0020)
 - [ ] S5.1 providers/base.py tool-call support; Gemma + Gemini native
