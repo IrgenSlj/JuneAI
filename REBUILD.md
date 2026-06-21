@@ -11,6 +11,14 @@ Baseline: tag `v0.2.0-prereshape`, metrics in
 (sizing, dependencies, decisions, tomorrow's actions):
 `docs/product/rebuild-sessions.md`.
 
+## Out-of-band work (2026-06-21)
+
+Not part of the numbered slices below — user-driven, all on `main`:
+- Imported the claude.ai design artifact to `docs/design/artifact/` (+ `docs/design/master-brief.md`). The shipped chat surface already realizes the prototype, so no port was needed.
+- Consolidated docs onto this plan: retired `docs/product/build-spec.md` (recoverable from git history), removed `docs/archive/` + `docs/plans/`, purged abandoned-direction copy from live surfaces. `rebuild-plan.md` + this file are the single source of truth; `vision.md` is the durable worldview.
+- Shipped trust/transparency UI (no faked data): System glass-box trace browser (`GET /system/traces`), `GET /system/capability` + verdict table, per-skill declared `model_policy`, light Memory polish.
+- Known follow-up: a chat→trace deep-link needs a `turn_id` on the chat SSE (`done`/`provenance` carry none today). Details in CHANGELOG `[Unreleased]`.
+
 ## Phase 1 — Trust + Distribution
 
 ### S0 — Baseline, branch discipline, tracking

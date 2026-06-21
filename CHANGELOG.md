@@ -31,13 +31,43 @@ day one, provably safe" thesis (`docs/product/rebuild-plan.md`, tracked in
   routing and the difficulty source are visible in the provenance chip. Salience
   recall weights are runtime-tunable via the config store (env override).
 
+### Trust surfaces, design artifact, and repo consolidation (2026-06-21)
+
+- **Glass-box turn-trace browser** on the System page: lists every persisted turn
+  and expands its complete agentic trace — the assembled prompt, each LLM
+  iteration's raw output, the model's reasoning/thinking, every tool call and
+  result, and the cloud-boundary provenance line — wired to the existing
+  `GET /system/traces` / `/system/traces/{turn_id}` via a shared `TraceEventList`
+  component. (The live chat activity terminal already streams these per turn; this
+  makes them persistent and browsable.)
+- **Capability profile exposed**: new `GET /system/capability` (cached accessor —
+  never runs the probe from the request path) renders a plain-language health
+  verdict and a good/weak/poor table on the System page; shows "not yet measured"
+  honestly when no probe has run.
+- **Declared skill policy**: `model_policy` (local_only / cloud_allowed /
+  cloud_required) added to `SkillInfo` + `GET /skills`, shown as a per-skill badge.
+- **Memory page**: light editorial pass — per-section captions, source attribution
+  beside each fact's timestamp, calmer spacing — with no behavioral change.
+- **Repo consolidated onto the rebuild plan**: retired `docs/product/build-spec.md`
+  (its decisions live on in the ADRs and shipped code; recoverable from git
+  history), removed the superseded archived plans (`docs/archive/`, `docs/plans/`),
+  and purged abandoned-direction copy (LangGraph, shopping/chores) from the live
+  System and landing surfaces. `docs/product/rebuild-plan.md` + `REBUILD.md` are now
+  the single working source of truth; `docs/vision.md` holds the durable worldview.
+- **Design system imported**: the realized UI/UX prototype from claude.ai/design at
+  `docs/design/artifact/` (runnable over a static server) with
+  `docs/design/master-brief.md` as the UI/UX + presentation brief. The shipped
+  SvelteKit chat surface was found to already realize the prototype (no port).
+
 ### Removed
 
 - Quick Capture and the personal operating layer (capture classifier, action intents, event ledger, capture box) — superseded by the new direction (ADR 0015). The SQLite tables created by migration v4 are left in place but unused.
 
 ### Added
 
-- **Canonical build specification** (`docs/product/build-spec.md`): June is a
+- **Canonical direction set** (later consolidated into `docs/product/rebuild-plan.md`
+  + `docs/vision.md`; the original `build-spec.md` was retired — see 2026-06-21
+  above): June is a
   personal assistant whose center of gravity is the user, not the task, defined by
   four inversions of a coding agent and built in tiers (Tier 1 spine first). New
   ADRs lock the direction — 0015 (four inversions), 0016 (event-driven, no
