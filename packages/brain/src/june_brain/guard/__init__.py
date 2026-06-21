@@ -9,12 +9,24 @@ result, action classification + approval gates, and skill permission manifests.
 This is the anti-OpenClaw position made real (S6). Start with framing.
 """
 
+from .actions import (
+    ActionClass,
+    classify_action,
+    is_tainted,
+    is_waivable,
+    requires_approval,
+)
 from .framing import UNTRUSTED_CONTENT_RULE, is_framed, wrap_untrusted
 from .redaction import redact_secrets
 
 __all__ = [
+    "ActionClass",
     "UNTRUSTED_CONTENT_RULE",
+    "classify_action",
     "is_framed",
+    "is_tainted",
+    "is_waivable",
     "redact_secrets",
+    "requires_approval",
     "wrap_untrusted",
 ]
