@@ -238,7 +238,7 @@ def test_salience_ordering_via_recall(memory_dir):
     test does not depend on ChromaDB's internal distance calculation.
     """
     from june_brain.memory import Memory, VectorStore
-    from june_brain.memory.manager import _salience_rerank
+    from june_brain.memory.recall import _salience_rerank
 
     Memory("u3")
     store = VectorStore("u3", embedding_function=_HashEmbedder())
@@ -275,7 +275,7 @@ def test_salience_rerank_stores_distance_like_score(memory_dir):
     the end-to-end ordering that the _salience_rerank-only test cannot see.
     """
     from june_brain.memory import Memory, VectorStore
-    from june_brain.memory.manager import _salience_rerank
+    from june_brain.memory.recall import _salience_rerank
 
     Memory("u4")
     store = VectorStore("u4", embedding_function=_HashEmbedder())
