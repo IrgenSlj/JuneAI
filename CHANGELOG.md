@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Rebuild — Phase 1 (reshape + targeted rewrite, in progress)
+
+The repo is being reshaped to the "trust made visible — installable, valuable on
+day one, provably safe" thesis (`docs/product/rebuild-plan.md`, tracked in
+`REBUILD.md`). Shipped so far (S1-S5):
+
+- **Removed** the LangGraph/LangChain engine and its four dependencies; one
+  hand-written loop engine behind the fixed `HarnessLoop` interface (ADR 0018).
+  Removed ChromaDB and sentence-transformers and their torch/transformers/
+  onnxruntime tree (~647 MB; brain venv 1.3 GB -> 653 MB), replaced by sqlite-vec
+  + Ollama-served embeddings (ADR 0019).
+- **Added** single-engine storage — a `vec0` vector index inside the same
+  `june.db`, local Ollama embeddings (default `nomic-embed-text`) with a hash
+  cache and graceful degradation to keyword recall, plus a one-time ChromaDB
+  migration (ADR 0019). Added provider-native structured tool calling with a
+  prose-JSON fallback and a reliability harness (ADR 0020), language-aware token
+  estimation, and a cached, time-boxed model difficulty classifier with a
+  multilingual heuristic fallback.
+- **Changed** the 1,160-line `memory/manager.py` god module into a ~200-line
+  facade over focused `paraphrase`/`recall`/`writers`/`extractor` modules.
+  `<think>` reasoning is now gated by difficulty (trivial/standard skip it);
+  routing and the difficulty source are visible in the provenance chip. Salience
+  recall weights are runtime-tunable via the config store (env override).
+
 ### Removed
 
 - Quick Capture and the personal operating layer (capture classifier, action intents, event ledger, capture box) — superseded by the new direction (ADR 0015). The SQLite tables created by migration v4 are left in place but unused.

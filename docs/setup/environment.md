@@ -9,6 +9,7 @@ This file is the canonical reference for June's runtime configuration. Per [ADR 
 | `MODEL_PROVIDER` | Yes | `gemma` | One of `gemma` (local, via Ollama) or `gemini` (cloud, via Google AI Studio) |
 | `GEMMA_MODEL` | No | `gemma4:e2b` | Ollama tag for the local Gemma model. Must match `ollama list` |
 | `OLLAMA_BASE_URL` | No | `http://localhost:11434/v1` | Base URL for the local Ollama server |
+| `JUNE_EMBED_MODEL` | No | `nomic-embed-text` | Ollama tag for the local embedding model (semantic recall, ADR 0019). Pull it with `ollama pull <model>`; if absent, recall degrades to keyword search |
 | `GEMINI_API_KEY` | For `gemini` | — | API key from https://aistudio.google.com |
 | `GEMINI_MODEL` | No | `gemini-2.0-flash` | Gemini model identifier |
 | `JUNE_DATA_DIR` | No | platform default | Directory for `june.db` (facts + sqlite-vec vectors + graph) |
