@@ -23,6 +23,10 @@ class SessionState:
     messages: list[Message]
     skill: str = "default"
     pinned: PinnedState = field(default_factory=PinnedState)
+    # Tool names the user approved for this conversation (the guard's
+    # per-conversation allow-list, ADR 0021 S6.2). Empty by default — gated
+    # actions ask until approved.
+    approved_tools: set[str] = field(default_factory=set)
 
 
 @dataclass

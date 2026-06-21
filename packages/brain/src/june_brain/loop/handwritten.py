@@ -114,13 +114,15 @@ class HandwrittenLoop:
         # --- dispatch ---
         self._dispatched_names: list[str] = []
         self._network_calls: list[str] = []
+        # Tool calls the guard blocked pending user approval (ADR 0021, S6.2).
+        self._blocked_names: list[str] = []
         if dispatch is not None:
             self._dispatch: Callable[[list[ToolCall], SessionState], Awaitable[list[Message]]] | None = dispatch
         else:
             from .wiring import make_dispatch_fn
 
             self._dispatched_names = []
-            self._dispatch = make_dispatch_fn(self._dispatched_names)
+            self._dispatch = make_dispatch_fn(self._dispatched_names, self._blocked_names)
 
         # --- compaction ---
         if maybe_compact is not None:
@@ -161,6 +163,7 @@ class HandwrittenLoop:
         """Reset per-turn tracking state."""
         self._dispatched_names.clear()
         self._network_calls.clear()
+        self._blocked_names.clear()
         self._recall_state["memories_recalled"] = 0
         self._recall_state["recall_hits"] = []
 

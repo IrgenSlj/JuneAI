@@ -190,14 +190,23 @@ def make_extract_tool_calls_fn() -> Any:
 # ---------------------------------------------------------------------------
 
 
-def make_dispatch_fn(dispatched_names: list[str]) -> Any:
+def make_dispatch_fn(
+    dispatched_names: list[str],
+    blocked_names: list[str] | None = None,
+) -> Any:
     """Return an async callable that executes ToolCalls via the tool registry.
 
     ``dispatched_names`` is a mutable list owned by the caller; this function
     appends each successfully-dispatched tool name so the loop can report
     ``skills_called`` in provenance. (Egress tracking lives in the loop, which
     flags networked tool calls regardless of which dispatch implementation runs.)
+
+    ``blocked_names`` (optional, also caller-owned) collects tool names the guard
+    blocked pending user approval (ADR 0021, S6.2), so the loop can surface them.
+    The per-conversation allow-list is read from ``session.approved_tools``.
     """
+    if blocked_names is None:
+        blocked_names = []
 
     # Build the tool map once at construction time (lazy import)
     _tool_map: dict[str, Any] | None = None
@@ -240,13 +249,37 @@ def make_dispatch_fn(dispatched_names: list[str]) -> Any:
                     args["user_id"] = getattr(session, "user_id", "") or ""
             except Exception:
                 pass
+
+            from june_brain.guard import evaluate_call, wrap_untrusted
+
+            # Action gate (ADR 0021, S6.2): block consequential actions — network
+            # egress, code execution, tainted network reads — unless the user
+            # already approved this tool for the conversation. The model is told,
+            # via the (framed) observation, to relay the request to the user.
+            prior_results = [m.content for m in session.messages if m.role == "tool"]
+            allow_list = frozenset(getattr(session, "approved_tools", None) or ())
+            allowed, _action_class, block_reason = evaluate_call(
+                tc.name, args, prior_results, allow_list=allow_list
+            )
+            if not allowed:
+                blocked_names.append(tc.name)
+                observations.append(
+                    Message(
+                        role="tool",
+                        content=wrap_untrusted(
+                            f"[ACTION BLOCKED — this needs the user's approval: "
+                            f"{block_reason}. Do not retry; tell the user plainly what you "
+                            "wanted to do and why, and ask them to approve it.]"
+                        ),
+                    )
+                )
+                continue
+
             try:
                 result = tool.invoke(args)
                 # Every tool result enters context wrapped as untrusted external
                 # content (ADR 0021) — applied here, centrally, so no tool or
                 # skill can bypass the frame.
-                from june_brain.guard import wrap_untrusted
-
                 content = wrap_untrusted(str(result)[:4000])
                 dispatched_names.append(tc.name)
             except Exception as exc:  # noqa: BLE001

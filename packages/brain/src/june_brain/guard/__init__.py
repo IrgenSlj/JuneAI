@@ -12,6 +12,7 @@ This is the anti-OpenClaw position made real (S6). Start with framing.
 from .actions import (
     ActionClass,
     classify_action,
+    evaluate_call,
     is_tainted,
     is_waivable,
     requires_approval,
@@ -23,6 +24,7 @@ __all__ = [
     "ActionClass",
     "UNTRUSTED_CONTENT_RULE",
     "classify_action",
+    "evaluate_call",
     "is_framed",
     "is_tainted",
     "is_waivable",

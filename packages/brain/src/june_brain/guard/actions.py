@@ -114,6 +114,31 @@ def requires_approval(
     return False, ""
 
 
+def evaluate_call(
+    name: str,
+    args: dict[str, Any],
+    prior_results: list[str],
+    *,
+    allow_list: frozenset[str] = frozenset(),
+    network_tools: frozenset[str] | None = None,
+) -> tuple[bool, str, str]:
+    """Decide whether a tool call may execute. Returns (allowed, action_class, reason).
+
+    ``allow_list`` is the per-conversation set of tool names the user already
+    approved; it can waive future approvals except for taint-flagged network
+    actions (the exfiltration pattern always asks). ``reason`` is non-empty only
+    when the call is blocked.
+    """
+    action_class = classify_action(name, network_tools=network_tools)
+    tainted = is_tainted(args, prior_results)
+    needs, reason = requires_approval(action_class, tainted=tainted)
+    if not needs:
+        return True, action_class, ""
+    if name in allow_list and is_waivable(action_class, tainted=tainted):
+        return True, action_class, ""
+    return False, action_class, reason
+
+
 def is_waivable(action_class: ActionClass, *, tainted: bool = False) -> bool:
     """Whether a per-conversation 'always allow' may waive future approvals.
 
