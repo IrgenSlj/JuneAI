@@ -8,7 +8,7 @@ Usage::
     bus.register("telegram", my_handler)
 
     # Dispatch a notification to all channels
-    bus.dispatch(Notification(title="Reminder", body="Drink water", priority="medium", source="chores"))
+    bus.dispatch(Notification(title="Reminder", body="Standup at 10:00", priority="medium", source="calendar"))
 """
 
 from __future__ import annotations

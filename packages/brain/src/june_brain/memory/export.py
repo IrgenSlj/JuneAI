@@ -24,8 +24,6 @@ _USER_TABLES = frozenset({
     "habits", "habit_completions", "nutrition_logs", "water_logs",
     "telemetry", "app_state", "memory_feedback", "semantic_facts",
     "graph_nodes", "graph_edges", "schedules", "skill_inbound_events",
-    "products", "purchase_history", "price_alerts", "chores",
-    "chore_completions", "tasks",
 })
 
 _SKIP_TABLES = frozenset({
