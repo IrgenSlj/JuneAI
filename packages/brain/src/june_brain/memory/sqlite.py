@@ -151,6 +151,12 @@ def _get_connection(db_path: str) -> sqlite3.Connection:
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")
+        # Load the sqlite-vec extension so semantic recall can use a vec0 table
+        # in this same database (ADR 0019). Best-effort: on a platform where it
+        # cannot load, recall degrades to the keyword scan (invariant 6).
+        from .vec_index import load_extension
+
+        load_extension(conn)
         conns[db_path] = conn
     return conns[db_path]
 
@@ -363,6 +369,14 @@ CREATE TABLE IF NOT EXISTS semantic_facts (
     PRIMARY KEY (user_id, fact_id)
 );
 CREATE INDEX IF NOT EXISTS idx_semantic_facts_created ON semantic_facts(user_id, created_at);
+CREATE TABLE IF NOT EXISTS embedding_cache (
+    model       TEXT NOT NULL,
+    text_hash   TEXT NOT NULL,
+    dim         INTEGER NOT NULL,
+    vector      BLOB NOT NULL,
+    created_at  TEXT NOT NULL,
+    PRIMARY KEY (model, text_hash)
+);
 CREATE TABLE IF NOT EXISTS memory_feedback (
     user_id     TEXT NOT NULL,
     ref         TEXT NOT NULL,
