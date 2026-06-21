@@ -65,9 +65,12 @@ class ContextAssembler:
         """Return the ordered context list, trimming oldest raw turns to fit budget."""
         fixed: list[Message] = []
 
-        # Section 1 — system / persona (+ reasoning instruction when enabled, so
-        # the model externalizes its own reasoning in <think> tags).
-        system_content = self._system_prompt
+        # Section 1 — system / persona (+ the standing untrusted-content rule,
+        # which is part of the behavioral safety floor and always present, and
+        # the reasoning instruction when enabled).
+        from june_brain.guard import UNTRUSTED_CONTENT_RULE
+
+        system_content = f"{self._system_prompt}\n\n{UNTRUSTED_CONTENT_RULE}"
         if self._reason:
             system_content = f"{system_content}\n\n{_REASONING_INSTRUCTION}"
         fixed.append(Message(role="system", content=system_content))

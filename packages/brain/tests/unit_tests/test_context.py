@@ -173,7 +173,9 @@ def test_assembler_section1_is_system_and_first() -> None:
     user_msg = Message(role="user", content="hello")
     ctx = assembler.assemble(session, user_msg)
     assert ctx[0].role == "system"
-    assert ctx[0].content == "sys prompt"
+    # The system block leads with the configured prompt; the standing
+    # untrusted-content rule (S6.1) is always appended after it.
+    assert ctx[0].content.startswith("sys prompt")
 
 
 def test_assembler_pinned_block_appears_as_system_message() -> None:
@@ -216,10 +218,15 @@ def test_assembler_reason_adds_think_instruction() -> None:
 
 
 def test_assembler_reason_off_by_default() -> None:
+    from june_brain.context.assembler import _REASONING_INSTRUCTION
+
     assembler = ContextAssembler(system_prompt="base")
     session = SessionState(user_id="u1", messages=[])
     ctx = assembler.assemble(session, Message(role="user", content="hi"))
-    assert ctx[0].content == "base"
+    # Reason off: the <think> instruction is absent (the always-on guard rule
+    # is appended, so the content is no longer exactly "base").
+    assert ctx[0].content.startswith("base")
+    assert _REASONING_INSTRUCTION not in ctx[0].content
 
 
 def test_make_tools_block_never_raises() -> None:
@@ -285,7 +292,8 @@ def test_assembler_fixed_sections_always_present() -> None:
     user_msg = Message(role="user", content="q")
     ctx = assembler.assemble(session, user_msg)
     contents = [m.content for m in ctx]
-    assert "sys" in contents
+    # The system block leads with "sys" (the guard rule is appended after it).
+    assert any(c.startswith("sys") for c in contents)
     assert "char block" in contents
     assert any("goal" in c for c in contents)
 

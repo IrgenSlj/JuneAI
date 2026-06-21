@@ -161,4 +161,9 @@ def test_dispatch_injects_user_id(monkeypatch: pytest.MonkeyPatch) -> None:
         )
     )
     assert captured.get("user_id") == "alice"
-    assert obs[0].content == "ok"
+    # Tool results are wrapped in the untrusted-content frame (S6.1); the raw
+    # result rides inside the envelope.
+    from june_brain.guard.framing import is_framed
+
+    assert is_framed(obs[0].content)
+    assert "ok" in obs[0].content

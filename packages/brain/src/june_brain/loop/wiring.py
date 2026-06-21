@@ -242,7 +242,12 @@ def make_dispatch_fn(dispatched_names: list[str]) -> Any:
                 pass
             try:
                 result = tool.invoke(args)
-                content = str(result)[:4000]
+                # Every tool result enters context wrapped as untrusted external
+                # content (ADR 0021) — applied here, centrally, so no tool or
+                # skill can bypass the frame.
+                from june_brain.guard import wrap_untrusted
+
+                content = wrap_untrusted(str(result)[:4000])
                 dispatched_names.append(tc.name)
             except Exception as exc:  # noqa: BLE001
                 content = f"Error invoking tool '{tc.name}': {exc}"
