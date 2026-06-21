@@ -116,10 +116,19 @@ class TraceStore:
         if TRACE_MAX <= 0:
             return False
         try:
+            from june_brain.guard.redaction import redact_secrets
+
             d = self._dir()
             d.mkdir(parents=True, exist_ok=True)
             path = d / f"{trace.turn_id}.json"
-            path.write_text(json.dumps(trace.to_dict(), ensure_ascii=False, indent=2))
+            data = trace.to_dict()
+            # Scrub any configured secrets / key-shaped tokens from the persisted
+            # prompt and tool I/O (ADR 0021, S6.4) — traces must never leak keys.
+            for event in data.get("events", []):
+                if isinstance(event, dict):
+                    event["summary"] = redact_secrets(event.get("summary", ""))
+                    event["detail"] = redact_secrets(event.get("detail", ""))
+            path.write_text(json.dumps(data, ensure_ascii=False, indent=2))
             self._prune(d)
             return True
         except Exception:

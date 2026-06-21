@@ -10,5 +10,11 @@ This is the anti-OpenClaw position made real (S6). Start with framing.
 """
 
 from .framing import UNTRUSTED_CONTENT_RULE, is_framed, wrap_untrusted
+from .redaction import redact_secrets
 
-__all__ = ["UNTRUSTED_CONTENT_RULE", "is_framed", "wrap_untrusted"]
+__all__ = [
+    "UNTRUSTED_CONTENT_RULE",
+    "is_framed",
+    "redact_secrets",
+    "wrap_untrusted",
+]
