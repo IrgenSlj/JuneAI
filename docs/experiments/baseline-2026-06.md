@@ -98,8 +98,20 @@ at equal efficacy. Worst handwritten reliability is recall_question at cv 75.6%
   load probe confirmed the extension loads into stdlib `sqlite3` on Python 3.14
   / Apple Silicon, so no platform pivot was needed.
 
+## Reliability harness (S5.3)
+
+`tools/reliability_harness.py` runs representative tasks (recall, multi-step
+tool use, compaction) N times against the live local model and reports the
+coefficient of variation (cv%) per metric, via the pure, unit-tested
+`june_brain.experiments.reliability` module. Run it once with Ollama up and
+record the cv numbers here next to the CLEAR baseline (recall cv 75.6%); the
+S5 target is recall cv < 25%, now that provider-native tool calling (S5.1/S5.2)
+replaces the prose-JSON parse on the run_turn path. Numbers pending a local run.
+
 ## Targets derived from this baseline
 
 - S2: install footprint drops by the bulk of ~575 MB (torch/onnxruntime/transformers).
+  Realized: ~647 MB freed (see Realized deltas).
 - S4: trivial-turn latency measurably below the handwritten baseline above.
+- S5: recall cv% from 75.6% toward < 25% (measure with the reliability harness).
 - S5: recall_question reliability cv from 75.6% to < 25%.
