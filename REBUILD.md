@@ -71,7 +71,7 @@ Baseline: tag `v0.2.0-prereshape`, metrics in
 
 ### S6 — Guard layer  (ADR 0021)
 - [x] S6.1 guard/framing.py untrusted-content frame (central in dispatch) + standing system rule + red-team tests
-- [ ] S6.2 guard/actions.py action classes + approval gates (SSE approval_request) + per-session allow
+- [~] S6.2 guard/actions.py action classes + taint + gate ENFORCED at dispatch + per-conversation allow-list (S6.2a/b done; approval_request SSE event + ConfirmDialog UI pending)
 - [ ] S6.3 skill.toml permission manifests; loader + supervisor enforcement; /skills UI
 - [x] S6.4 guard/redaction.py secret scrub in TraceStore.write; end-to-end test (key never on disk)
 - [ ] S6.5 docs/security-model.md
