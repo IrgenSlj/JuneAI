@@ -9,14 +9,10 @@ dependencies = [
     "python-dotenv>=1.0.1",
     # Single storage engine (ADR 0019): sqlite-vec is a small loadable C
     # extension that adds vector search to the stdlib sqlite3 already holding
-    # facts/structure/graph. Replaces chromadb + sentence-transformers, which
-    # are removed in the S2 storage swap (embeddings now come from Ollama).
+    # facts/structure/graph. It replaced chromadb + sentence-transformers
+    # (and their torch/transformers/onnxruntime tree); embeddings now come
+    # from a local Ollama model.
     "sqlite-vec>=0.1.0",
-    # Cap at <2 — chromadb has historically broken on major bumps and the
-    # collection / embedder APIs we use are stable within 1.x.
-    # (chromadb + sentence-transformers are removed at the end of S2.)
-    "chromadb>=1.5.0,<2.0.0",
-    "sentence-transformers>=3.0.0",
     "keyring>=25.0.0",
     "tomli>=2.0.1; python_version < '3.11'",  # python 3.11+ has tomllib built-in
 ]

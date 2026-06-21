@@ -38,29 +38,39 @@ def memory_dir(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_manifest_v1_to_v2_archives_chroma(tmp_path, monkeypatch):
-    monkeypatch.setenv("JUNE_DATA_DIR", str(tmp_path))
-    from june_brain.datadir import layout, manifest
+def test_archive_chroma_dir_moves_to_bak(tmp_path, monkeypatch):
+    from june_brain.memory import vec_backfill
 
-    layout.ensure_layout()
-    chroma = layout.memory_dir() / "chroma"
-    chroma.mkdir(parents=True, exist_ok=True)
+    mem = tmp_path / "memory"
+    chroma = mem / "chroma"
+    chroma.mkdir(parents=True)
     (chroma / "index.bin").write_text("legacy")
+    monkeypatch.setattr(vec_backfill, "_current_memory_dir", lambda: str(mem))
 
-    # Write a v1 manifest, then load_or_init should migrate to current version.
-    old = manifest.Manifest(
-        schema_version=1,
-        created_at="2026-01-01T00:00:00+00:00",
-        june_version="0.2.0",
-        contents=[],
-    )
-    manifest.write_manifest(old)
-
-    migrated, fresh = manifest.load_or_init()
-    assert fresh is False
-    assert migrated.schema_version == manifest.SCHEMA_VERSION
+    assert vec_backfill.archive_chroma_dir() is True
     assert not chroma.exists()
-    assert (layout.memory_dir() / "chroma.bak").exists()
+    assert (mem / "chroma.bak").exists()
+
+    # Idempotent: a second call (chroma already archived) is a no-op.
+    assert vec_backfill.archive_chroma_dir() is False
+
+
+def test_manifest_registers_v1_to_v2_migration():
+    from june_brain.datadir import manifest
+
+    # The chroma->sqlite-vec migration is wired so an existing v1 data dir
+    # upgrades on first load (ADR 0019).
+    assert manifest.SCHEMA_VERSION >= 2
+    assert 1 in manifest._MIGRATIONS
+    bumped = manifest._migrate(
+        manifest.Manifest(
+            schema_version=1,
+            created_at="2026-01-01T00:00:00+00:00",
+            june_version="0.2.0",
+            contents=[],
+        )
+    )
+    assert bumped.schema_version == manifest.SCHEMA_VERSION
 
 
 # ---------------------------------------------------------------------------

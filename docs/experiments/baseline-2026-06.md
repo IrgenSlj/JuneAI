@@ -86,6 +86,18 @@ at equal efficacy. Worst handwritten reliability is recall_question at cv 75.6%
   chromadb + sentence-transformers and drops in S2. The gate passes with
   langchain physically uninstalled — the source tree is LangChain-free.
 
+- **S2 (ChromaDB -> sqlite-vec):** removed `chromadb` + `sentence-transformers`
+  and their heavy tree (`torch` 408 MB, `transformers` 98 MB, `onnxruntime`
+  69 MB, `tokenizers`, `safetensors`). Added `sqlite-vec` (~0.5 MB loadable C
+  extension). Brain `.venv` **1.3 GB -> 653 MB (~647 MB freed)** — roughly half
+  the venv, the single largest drop in the rebuild. Embeddings now come from a
+  local Ollama model (default `nomic-embed-text`); vectors live in a `vec0`
+  virtual table inside the same `june.db`, so the data dir is one copyable
+  SQLite file. The full gate (583 tests) passes with the whole torch/chroma
+  tree physically uninstalled — the source tree is ChromaDB-free. The sqlite-vec
+  load probe confirmed the extension loads into stdlib `sqlite3` on Python 3.14
+  / Apple Silicon, so no platform pivot was needed.
+
 ## Targets derived from this baseline
 
 - S2: install footprint drops by the bulk of ~575 MB (torch/onnxruntime/transformers).
