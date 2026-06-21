@@ -73,6 +73,9 @@ class HandwrittenLoop:
         # so reasoning can be gated per turn via set_reason without changing the
         # injected callable's signature.
         self._assembler: ContextAssembler | None = None
+        # Provider-native tool specs (S5.2). Empty unless the default wiring
+        # builds them; the prose-JSON path stays the fallback (invariant 6).
+        self._tool_specs: list[Any] = []
         if assemble_context is not None:
             self._assemble_context = assemble_context
             self._recall_state_external = True  # caller owns recall tracking
@@ -87,9 +90,10 @@ class HandwrittenLoop:
             except Exception:
                 pass
 
-            from .wiring import make_recall_fn, make_tools_block
+            from .wiring import make_recall_fn, make_tool_specs, make_tools_block
 
             recall_fn, self._recall_state = make_recall_fn()
+            self._tool_specs = make_tool_specs()
             _assembler = ContextAssembler(
                 character_block=character_block,
                 recall=recall_fn,
@@ -200,6 +204,18 @@ class HandwrittenLoop:
 
         return provider, chosen_role, difficulty
 
+    def _resolve_tool_calls(self, result: Any) -> list[ToolCall]:
+        """Prefer provider-native tool calls; fall back to prose-JSON extraction.
+
+        When the provider returned structured ``tool_calls`` we use them directly
+        (the reliability win of S5); otherwise the prompt-advertised prose-JSON
+        path parses the model text (invariant 6 — graceful degradation).
+        """
+        native = getattr(result, "tool_calls", None) or []
+        if native:
+            return [ToolCall(name=c.name, args=dict(c.arguments)) for c in native]
+        return self._extract_tool_calls(result)
+
     def _apply_reason(self, label: str) -> None:
         """Gate the <think> reasoning instruction by difficulty.
 
@@ -282,13 +298,17 @@ class HandwrittenLoop:
         for _ in range(self._max_iterations):
             ctx = self._assemble_context(session, user_msg)
             result = await provider.generate(
-                GenerateRequest(messages=ctx, max_tokens=_MAX_TOKENS)
+                GenerateRequest(
+                    messages=ctx,
+                    max_tokens=_MAX_TOKENS,
+                    tools=self._tool_specs or None,
+                )
             )
             last_result = result
             tokens.input_tokens += result.input_tokens
             tokens.output_tokens += result.output_tokens
 
-            tool_calls = self._extract_tool_calls(result)
+            tool_calls = self._resolve_tool_calls(result)
             if tool_calls and self._dispatch is not None:
                 all_tool_calls.extend(tool_calls)
                 observations: list[Message] = await self._dispatch(tool_calls, session)

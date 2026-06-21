@@ -114,6 +114,50 @@ def make_tools_block() -> str:
     return "\n".join(lines)
 
 
+def _tool_to_spec(t: Any) -> Any:
+    """Convert June's Tool (name/description/args) into a provider ToolSpec.
+
+    ``args`` maps param -> {type, required, default}; we render it as a JSON
+    Schema object for provider-native function calling.
+    """
+    from june_brain.providers.base import _JSON_TYPES, ToolSpec
+
+    props: dict[str, Any] = {}
+    required: list[str] = []
+    for pname, spec in (getattr(t, "args", {}) or {}).items():
+        json_type = _JSON_TYPES.get(str(spec.get("type", "")), "string")
+        props[pname] = {"type": json_type}
+        if spec.get("required"):
+            required.append(pname)
+    parameters: dict[str, Any] = {"type": "object", "properties": props}
+    if required:
+        parameters["required"] = required
+    return ToolSpec(
+        name=getattr(t, "name", ""),
+        description=(getattr(t, "description", "") or "").strip().replace("\n", " "),
+        parameters=parameters,
+    )
+
+
+def make_tool_specs() -> list[Any]:
+    """Build provider ToolSpecs for the active runtime's tools (native calling).
+
+    Returns [] on any failure or when no tools are available — the loop then
+    relies on the prose-JSON advertisement + extractor (invariant 6).
+    """
+    try:
+        from june_brain.config import resolve_runtime_config
+
+        from .agent_helpers import _select_tools_for_runtime
+
+        runtime = resolve_runtime_config()
+        tools = _select_tools_for_runtime(runtime)
+    except Exception:
+        return []
+    specs = [_tool_to_spec(t) for t in (tools or []) if getattr(t, "name", "")]
+    return specs
+
+
 # ---------------------------------------------------------------------------
 # Tool-call extraction
 # ---------------------------------------------------------------------------
