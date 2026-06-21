@@ -12,7 +12,14 @@ from collections.abc import AsyncIterator
 
 from openai import AsyncOpenAI
 
-from .base import GenerateRequest, GenerateResult, Message, ProviderHealth
+from .base import (
+    GenerateRequest,
+    GenerateResult,
+    Message,
+    ProviderHealth,
+    parse_openai_tool_calls,
+    tool_specs_to_openai,
+)
 
 
 class GemmaProvider:
@@ -74,6 +81,8 @@ class GemmaProvider:
             kwargs["stop"] = req.stop
         if req.response_format == "json":
             kwargs["response_format"] = {"type": "json_object"}
+        if req.tools:
+            kwargs["tools"] = tool_specs_to_openai(req.tools)
 
         t0 = time.monotonic()
         response = await client.chat.completions.create(**kwargs)
@@ -81,6 +90,7 @@ class GemmaProvider:
 
         message = response.choices[0].message
         text = message.content or ""
+        tool_calls = parse_openai_tool_calls(message)
         # Thinking models (qwen3) return reasoning in a separate field; re-wrap
         # it as <think>...</think> so split_reasoning / ReasoningSplitter handle
         # it uniformly with models that emit inline think tags.
@@ -95,6 +105,7 @@ class GemmaProvider:
             latency_ms=latency_ms,
             model_id=self.model_id,
             tier=self.tier,  # type: ignore[arg-type]
+            tool_calls=tool_calls,
         )
 
     async def stream(self, req: GenerateRequest) -> AsyncIterator[str]:

@@ -13,7 +13,14 @@ from collections.abc import AsyncIterator
 
 from openai import AsyncOpenAI
 
-from .base import GenerateRequest, GenerateResult, Message, ProviderHealth
+from .base import (
+    GenerateRequest,
+    GenerateResult,
+    Message,
+    ProviderHealth,
+    parse_openai_tool_calls,
+    tool_specs_to_openai,
+)
 from .provenance import CloudCallEvent, record_cloud_call
 
 
@@ -84,6 +91,8 @@ class GeminiProvider:
             kwargs["stop"] = req.stop
         if req.response_format == "json":
             kwargs["response_format"] = {"type": "json_object"}
+        if req.tools:
+            kwargs["tools"] = tool_specs_to_openai(req.tools)
 
         summary = self._payload_summary(req)
         record_cloud_call(CloudCallEvent(model_id=self.model_id, phase="start", payload_summary=summary))
@@ -94,7 +103,8 @@ class GeminiProvider:
             latency_ms = int((time.monotonic() - t0) * 1000)
             record_cloud_call(CloudCallEvent(model_id=self.model_id, phase="end", payload_summary=summary))
 
-        text = response.choices[0].message.content or ""
+        message = response.choices[0].message
+        text = message.content or ""
         usage = response.usage
         return GenerateResult(
             text=text,
@@ -103,6 +113,7 @@ class GeminiProvider:
             latency_ms=latency_ms,
             model_id=self.model_id,
             tier="cloud-capable",
+            tool_calls=parse_openai_tool_calls(message),
         )
 
     async def stream(self, req: GenerateRequest) -> AsyncIterator[str]:
