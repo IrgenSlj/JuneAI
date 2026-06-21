@@ -1350,6 +1350,28 @@
         }
       }
     },
+    "/system/capability": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Get Capability",
+        "description": "Return the cached local-model capability profile.\n\nUses the cheap cached accessor only \u2014 never triggers the expensive probe\nfrom the request path. Returns optimistic defaults (all 'good', empty\nchecked_at) when no probe has run yet.",
+        "operationId": "get_capability_system_capability_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilityProfileView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/system/activity": {
       "get": {
         "tags": [
@@ -2028,6 +2050,45 @@
         "type": "object",
         "title": "ActivityResponse",
         "description": "GET /system/activity payload."
+      },
+      "CapabilityProfileView": {
+        "properties": {
+          "summarization": {
+            "type": "string",
+            "title": "Summarization",
+            "description": "'good', 'weak', or 'poor' \u2014 summarization quality verdict."
+          },
+          "structured_output": {
+            "type": "string",
+            "title": "Structured Output",
+            "description": "'good', 'weak', or 'poor' \u2014 structured-output (JSON) verdict."
+          },
+          "long_context": {
+            "type": "string",
+            "title": "Long Context",
+            "description": "'good', 'weak', or 'poor' \u2014 long-context recall verdict."
+          },
+          "relevance_scoring": {
+            "type": "string",
+            "title": "Relevance Scoring",
+            "description": "'good', 'weak', or 'poor' \u2014 relevance-scoring verdict."
+          },
+          "checked_at": {
+            "type": "string",
+            "title": "Checked At",
+            "description": "ISO timestamp of the last probe run; empty string if never probed.",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "summarization",
+          "structured_output",
+          "long_context",
+          "relevance_scoring"
+        ],
+        "title": "CapabilityProfileView",
+        "description": "GET /system/capability \u2014 cached local-model capability verdicts."
       },
       "ChatHistory": {
         "properties": {

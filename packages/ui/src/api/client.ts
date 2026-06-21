@@ -43,6 +43,7 @@ export type RegistryResponse = components["schemas"]["RegistryResponse"];
 export type RegistryInstallResponse = components["schemas"]["RegistryInstallResponse"];
 export type RegistryUninstallResponse = components["schemas"]["RegistryUninstallResponse"];
 export type SystemStatus = components["schemas"]["SystemStatus"];
+export type CapabilityProfileView = components["schemas"]["CapabilityProfileView"];
 export type ActivityEntryView = components["schemas"]["ActivityEntryView"];
 export type ActivityResponse = components["schemas"]["ActivityResponse"];
 export type TraceEventView = components["schemas"]["TraceEventView"];
@@ -141,6 +142,11 @@ export function createJuneClient(options: JuneClientOptions) {
     /** GET /system — runtime indicator (provider, model, mode). */
     getSystem(): Promise<SystemStatus> {
       return getJson<SystemStatus>("/system");
+    },
+
+    /** GET /system/capability — cached local-model capability profile. */
+    getCapability(): Promise<CapabilityProfileView> {
+      return getJson<CapabilityProfileView>("/system/capability");
     },
 
     /** GET /system/activity — reverse-chronological log of recent API requests and tool calls. */

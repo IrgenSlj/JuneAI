@@ -47,6 +47,7 @@ from .skills import (
 from .system import (
     ActivityEntryView,
     ActivityResponse,
+    CapabilityProfileView,
     SystemStatus,
     TraceEventView,
     TraceListResponse,
@@ -104,6 +105,7 @@ __all__ = [
     "RegistryInstallSpec",
     "RegistryResponse",
     "RegistryUninstallResponse",
+    "CapabilityProfileView",
     "SystemStatus",
     "ActivityEntryView",
     "ActivityResponse",

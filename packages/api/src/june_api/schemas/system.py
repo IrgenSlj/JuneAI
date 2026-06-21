@@ -100,3 +100,24 @@ class TurnTraceView(BaseModel):
     user_id: str = ""
     started_at: float = 0.0
     events: list[TraceEventView] = Field(default_factory=list)
+
+
+class CapabilityProfileView(BaseModel):
+    """GET /system/capability — cached local-model capability verdicts."""
+
+    summarization: str = Field(
+        ..., description="'good', 'weak', or 'poor' — summarization quality verdict."
+    )
+    structured_output: str = Field(
+        ..., description="'good', 'weak', or 'poor' — structured-output (JSON) verdict."
+    )
+    long_context: str = Field(
+        ..., description="'good', 'weak', or 'poor' — long-context recall verdict."
+    )
+    relevance_scoring: str = Field(
+        ..., description="'good', 'weak', or 'poor' — relevance-scoring verdict."
+    )
+    checked_at: str = Field(
+        default="",
+        description="ISO timestamp of the last probe run; empty string if never probed.",
+    )

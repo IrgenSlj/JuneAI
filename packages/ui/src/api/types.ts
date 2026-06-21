@@ -609,6 +609,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/capability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Capability
+         * @description Return the cached local-model capability profile.
+         *
+         *     Uses the cheap cached accessor only — never triggers the expensive probe
+         *     from the request path. Returns optimistic defaults (all 'good', empty
+         *     checked_at) when no probe has run yet.
+         */
+        get: operations["get_capability_system_capability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/activity": {
         parameters: {
             query?: never;
@@ -828,6 +852,38 @@ export interface components {
              * @default 0
              */
             count: number;
+        };
+        /**
+         * CapabilityProfileView
+         * @description GET /system/capability — cached local-model capability verdicts.
+         */
+        CapabilityProfileView: {
+            /**
+             * Summarization
+             * @description 'good', 'weak', or 'poor' — summarization quality verdict.
+             */
+            summarization: string;
+            /**
+             * Structured Output
+             * @description 'good', 'weak', or 'poor' — structured-output (JSON) verdict.
+             */
+            structured_output: string;
+            /**
+             * Long Context
+             * @description 'good', 'weak', or 'poor' — long-context recall verdict.
+             */
+            long_context: string;
+            /**
+             * Relevance Scoring
+             * @description 'good', 'weak', or 'poor' — relevance-scoring verdict.
+             */
+            relevance_scoring: string;
+            /**
+             * Checked At
+             * @description ISO timestamp of the last probe run; empty string if never probed.
+             * @default
+             */
+            checked_at: string;
         };
         /** ChatHistory */
         ChatHistory: {
@@ -3188,6 +3244,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemStatus"];
+                };
+            };
+        };
+    };
+    get_capability_system_capability_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapabilityProfileView"];
                 };
             };
         };

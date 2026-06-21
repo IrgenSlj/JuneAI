@@ -5,6 +5,7 @@
     ConfirmDialog,
     TraceEventList,
     type ActivityEntryView,
+    type CapabilityProfileView,
     type MemorySnapshot,
     type SkillInfo,
     type SkillsResponse,
@@ -21,6 +22,7 @@
   let memory: MemorySnapshot | null = $state(null);
   let skills: SkillInfo[] = $state([]);
   let system: SystemStatus | null = $state(null);
+  let capability: CapabilityProfileView | null = $state(null);
   let activity: ActivityEntryView[] = $state([]);
   let loading = $state(true);
   let clearingActivity = $state(false);
@@ -42,10 +44,11 @@
     loadError = null;
     tracesError = null;
     try {
-      const [snap, sk, sys, act, trl] = await Promise.all([
+      const [snap, sk, sys, cap, act, trl] = await Promise.all([
         client.getMemory(profileName.value),
         client.getSkills(),
         client.getSystem(),
+        client.getCapability().catch(() => null),
         client.getActivity(50).catch(() => ({ entries: [], count: 0 })),
         client.getTraces(50).catch((e: unknown) => {
           tracesError = e instanceof Error ? e.message : String(e);
@@ -55,6 +58,7 @@
       memory = snap;
       skills = (sk as SkillsResponse).skills ?? [];
       system = sys;
+      capability = cap;
       activity = act.entries ?? [];
       traces = trl.traces ?? [];
       // Keep an open trace's detail in sync with its (possibly updated) summary,
@@ -169,6 +173,30 @@
     return "muted";
   }
 
+  function verdictBadgeClass(verdict: string): string {
+    if (verdict === "good") return "ok";
+    if (verdict === "weak") return "warn";
+    return "danger";
+  }
+
+  const capabilityHeadline = $derived.by(() => {
+    if (!capability) return null;
+    if (!capability.checked_at) return null;
+    const verdicts = [
+      capability.summarization,
+      capability.structured_output,
+      capability.long_context,
+      capability.relevance_scoring,
+    ];
+    if (verdicts.every((v) => v === "good")) {
+      return "June's local brain is running well today.";
+    }
+    if (verdicts.some((v) => v === "poor")) {
+      return "June's local brain is showing some limitations. Responses may be less accurate.";
+    }
+    return "June's local brain is running, though some operations are at reduced quality.";
+  });
+
   const enabledSkillCount = $derived(skills.filter((s) => s.enabled).length);
   const runningSkillCount = $derived(
     skills.filter((s) => s.status === "running").length,
@@ -212,6 +240,53 @@
   {#if loadError && !memory}
     <OfflineNotice kind="memory" detail={loadError} onRetry={refresh} retrying={loading} />
   {/if}
+
+  <!-- Capability profile — plain-language health verdict -->
+  <section class="layer">
+    <div class="layer-label">Brain capability</div>
+    <div class="card wide capability-card">
+      <div class="card-head">
+        <h2>Local model health</h2>
+        {#if capability && capability.checked_at}
+          <span class="badge muted">measured {formatRelative(capability.checked_at)}</span>
+        {:else}
+          <span class="badge muted">not yet measured</span>
+        {/if}
+      </div>
+      {#if capabilityHeadline}
+        <p class="card-body">{capabilityHeadline}</p>
+      {:else}
+        <p class="card-body">
+          No capability probe has run yet. Verdicts will appear after the first probe completes.
+        </p>
+      {/if}
+      {#if capability}
+        <table class="capability-table">
+          <tbody>
+            <tr>
+              <td class="cap-label">Summarization</td>
+              <td><span class="badge {verdictBadgeClass(capability.summarization)}">{capability.summarization}</span></td>
+            </tr>
+            <tr>
+              <td class="cap-label">Structured output</td>
+              <td><span class="badge {verdictBadgeClass(capability.structured_output)}">{capability.structured_output}</span></td>
+            </tr>
+            <tr>
+              <td class="cap-label">Long context</td>
+              <td><span class="badge {verdictBadgeClass(capability.long_context)}">{capability.long_context}</span></td>
+            </tr>
+            <tr>
+              <td class="cap-label">Relevance scoring</td>
+              <td><span class="badge {verdictBadgeClass(capability.relevance_scoring)}">{capability.relevance_scoring}</span></td>
+            </tr>
+          </tbody>
+        </table>
+        {#if !capability.checked_at}
+          <p class="hint cap-hint">These are optimistic defaults. Run a probe to get real measurements.</p>
+        {/if}
+      {/if}
+    </div>
+  </section>
 
   <!-- Layer 1 — Shells -->
   <section class="layer">
@@ -1015,5 +1090,34 @@
   }
   .trace-error {
     color: var(--color-danger);
+  }
+
+  /* Capability profile */
+  .capability-card {
+    grid-column: 1 / -1;
+  }
+  .capability-table {
+    border-collapse: collapse;
+    width: 100%;
+    max-width: 360px;
+    font-size: var(--size-sm);
+  }
+  .capability-table tr + tr td {
+    padding-top: var(--space-1);
+  }
+  .cap-label {
+    color: var(--color-fg-muted);
+    padding-right: var(--space-4);
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    white-space: nowrap;
+  }
+  .badge.danger {
+    color: var(--color-danger);
+    border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
+    background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  }
+  .cap-hint {
+    margin-top: var(--space-2);
   }
 </style>

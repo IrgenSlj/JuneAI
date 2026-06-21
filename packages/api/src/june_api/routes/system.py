@@ -12,6 +12,7 @@ from june_brain.ollama_manager import is_model_available, is_ollama_running
 from ..schemas import (
     ActivityEntryView,
     ActivityResponse,
+    CapabilityProfileView,
     SystemStatus,
     TraceEventView,
     TraceListResponse,
@@ -74,6 +75,26 @@ def get_system_status() -> SystemStatus:
         ollama_has_model=ollama_has_model,
         api_key_present=bool(runtime.api_key) and runtime.api_key != "ollama",
         version=build_version(),
+    )
+
+
+@router.get("/system/capability", response_model=CapabilityProfileView)
+def get_capability() -> CapabilityProfileView:
+    """Return the cached local-model capability profile.
+
+    Uses the cheap cached accessor only — never triggers the expensive probe
+    from the request path. Returns optimistic defaults (all 'good', empty
+    checked_at) when no probe has run yet.
+    """
+    from june_brain.capability.probe import get_capability_profile
+
+    profile = get_capability_profile()
+    return CapabilityProfileView(
+        summarization=profile.summarization,
+        structured_output=profile.structured_output,
+        long_context=profile.long_context,
+        relevance_scoring=profile.relevance_scoring,
+        checked_at=profile.checked_at,
     )
 
 

@@ -170,3 +170,22 @@ def test_activity_limit_is_clamped(client: TestClient) -> None:
     assert res.status_code == 200
     res = client.get("/system/activity?limit=99999")
     assert res.status_code == 200
+
+
+def test_capability_returns_four_verdicts_and_checked_at(client: TestClient) -> None:
+    """GET /system/capability returns 200 with the four verdict fields and checked_at."""
+    from june_brain.capability.probe import reset_capability_cache
+
+    reset_capability_cache()
+    res = client.get("/system/capability")
+    assert res.status_code == 200
+    body = res.json()
+    for key in ("summarization", "structured_output", "long_context", "relevance_scoring", "checked_at"):
+        assert key in body
+    # Optimistic defaults when no probe has run
+    assert body["summarization"] in ("good", "weak", "poor")
+    assert body["structured_output"] in ("good", "weak", "poor")
+    assert body["long_context"] in ("good", "weak", "poor")
+    assert body["relevance_scoring"] in ("good", "weak", "poor")
+    # checked_at is empty string when never probed
+    assert isinstance(body["checked_at"], str)
