@@ -215,6 +215,7 @@ class SkillSupervisor:
                     "enabled": skill.entry.enabled,
                     "status": skill.status.value,
                     "error": skill.error,
+                    "model_policy": skill.entry.model_policy,
                     "tools": [
                         {
                             "name": t.name,

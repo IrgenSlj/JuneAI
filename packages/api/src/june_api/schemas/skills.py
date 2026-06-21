@@ -49,6 +49,13 @@ class SkillInfo(BaseModel):
         default="",
         description="Last error message when status is 'crashed', empty otherwise.",
     )
+    model_policy: str = Field(
+        default="cloud_allowed",
+        description=(
+            "Declared model policy from the skill manifest: "
+            "'local_only', 'cloud_allowed', or 'cloud_required'."
+        ),
+    )
     tools: list[SkillToolInfo] = Field(
         default_factory=list,
         description="Tools this skill contributes to the agent when running.",

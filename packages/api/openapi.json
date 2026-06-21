@@ -3094,6 +3094,12 @@
             "description": "Last error message when status is 'crashed', empty otherwise.",
             "default": ""
           },
+          "model_policy": {
+            "type": "string",
+            "title": "Model Policy",
+            "description": "Declared model policy from the skill manifest: 'local_only', 'cloud_allowed', or 'cloud_required'.",
+            "default": "cloud_allowed"
+          },
           "tools": {
             "items": {
               "$ref": "#/components/schemas/SkillToolInfo"

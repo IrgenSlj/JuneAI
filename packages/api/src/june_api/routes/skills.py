@@ -72,6 +72,7 @@ def _status_to_info(payload: dict) -> SkillInfo:
         enabled=bool(payload.get("enabled", False)),
         status=str(payload.get("status", "stopped")),
         error=str(payload.get("error", "")),
+        model_policy=str(payload.get("model_policy", "cloud_allowed")),
         tools=[
             SkillToolInfo(
                 name=str(tool.get("name", "")),

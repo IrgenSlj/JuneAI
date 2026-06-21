@@ -191,12 +191,16 @@
   function policyLabel(policy: string): string {
     switch (policy) {
       case "local_only":
-        return "local-only";
+        return "local only";
       case "cloud_required":
-        return "cloud-required";
+        return "needs cloud";
       default:
-        return "cloud-allowed";
+        return "cloud allowed";
     }
+  }
+
+  function policyKind(policy: string): "local" | "cloud" {
+    return policy === "local_only" ? "local" : "cloud";
   }
 
   onMount(async () => {
@@ -330,6 +334,13 @@
                 aria-label="Status: {statusLabel(skill)}. {statusExplain(skill)}"
               >
                 {statusLabel(skill)}
+              </span>
+              <span
+                class="badge skill-policy skill-policy-{policyKind(skill.model_policy)}"
+                title="Declared model policy: {skill.model_policy}"
+                aria-label="Declared model policy: {policyLabel(skill.model_policy)}"
+              >
+                {policyLabel(skill.model_policy)}
               </span>
               <button
                 type="button"
@@ -1144,6 +1155,24 @@
   .badge.policy {
     color: var(--color-fg-subtle);
     border: 1px dashed var(--color-border);
+  }
+
+  .skill-policy {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    padding: 1px var(--space-2);
+    border-radius: var(--radius-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .skill-policy-local {
+    color: var(--color-fg-subtle);
+    border: 1px dashed var(--color-border);
+  }
+  .skill-policy-cloud {
+    color: var(--color-fg-primary);
+    background: color-mix(in srgb, var(--color-fg-muted) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-fg-muted) 30%, transparent);
   }
 
   .registry-env,

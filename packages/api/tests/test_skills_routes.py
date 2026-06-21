@@ -22,6 +22,7 @@ class _FakeEntry:
     key: str
     enabled: bool = True
     disabled_tools: list[str] = field(default_factory=list)
+    model_policy: str = "cloud_allowed"
 
 
 @dataclass
@@ -46,6 +47,7 @@ class _FakeSupervisor:
                 "enabled": s.entry.enabled,
                 "status": s.status.value,
                 "error": s.error,
+                "model_policy": s.entry.model_policy,
                 "tools": [
                     {
                         "name": f"{s.entry.key}_tool",
@@ -83,8 +85,8 @@ def supervisor(monkeypatch):
     """Install a fake supervisor and a no-op reload_agent hook."""
     fake = _FakeSupervisor(
         skills={
-            "calendar": _FakeSkill(entry=_FakeEntry(key="calendar", enabled=True)),
-            "research": _FakeSkill(entry=_FakeEntry(key="research", enabled=True)),
+            "calendar": _FakeSkill(entry=_FakeEntry(key="calendar", enabled=True, model_policy="local_only")),
+            "research": _FakeSkill(entry=_FakeEntry(key="research", enabled=True, model_policy="cloud_allowed")),
         }
     )
 
@@ -124,6 +126,19 @@ def test_list_skills_returns_full_snapshot(client):
             "input_schema": {},
         }
     ]
+
+
+def test_list_skills_includes_model_policy(client):
+    """Each skill in the listing must carry a valid model_policy value."""
+    valid_policies = {"local_only", "cloud_allowed", "cloud_required"}
+    response = client.get("/skills")
+    assert response.status_code == 200
+    payload = response.json()
+    skills_by_key = {s["key"]: s for s in payload["skills"]}
+    assert skills_by_key["calendar"]["model_policy"] == "local_only"
+    assert skills_by_key["research"]["model_policy"] == "cloud_allowed"
+    for s in payload["skills"]:
+        assert s["model_policy"] in valid_policies
 
 
 def test_toggle_unknown_skill_returns_404(client):

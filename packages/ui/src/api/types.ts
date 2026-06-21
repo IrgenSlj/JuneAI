@@ -1610,6 +1610,12 @@ export interface components {
              */
             error: string;
             /**
+             * Model Policy
+             * @description Declared model policy from the skill manifest: 'local_only', 'cloud_allowed', or 'cloud_required'.
+             * @default cloud_allowed
+             */
+            model_policy: string;
+            /**
              * Tools
              * @description Tools this skill contributes to the agent when running.
              */
