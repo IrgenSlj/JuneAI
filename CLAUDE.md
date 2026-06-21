@@ -1,8 +1,9 @@
 # CLAUDE.md — working agreement for June AI
 
-Read this first, then the canonical spec. This file is the short, durable
+Read this first, then the rebuild plan. This file is the short, durable
 orientation for any agent working in this repo. Where it conflicts with
-`docs/product/build-spec.md`, the build spec wins (and fix this file).
+`docs/product/rebuild-plan.md` (the active working plan) or `docs/vision.md`
+(the durable worldview), those win (and fix this file).
 
 ## What June is
 
@@ -18,9 +19,10 @@ The four inversions of a coding agent (ADR 0015) define her:
 
 ## Canonical direction
 
-- `docs/product/build-spec.md` — single authoritative build document (Parts A/B + Tier 1 C.0-C.6).
+- `docs/product/rebuild-plan.md` + `REBUILD.md` — the active working plan and live checklist; the single source of truth for what to build next.
+- `docs/vision.md` — the durable product worldview (the four inversions, the non-negotiables).
 - ADRs: `docs/decisions/0015` (four inversions), `0016` (event-driven, no heartbeat), `0017` (model-specific providers). ADRs are append-only; supersede by writing a new one.
-- `ROADMAP.md` / `docs/product/roadmap.md` sequence the spec. The Tier 1 spine (C.0-C.6) is built; the live chat path now runs the hand-written loop.
+- `ROADMAP.md` / `docs/product/roadmap.md` sequence the work. The Tier 1 spine is built; the live chat path runs the hand-written loop.
 
 ## Repo layout
 

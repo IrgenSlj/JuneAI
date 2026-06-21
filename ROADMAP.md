@@ -4,9 +4,9 @@ June is a **personal assistant whose center of gravity is the user, not the task
 she remembers what matters, forgets what doesn't, tells the truth, knows when to
 stay quiet, and never does anything the user can't see.
 
-The full direction, invariants, and rationale live in the canonical
-[build specification](docs/product/build-spec.md) and
-[ADRs 0015–0017](docs/decisions/). June is built in tiers: **Tier 1** is the spine
+The full direction, invariants, and rationale live in the
+[vision](docs/vision.md), the [rebuild plan](docs/product/rebuild-plan.md), and
+the [ADRs](docs/decisions/). June is built in tiers: **Tier 1** is the spine
 (the one-sentence vision, nothing more); **Tier 2** adds differentiators only once
 Tier 1 is shipped and *used*; **Tier 3** is the north star.
 

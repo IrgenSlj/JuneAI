@@ -33,7 +33,7 @@ no signup, no telemetry without consent, and one button to export everything.
 > **Status:** June is alpha software under active development. It is usable as a
 > web app and has a v0.1.0 Apple Silicon macOS DMG on GitHub Releases (ad-hoc
 > signed, not notarized, so macOS may show a first-launch warning). The **Tier 1
-> spine** of the canonical [build specification](docs/product/build-spec.md) is
+> spine** of June's [vision](docs/vision.md) is
 > built — portable data directory, model-specific provider layer, measured harness
 > loop, layered context with anchored compaction, salience recall, an honest
 > character, and a visible cloud boundary. Current focus: running the loop
@@ -222,7 +222,7 @@ foundation (three-store memory, tasks, MCP skills, desktop DMG). Current focus i
 finishing Tier 1: run the loop experiment and make the measured loop the live path.
 Tier 2 (proactivity, native memory graph, encrypted backup, Google skills) starts
 only after Tier 1 is used. See [ROADMAP.md](ROADMAP.md) and the
-[build specification](docs/product/build-spec.md).
+[rebuild plan](docs/product/rebuild-plan.md).
 
 ## Contributing
 
@@ -244,7 +244,7 @@ Discussion happens in [GitHub issues](https://github.com/IrgenSlj/JuneAI/issues)
 
 ## Documentation
 
-- [Build specification](docs/product/build-spec.md) — the authoritative, decision-by-decision plan
+- [Rebuild plan](docs/product/rebuild-plan.md) — the authoritative, decision-by-decision working plan
 - [Vision](docs/vision.md) — what June is and the non-negotiables
 - [Product overview](docs/product/overview.md) — the surfaces and the boundary
 - [Architecture overview](docs/architecture/overview.md) — the layered model

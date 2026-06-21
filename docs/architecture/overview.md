@@ -3,7 +3,7 @@
 This document describes how June is built and the harness shape it is being built
 toward. For the rationale behind each choice, see the Architecture Decision Records
 under `docs/decisions/`. For the authoritative, decision-by-decision plan, see
-[build-spec.md](../product/build-spec.md).
+[rebuild-plan.md](../product/rebuild-plan.md).
 
 The brain runs on a hand-written harness loop — the one engine (ADR 0018). The
 Tier 1 spine introduced a model-specific provider layer, a fixed loop behind an

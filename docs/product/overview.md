@@ -9,7 +9,7 @@ and future mobile surfaces.
 
 This document describes what June is. For why it exists, read
 [vision.md](../vision.md). For the authoritative, decision-by-decision build plan,
-read [build-spec.md](build-spec.md). For how it is built, read
+read [rebuild-plan.md](rebuild-plan.md). For how it is built, read
 [architecture/overview.md](../architecture/overview.md). For what ships next, read
 [roadmap.md](roadmap.md).
 

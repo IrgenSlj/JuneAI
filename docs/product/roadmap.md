@@ -2,8 +2,8 @@
 
 This is the detailed product roadmap. The short public summary lives at
 [`../../ROADMAP.md`](../../ROADMAP.md). The authoritative, decision-by-decision
-build document is [`build-spec.md`](build-spec.md) — this roadmap sequences it and
-tracks status; where the two differ, the build spec wins.
+working plan is [`rebuild-plan.md`](rebuild-plan.md) — this roadmap sequences it and
+tracks status; where the two differ, the rebuild plan wins.
 
 ## Direction
 

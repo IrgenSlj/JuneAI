@@ -5,10 +5,10 @@ This directory is the documentation root. Everything you need to understand, con
 ## What's New
 
 - **New direction (28 May 2026)** — June is a personal assistant whose center of
-  gravity is the user, not the task. The canonical, decision-by-decision plan is
-  the [build specification](product/build-spec.md). It supersedes the earlier
-  "personal operating layer / Quick Capture" framing (ADR 0013, ADR 0014, the
-  agentic-pivot plan, the v0.1.1 plan), which are retained as historical context.
+  gravity is the user, not the task. The canonical, decision-by-decision working
+  plan is the [rebuild plan](product/rebuild-plan.md); the durable worldview is
+  the [vision](vision.md). This supersedes the earlier "personal operating layer /
+  Quick Capture" framing (ADR 0013, ADR 0014), retained as historical context.
 - **The four inversions** — June borrows a coding agent's skeleton but inverts its
   four operations: defer (not verify), continue (not complete), forget (not
   accumulate), stay quiet (not act fast). See
@@ -20,15 +20,13 @@ This directory is the documentation root. Everything you need to understand, con
 - **Desktop shell builds** — The Tauri shell produced a v0.1.0 Apple Silicon DMG
   (ad-hoc signed, not notarized); signed distribution is deferred.
 
-- [**Build specification**](product/build-spec.md) — the authoritative plan (Tier 1/2/3)
 - [**Vision**](vision.md) — the product premise and the non-negotiables
 - [**Product overview**](product/overview.md) — what June is
-- [**Roadmap**](product/roadmap.md) — what ships next, sequencing the build spec
+- [**Roadmap**](product/roadmap.md) — what ships next, sequencing the rebuild plan
 - [**Architecture overview**](architecture/overview.md) — how the system is layered
 - [**Architecture decisions**](decisions/README.md) — the ADRs that justify the design
-- [**Rebuild plan**](product/rebuild-plan.md) — the current reshape + targeted rewrite (wins for the rebuild's duration)
+- [**Rebuild plan**](product/rebuild-plan.md) — the authoritative, decision-by-decision working plan
 - [**Experiments**](experiments/loop-clear.md) — CLEAR measurements (e.g. loop engine)
-- [**Archived plans**](archive/INDEX.md) — superseded planning docs, kept for history
 - [**Environment**](setup/environment.md) — runtime configuration reference
 - [**Desktop setup**](setup/desktop.md) — Rust toolchain, run/build commands for the desktop shell
 - [**Design brief**](design/claude-design-prompt.md) — the prompt for iterating on June's UI
@@ -39,13 +37,9 @@ This directory is the documentation root. Everything you need to understand, con
 docs/
 ├── vision.md                      # product north star
 ├── product/
-│   ├── build-spec.md              # canonical, decision-by-decision build plan
-│   ├── rebuild-plan.md            # current reshape + targeted rewrite (wins for the rebuild)
+│   ├── rebuild-plan.md            # canonical, decision-by-decision working plan
 │   ├── overview.md                # what June is
-│   └── roadmap.md                 # Tier 1/2/3, sequences the build spec
-├── archive/                       # superseded plans, kept for history (see INDEX.md)
-├── plans/
-│   └── personal-assistant-framework.md   # (historical) scheduler/notification components
+│   └── roadmap.md                 # Tier 1/2/3, sequences the rebuild plan
 ├── architecture/
 │   └── overview.md                # layered system architecture
 ├── decisions/                     # Architecture Decision Records (0001–0017)
@@ -65,9 +59,9 @@ docs/
 
 ## Documentation Rules
 
-1. The [build specification](product/build-spec.md) is the authoritative direction. Where it conflicts with anything else, it wins; the vision is the tiebreaker for product premise.
+1. The [rebuild plan](product/rebuild-plan.md) is the authoritative direction. Where it conflicts with anything else, it wins; the [vision](vision.md) is the tiebreaker for product premise.
 2. Every architectural decision gets an ADR. If it is worth debating, it is worth recording.
-3. The product overview describes what June is. The roadmap describes what ships next and sequences the build spec.
+3. The product overview describes what June is. The roadmap describes what ships next and sequences the rebuild plan.
 4. No emojis in documentation.
 5. Complete sentences. Two-page maximum per document unless the content genuinely requires more.
 

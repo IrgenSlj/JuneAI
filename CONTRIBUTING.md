@@ -56,9 +56,9 @@ Open http://localhost:5173.
 
 ## Project Priorities
 
-The authoritative direction is the [build specification](docs/product/build-spec.md)
-and [ADRs 0015-0017](docs/decisions/). June is built in tiers; the Tier 1 spine
-(C.0-C.6) is implemented and on `main`.
+The authoritative direction is the [rebuild plan](docs/product/rebuild-plan.md)
+and the [vision](docs/vision.md), justified by the [ADRs](docs/decisions/). June
+is built in tiers; the Tier 1 spine is implemented and on `main`.
 
 Current priorities live in the [rebuild plan](docs/product/rebuild-plan.md) and
 its living checklist [`REBUILD.md`](REBUILD.md). The Tier 1 spine is built and

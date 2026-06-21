@@ -1,9 +1,10 @@
 # June AI — Rebuild & Repo Reshape Plan
 
-> **Authority:** This document is the working plan for the rebuild. Where it
-> conflicts with `docs/product/build-spec.md`, this document wins for the
-> duration of the rebuild; every deliberate departure from the build spec is
-> recorded as a new ADR (Part 8). Live progress is tracked in `REBUILD.md`.
+> **Authority:** This document is the single authoritative working plan. It
+> supersedes the earlier `build-spec.md` (retired during repo consolidation;
+> recoverable from git history). The durable product worldview lives in
+> `docs/vision.md`. Every deliberate decision is recorded as a new ADR (Part 8).
+> Live progress is tracked in `REBUILD.md`.
 > **Prepared:** 12 June 2026. **Repo:** `IrgenSlj/JuneAI`. **Owner:** Irgen Salianji.
 
 ---

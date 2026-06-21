@@ -109,10 +109,10 @@ everything is June's — and therefore theirs.
 ## How This Document Is Used
 
 This vision governs architecture decisions and product scope. The authoritative,
-decision-by-decision build plan is [build-spec.md](product/build-spec.md). When in
+decision-by-decision working plan is [rebuild-plan.md](product/rebuild-plan.md). When in
 doubt, open this file; when the answer is still unclear, write an Architecture
 Decision Record under `docs/decisions/`. The current strategic direction is
-anchored by the build spec and by
+anchored by the rebuild plan and by
 [ADR 0009](decisions/0009-private-by-default-and-model-routing.md),
 [ADR 0015](decisions/0015-center-of-gravity-four-inversions.md),
 [ADR 0016](decisions/0016-event-driven-no-heartbeat.md), and

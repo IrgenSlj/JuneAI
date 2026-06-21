@@ -1,9 +1,10 @@
 # REBUILD — living checklist
 
 Cross-session continuity anchor for the June AI rebuild & repo reshape.
-Authority: `docs/product/rebuild-plan.md` (the working plan) wins over the
-build spec for the duration of the rebuild. Check a line off as its commit
-lands. Every slice ends with `./tools/check.sh` green and one commit.
+Authority: `docs/product/rebuild-plan.md` (the working plan) is the single
+source of truth; the durable worldview lives in `docs/vision.md`. Check a line
+off as its commit lands. Every slice ends with `./tools/check.sh` green and one
+commit.
 
 Baseline: tag `v0.2.0-prereshape`, metrics in
 `docs/experiments/baseline-2026-06.md`. Execution playbook for S2 onward
