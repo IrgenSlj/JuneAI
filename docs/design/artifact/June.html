@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=1400"/>
+<title>June — two-register interface</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #E5E0D6; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  #root { height: 100vh; display: flex; flex-direction: column; }
+  button:focus { outline: none; }
+  ::selection { background: rgba(138,90,59,0.18); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="components/tokens.jsx"></script>
+<script type="text/babel" src="components/primitives.jsx"></script>
+<script type="text/babel" src="components/Mascot.jsx"></script>
+<script type="text/babel" src="components/ProductHeader.jsx"></script>
+<script type="text/babel" src="components/ApprovalGate.jsx"></script>
+<script type="text/babel" src="components/Bubble.jsx"></script>
+<script type="text/babel" src="components/ActivityTerminal.jsx"></script>
+<script type="text/babel" src="components/CenteredComposer.jsx"></script>
+<script type="text/babel" src="components/ChatStage.jsx"></script>
+<script type="text/babel" src="components/MemoryScreen.jsx"></script>
+<script type="text/babel" src="components/SkillsScreen.jsx"></script>
+<script type="text/babel" src="components/TasksScreen.jsx"></script>
+<script type="text/babel" src="components/SystemScreen.jsx"></script>
+<script type="text/babel" src="components/SettingsScreen.jsx"></script>
+<script type="text/babel" src="components/FirstRun.jsx"></script>
+<script type="text/babel" src="components/MobileChat2.jsx"></script>
+<script type="text/babel" src="components/MascotBoard.jsx"></script>
+<script type="text/babel" src="components/TokensView.jsx"></script>
+<script type="text/babel" src="components/DesktopFrame.jsx"></script>
+<script type="text/babel" src="frames/ios-frame.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const { useState, useEffect, useRef, useLayoutEffect } = React;
+
+const DEFAULTS = /*EDITMODE-BEGIN*/{
+  "variant": "tight",
+  "accent": "clay",
+  "mascot": "1"
+}/*EDITMODE-END*/;
+
+const ACCENT_SWAP = {
+  clay:   null,
+  forest: { l: '#3D5A4A', d: '#7FA693', ls: 'rgba(61,90,74,0.10)',  ds: 'rgba(127,166,147,0.14)' },
+  plum:   { l: '#6B3D5C', d: '#B8849F', ls: 'rgba(107,61,92,0.10)', ds: 'rgba(184,132,159,0.14)' },
+  ochre:  { l: '#8A6A2F', d: '#D4B572', ls: 'rgba(138,106,47,0.10)',ds: 'rgba(212,181,114,0.14)' },
+  ink:    { l: '#2A2520', d: '#E8E2D5', ls: 'rgba(42,37,32,0.10)',  ds: 'rgba(232,226,213,0.14)' },
+};
+window.__BASE_TOKENS = JSON.parse(JSON.stringify(window.TOKENS));
+function applyAccent(name) {
+  const src = JSON.parse(JSON.stringify(window.__BASE_TOKENS));
+  const s = ACCENT_SWAP[name];
+  if (s) for (const v of ['tight', 'warm']) {
+    src[v].light.accent = s.l; src[v].light.accentSoft = s.ls;
+    src[v].dark.accent  = s.d; src[v].dark.accentSoft  = s.ds;
+  }
+  Object.assign(window.TOKENS, src);
+}
+
+// ── Scaler: fit a fixed-size frame into available space ──────────
+function Scaler({ w, h, pad = 28, children }) {
+  const ref = useRef(null);
+  const [scale, setScale] = useState(1);
+  useLayoutEffect(() => {
+    const el = ref.current; if (!el) return;
+    const measure = () => {
+      const aw = el.clientWidth - pad * 2, ah = el.clientHeight - pad * 2;
+      setScale(Math.max(0.2, Math.min(1, aw / w, ah / h)));
+    };
+    measure();
+    const ro = new ResizeObserver(measure); ro.observe(el);
+    return () => ro.disconnect();
+  }, [w, h, pad]);
+  return (
+    <div ref={ref} style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      <div style={{ width: w * scale, height: h * scale }}>
+        <div style={{ width: w, height: h, transform: `scale(${scale})`, transformOrigin: 'top left' }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Top bar (artifact chrome) ────────────────────────────────────
+const TABS = [
+  ['mascot', 'Mascot'], ['chat', 'Chat'], ['mobile', 'Mobile'],
+  ['memory', 'Memory'], ['tasks', 'Tasks'], ['skills', 'Skills'],
+  ['system', 'System'], ['settings', 'Settings'], ['first-run', 'First run'],
+  ['tokens', 'Tokens'],
+];
+const SCENARIOS = [['greeting', 'Greeting'], ['active', 'Active turn'], ['cloud', 'Cloud turn'], ['approval', 'Approval gate']];
+
+function Seg({ items, value, onChange, accent }) {
+  return (
+    <div style={{ display: 'flex', gap: 2, background: 'rgba(20,16,10,0.05)', padding: 3, borderRadius: 9 }}>
+      {items.map(([v, label]) => {
+        const on = v === value;
+        return (
+          <button key={v} onClick={() => onChange(v)} style={{
+            appearance: 'none', border: 'none', cursor: 'pointer',
+            padding: '5px 11px', borderRadius: 7,
+            fontFamily: '"Helvetica Neue",Helvetica,Arial,sans-serif', fontSize: 12.5,
+            background: on ? '#FBF7EE' : 'transparent',
+            color: on ? '#22190F' : '#75675A',
+            boxShadow: on ? '0 1px 2px rgba(20,16,10,0.08)' : 'none',
+          }}>{label}</button>
+        );
+      })}
+    </div>
+  );
+}
+
+function TopBar({ view, setView, mode, setMode, scenario, setScenario, expanded, setExpanded, accentColor }) {
+  return (
+    <div style={{
+      flexShrink: 0, height: 52, display: 'flex', alignItems: 'center', gap: 16,
+      padding: '0 18px', background: '#EFEAE0', borderBottom: '1px solid rgba(20,16,10,0.10)',
+    }}>
+      <span style={{ fontFamily: '"Helvetica Neue",Helvetica,Arial,sans-serif', fontSize: 12.5, color: '#75675A', letterSpacing: 0.02 }}>
+        june <span style={{ color: '#B0A595' }}>· visual system</span>
+      </span>
+      <Seg items={TABS} value={view} onChange={setView} accent={accentColor} />
+      <div style={{ flex: 1 }} />
+      {view === 'chat' && (
+        <>
+          <Seg items={SCENARIOS} value={scenario} onChange={setScenario} accent={accentColor} />
+          <button onClick={() => setExpanded(e => !e)} style={{
+            appearance: 'none', cursor: 'pointer',
+            border: '1px solid rgba(20,16,10,0.14)', background: expanded ? '#FBF7EE' : 'transparent',
+            color: '#3A2E20', fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11,
+            padding: '6px 10px', borderRadius: 8,
+          }}>{expanded ? 'activity ▾' : 'activity ▸'}</button>
+        </>
+      )}
+      <button onClick={() => setMode(m => m === 'dark' ? 'light' : 'dark')} title="Light / dark" style={{
+        appearance: 'none', cursor: 'pointer', width: 30, height: 30, borderRadius: 8,
+        border: '1px solid rgba(20,16,10,0.14)', background: 'transparent',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <SunMoon mode={mode} color="#3A2E20" />
+      </button>
+    </div>
+  );
+}
+
+// ── Tweaks panel (host edit-mode) ────────────────────────────────
+function Tweaks({ visible, variant, setVariant, accent, setAccent }) {
+  const [open, setOpen] = useState(false);
+  if (!visible) return null;
+  const accents = [['clay','#E8965A'],['forest','#3D5A4A'],['plum','#6B3D5C'],['ochre','#C8923F'],['ink','#2A2520']];
+  return (
+    <>
+      <button onClick={() => setOpen(o => !o)} style={{
+        position: 'fixed', right: 22, bottom: 22, zIndex: 1000,
+        appearance: 'none', cursor: 'pointer', border: 'none',
+        background: '#22190F', color: '#FBF7EE', borderRadius: 999,
+        fontFamily: '"Helvetica Neue",Helvetica,Arial,sans-serif', fontSize: 12,
+        padding: '9px 16px', boxShadow: '0 12px 28px rgba(20,16,10,0.25)',
+      }}>Tweaks</button>
+      {open && (
+        <div style={{
+          position: 'fixed', right: 22, bottom: 64, zIndex: 1000, width: 240,
+          background: '#FBF7EE', border: '1px solid rgba(60,40,20,0.14)', borderRadius: 12,
+          boxShadow: '0 24px 48px rgba(20,16,10,0.18)', padding: '16px 16px 18px',
+          fontFamily: '"Helvetica Neue",Helvetica,Arial,sans-serif',
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: 0.14, textTransform: 'uppercase', color: '#75675A', marginBottom: 12 }}>Tweaks</div>
+
+          <div style={{ fontSize: 12, color: '#3A2E20', marginBottom: 7 }}>Direction</div>
+          <Seg items={[['tight','Tight'],['warm','Warm']]} value={variant} onChange={setVariant} />
+
+          <div style={{ fontSize: 12, color: '#3A2E20', margin: '16px 0 8px' }}>Accent</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {accents.map(([name, col]) => (
+              <button key={name} onClick={() => setAccent(name)} title={name} style={{
+                width: 28, height: 28, borderRadius: 999, cursor: 'pointer',
+                background: col, border: accent === name ? '2px solid #22190F' : '2px solid transparent',
+                boxShadow: '0 0 0 1px rgba(0,0,0,0.1)',
+              }} />
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ── App ──────────────────────────────────────────────────────────
+function load(k, d) { try { const v = localStorage.getItem('june2-' + k); return v === null ? d : v; } catch { return d; } }
+function save(k, v) { try { localStorage.setItem('june2-' + k, v); } catch {} }
+
+function App() {
+  const [view, setView]         = useState(() => load('view', 'mascot'));
+  const [mode, setMode]         = useState(() => load('mode', 'light'));
+  const [variant, setVariant]   = useState(() => load('variant', DEFAULTS.variant));
+  const [accent, setAccent]     = useState(() => load('accent', DEFAULTS.accent));
+  const [mascot, setMascot]     = useState(() => load('mascot', DEFAULTS.mascot));
+  const [scenario, setScenario] = useState(() => load('scenario', 'active'));
+  const [expanded, setExpanded] = useState(() => load('expanded', 'false') === 'true');
+  const [tweaksVisible, setTweaksVisible] = useState(false);
+
+  useEffect(() => save('view', view), [view]);
+  useEffect(() => save('mode', mode), [mode]);
+  useEffect(() => { save('variant', variant); pushEdit('variant', variant); }, [variant]);
+  useEffect(() => { save('accent', accent); pushEdit('accent', accent); }, [accent]);
+  useEffect(() => { save('mascot', mascot); pushEdit('mascot', mascot); }, [mascot]);
+  useEffect(() => save('scenario', scenario), [scenario]);
+  useEffect(() => save('expanded', String(expanded)), [expanded]);
+
+  useEffect(() => {
+    const onMsg = (e) => {
+      const d = e.data; if (!d || typeof d !== 'object') return;
+      if (d.type === '__activate_edit_mode') setTweaksVisible(true);
+      if (d.type === '__deactivate_edit_mode') setTweaksVisible(false);
+    };
+    window.addEventListener('message', onMsg);
+    try { window.parent.postMessage({ type: '__edit_mode_available' }, '*'); } catch {}
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  applyAccent(accent);
+  const mvar = parseInt(mascot, 10);
+  const p = palette(variant, mode);
+
+  const toggleMode = () => setMode(m => m === 'dark' ? 'light' : 'dark');
+  const navigate = (to) => setView(to);
+  const home = () => setView('chat');
+
+  const headerProps = { variant, mode, mascotVariant: mvar, onToggleMode: toggleMode, onNavigate: navigate, onHome: home };
+
+  let body;
+  if (view === 'mascot') {
+    body = (
+      <div style={{ flex: 1, overflow: 'auto', background: '#E5E0D6' }}>
+        <div style={{ maxWidth: 980, margin: '0 auto', padding: '36px 32px 56px' }}>
+          <h1 style={{ fontFamily: '"Helvetica Neue",Helvetica,Arial,sans-serif', fontWeight: 500, fontSize: 28, color: '#22190F', margin: '0 0 4px', letterSpacing: -0.01 }}>The mark</h1>
+          <MascotBoard variant={variant} />
+        </div>
+      </div>
+    );
+  } else if (view === 'chat') {
+    body = (
+      <Scaler w={1280} h={820}>
+        <DesktopFrame variant={variant} mode={mode} label="june — chat">
+          <ChatStage variant={variant} mode={mode} scenario={scenario} mascotVariant={mvar}
+            defaultExpanded={expanded} onToggleMode={toggleMode} onNavigate={navigate} />
+        </DesktopFrame>
+      </Scaler>
+    );
+  } else if (view === 'memory') {    body = (
+      <Scaler w={1280} h={820}>
+        <DesktopFrame variant={variant} mode={mode} label="june — memory">
+          <MemoryScreen {...headerProps} />
+        </DesktopFrame>
+      </Scaler>
+    );
+  } else if (view === 'skills') {
+    body = (
+      <Scaler w={1280} h={820}>
+        <DesktopFrame variant={variant} mode={mode} label="june — skills">
+          <SkillsScreen {...headerProps} />
+        </DesktopFrame>
+      </Scaler>
+    );
+  } else if (view === 'tasks') {
+    body = (
+      <Scaler w={1280} h={820}>
+        <DesktopFrame variant={variant} mode={mode} label="june — promises">
+          <TasksScreen {...headerProps} />
+        </DesktopFrame>
+      </Scaler>
+    );
+  } else if (view === 'system') {
+    body = (
+      <Scaler w={1280} h={820}>
+        <DesktopFrame variant={variant} mode={mode} label="june — system">
+          <SystemScreen {...headerProps} />
+        </DesktopFrame>
+      </Scaler>
+    );
+  } else if (view === 'settings') {
+    body = (
+      <Scaler w={1280} h={820}>
+        <DesktopFrame variant={variant} mode={mode} label="june — settings">
+          <SettingsScreen {...headerProps} />
+        </DesktopFrame>
+      </Scaler>
+    );
+  } else if (view === 'first-run') {
+    body = (
+      <Scaler w={1280} h={820}>
+        <DesktopFrame variant={variant} mode={mode} label="june — first run">
+          <FirstRun variant={variant} mode={mode} mascotVariant={mvar} />
+        </DesktopFrame>
+      </Scaler>
+    );
+  } else if (view === 'mobile') {
+    body = (
+      <Scaler w={980} h={900}>
+        <div style={{ display: 'flex', gap: 56, alignItems: 'flex-start', justifyContent: 'center', width: 980, height: 900 }}>
+          {[['collapsed', false], ['expanded', true]].map(([label, exp]) => (
+            <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+              <IOSDevice dark={mode === 'dark'}>
+                <MobileStage variant={variant} mode={mode} scenario={(scenario === 'greeting' || scenario === 'approval') ? 'active' : scenario} expanded={exp} mascotVariant={mvar} />
+              </IOSDevice>
+              <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 12, color: '#75675A' }}>activity {label}</span>
+            </div>
+          ))}
+        </div>
+      </Scaler>
+    );
+  } else if (view === 'tokens') {
+    body = (
+      <div style={{ flex: 1, overflow: 'auto', background: '#E5E0D6' }}>
+        <div style={{ maxWidth: 820, margin: '0 auto', padding: '36px 32px 56px' }}>
+          <h1 style={{ fontFamily: '"Helvetica Neue",Helvetica,Arial,sans-serif', fontWeight: 500, fontSize: 28, color: '#22190F', margin: '0 0 18px', letterSpacing: -0.01 }}>Tokens</h1>
+          <TokensView variant={variant} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <TopBar
+        view={view} setView={setView} mode={mode} setMode={setMode}
+        scenario={scenario} setScenario={setScenario}
+        expanded={expanded} setExpanded={setExpanded}
+        accentColor={p.accent} />
+      {body}
+      <Tweaks visible={tweaksVisible}
+        variant={variant} setVariant={setVariant}
+        accent={accent} setAccent={setAccent} />
+    </>
+  );
+}
+
+function pushEdit(k, v) {
+  try { window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [k]: v } }, '*'); } catch {}
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
