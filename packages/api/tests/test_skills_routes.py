@@ -154,41 +154,29 @@ def test_skill_writes_returns_only_that_skills_facts(client, tmp_path, monkeypat
     """The endpoint should filter the vector shadow table by source prefix."""
     import hashlib
 
-    from chromadb.api.types import EmbeddingFunction
     from june_brain.memory import vector as vector_module
     from june_brain.memory.sqlite import Memory
 
-    class _HashEmbedder(EmbeddingFunction):
-        def __init__(self) -> None:
-            pass
-
-        def __call__(self, input):
-            texts = [input] if isinstance(input, str) else list(input)
-            vecs = []
-            for t in texts:
-                d = hashlib.sha256(t.encode("utf-8")).digest()
-                vecs.append([(d[i % len(d)] / 255.0) * 2 - 1 for i in range(64)])
-            return vecs[0] if isinstance(input, str) else vecs
-
+    class _HashEmbedder:
         @staticmethod
-        def name() -> str:
-            return "test-hash-embedder"
+        def _vec(text: str) -> list[float]:
+            d = hashlib.sha256(text.encode("utf-8")).digest()
+            return [(d[i % len(d)] / 255.0) * 2 - 1 for i in range(64)]
 
-        @staticmethod
-        def build_from_config(_):
-            return _HashEmbedder()
+        def embed(self, texts):
+            return [self._vec(t) for t in texts]
 
-        def get_config(self):
-            return {}
+        def embed_one(self, text):
+            return self._vec(text)
 
     monkeypatch.setattr("june_brain.memory.MEMORY_DIR", str(tmp_path))
     monkeypatch.setattr(
-        vector_module, "_get_embedding_function", lambda: _HashEmbedder()
+        vector_module, "_get_default_embedder", lambda: _HashEmbedder()
     )
     vector_module.reset_singletons()
 
     Memory("alex")  # ensure schema exists in tmp_path
-    v = vector_module.VectorStore("alex", embedding_function=_HashEmbedder())
+    v = vector_module.VectorStore("alex", embedder=_HashEmbedder())
     v.upsert("daily fact 1", source="skill:daily:track_goal")
     v.upsert("daily fact 2", source="skill:daily:save_journal_entry")
     v.upsert("calendar fact", source="skill:calendar:save_calendar_item")

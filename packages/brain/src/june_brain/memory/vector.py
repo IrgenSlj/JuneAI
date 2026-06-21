@@ -1,22 +1,22 @@
-"""Semantic memory — ChromaDB with a local sentence-transformer embedder.
+"""Semantic memory — sqlite-vec index with Ollama-served embeddings (ADR 0019).
 
-ChromaDB runs in embedded mode (no server process) and persists to
-``<data>/memory/chroma``. Embeddings are generated locally with
-``all-MiniLM-L6-v2`` (≈90 MB, downloaded once and cached). Once cached,
-the model is loaded with ``local_files_only=True`` so steady-state recall
-never touches the network (no silent egress, no unauthenticated Hub
-requests). In Local-only mode an uncached model disables semantic recall
-rather than downloading — structured memory still works. The model loads
-lazily so startup stays fast — first recall/extract pays the model-load
-cost; subsequent operations don't.
+The vector index now lives in the *same* SQLite database as everything else: a
+``vec0`` virtual table (see ``vec_index``) holds the embeddings, and the query
+embedding comes from a local Ollama model via ``EmbeddingService`` (default
+``nomic-embed-text``). This replaces ChromaDB + the in-process
+sentence-transformer, so the whole data directory is one coherent, copyable
+file and the install drops the heavy torch/transformers tree.
 
-Per ADR 0004, this is the "find me memories like this" layer. SQLite
-answers "what goals do I have"; the vector store answers "what did I
-say that *feels* like this new message."
+Per ADR 0004, this is the "find me memories like this" layer. SQLite answers
+"what goals do I have"; the vector store answers "what did I say that *feels*
+like this new message."
 
-Note: we keep a shadow copy of each fact in SQLite's ``semantic_facts``
-table. That way, deletes and listing work even if ChromaDB is rebuilt
-from scratch, and the memory browser has a single authoritative view.
+The ``semantic_facts`` SQLite table remains the authoritative shadow copy of
+each fact (text, source, metadata). The vec0 index is rebuildable from it, so
+deletes and listing work even if the index is dropped, and the memory browser
+has a single authoritative view. Graceful degradation (invariant 6): when no
+local embedder is reachable, ``upsert`` still writes the shadow and ``search``
+returns ``[]`` — structured/keyword recall keeps working.
 """
 
 from __future__ import annotations
@@ -25,180 +25,50 @@ import json
 import logging
 import uuid
 from datetime import datetime
-from hashlib import sha256
-from pathlib import Path
 from typing import Any
 
-from .sqlite import _current_memory_dir, _get_connection, db_path
+from . import vec_index
+from .embeddings import EmbeddingService, default_embed_model
+from .sqlite import _get_connection, db_path
 
 logger = logging.getLogger(__name__)
 
-# Module-level singletons. The ChromaDB client is expensive to create
-# and safe to share across users; collections scope by user_id via the
-# collection name.
-_client: Any = None
-_embedding_function: Any = None
-
-_MODEL_NAME = "all-MiniLM-L6-v2"
-_MODEL_REPO = "sentence-transformers/all-MiniLM-L6-v2"
+# Module-level default embedder. Reset between temp data dirs in tests.
+_default_embedder: EmbeddingService | None = None
 
 
 def _db_path() -> str:
     return db_path()
 
 
-def _chroma_dir() -> Path:
-    path = Path(_current_memory_dir()) / "chroma"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def _get_client() -> Any:
-    """Lazy-load the ChromaDB persistent client."""
-    global _client
-    if _client is None:
-        import chromadb  # heavy import — deferred
-        from chromadb.config import Settings
-
-        _client = chromadb.PersistentClient(
-            path=str(_chroma_dir()),
-            settings=Settings(anonymized_telemetry=False),
+def _get_default_embedder() -> EmbeddingService:
+    """Lazy shared EmbeddingService bound to the current memory connection."""
+    global _default_embedder
+    if _default_embedder is None:
+        _default_embedder = EmbeddingService(
+            _get_connection(_db_path()), model=default_embed_model()
         )
-    return _client
-
-
-def _model_is_cached() -> bool:
-    """True when the embedding model is already in the local HF cache."""
-    try:
-        from huggingface_hub import try_to_load_from_cache
-    except Exception:  # noqa: BLE001
-        return False
-    for fname in ("config.json", "modules.json", "config_sentence_transformers.json"):
-        try:
-            hit = try_to_load_from_cache(_MODEL_REPO, fname)
-        except Exception:  # noqa: BLE001
-            continue
-        if isinstance(hit, str):
-            return True
-    return False
-
-
-def _egress_blocked() -> bool:
-    """True when the privacy dial is Local-only — no model may be fetched."""
-    try:
-        from june_brain.config_store import get_privacy_dial
-        from june_brain.routing import UserPrivacyDial
-
-        return get_privacy_dial() == UserPrivacyDial.LOCAL_ONLY
-    except Exception:  # noqa: BLE001
-        return False
-
-
-def _quiet_transformers() -> None:
-    """Silence transformers' weight-load report and tqdm progress bar.
-
-    The sentence-transformer load otherwise prints a "BertModel LOAD REPORT"
-    with a scary-looking but benign "UNEXPECTED embeddings.position_ids" line,
-    plus a progress bar, to stderr on every cold load — noise in the API logs
-    for an app that values clean, glass-box output. Best-effort; transformers
-    internals vary by version.
-    """
-    try:
-        from transformers.utils import logging as hf_logging
-
-        hf_logging.set_verbosity_error()
-        hf_logging.disable_progress_bar()
-    except Exception:  # noqa: BLE001
-        pass
-
-
-def _build_embedder(local_files_only: bool) -> Any:
-    from chromadb.utils import embedding_functions  # heavy import — deferred
-
-    _quiet_transformers()
-    return embedding_functions.SentenceTransformerEmbeddingFunction(
-        model_name=_MODEL_NAME,
-        local_files_only=local_files_only,
-    )
-
-
-def _get_embedding_function() -> Any:
-    """Lazy-load the local sentence-transformer embedder.
-
-    When the model is already cached, it is loaded with ``local_files_only`` so
-    the Hub is never contacted (no silent egress, no unauthenticated update
-    check). When the model is not cached and the privacy dial is Local-only,
-    returns None so the caller degrades gracefully instead of downloading —
-    structured memory still works; only semantic recall is disabled until a
-    model is cached. Any load failure (partial cache, offline, etc.) also
-    degrades to None rather than raising.
-    """
-    global _embedding_function
-    if _embedding_function is None:
-        cached = _model_is_cached()
-        if not cached and _egress_blocked():
-            logger.warning(
-                "embedding model %s is not cached and the privacy dial is "
-                "Local-only; semantic recall disabled until a model is cached "
-                "(structured memory still works).",
-                _MODEL_NAME,
-            )
-            return None
-        if not cached:
-            logger.info(
-                "downloading embedding model %s (one-time local-infra fetch)",
-                _MODEL_NAME,
-            )
-        try:
-            _embedding_function = _build_embedder(local_files_only=cached)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "embedding model %s unavailable (%s); semantic recall disabled",
-                _MODEL_NAME,
-                exc,
-            )
-            return None
-    return _embedding_function
-
-
-def _collection_name(user_id: str) -> str:
-    """Chroma collection names must be 3-63 chars, alnum/underscore/hyphen.
-
-    We include a hash of the raw user_id so distinct IDs do not collide after
-    slugging or truncation.
-    """
-    safe = "".join(c if c.isalnum() or c in "-_" else "-" for c in user_id.strip().lower())
-    safe = safe.strip("-_") or "default"
-    digest = sha256(user_id.encode("utf-8")).hexdigest()[:12]
-    return f"june-{safe[:40]}-{digest}"[:63].rstrip("-_")
+    return _default_embedder
 
 
 def reset_singletons() -> None:
     """Drop in-process singletons. Tests use this between temp dirs."""
-    global _client, _embedding_function
-    _client = None
-    _embedding_function = None
+    global _default_embedder
+    _default_embedder = None
+    vec_index.reset_availability()
 
 
 class VectorStore:
-    """Semantic recall backed by ChromaDB + a local embedder, per user."""
+    """Semantic recall backed by a sqlite-vec vec0 index + a local embedder."""
 
-    def __init__(self, user_id: str, embedding_function: Any | None = None) -> None:
+    def __init__(self, user_id: str, embedder: Any | None = None) -> None:
         self.user_id = user_id
-        self._injected_embedder = embedding_function
+        self._injected_embedder = embedder
 
-    @property
-    def _collection(self) -> Any:
-        embedder = self._injected_embedder or _get_embedding_function()
-        if embedder is None:
-            raise RuntimeError(
-                "semantic embedder unavailable (local-only, model not cached)"
-            )
-        return _get_client().get_or_create_collection(
-            name=_collection_name(self.user_id),
-            embedding_function=embedder,
-            metadata={"hnsw:space": "cosine"},
-        )
+    def _embedder(self) -> Any:
+        if self._injected_embedder is not None:
+            return self._injected_embedder
+        return _get_default_embedder()
 
     # ------------------------------------------------------------------
     # Writes
@@ -216,23 +86,23 @@ class VectorStore:
         if not text:
             raise ValueError("vector upsert requires non-empty text")
         fact_id = fact_id or uuid.uuid4().hex
-        metadata = {k: _flatten_for_chroma(v) for k, v in (metadata or {}).items()}
+        metadata = {k: _coerce_metadata_value(v) for k, v in (metadata or {}).items()}
         metadata.setdefault("source", source)
-        try:
-            self._collection.upsert(
-                ids=[fact_id],
-                documents=[text],
-                metadatas=[metadata],
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "vector upsert skipped (semantic index unavailable) for "
-                "user=%s: %s",
-                self.user_id,
-                exc,
-            )
+        # The shadow row is authoritative and is written first; the vec0 index is
+        # a rebuildable convenience, so an embedding failure must not lose data.
         self._write_shadow(fact_id, text, source, metadata)
+        self._index(fact_id, text)
         return {"fact_id": fact_id, "text": text, "metadata": metadata, "source": source}
+
+    def _index(self, fact_id: str, text: str) -> None:
+        try:
+            vec = self._embedder().embed_one(text)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("embedding skipped (unavailable) for user=%s: %s", self.user_id, exc)
+            return
+        if vec is None:
+            return
+        vec_index.upsert(_get_connection(_db_path()), fact_id, vec)
 
     def _write_shadow(
         self,
@@ -262,26 +132,36 @@ class VectorStore:
         if not query:
             return []
         try:
-            result = self._collection.query(query_texts=[query], n_results=max(1, k))
+            query_vec = self._embedder().embed_one(query)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("vector search failed for user=%s: %s", self.user_id, exc)
+            logger.warning("vector search embed failed for user=%s: %s", self.user_id, exc)
+            return []
+        if query_vec is None:
             return []
 
-        ids = (result.get("ids") or [[]])[0]
-        docs = (result.get("documents") or [[]])[0]
-        metas = (result.get("metadatas") or [[]])[0]
-        dists = (result.get("distances") or [[]])[0]
-
-        hits = []
-        for fact_id, text, meta, dist in zip(ids, docs, metas, dists):
+        conn = _get_connection(_db_path())
+        # Over-fetch then filter to this user via the authoritative shadow rows.
+        # The data dir is single-user in practice, so this filters nothing while
+        # staying correct if multiple users share a database in tests.
+        candidates = vec_index.search(conn, query_vec, max(k * 5, k + 20))
+        hits: list[dict[str, Any]] = []
+        for fact_id, distance in candidates:
+            row = conn.execute(
+                "SELECT text, metadata FROM semantic_facts WHERE user_id=? AND fact_id=?",
+                (self.user_id, fact_id),
+            ).fetchone()
+            if not row:
+                continue
             hits.append(
                 {
                     "fact_id": fact_id,
-                    "text": text,
-                    "metadata": meta or {},
-                    "distance": float(dist) if dist is not None else None,
+                    "text": row["text"],
+                    "metadata": _loads(row["metadata"]),
+                    "distance": float(distance),
                 }
             )
+            if len(hits) >= k:
+                break
         return hits
 
     def list_facts(
@@ -361,17 +241,8 @@ class VectorStore:
     # ------------------------------------------------------------------
 
     def delete(self, fact_id: str) -> None:
-        """Remove a fact from both Chroma and the shadow table."""
-        try:
-            self._collection.delete(ids=[fact_id])
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "vector delete skipped (semantic index unavailable) for "
-                "user=%s id=%s: %s",
-                self.user_id,
-                fact_id,
-                exc,
-            )
+        """Remove a fact from both the vec0 index and the shadow table."""
+        vec_index.delete(_get_connection(_db_path()), fact_id)
         _get_connection(_db_path()).execute(
             "DELETE FROM semantic_facts WHERE user_id=? AND fact_id=?",
             (self.user_id, fact_id),
@@ -393,8 +264,12 @@ class VectorStore:
         return len(fact_ids)
 
 
-def _flatten_for_chroma(value: Any) -> Any:
-    """Chroma metadata values must be str/int/float/bool. Coerce everything else."""
+def _coerce_metadata_value(value: Any) -> Any:
+    """Keep metadata values JSON-friendly and stable in the shadow row.
+
+    Scalars pass through; sequences become comma-joined strings and dicts become
+    JSON, matching the prior representation so existing rows round-trip.
+    """
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
     if isinstance(value, (list, tuple, set)):

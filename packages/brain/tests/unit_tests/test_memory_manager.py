@@ -39,7 +39,7 @@ def manager(memory_dir):
     Memory(user_id)  # create tables
     return MemoryManager(
         user_id,
-        vector=VectorStore(user_id, embedding_function=_HashEmbedder()),
+        vector=VectorStore(user_id, embedder=_HashEmbedder()),
         graph=KnowledgeGraph(user_id),
         sqlite=Memory(user_id),
     )

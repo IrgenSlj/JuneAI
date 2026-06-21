@@ -1,75 +1,54 @@
 """Unit tests for the VectorStore.
 
-We use a deterministic fake embedding function so the tests never hit
-sentence-transformers (and never download the 90 MB model). The
-production embedder lives behind the same chromadb API, so covering the
-Chroma surface with a stub embedder is enough here. A separate
-integration smoke test exercises the real embedder.
+We use a deterministic fake embedder so the tests never hit Ollama (and
+never download an embedding model). The production embedder is the
+EmbeddingService over a local Ollama model; tests inject an object with
+the same ``embed`` / ``embed_one`` surface. A separate integration smoke
+test exercises the real embedder.
 """
 
 from __future__ import annotations
 
 import hashlib
-from unittest.mock import patch
 
 import pytest
-from chromadb.api.types import EmbeddingFunction
 from june_brain.memory import VectorStore
 from june_brain.memory import vector as vector_module
 
 
-class _HashEmbedder(EmbeddingFunction):
-    """Deterministic 64-dim embedder: hash → unit vector.
+class _HashEmbedder:
+    """Deterministic 64-dim embedder: hash → vector.
 
-    Good enough for tests: identical text yields identical vectors,
-    different text yields different vectors. Chroma queries return the
-    matching document when query text equals the stored text.
+    Good enough for tests: identical text yields identical vectors, and the
+    vec0 index returns the matching document when the query equals the stored
+    text. Implements the EmbeddingService surface (``embed`` / ``embed_one``).
     """
 
-    def __init__(self) -> None:
-        pass
-
-    def __call__(self, input):  # chroma protocol
-        # chromadb 1.5+ sometimes passes a single string to embed_query
-        # which defaults to __call__, so accept both shapes.
-        if isinstance(input, str):
-            texts = [input]
-            single = True
-        else:
-            texts = list(input)
-            single = False
-        vectors = []
-        for text in texts:
-            digest = hashlib.sha256(text.encode("utf-8")).digest()
-            vec = [(digest[i % len(digest)] / 255.0) * 2.0 - 1.0 for i in range(64)]
-            vectors.append(vec)
-        return vectors[0] if single else vectors
-
     @staticmethod
-    def name():
-        return "test-hash-embedder"
+    def _vec(text: str) -> list[float]:
+        digest = hashlib.sha256(text.encode("utf-8")).digest()
+        return [(digest[i % len(digest)] / 255.0) * 2.0 - 1.0 for i in range(64)]
 
-    @staticmethod
-    def build_from_config(_config):
-        return _HashEmbedder()
+    def embed(self, texts):
+        return [self._vec(t) for t in texts]
 
-    def get_config(self):
-        return {}
+    def embed_one(self, text):
+        return self._vec(text)
 
 
 @pytest.fixture
-def memory_dir(tmp_path):
-    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
-        vector_module.reset_singletons()
-        yield tmp_path
-        vector_module.reset_singletons()
+def memory_dir(tmp_path, monkeypatch):
+    monkeypatch.setattr("june_brain.memory.MEMORY_DIR", str(tmp_path))
+    vector_module.reset_singletons()
+    yield tmp_path
+    vector_module.reset_singletons()
 
 
 @pytest.fixture
 def store(memory_dir):
     from june_brain.memory import Memory
     Memory("test_user")  # ensure semantic_facts table exists
-    return VectorStore("test_user", embedding_function=_HashEmbedder())
+    return VectorStore("test_user", embedder=_HashEmbedder())
 
 
 def test_upsert_writes_to_shadow_and_chroma(store):
@@ -99,14 +78,3 @@ def test_delete_removes_from_both_stores(store):
 def test_upsert_requires_text(store):
     with pytest.raises(ValueError):
         store.upsert("   ")
-
-
-def test_collection_name_uses_hash_to_avoid_slug_collisions():
-    name_a = vector_module._collection_name("User@example.com")
-    name_b = vector_module._collection_name("User example com")
-
-    assert name_a != name_b
-    assert name_a.startswith("june-user-example-com-")
-    assert name_b.startswith("june-user-example-com-")
-    assert len(name_a) <= 63
-    assert len(name_b) <= 63

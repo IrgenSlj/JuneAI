@@ -7,7 +7,6 @@ import os
 from unittest.mock import patch
 
 import pytest
-from chromadb.api.types import EmbeddingFunction as _EmbeddingFunction  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Pure math tests
@@ -138,36 +137,22 @@ def test_migration_idempotent(tmp_path):
 # Access bookkeeping via recall path
 # ---------------------------------------------------------------------------
 
-class _HashEmbedder(_EmbeddingFunction):
-    """Deterministic 64-dim embedder used across memory tests."""
+class _HashEmbedder:
+    """Deterministic 64-dim embedder used across memory tests.
 
-    def __init__(self) -> None:
-        pass
-
-    def __call__(self, input):
-        if isinstance(input, str):
-            texts = [input]
-            single = True
-        else:
-            texts = list(input)
-            single = False
-        vectors = []
-        for text in texts:
-            digest = _hashlib.sha256(text.encode("utf-8")).digest()
-            vec = [(digest[i % len(digest)] / 255.0) * 2.0 - 1.0 for i in range(64)]
-            vectors.append(vec)
-        return vectors[0] if single else vectors
+    Implements the EmbeddingService surface (``embed`` / ``embed_one``).
+    """
 
     @staticmethod
-    def name():
-        return "test-hash-embedder"
+    def _vec(text: str) -> list[float]:
+        digest = _hashlib.sha256(text.encode("utf-8")).digest()
+        return [(digest[i % len(digest)] / 255.0) * 2.0 - 1.0 for i in range(64)]
 
-    @staticmethod
-    def build_from_config(_config):
-        return _HashEmbedder()
+    def embed(self, texts):
+        return [self._vec(t) for t in texts]
 
-    def get_config(self):
-        return {}
+    def embed_one(self, text):
+        return self._vec(text)
 
 
 @pytest.fixture
@@ -182,7 +167,7 @@ def memory_dir(tmp_path):
 def _make_store(user_id: str):
     from june_brain.memory import Memory, VectorStore
     Memory(user_id)  # ensures schema + migrations run
-    return VectorStore(user_id, embedding_function=_HashEmbedder())
+    return VectorStore(user_id, embedder=_HashEmbedder())
 
 
 def test_access_bookkeeping_after_recall(memory_dir):
@@ -241,7 +226,7 @@ def test_salience_ordering_via_recall(memory_dir):
     from june_brain.memory.recall import _salience_rerank
 
     Memory("u3")
-    store = VectorStore("u3", embedding_function=_HashEmbedder())
+    store = VectorStore("u3", embedder=_HashEmbedder())
 
     # Upsert two facts so shadow rows exist with access_count=0.
     r1 = store.upsert("highly relevant fact", source="test")
@@ -278,7 +263,7 @@ def test_salience_rerank_stores_distance_like_score(memory_dir):
     from june_brain.memory.recall import _salience_rerank
 
     Memory("u4")
-    store = VectorStore("u4", embedding_function=_HashEmbedder())
+    store = VectorStore("u4", embedder=_HashEmbedder())
     r_hi = store.upsert("very relevant fact", source="test")
     r_lo = store.upsert("weakly relevant fact", source="test")
 

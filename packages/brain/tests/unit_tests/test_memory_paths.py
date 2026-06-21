@@ -47,7 +47,7 @@ def test_vector_and_graph_paths_use_documented_memory_dir() -> None:
     expected_db = memory_dir() / "june.db"
     assert Path(graph_module._db_path()) == expected_db
     assert Path(vector_module._db_path()) == expected_db
-    assert vector_module._chroma_dir() == memory_dir() / "chroma"
+    # Vectors live in the same june.db now (sqlite-vec, ADR 0019) — no chroma dir.
 
 
 def test_task_store_and_activity_log_use_documented_memory_db() -> None:
@@ -103,14 +103,12 @@ def test_import_and_export_use_documented_memory_db(tmp_path: Path) -> None:
 def test_legacy_root_memory_store_is_used_when_canonical_store_is_missing(
     isolated_data_dir: Path,
 ) -> None:
-    from june_brain.memory import vector as vector_module
     from june_brain.memory.sqlite import db_path
 
     legacy_db = isolated_data_dir / "june.db"
     legacy_db.touch()
 
     assert Path(db_path()) == legacy_db
-    assert vector_module._chroma_dir() == isolated_data_dir / "chroma"
 
 
 def test_documented_memory_dir_wins_when_both_legacy_and_canonical_exist(

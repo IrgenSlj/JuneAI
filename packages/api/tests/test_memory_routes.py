@@ -1,9 +1,9 @@
 """Integration tests for /memory routes.
 
-Uses a deterministic hash embedder in place of sentence-transformers so
-the tests never download the 90 MB model. We patch
-``june_brain.memory.vector._get_embedding_function`` so ``VectorStore``
-instances created inside the route pick up the stub automatically.
+Uses a deterministic hash embedder in place of Ollama so the tests never
+need a running model. We patch ``june_brain.memory.vector._get_default_embedder``
+so ``VectorStore`` instances created inside the route pick up the stub
+automatically (ADR 0019: vectors live in sqlite-vec, embeddings via Ollama).
 """
 
 from __future__ import annotations
@@ -12,49 +12,31 @@ import hashlib
 from unittest.mock import patch
 
 import pytest
-from chromadb.api.types import EmbeddingFunction
 from fastapi.testclient import TestClient
 from june_api.app import create_app
 from june_brain.memory import vector as vector_module
 
 
-class _HashEmbedder(EmbeddingFunction):
-    """Deterministic embedder — matches the brain test fixture."""
-
-    def __init__(self) -> None:
-        pass
-
-    def __call__(self, input):
-        if isinstance(input, str):
-            texts = [input]
-            single = True
-        else:
-            texts = list(input)
-            single = False
-        vectors = []
-        for text in texts:
-            digest = hashlib.sha256(text.encode("utf-8")).digest()
-            vec = [(digest[i % len(digest)] / 255.0) * 2.0 - 1.0 for i in range(64)]
-            vectors.append(vec)
-        return vectors[0] if single else vectors
+class _HashEmbedder:
+    """Deterministic embedder — matches the brain test fixture (embed/embed_one)."""
 
     @staticmethod
-    def name():
-        return "test-hash-embedder"
+    def _vec(text: str) -> list[float]:
+        digest = hashlib.sha256(text.encode("utf-8")).digest()
+        return [(digest[i % len(digest)] / 255.0) * 2.0 - 1.0 for i in range(64)]
 
-    @staticmethod
-    def build_from_config(_config):
-        return _HashEmbedder()
+    def embed(self, texts):
+        return [self._vec(t) for t in texts]
 
-    def get_config(self):
-        return {}
+    def embed_one(self, text):
+        return self._vec(text)
 
 
 @pytest.fixture
 def memory_env(tmp_path):
     """Isolate memory to tmp_path and stub out the embedder."""
     with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)), patch.object(
-        vector_module, "_get_embedding_function", return_value=_HashEmbedder()
+        vector_module, "_get_default_embedder", return_value=_HashEmbedder()
     ):
         vector_module.reset_singletons()
         yield tmp_path
@@ -103,7 +85,7 @@ def test_memory_stats_counts_writes_across_stores(memory_env, client):
     from june_brain.memory import KnowledgeGraph, Memory, VectorStore
 
     Memory("alex")
-    vector = VectorStore("alex", embedding_function=_HashEmbedder())
+    vector = VectorStore("alex", embedder=_HashEmbedder())
     vector.upsert("I love ramen", source="test")
     vector.upsert("I went hiking on Sunday", source="test")
 
@@ -129,7 +111,7 @@ def test_memory_snapshot_includes_semantic_and_entities(memory_env, client):
     from june_brain.memory import KnowledgeGraph, Memory, VectorStore
 
     Memory("alex")  # create the SQLite schema
-    vector = VectorStore("alex", embedding_function=_HashEmbedder())
+    vector = VectorStore("alex", embedder=_HashEmbedder())
     record = vector.upsert("I love ramen", source="test", metadata={"kind": "fact"})
 
     graph = KnowledgeGraph("alex")
@@ -155,7 +137,7 @@ def test_delete_semantic_fact_removes_from_snapshot(memory_env, client):
     from june_brain.memory import Memory, VectorStore
 
     Memory("alex")
-    vector = VectorStore("alex", embedding_function=_HashEmbedder())
+    vector = VectorStore("alex", embedder=_HashEmbedder())
     record = vector.upsert("temporary fact")
 
     ref = f"semantic:{record['fact_id']}"
