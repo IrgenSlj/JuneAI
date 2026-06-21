@@ -45,6 +45,10 @@ export type RegistryUninstallResponse = components["schemas"]["RegistryUninstall
 export type SystemStatus = components["schemas"]["SystemStatus"];
 export type ActivityEntryView = components["schemas"]["ActivityEntryView"];
 export type ActivityResponse = components["schemas"]["ActivityResponse"];
+export type TraceEventView = components["schemas"]["TraceEventView"];
+export type TraceSummary = components["schemas"]["TraceSummary"];
+export type TraceListResponse = components["schemas"]["TraceListResponse"];
+export type TurnTraceView = components["schemas"]["TurnTraceView"];
 export type SetupStatus = components["schemas"]["SetupStatus"];
 export type SetupApplyRequest = components["schemas"]["SetupApplyRequest"];
 export type SetupApplyResponse = components["schemas"]["SetupApplyResponse"];
@@ -150,6 +154,18 @@ export function createJuneClient(options: JuneClientOptions) {
     /** DELETE /system/activity — clear the activity log. */
     clearActivity(): Promise<ActivityResponse> {
       return requestJson<ActivityResponse>("/system/activity", { method: "DELETE" });
+    },
+
+    /** GET /system/traces — recent turn traces, newest first (summaries only). */
+    getTraces(limit = 50): Promise<TraceListResponse> {
+      const params = new URLSearchParams();
+      params.set("limit", String(limit));
+      return getJson<TraceListResponse>(`/system/traces?${params.toString()}`);
+    },
+
+    /** GET /system/traces/{turn_id} — the full glass-box trace for one turn. */
+    getTrace(turnId: string): Promise<TurnTraceView> {
+      return getJson<TurnTraceView>(`/system/traces/${encodeURIComponent(turnId)}`);
     },
 
     /** GET /setup/status — whether the active provider is usable end to end. */

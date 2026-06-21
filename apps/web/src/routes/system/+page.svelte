@@ -3,11 +3,14 @@
   import {
     OfflineNotice,
     ConfirmDialog,
+    TraceEventList,
     type ActivityEntryView,
     type MemorySnapshot,
     type SkillInfo,
     type SkillsResponse,
     type SystemStatus,
+    type TraceSummary,
+    type TraceEventView,
   } from "@june/ui";
   import { client } from "$lib/api.js";
   import { formatRelative } from "$lib/dates.js";
@@ -26,26 +29,86 @@
   let loadError: string | null = $state(null);
   let timer: ReturnType<typeof setInterval> | null = null;
 
+  // Turn traces state
+  let traces: TraceSummary[] = $state([]);
+  let tracesError: string | null = $state(null);
+  let selectedTraceId: string | null = $state(null);
+  let selectedTraceEvents: TraceEventView[] = $state([]);
+  let traceDetailLoading = $state(false);
+  let traceDetailError: string | null = $state(null);
+
   async function refresh() {
     loading = true;
     loadError = null;
+    tracesError = null;
     try {
-      const [snap, sk, sys, act] = await Promise.all([
+      const [snap, sk, sys, act, trl] = await Promise.all([
         client.getMemory(profileName.value),
         client.getSkills(),
         client.getSystem(),
         client.getActivity(50).catch(() => ({ entries: [], count: 0 })),
+        client.getTraces(50).catch((e: unknown) => {
+          tracesError = e instanceof Error ? e.message : String(e);
+          return { traces: [], count: 0 };
+        }),
       ]);
       memory = snap;
       skills = (sk as SkillsResponse).skills ?? [];
       system = sys;
       activity = act.entries ?? [];
+      traces = trl.traces ?? [];
+      // Keep an open trace's detail in sync with its (possibly updated) summary,
+      // so the event-count badge can never disagree with the expanded panel.
+      if (selectedTraceId) {
+        try {
+          const view = await client.getTrace(selectedTraceId);
+          selectedTraceEvents = view.events ?? [];
+        } catch {
+          // Keep the previously-loaded events on a transient failure.
+        }
+      }
       lastRefresh = new Date();
     } catch (err) {
       loadError = err instanceof Error ? err.message : String(err);
     } finally {
       loading = false;
     }
+  }
+
+  async function selectTrace(turnId: string): Promise<void> {
+    if (selectedTraceId === turnId) {
+      // Toggle off
+      selectedTraceId = null;
+      selectedTraceEvents = [];
+      return;
+    }
+    selectedTraceId = turnId;
+    selectedTraceEvents = [];
+    traceDetailLoading = true;
+    traceDetailError = null;
+    try {
+      const view = await client.getTrace(turnId);
+      selectedTraceEvents = view.events ?? [];
+    } catch (err) {
+      traceDetailError = err instanceof Error ? err.message : String(err);
+    } finally {
+      traceDetailLoading = false;
+    }
+  }
+
+  function formatEpoch(epochSeconds: number): string {
+    return new Date(epochSeconds * 1000).toLocaleString();
+  }
+
+  function relativeEpoch(epochSeconds: number): string {
+    const diffMs = Date.now() - epochSeconds * 1000;
+    const diffS = Math.floor(diffMs / 1000);
+    if (diffS < 60) return `${diffS}s ago`;
+    const diffM = Math.floor(diffS / 60);
+    if (diffM < 60) return `${diffM}m ago`;
+    const diffH = Math.floor(diffM / 60);
+    if (diffH < 24) return `${diffH}h ago`;
+    return formatEpoch(epochSeconds);
   }
 
   onMount(() => {
@@ -400,6 +463,60 @@
               <time class="activity-time" datetime={entry.timestamp}>
                 {formatRelative(entry.timestamp)}
               </time>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </div>
+  </section>
+
+  <!-- Turn traces — glass-box view of persisted per-turn harness operations -->
+  <section class="layer">
+    <div class="layer-label">Turn traces</div>
+    <div class="card activity-card">
+      <div class="card-head">
+        <h2>Turn traces</h2>
+        <span class="badge muted">{traces.length} turn{traces.length === 1 ? "" : "s"}</span>
+      </div>
+      <p class="card-body">
+        The complete glass-box record for every turn: the assembled prompt, each LLM iteration's
+        raw output, the model's reasoning and thinking, every tool call and result, and the
+        cloud-boundary provenance line. Select a turn to expand its full trace.
+      </p>
+      {#if tracesError}
+        <p class="hint trace-error">{tracesError}</p>
+      {:else if traces.length === 0}
+        <p class="hint">No turns recorded yet. Send a message to generate a trace.</p>
+      {:else}
+        <ul class="trace-summary-list">
+          {#each traces as trace (trace.turn_id)}
+            {@const isSelected = selectedTraceId === trace.turn_id}
+            <li class="trace-summary-row" class:selected={isSelected}>
+              <button
+                type="button"
+                class="trace-summary-btn"
+                onclick={() => selectTrace(trace.turn_id)}
+                aria-expanded={isSelected && !traceDetailError}
+                aria-controls={isSelected ? `trace-panel-${trace.turn_id}` : undefined}
+              >
+                <span class="trace-id">{trace.turn_id}</span>
+                <span class="trace-count">{trace.event_count} event{trace.event_count === 1 ? "" : "s"}</span>
+                <time class="trace-time" title={formatEpoch(trace.started_at)}>
+                  {relativeEpoch(trace.started_at)}
+                </time>
+                <span class="trace-chevron" aria-hidden="true">{isSelected ? "▲" : "▼"}</span>
+              </button>
+              {#if isSelected}
+                <div class="trace-detail-panel" id={`trace-panel-${trace.turn_id}`}>
+                  {#if traceDetailLoading}
+                    <p class="hint">Loading trace…</p>
+                  {:else if traceDetailError}
+                    <p class="hint trace-error">{traceDetailError}</p>
+                  {:else}
+                    <TraceEventList events={selectedTraceEvents} />
+                  {/if}
+                </div>
+              {/if}
             </li>
           {/each}
         </ul>
@@ -830,5 +947,73 @@
     font-size: var(--size-xs);
     color: var(--color-fg-subtle);
     text-align: right;
+  }
+
+  /* Turn traces */
+  .trace-summary-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .trace-summary-row {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    overflow: hidden;
+  }
+  .trace-summary-row.selected {
+    border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  }
+  .trace-summary-btn {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: none;
+    background: transparent;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    align-items: center;
+  }
+  .trace-summary-btn:hover {
+    background: color-mix(in srgb, var(--color-fg-muted) 6%, transparent);
+  }
+  .trace-id {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    color: var(--color-fg-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .trace-count {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    color: var(--color-fg-subtle);
+    flex-shrink: 0;
+  }
+  .trace-time {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    color: var(--color-fg-subtle);
+    flex-shrink: 0;
+  }
+  .trace-chevron {
+    font-size: 9px;
+    color: var(--color-fg-subtle);
+    flex-shrink: 0;
+  }
+  .trace-detail-panel {
+    padding: var(--space-3) var(--space-4);
+    border-top: 1px solid var(--color-border);
+    background: var(--color-term-bg, var(--color-bg));
+  }
+  .trace-error {
+    color: var(--color-danger);
   }
 </style>
