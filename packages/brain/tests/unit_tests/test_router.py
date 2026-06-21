@@ -9,13 +9,23 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock
 
+import pytest
 from june_brain.providers.base import GenerateResult
 from june_brain.providers.registry import ProviderRegistry
 from june_brain.router.difficulty import (
     classify_difficulty,
+    classify_difficulty_detailed,
     heuristic_difficulty,
+    reset_cache,
     tier_for_difficulty,
 )
+
+
+@pytest.fixture(autouse=True)
+def _clear_cache():
+    reset_cache()
+    yield
+    reset_cache()
 
 # ---------------------------------------------------------------------------
 # Mock helpers
@@ -138,6 +148,53 @@ def test_classify_case_insensitive():
     reg = _registry_with(provider)
     result = asyncio.run(classify_difficulty("write me a story", registry=reg))
     assert result == "creative"
+
+
+def test_classify_parses_json_output():
+    provider = _make_provider('{"difficulty": "hard"}')
+    reg = _registry_with(provider)
+    result = asyncio.run(classify_difficulty("a multi-step task", registry=reg))
+    assert result == "hard"
+
+
+# ---------------------------------------------------------------------------
+# classify_difficulty_detailed — source + cache
+# ---------------------------------------------------------------------------
+
+
+def test_detailed_reports_model_source():
+    provider = _make_provider("hard")
+    reg = _registry_with(provider)
+    result = asyncio.run(classify_difficulty_detailed("complex thing", registry=reg))
+    assert result.label == "hard"
+    assert result.source == "model"
+
+
+def test_detailed_caches_model_result():
+    provider = _make_provider("creative")
+    reg = _registry_with(provider)
+    first = asyncio.run(classify_difficulty_detailed("paint a scene", registry=reg))
+    second = asyncio.run(classify_difficulty_detailed("paint a scene", registry=reg))
+    assert first.source == "model"
+    assert second.source == "cache"
+    assert second.label == "creative"
+    # The model was only consulted once.
+    assert provider.generate.await_count == 1
+
+
+def test_detailed_reports_heuristic_source_on_failure():
+    provider = _make_raising_provider()
+    reg = _registry_with(provider)
+    result = asyncio.run(classify_difficulty_detailed("hi", registry=reg))
+    assert result.label == "trivial"
+    assert result.source == "heuristic"
+
+
+def test_heuristic_multilingual_greetings():
+    # Dutch and Greek greetings classify as trivial via the fallback.
+    assert heuristic_difficulty("dankjewel voor je hulp vandaag echt") == "standard"
+    assert heuristic_difficulty("καλησπέρα") == "trivial"
+    assert heuristic_difficulty("goedemorgen") == "trivial"
 
 
 # ---------------------------------------------------------------------------
