@@ -212,7 +212,7 @@
     <div class="row">
       <div class="card wide">
         <div class="card-head">
-          <h2>LangGraph agent</h2>
+          <h2>Handwritten loop</h2>
           <span class="badge ok">running</span>
         </div>
         <div class="flow">
