@@ -16,7 +16,7 @@ from june_brain.memory import (
 from june_brain.memory import (
     vector as vector_module,
 )
-from june_brain.memory.manager import _parse_json_block
+from june_brain.memory.extractor import _parse_json_block
 from june_brain.providers import reset_cloud_call_recorder, set_cloud_call_recorder
 from june_brain.providers.registry import ProviderRegistry
 
