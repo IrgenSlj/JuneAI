@@ -70,12 +70,12 @@ Baseline: tag `v0.2.0-prereshape`, metrics in
 - [x] S5 ADR 0020 — Provider-native structured tool calling (+ scoped follow-ups)
 
 ### S6 — Guard layer  (ADR 0021)
-- [ ] S6.1 guard/framing.py untrusted-content frame + red-team tests
+- [x] S6.1 guard/framing.py untrusted-content frame (central in dispatch) + standing system rule + red-team tests
 - [ ] S6.2 guard/actions.py action classes + approval gates (SSE approval_request) + per-session allow
 - [ ] S6.3 skill.toml permission manifests; loader + supervisor enforcement; /skills UI
-- [ ] S6.4 Secrets hygiene audit; trace redaction test
+- [x] S6.4 guard/redaction.py secret scrub in TraceStore.write; end-to-end test (key never on disk)
 - [ ] S6.5 docs/security-model.md
-- [ ] S6 ADR 0021 — Guard layer
+- [x] S6 ADR 0021 — Guard layer (accepted; framing + redaction shipped, gates/manifests pending)
 
 ### S7 — Memory bootstrap: day-one value
 - [ ] S7.1 memory/bootstrap/ Importer interface; chatgpt/claude/markdown/ics importers
