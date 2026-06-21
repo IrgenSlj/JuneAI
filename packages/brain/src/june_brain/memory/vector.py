@@ -144,13 +144,24 @@ class VectorStore:
         # The data dir is single-user in practice, so this filters nothing while
         # staying correct if multiple users share a database in tests.
         candidates = vec_index.search(conn, query_vec, max(k * 5, k + 20))
+        if not candidates:
+            return []
+
+        # One batched lookup of the shadow rows (keyed by fact_id), instead of a
+        # SELECT per candidate. We then walk the candidates in distance order.
+        ids = [fact_id for fact_id, _distance in candidates]
+        placeholders = ",".join("?" * len(ids))
+        rows = conn.execute(
+            "SELECT fact_id, text, metadata FROM semantic_facts "
+            f"WHERE user_id=? AND fact_id IN ({placeholders})",
+            (self.user_id, *ids),
+        ).fetchall()
+        by_id = {row["fact_id"]: row for row in rows}
+
         hits: list[dict[str, Any]] = []
         for fact_id, distance in candidates:
-            row = conn.execute(
-                "SELECT text, metadata FROM semantic_facts WHERE user_id=? AND fact_id=?",
-                (self.user_id, fact_id),
-            ).fetchone()
-            if not row:
+            row = by_id.get(fact_id)
+            if row is None:
                 continue
             hits.append(
                 {
