@@ -27,6 +27,16 @@ from pathlib import Path
 from typing import Any
 
 from .graph import KnowledgeGraph, _slug
+from .paraphrase import (
+    _format_edge,
+    _format_node,
+    _paraphrase_body_metric,
+    _paraphrase_calendar,
+    _paraphrase_goal,
+    _paraphrase_journal,
+    _paraphrase_mood,
+    _paraphrase_open_loop,
+)
 from .salience import SalienceWeights, relevance_from_distance, salience
 from .sqlite import Memory, _get_connection
 from .vector import VectorStore, _db_path
@@ -925,87 +935,6 @@ def _vector_fact_id(ref: str) -> str:
     return f"structured-{digest}"
 
 
-def _paraphrase_goal(row: dict[str, Any]) -> str:
-    title = str(row.get("title", "")).strip()
-    if not title:
-        return ""
-    next_step = str(row.get("next_step", "")).strip()
-    target = str(row.get("target_date", "")).strip()
-    parts = [f"Goal: {title}."]
-    if next_step:
-        parts.append(f"Next step: {next_step}.")
-    if target:
-        parts.append(f"Target date: {target}.")
-    return " ".join(parts)
-
-
-def _paraphrase_open_loop(row: dict[str, Any]) -> str:
-    topic = str(row.get("topic", "")).strip()
-    if not topic:
-        return ""
-    next_step = str(row.get("next_step", "")).strip()
-    due = str(row.get("due_date", "")).strip()
-    parts = [f"Open loop: {topic}."]
-    if next_step:
-        parts.append(f"Next step: {next_step}.")
-    if due:
-        parts.append(f"Due {due}.")
-    return " ".join(parts)
-
-
-def _paraphrase_calendar(row: dict[str, Any]) -> str:
-    title = str(row.get("title", "")).strip()
-    if not title:
-        return ""
-    date = str(row.get("date", "")).strip()
-    time = str(row.get("time", "")).strip()
-    details = str(row.get("details", "")).strip()
-    parts = [f"Calendar item: {title}."]
-    if date and time:
-        parts.append(f"On {date} at {time}.")
-    elif date:
-        parts.append(f"On {date}.")
-    if details:
-        parts.append(details if details.endswith(".") else f"{details}.")
-    return " ".join(parts)
-
-
-def _paraphrase_journal(row: dict[str, Any]) -> str:
-    entry = str(row.get("entry", "")).strip()
-    if not entry:
-        return ""
-    return f"Journal entry: {entry}"
-
-
-def _paraphrase_body_metric(row: dict[str, Any]) -> str:
-    date = str(row.get("date", "")).strip()
-    weight = row.get("weight_kg") or 0
-    sleep = row.get("sleep_hours") or 0
-    energy = row.get("energy") or 0
-    stress = row.get("stress") or 0
-    parts = []
-    if weight:
-        parts.append(f"weight {weight}kg")
-    if sleep:
-        parts.append(f"slept {sleep}h")
-    if energy:
-        parts.append(f"energy {energy}/5")
-    if stress:
-        parts.append(f"stress {stress}/5")
-    if not parts:
-        return ""
-    head = f"Body check on {date}" if date else "Body check"
-    return f"{head}: {', '.join(parts)}."
-
-
-def _paraphrase_mood(row: dict[str, Any]) -> str:
-    mood = str(row.get("mood", "")).strip()
-    if not mood:
-        return ""
-    note = str(row.get("note", "")).strip()
-    return f"Mood: {mood}. {note}".strip() if note else f"Mood: {mood}."
-
-
 _WRITE_HANDLERS: dict[str, Callable[..., dict[str, Any]]] = {
     "fact": MemoryManager._write_fact,
     "entity": MemoryManager._write_entity,
@@ -1040,23 +969,6 @@ def _multiply_score(score: Any, factor: float) -> float:
     if isinstance(score, (int, float)):
         return float(score) * factor
     return 0.0
-
-
-def _format_node(node: dict[str, Any]) -> str:
-    desc = node.get("props", {}).get("description", "")
-    label = node.get("label", "")
-    kind = node.get("kind", "entity")
-    if desc:
-        return f"{label} ({kind}) — {desc}"
-    return f"{label} ({kind})"
-
-
-def _format_edge(source_node: dict[str, Any], edge_hit: dict[str, Any]) -> str:
-    other = edge_hit.get("node", {})
-    edge = edge_hit.get("edge", {})
-    kind = str(edge.get("kind", "related_to")).replace("_", " ")
-    other_label = other.get("label", "")
-    return f"{source_node.get('label', '')} {kind} {other_label}".strip()
 
 
 def _parse_json_block(raw: str) -> dict[str, Any] | None:
