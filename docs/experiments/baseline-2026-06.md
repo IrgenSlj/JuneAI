@@ -96,7 +96,9 @@ at equal efficacy. Worst handwritten reliability is recall_question at cv 75.6%
   SQLite file. The full gate (583 tests) passes with the whole torch/chroma
   tree physically uninstalled — the source tree is ChromaDB-free. The sqlite-vec
   load probe confirmed the extension loads into stdlib `sqlite3` on Python 3.14
-  / Apple Silicon, so no platform pivot was needed.
+  / Apple Silicon, so no platform pivot was needed. **Cold start: `create_app`
+  now ~0.53 s vs the 3.1 s baseline (~6x faster)** — the torch/transformers
+  import tree no longer loads. Full brain+api suite: 610 tests in ~9 s.
 
 ## Reliability harness (S5.3)
 
