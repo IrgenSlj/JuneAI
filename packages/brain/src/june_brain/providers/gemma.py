@@ -134,6 +134,19 @@ class GemmaProvider:
         if in_think:
             yield "</think>"
 
+    async def embed(self, texts: list[str], *, model: str) -> list[list[float]]:
+        """Embed texts via Ollama's OpenAI-compatible embeddings endpoint.
+
+        Local provider: stays on this machine, never emits cloud provenance.
+        ``model`` is the embedding model (e.g. ``nomic-embed-text``), distinct
+        from the chat ``model_id``. Raises on transport/model error so the
+        caller can degrade to keyword recall (invariant 6).
+        """
+        client = self._client()
+        response = await client.embeddings.create(model=model, input=list(texts))
+        # response.data preserves input order.
+        return [list(item.embedding) for item in response.data]
+
     async def health(self) -> ProviderHealth:
         """Probe Ollama reachability with a short timeout. Never raises."""
         import httpx
