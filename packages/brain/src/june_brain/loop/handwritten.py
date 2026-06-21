@@ -15,8 +15,9 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
-from june_brain.context.assembler import ContextAssembler, estimate_tokens
+from june_brain.context.assembler import ContextAssembler
 from june_brain.context.compactor import Compactor
+from june_brain.context.tokens import estimate_tokens
 from june_brain.providers.base import GenerateRequest, GenerateResult, Message
 from june_brain.providers.registry import ProviderRegistry, get_registry
 

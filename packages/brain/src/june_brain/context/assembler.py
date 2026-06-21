@@ -14,6 +14,8 @@ from collections.abc import Callable
 
 from june_brain.providers.base import Message
 
+from .tokens import estimate_tokens
+
 _DEFAULT_SYSTEM_PROMPT = (
     "You are June, a personal assistant. "
     "Be helpful, honest, and concise. "
@@ -30,11 +32,6 @@ _REASONING_INSTRUCTION = (
     "reasoning, kept brief and focused. Then, after the closing </think> tag, write "
     "your reply to the user. Do not mention the tags or that you are thinking."
 )
-
-
-def estimate_tokens(text: str) -> int:
-    """Byte heuristic: ~4 chars per token.  Always returns at least 1."""
-    return max(1, len(text) // 4)
 
 
 def _msg_tokens(msg: Message) -> int:

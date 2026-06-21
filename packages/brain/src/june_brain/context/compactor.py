@@ -16,8 +16,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from june_brain.context.assembler import estimate_tokens
 from june_brain.context.pinned_state import PinnedState
+from june_brain.context.tokens import estimate_tokens
 from june_brain.providers.base import GenerateRequest, Message
 from june_brain.providers.registry import ProviderRegistry, get_registry
 
