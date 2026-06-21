@@ -33,6 +33,7 @@
   type Section = {
     id: SectionKind;
     title: string;
+    caption: string;
     empty: string;
     facts: MemoryFact[];
     deletable: boolean;
@@ -45,6 +46,7 @@
       {
         id: "semantic",
         title: "Facts",
+        caption: "What June has learned and kept.",
         empty:
           "No durable facts yet. As June learns that you prefer tea or live in Berlin, those land here.",
         facts: snapshot.semantic_facts ?? [],
@@ -54,6 +56,7 @@
       {
         id: "entities",
         title: "People, places, and things",
+        caption: "Entities and how they connect.",
         empty:
           "No entities mapped yet. People and projects you mention become nodes here.",
         facts: snapshot.entities ?? [],
@@ -63,6 +66,7 @@
       {
         id: "goals",
         title: "Goals",
+        caption: "What you're working toward.",
         empty: "No goals tracked. Ask June to remember a goal and it shows up here.",
         facts: snapshot.goals ?? [],
         deletable: true,
@@ -71,6 +75,7 @@
       {
         id: "open_loops",
         title: "Open loops",
+        caption: "Threads left open, waiting to close.",
         empty:
           "No open threads. Questions left dangling or follow-ups June is holding will appear here.",
         facts: snapshot.open_loops ?? [],
@@ -80,6 +85,7 @@
       {
         id: "calendar",
         title: "Calendar",
+        caption: "Events and reminders you've asked June to hold.",
         empty: "Nothing on the calendar. Ask June to save events or reminders.",
         facts: snapshot.calendar ?? [],
         deletable: true,
@@ -88,6 +94,7 @@
       {
         id: "journal",
         title: "Journal",
+        caption: "Reflections and daily entries, written when you speak.",
         empty:
           "No journal entries yet. The daily skill writes here when you reflect; nothing to read until then.",
         facts: snapshot.journal ?? [],
@@ -97,6 +104,7 @@
       {
         id: "body_metrics",
         title: "Body metrics",
+        caption: "Health data logged by the health skill, one row per day.",
         empty:
           "No body metrics logged. The health skill records weight, sleep, and energy; one row per day.",
         facts: snapshot.body_metrics ?? [],
@@ -281,9 +289,15 @@
   function metadataEntries(fact: MemoryFact): [string, string][] {
     const meta = fact.metadata ?? {};
     return Object.entries(meta)
-      .filter(([k]) => !TIMESTAMP_KEYS.includes(k))
+      .filter(([k]) => !TIMESTAMP_KEYS.includes(k) && k !== "source")
       .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "")
       .map(([k, v]) => [k, String(v)]);
+  }
+
+  function factSource(fact: MemoryFact): string | null {
+    const raw = (fact.metadata ?? {})["source"];
+    if (typeof raw === "string" && raw.trim().length > 0) return raw.trim();
+    return null;
   }
 </script>
 
@@ -386,6 +400,7 @@
             <h2>{section.title}</h2>
             <span class="count">{section.facts.length}</span>
           </div>
+          <p class="section-caption">{section.caption}</p>
           {#if section.facts.length === 0}
             <p class="muted">{section.empty}</p>
           {:else}
@@ -428,9 +443,14 @@
                         {#if fact.title}
                           <div class="fact-title">{fact.title}</div>
                         {/if}
-                        {#if ts}
-                          <time class="fact-time" datetime={ts}>{formatRelative(ts)}</time>
-                        {/if}
+                        <div class="fact-meta-right">
+                          {#if ts}
+                            <time class="fact-time" datetime={ts}>{formatRelative(ts)}</time>
+                          {/if}
+                          {#if factSource(fact)}
+                            <span class="fact-source">via {factSource(fact)}</span>
+                          {/if}
+                        </div>
                       </div>
                       {#if fact.body && fact.body !== fact.title}
                         <div class="fact-body">{fact.body}</div>
@@ -500,7 +520,7 @@
     padding: var(--space-5) var(--space-4) var(--space-7);
     display: flex;
     flex-direction: column;
-    gap: var(--space-5);
+    gap: var(--space-6);
   }
 
   .top {
@@ -612,6 +632,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
+    padding-top: var(--space-2);
   }
 
   .group-head {
@@ -621,16 +642,24 @@
   }
   .group h2 {
     margin: 0;
-    font-size: var(--size-sm);
+    font-size: var(--size-xs);
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--color-fg-muted);
+    letter-spacing: 0.08em;
+    color: var(--color-fg-subtle);
   }
   .count {
     font-size: var(--size-xs);
     color: var(--color-fg-subtle);
     font-family: var(--font-mono);
+    opacity: 0.7;
+  }
+
+  .section-caption {
+    margin: 0;
+    font-size: var(--size-sm);
+    color: var(--color-fg-muted);
+    line-height: var(--leading-normal);
   }
 
   .muted {
@@ -645,7 +674,7 @@
     margin: 0;
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
+    gap: var(--space-3);
   }
 
   .fact {
@@ -655,7 +684,7 @@
     background: var(--color-bg-raised);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
-    padding: var(--space-3) var(--space-4);
+    padding: var(--space-4) var(--space-4);
   }
 
   .fact-main {
@@ -663,7 +692,7 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
+    gap: var(--space-2);
   }
 
   .fact-head {
@@ -673,16 +702,30 @@
     justify-content: space-between;
   }
   .fact-title {
+    font-size: var(--size-sm);
     font-weight: 500;
     color: var(--color-fg-primary);
+    line-height: var(--leading-normal);
     min-width: 0;
     flex: 1;
+  }
+  .fact-meta-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    flex-shrink: 0;
   }
   .fact-time {
     font-size: var(--size-xs);
     font-family: var(--font-mono);
     color: var(--color-fg-subtle);
-    flex-shrink: 0;
+  }
+  .fact-source {
+    font-size: var(--size-xs);
+    font-family: var(--font-mono);
+    color: var(--color-fg-subtle);
+    opacity: 0.7;
   }
 
   .fact-body {
