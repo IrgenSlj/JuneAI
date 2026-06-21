@@ -16,7 +16,7 @@ from pathlib import Path
 
 from .layout import EXPECTED_CONTENTS, ensure_layout, manifest_path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 @dataclass
@@ -92,9 +92,28 @@ def init_data_dir() -> Manifest:
     return manifest
 
 
+def _migrate_1_to_2(manifest: Manifest) -> Manifest:
+    """v1 -> v2: ChromaDB replaced by sqlite-vec (ADR 0019).
+
+    Archive the legacy ``chroma`` directory to ``chroma.bak`` (kept until the
+    user clears it). Vectors are rebuilt into the vec0 index from the
+    authoritative shadow rows by the startup backfill, not here, so this
+    migration stays fast and never needs the embedding model.
+    """
+    try:
+        from ..memory.vec_backfill import archive_chroma_dir
+
+        archive_chroma_dir()
+    except Exception:  # noqa: BLE001 — migration must never crash startup
+        pass
+    return manifest
+
+
 # Migration registry — keyed by the schema_version the migration upgrades FROM.
 # To add a real migration: _MIGRATIONS[old_version] = fn(manifest) -> manifest
-_MIGRATIONS: dict[int, Callable[[Manifest], Manifest]] = {}
+_MIGRATIONS: dict[int, Callable[[Manifest], Manifest]] = {
+    1: _migrate_1_to_2,
+}
 
 
 def _migrate(manifest: Manifest) -> Manifest:

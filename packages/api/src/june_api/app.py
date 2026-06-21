@@ -110,7 +110,23 @@ def _maybe_warm_local_model() -> None:
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     _maybe_warm_local_model()
+    _maybe_backfill_vectors()
     yield
+
+
+def _maybe_backfill_vectors() -> None:
+    """Best-effort: re-embed any shadow facts missing a vec0 vector (ADR 0019).
+
+    No-op when nothing is missing or the local embedder is unavailable; never
+    fatal. This completes the ChromaDB -> sqlite-vec migration for an existing
+    data dir without blocking startup.
+    """
+    try:
+        from june_brain.memory.vec_backfill import maybe_backfill_on_start
+
+        maybe_backfill_on_start()
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _raise_fd_limit() -> None:
