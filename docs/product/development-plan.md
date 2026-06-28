@@ -292,11 +292,19 @@ Pushed on `main`:
 - Reframed the Tasks navigation/page as Promises.
 - Added a visible waiting card and Retry action for promises blocked by
   local-only tool policy.
+- Added a home continuity summary for open promises, waiting promises, privacy
+  mode, runtime mode, and semantic recall health.
+- Promoted promise blocked reason, next action, and final deliverable to
+  persisted backend fields exposed through OpenAPI.
+- Updated the Promises UI to use first-class blocked metadata and show completed
+  deliverables without opening the trace.
 
 Validation:
 
 - Task runtime focused tests: `10 passed`.
 - Promises web check: `svelte-check found 0 errors and 0 warnings`.
+- Promise metadata focused tests: `48 passed`.
+- Frontend package checks: `@june/ui` and `@june/web` passed.
 
 ### 2026-06-28 - Phase 1 Trust And Memory UX
 
