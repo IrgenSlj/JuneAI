@@ -241,10 +241,12 @@ Pushed on branch `codex/development-plan-implementation`:
   fields and metadata.
 - Wired the Memory search box to the server-side query with a short debounce,
   while preserving the local filter as a final pass.
+- Added setup-screen visibility for degraded semantic recall when the embedding
+  model is missing.
 
 Validation:
 
 - Focused memory route tests: `18 passed`.
 - Frontend package checks: `@june/ui` and `@june/web` passed.
-- Full gate: `./tools/check.sh` passed with `658` backend tests, frontend checks,
+- Full gate: `./tools/check.sh` passed with `659` backend tests, frontend checks,
   OpenAPI drift check, Ruff, and the narrowed mypy real-bug gate.
