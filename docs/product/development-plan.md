@@ -227,3 +227,24 @@ Validation:
 - Frontend package checks: `@june/ui` and `@june/web` passed.
 - Full gate: `./tools/check.sh` passed with `656` backend tests, frontend checks,
   OpenAPI drift check, Ruff, and the narrowed mypy real-bug gate.
+
+### 2026-06-28 - Phase 1 Trust And Memory UX
+
+Pushed on branch `codex/development-plan-implementation`:
+
+- Added trace export and clear controls to System.
+- Rendered unmeasured capability probe defaults as `unknown` instead of green
+  `good` badges.
+- Hardened the Memory page against mobile overflow.
+- Made capped Memory lists honest with copy such as `30 of 40 facts`.
+- Added server-side `q` support for `GET /memory/{user_id}` across visible fact
+  fields and metadata.
+- Wired the Memory search box to the server-side query with a short debounce,
+  while preserving the local filter as a final pass.
+
+Validation:
+
+- Focused memory route tests: `18 passed`.
+- Frontend package checks: `@june/ui` and `@june/web` passed.
+- Full gate: `./tools/check.sh` passed with `658` backend tests, frontend checks,
+  OpenAPI drift check, Ruff, and the narrowed mypy real-bug gate.
