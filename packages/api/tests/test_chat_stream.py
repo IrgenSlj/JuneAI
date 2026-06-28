@@ -205,6 +205,53 @@ def test_chat_streams_tokens_tool_calls_and_done(harness_client):
     assert tool_result["tool_result"] == "logged"
 
 
+def test_chat_forwards_local_only_tool_blocked(harness_client):
+    """A Local-only block forwards as network=True without an approval flag."""
+    loop = _FakeLoop([
+        StreamEvent(
+            type="tool_blocked",
+            tool_name="web_search",
+            tool_args={"query": "weather"},
+            detail="needs the internet",
+            network=True,
+        ),
+        StreamEvent(type="done"),
+    ])
+    client = harness_client(loop)
+    response = client.post("/chat", json={"user_id": "u", "message": "search"})
+    events = _parse_sse(response.text)
+    blocked = next(e for e in events if e["type"] == "tool_blocked")
+    assert blocked["tool_name"] == "web_search"
+    assert blocked["network"] is True
+    assert blocked["needs_approval"] is False
+    assert blocked["action_class"] == ""
+
+
+def test_chat_forwards_approval_needed_tool_blocked(harness_client):
+    """A guard approval block forwards needs_approval and the action class."""
+    loop = _FakeLoop([
+        StreamEvent(
+            type="tool_blocked",
+            tool_name="send_telegram_message",
+            tool_args={"text": "hi"},
+            detail="Sends data off your device",
+            network=False,
+            needs_approval=True,
+            action_class="write_network",
+        ),
+        StreamEvent(type="done"),
+    ])
+    client = harness_client(loop)
+    response = client.post("/chat", json={"user_id": "u", "message": "text my friend"})
+    events = _parse_sse(response.text)
+    blocked = next(e for e in events if e["type"] == "tool_blocked")
+    assert blocked["tool_name"] == "send_telegram_message"
+    assert blocked["needs_approval"] is True
+    assert blocked["action_class"] == "write_network"
+    assert blocked["network"] is False
+    assert blocked["detail"] == "Sends data off your device"
+
+
 def test_chat_skips_empty_recall_hits(harness_client):
     """A recall event with no hits should not emit a frame to avoid empty UI noise."""
     loop = _FakeLoop([

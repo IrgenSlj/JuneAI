@@ -125,3 +125,19 @@ class ChatEvent(BaseModel):
             "leaving the machine is never silent."
         ),
     )
+    needs_approval: bool = Field(
+        default=False,
+        description=(
+            "True on tool_blocked events the guard withheld pending the user's "
+            "explicit approval (network egress, code execution, tainted reads). "
+            "Distinct from a Local-only block (network=True), which is resolved "
+            "by changing the privacy dial rather than approving a single action."
+        ),
+    )
+    action_class: str = Field(
+        default="",
+        description=(
+            "The guard's action class for an approval-needed tool_blocked event "
+            "(e.g. 'write_network', 'execute', 'read_network'). Empty otherwise."
+        ),
+    )

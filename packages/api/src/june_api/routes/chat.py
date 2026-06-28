@@ -178,15 +178,21 @@ async def _iter_harness_events(
                     ChatEvent(type=ev.type, content=ev.content, detail=ev.detail)
                 )
             elif ev.type == "tool_blocked":
-                # A networked tool was blocked by Local-only mode. The UI renders
-                # the one-click "switch and retry" affordance from this.
+                # Two distinct blocks share this frame:
+                #  - Local-only mode (network=True): the UI offers a one-click
+                #    "switch the privacy dial and retry" affordance.
+                #  - Guard approval gate (needs_approval=True): a consequential
+                #    action June will not take without the user's explicit OK;
+                #    the UI renders an approval card with the action class/reason.
                 yield _event_to_sse(
                     ChatEvent(
                         type="tool_blocked",
                         tool_name=ev.tool_name,
                         tool_args=ev.tool_args,
                         detail=ev.detail,
-                        network=True,
+                        network=ev.network,
+                        needs_approval=ev.needs_approval,
+                        action_class=ev.action_class,
                     )
                 )
             elif ev.type == "recall":
