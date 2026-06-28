@@ -182,12 +182,12 @@ def test_splitter_multiple_think_blocks() -> None:
 
 
 # ---------------------------------------------------------------------------
-# stream_turn integration — reasoning events appear, token events clean
+# stream_turn integration — reasoning is suppressed, token events clean
 # ---------------------------------------------------------------------------
 
 
-def test_stream_turn_emits_reasoning_event() -> None:
-    """stream_turn emits reasoning events for <think> content."""
+def test_stream_turn_suppresses_reasoning_by_default() -> None:
+    """stream_turn strips <think> content from live events by default."""
     chunks = ["<think>my chain of thought</think>", "The final answer."]
     provider = MultiChunkProvider(chunks=chunks)
     reg = _registry_with("local-fast", provider)
@@ -207,9 +207,7 @@ def test_stream_turn_emits_reasoning_event() -> None:
     reasoning_events = [e for e in events if e.type == "reasoning"]
     token_events = [e for e in events if e.type == "token"]
 
-    # reasoning content was captured
-    reasoning_text = "".join(e.content for e in reasoning_events)
-    assert "my chain of thought" in reasoning_text
+    assert reasoning_events == []
 
     # think-tags do NOT appear in token events
     token_text = "".join(e.content for e in token_events)
@@ -219,6 +217,15 @@ def test_stream_turn_emits_reasoning_event() -> None:
 
     # The answer does appear
     assert "The final answer." in token_text
+
+    live_text = "\n".join(
+        part
+        for ev in events
+        for part in (ev.content, ev.detail, ev.tool_result)
+        if part
+    )
+    assert "my chain of thought" not in live_text
+    assert "<think>" not in live_text
 
 
 def test_stream_turn_no_think_tags_unchanged() -> None:

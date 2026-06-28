@@ -16,6 +16,7 @@ from june_brain.providers.base import (
     GenerateResult,
     Message,
     ProviderHealth,
+    ToolSpec,
 )
 from june_brain.providers.registry import ProviderRegistry
 
@@ -63,8 +64,11 @@ class MultiChunkProvider:
         self.model_id = model_id
         self.tier = tier
         self._chunks = chunks
+        self.generate_requests: list[GenerateRequest] = []
+        self.stream_requests: list[GenerateRequest] = []
 
     async def generate(self, req: GenerateRequest) -> GenerateResult:
+        self.generate_requests.append(req)
         text = "".join(self._chunks)
         return GenerateResult(
             text=text,
@@ -76,6 +80,7 @@ class MultiChunkProvider:
         )
 
     async def stream(self, req: GenerateRequest) -> AsyncIterator[str]:
+        self.stream_requests.append(req)
         for chunk in self._chunks:
             yield chunk
 
@@ -116,6 +121,33 @@ def test_stream_turn_yields_ordered_token_events() -> None:
 
     # provenance must be second to last
     assert events[-2].type == "provenance"
+
+
+def test_stream_turn_passes_tool_specs_to_provider_stream() -> None:
+    """Streaming requests advertise the same native tool specs as run_turn."""
+    provider = MultiChunkProvider(chunks=["Hello"])
+    reg = _registry_with("local-fast", provider)
+    spec = ToolSpec(
+        name="get_weather",
+        description="Look up weather.",
+        parameters={"type": "object", "properties": {}},
+    )
+
+    loop = HandwrittenLoop(
+        registry=reg,
+        role="local-fast",
+        assemble_context=lambda s, m: [m],
+        extract_tool_calls=lambda r: [],
+        dispatch=None,
+        maybe_compact=_noop_compact,
+    )
+    loop._tool_specs = [spec]
+
+    session = SessionState(user_id="u-tools", messages=[])
+    _collect_stream(loop.stream_turn(session, Message(role="user", content="hi")))
+
+    assert provider.stream_requests
+    assert provider.stream_requests[0].tools == [spec]
 
 
 # ---------------------------------------------------------------------------
@@ -302,4 +334,3 @@ def test_stream_turn_provenance_fields() -> None:
     assert prov is not None
     assert prov.memories_recalled == 1
     assert prov.cloud_call is True
-

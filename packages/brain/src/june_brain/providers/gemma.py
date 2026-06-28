@@ -53,8 +53,7 @@ class GemmaProvider:
 
         Ollama's OpenAI-compatible endpoint returns qwen3's chain-of-thought in
         a separate ``reasoning_content`` (or ``reasoning``) field rather than
-        inline ``<think>`` tags. Return it so callers can re-wrap it as
-        ``<think>...</think>`` for the reasoning splitter. Returns "" if absent.
+        answer ``content``. Returns "" if absent.
         """
         for attr in ("reasoning_content", "reasoning"):
             val = getattr(obj, attr, None)
@@ -91,12 +90,6 @@ class GemmaProvider:
         message = response.choices[0].message
         text = message.content or ""
         tool_calls = parse_openai_tool_calls(message)
-        # Thinking models (qwen3) return reasoning in a separate field; re-wrap
-        # it as <think>...</think> so split_reasoning / ReasoningSplitter handle
-        # it uniformly with models that emit inline think tags.
-        reasoning = self._reasoning_of(message)
-        if reasoning:
-            text = f"<think>{reasoning}</think>{text}"
         usage = response.usage
         return GenerateResult(
             text=text,
@@ -120,30 +113,19 @@ class GemmaProvider:
         }
         if req.stop:
             kwargs["stop"] = req.stop
+        if req.response_format == "json":
+            kwargs["response_format"] = {"type": "json_object"}
+        if req.tools:
+            kwargs["tools"] = tool_specs_to_openai(req.tools)
 
         response = await client.chat.completions.create(**kwargs)
-        # Thinking models stream reasoning in a separate field before the answer.
-        # Bridge it into inline <think>...</think> so the loop's ReasoningSplitter
-        # routes it to the reasoning channel rather than the answer.
-        in_think = False
         async for chunk in response:
             if not chunk.choices:
                 continue
             delta = chunk.choices[0].delta
-            reasoning = self._reasoning_of(delta)
-            if reasoning:
-                if not in_think:
-                    yield "<think>"
-                    in_think = True
-                yield reasoning
             content = delta.content
             if content:
-                if in_think:
-                    yield "</think>"
-                    in_think = False
                 yield content
-        if in_think:
-            yield "</think>"
 
     async def embed(self, texts: list[str], *, model: str) -> list[list[float]]:
         """Embed texts via Ollama's OpenAI-compatible embeddings endpoint.

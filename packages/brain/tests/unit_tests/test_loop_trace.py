@@ -213,3 +213,39 @@ def test_stream_turn_persists_trace_file(
     assert "prompt" in kinds
     assert "iteration" in kinds
     assert kinds[-1] == "done"
+
+
+def test_stream_turn_trace_suppresses_raw_reasoning(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _point_datadir(monkeypatch, tmp_path)
+
+    provider = _Provider(chunks=["<think>private chain</think>", "final"])
+    reg = _registry_with("local-fast", provider)
+    loop = HandwrittenLoop(
+        registry=reg,
+        role="local-fast",
+        assemble_context=lambda s, m: [m],
+        extract_tool_calls=lambda r: [],
+        dispatch=None,
+        maybe_compact=_noop_compact,
+    )
+
+    session = SessionState(user_id="trace-reasoning-user", messages=[])
+    _collect_stream(loop.stream_turn(session, Message(role="user", content="hi")))
+
+    recent = TraceStore().list_recent()
+    assert len(recent) == 1
+    loaded = TraceStore().read(recent[0]["turn_id"])
+    assert loaded is not None
+
+    trace_text = "\n".join(
+        part
+        for event in loaded.events
+        for part in (event.summary, event.detail)
+        if part
+    )
+    assert "private chain" not in trace_text
+    assert "<think>" not in trace_text
+    assert any(e.kind == "reasoning" and "suppressed" in e.summary for e in loaded.events)
+    assert any(e.kind == "iteration" and e.detail == "final" for e in loaded.events)

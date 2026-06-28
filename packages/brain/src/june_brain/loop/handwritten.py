@@ -406,10 +406,10 @@ class HandwrittenLoop:
                     )
                 first_iteration = False
 
-            reasoning_accum = ""
+            reasoning_observed = False
 
             # --- stream the provider response ---
-            accumulated = ""
+            answer_accum = ""
             suppress_mode = False
             emit_mode = False
             buffered_head = ""
@@ -417,23 +417,26 @@ class HandwrittenLoop:
 
             try:
                 async for delta in provider.stream(
-                    GenerateRequest(messages=ctx, max_tokens=_MAX_TOKENS)
+                    GenerateRequest(
+                        messages=ctx,
+                        max_tokens=_MAX_TOKENS,
+                        tools=self._tool_specs or None,
+                    )
                 ):
-                    accumulated += delta
-
-                    # Feed delta through the reasoning splitter first.
+                    # Feed delta through the reasoning splitter first. Reasoning
+                    # is observed for activity traces, but never streamed raw.
                     segments = splitter.feed(delta)
                     for seg_kind, seg_text in segments:
                         if seg_kind == "reasoning":
                             if seg_text:
-                                reasoning_accum += seg_text
-                                yield StreamEvent(type="reasoning", content=seg_text)
+                                reasoning_observed = True
                         else:
                             # seg_kind == "answer": pass through the
                             # tool-call-suppression gate exactly as before.
                             answer_delta = seg_text
                             if not answer_delta:
                                 continue
+                            answer_accum += answer_delta
 
                             if not emit_mode and not suppress_mode:
                                 buffered_head += answer_delta
@@ -462,12 +465,12 @@ class HandwrittenLoop:
                 for seg_kind, seg_text in splitter.flush():
                     if seg_kind == "reasoning":
                         if seg_text:
-                            reasoning_accum += seg_text
-                            yield StreamEvent(type="reasoning", content=seg_text)
+                            reasoning_observed = True
                     else:
                         answer_delta = seg_text
                         if not answer_delta:
                             continue
+                        answer_accum += answer_delta
                         if not emit_mode and not suppress_mode:
                             buffered_head += answer_delta
                             stripped = buffered_head.lstrip()
@@ -491,27 +494,32 @@ class HandwrittenLoop:
                 # Stream failed — fall back to a single generate call
                 try:
                     result = await provider.generate(
-                        GenerateRequest(messages=ctx, max_tokens=_MAX_TOKENS)
+                        GenerateRequest(
+                            messages=ctx,
+                            max_tokens=_MAX_TOKENS,
+                            tools=self._tool_specs or None,
+                        )
                     )
-                    accumulated = result.text
                     tokens.input_tokens += result.input_tokens
                     tokens.output_tokens += result.output_tokens
                     suppress_mode = False
                     emit_mode = True
-                    _, fallback_answer = split_reasoning(accumulated)
+                    fallback_reasoning, fallback_answer = split_reasoning(result.text)
+                    reasoning_observed = reasoning_observed or bool(fallback_reasoning)
+                    answer_accum = fallback_answer
                     yield StreamEvent(type="token", content=fallback_answer)
                 except Exception:
-                    accumulated = ""
+                    answer_accum = ""
 
             # Accumulate token estimates for the streamed response
             tokens.input_tokens += estimate_tokens(" ".join(m.content for m in ctx))
-            tokens.output_tokens += estimate_tokens(accumulated)
+            tokens.output_tokens += estimate_tokens(answer_accum)
 
             # Build a GenerateResult-like object for tool-call extraction
             pseudo_result = GenerateResult(
-                text=accumulated,
+                text=answer_accum,
                 input_tokens=estimate_tokens(" ".join(m.content for m in ctx)),
-                output_tokens=estimate_tokens(accumulated),
+                output_tokens=estimate_tokens(answer_accum),
                 latency_ms=0,
                 model_id=provider.model_id,
                 tier=provider.tier,
@@ -519,12 +527,13 @@ class HandwrittenLoop:
 
             tool_calls = self._extract_tool_calls(pseudo_result)
 
-            # Record + stream this iteration's internals: the raw intermediate
-            # model output (incl. any suppressed tool JSON / think blocks) and
-            # how many tool calls were parsed out of it. This is the glass box —
-            # the unedited model output behind the cleaned answer tokens.
+            # Record + stream this iteration's internals: cleaned model output
+            # (including suppressed tool JSON, but excluding raw reasoning) and
+            # how many tool calls were parsed out of it.
             iter_summary = f"iteration {iteration_idx} · {len(tool_calls)} tool call(s)"
-            iter_detail = accumulated or "(no output)"
+            iter_detail = answer_accum or (
+                "(model reasoning suppressed)" if reasoning_observed else "(no output)"
+            )
             yield StreamEvent(
                 type="iteration",
                 content=iter_summary,
@@ -532,8 +541,12 @@ class HandwrittenLoop:
                 iteration=iteration_idx,
             )
             trace.record("iteration", iter_summary, detail=iter_detail)
-            if reasoning_accum:
-                trace.record("reasoning", "reasoning", detail=reasoning_accum)
+            if reasoning_observed:
+                trace.record(
+                    "reasoning",
+                    "model reasoning suppressed",
+                    detail="Raw model reasoning was suppressed by default.",
+                )
 
             if tool_calls and self._dispatch is not None:
                 all_tool_calls.extend(tool_calls)
@@ -601,7 +614,7 @@ class HandwrittenLoop:
                         )
                     observations.extend(run_obs)
 
-                tool_turn = Message(role="assistant", content=accumulated)
+                tool_turn = Message(role="assistant", content=answer_accum)
                 session.messages.append(tool_turn)
                 session.messages.extend(observations)
                 # Reset classification state for next iteration
@@ -611,9 +624,8 @@ class HandwrittenLoop:
             else:
                 # No tool calls — if we suppressed (looked like JSON but wasn't a real
                 # tool call), emit the accumulated text now so the user sees something
-                if suppress_mode and accumulated:
-                    _, suppressed_answer = split_reasoning(accumulated)
-                    yield StreamEvent(type="token", content=suppressed_answer)
+                if suppress_mode and answer_accum:
+                    yield StreamEvent(type="token", content=answer_accum)
                 break
 
         compacted = await self._maybe_compact(session)

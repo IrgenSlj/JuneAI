@@ -26,6 +26,7 @@ from june_brain.providers import (
     reset_registry,
     set_cloud_call_recorder,
 )
+from june_brain.providers.base import ToolSpec
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -281,6 +282,39 @@ def test_gemini_stream_records_start_and_end() -> None:
     reset_cloud_call_recorder()
     assert "".join(chunks) == "ab"
     assert [e.phase for e in events] == ["start", "end"]
+
+
+def test_gemini_stream_forwards_tool_specs() -> None:
+    provider = GeminiProvider(model_id="gemini-2.0-flash", base_url="https://example.com/v1/")
+    fake = _fake_stream_client(["ok"])
+    req = GenerateRequest(
+        messages=[Message(role="user", content="weather?")],
+        max_tokens=64,
+        tools=[
+            ToolSpec(
+                name="get_weather",
+                description="Look up weather.",
+                parameters={"type": "object", "properties": {}},
+            )
+        ],
+    )
+
+    with patch("june_brain.providers.gemini.GeminiProvider._client", return_value=fake):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+            chunks = _collect(provider, req)
+
+    assert "".join(chunks) == "ok"
+    kwargs = fake.chat.completions.create.call_args.kwargs
+    assert kwargs["tools"] == [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Look up weather.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+    ]
 
 
 # ---------------------------------------------------------------------------

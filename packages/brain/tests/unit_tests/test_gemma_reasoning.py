@@ -1,5 +1,4 @@
-"""GemmaProvider bridges a thinking model's separate reasoning field into the
-inline <think>...</think> form the loop's reasoning splitter understands."""
+"""GemmaProvider suppresses a thinking model's separate reasoning field."""
 
 from __future__ import annotations
 
@@ -8,7 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from june_brain.providers import GemmaProvider
-from june_brain.providers.base import GenerateRequest, Message
+from june_brain.providers.base import GenerateRequest, Message, ToolSpec
 
 
 def _req() -> GenerateRequest:
@@ -32,7 +31,7 @@ def test_reasoning_of_reads_known_fields() -> None:
     assert GemmaProvider._reasoning_of(SimpleNamespace()) == ""
 
 
-def test_stream_wraps_reasoning_in_think_tags() -> None:
+def test_stream_suppresses_native_reasoning() -> None:
     provider = GemmaProvider(model_id="qwen3:8b", base_url="http://x/v1", tier="local-deep")
     chunks = [
         _chunk(reasoning_content="think a "),
@@ -48,10 +47,12 @@ def test_stream_wraps_reasoning_in_think_tags() -> None:
     with patch.object(GemmaProvider, "_client", return_value=fake):
         out = asyncio.run(drain())
 
-    assert out == "<think>think a think b</think>the answer"
+    assert out == "the answer"
+    assert "think a" not in out
+    assert "<think>" not in out
 
 
-def test_generate_prepends_reasoning_as_think() -> None:
+def test_generate_suppresses_native_reasoning() -> None:
     provider = GemmaProvider(model_id="qwen3:8b", base_url="http://x/v1", tier="local-deep")
     message = SimpleNamespace(content="the answer", reasoning_content="my reasoning", model_extra={})
     resp = SimpleNamespace(
@@ -64,7 +65,8 @@ def test_generate_prepends_reasoning_as_think() -> None:
     with patch.object(GemmaProvider, "_client", return_value=fake):
         result = asyncio.run(provider.generate(_req()))
 
-    assert result.text == "<think>my reasoning</think>the answer"
+    assert result.text == "the answer"
+    assert "my reasoning" not in result.text
 
 
 def test_generate_without_reasoning_unchanged() -> None:
@@ -81,3 +83,38 @@ def test_generate_without_reasoning_unchanged() -> None:
         result = asyncio.run(provider.generate(_req()))
 
     assert result.text == "plain answer"
+
+
+def test_stream_forwards_tool_specs() -> None:
+    provider = GemmaProvider(model_id="gemma4:e2b", base_url="http://x/v1", tier="local-fast")
+    req = GenerateRequest(
+        messages=[Message(role="user", content="hi")],
+        max_tokens=64,
+        tools=[
+            ToolSpec(
+                name="get_weather",
+                description="Look up weather.",
+                parameters={"type": "object", "properties": {}},
+            )
+        ],
+    )
+    fake = MagicMock()
+    fake.chat.completions.create = AsyncMock(return_value=_astream([_chunk(content="ok")]))
+
+    async def drain() -> str:
+        return "".join([c async for c in provider.stream(req)])
+
+    with patch.object(GemmaProvider, "_client", return_value=fake):
+        assert asyncio.run(drain()) == "ok"
+
+    kwargs = fake.chat.completions.create.call_args.kwargs
+    assert kwargs["tools"] == [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Look up weather.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+    ]
