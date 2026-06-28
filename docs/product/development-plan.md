@@ -220,17 +220,36 @@ Goal: a non-technical Mac user can install and use June without a terminal.
 
 ## Active Tranche
 
-The first implementation tranche is Phase 0:
+The Phase 0 runtime-truth tranche has shipped into `main`. The active tranche is
+now the smallest useful version of the Trusted Continuity Engine:
 
-- P0.1 reasoning leakage
-- P0.2 streaming tool specs
-- P0.3 embedding readiness
-- P0.4 runtime truth in Settings/System
-- P0.5 composer shortcut
-- P0.6 mobile overflow
+1. Make the home surface answer "what is June holding for me?"
+   - Show open promises, waiting states, blocked local-only work, degraded recall,
+     and whether the current runtime can act locally or needs cloud.
+   - Use existing APIs before introducing new backend shape.
 
-After this tranche, run `./tools/check.sh`, inspect desktop and mobile screens,
-commit, and push.
+2. Make Promises honest before making them powerful.
+   - Keep blocked tool work in `awaiting_user`.
+   - Show the waiting step, blocked tool, and retry path in the Promises surface.
+   - Next: persist `blocked_reason`, `next_action`, artifacts, final deliverable,
+     and approval references as first-class fields instead of only trace steps.
+
+3. Turn Trust into the product's glass box.
+   - Continue moving developer-facing System detail behind calm user language.
+   - Add explicit approval records and retention choices.
+   - Make every degraded mode observable before the user notices failure.
+
+4. Grow Memory governance after Promises can explain themselves.
+   - Add edit, merge, forget, undo, filters, and "why this exists" views.
+   - Connect completed promise artifacts to memory writes only with visible user
+     control.
+
+5. Add Time last, with a strict no-heartbeat boundary.
+   - Use explicit deadlines and subscribed external events.
+   - Never add ambient polling that violates the privacy/efficiency premise.
+
+Each step should still ship as a small runnable slice, validated locally, pushed
+to `main`, and recorded below.
 
 ## Progress Log
 
@@ -260,6 +279,24 @@ Validation:
 - Frontend package checks: `@june/ui` and `@june/web` passed.
 - Full gate: `./tools/check.sh` passed with `656` backend tests, frontend checks,
   OpenAPI drift check, Ruff, and the narrowed mypy real-bug gate.
+
+### 2026-06-28 - Trusted Continuity Tranche
+
+Pushed on `main`:
+
+- Documented the Trusted Continuity Engine direction in this plan and
+  `overview.md`.
+- Renamed the user-facing System nav and page language to Trust.
+- Changed blocked task execution so tool-blocked work remains `awaiting_user`
+  instead of completing optimistically.
+- Reframed the Tasks navigation/page as Promises.
+- Added a visible waiting card and Retry action for promises blocked by
+  local-only tool policy.
+
+Validation:
+
+- Task runtime focused tests: `10 passed`.
+- Promises web check: `svelte-check found 0 errors and 0 warnings`.
 
 ### 2026-06-28 - Phase 1 Trust And Memory UX
 
