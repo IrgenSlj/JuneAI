@@ -187,6 +187,21 @@
     return status.replace(/_/g, " ");
   }
 
+  function waitingStep(task: TaskView): TaskStepView | null {
+    if (task.status !== "awaiting_user") return null;
+    const pending = (task.plan ?? [])
+      .slice()
+      .reverse()
+      .find((step) => step.status === "pending");
+    return pending ?? null;
+  }
+
+  function stepDetail(step: TaskStepView): string {
+    if (step.tool_result === null || step.tool_result === undefined) return "";
+    if (typeof step.tool_result === "string") return step.tool_result;
+    return JSON.stringify(step.tool_result, null, 2);
+  }
+
   function isActive(status: string): boolean {
     return ["planning", "running", "paused", "awaiting_user"].includes(status);
   }
@@ -196,17 +211,17 @@
 </script>
 
 <svelte:head>
-  <title>Tasks — June</title>
+  <title>Promises — June</title>
 </svelte:head>
 
 <main class="page" id="main-content">
   <header class="top">
     <div class="heading">
-      <h1>Tasks</h1>
+      <h1>Promises</h1>
     </div>
     <p class="lead">
-      Long-running work June is doing for you. A task survives the conversation that spawned
-      it and reports back when it is done.
+      Standing work June is holding for you. A promise can run, wait, ask for
+      approval, or finish with a visible trace.
     </p>
     <div class="controls">
       <button type="button" onclick={refresh} disabled={loading}>
@@ -345,6 +360,16 @@
             Resume
           </button>
         {/if}
+        {#if task.status === "awaiting_user"}
+          <button
+            type="button"
+            class="task-btn primary"
+            onclick={() => patchStatus(task, "running")}
+            disabled={pendingAction !== null}
+          >
+            {pendingAction === `${task.id}:running` ? "…" : "Retry"}
+          </button>
+        {/if}
         {#if isActive(task.status)}
           <button
             type="button"
@@ -369,6 +394,21 @@
 
     {#if task.error}
       <div class="task-error" role="alert">{task.error}</div>
+    {/if}
+
+    {#if waitingStep(task)}
+      {@const step = waitingStep(task)}
+      <div class="task-waiting" role="status">
+        <div class="waiting-title">Waiting on you</div>
+        <p>
+          {step?.description || "June needs your approval before this promise can continue."}
+        </p>
+        {#if step?.tool_name}
+          <p class="waiting-meta">
+            Tool: <code>{step.tool_name}</code>
+          </p>
+        {/if}
+      </div>
     {/if}
 
     {#if task.plan && task.plan.length > 0}
@@ -414,6 +454,9 @@
               {/if}
               {#if step.error}
                 <div class="step-error">{step.error}</div>
+              {/if}
+              {#if step.status === "pending" && stepDetail(step)}
+                <pre class="step-detail">{stepDetail(step)}</pre>
               {/if}
             </li>
           {/each}
@@ -716,6 +759,35 @@
     font-family: var(--font-mono);
   }
 
+  .task-waiting {
+    background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg));
+    border: 1px solid color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    color: var(--color-fg-primary);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .task-waiting p {
+    margin: 0;
+    color: var(--color-fg-muted);
+    font-size: var(--size-sm);
+  }
+  .waiting-title {
+    font-size: var(--size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+  }
+  .waiting-meta {
+    font-family: var(--font-mono);
+  }
+  .waiting-meta code {
+    color: var(--color-fg-primary);
+  }
+
   .trace-wrap {
     border-top: 1px solid var(--color-border);
     padding-top: var(--space-2);
@@ -811,6 +883,21 @@
     color: var(--color-danger);
     font-size: var(--size-xs);
     font-family: var(--font-mono);
+  }
+
+  .step-detail {
+    margin: var(--space-1) 0 0;
+    max-height: 140px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: var(--color-bg-raised);
+    color: var(--color-fg-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
   }
 
   @keyframes pulse-dot {
