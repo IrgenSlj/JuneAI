@@ -109,6 +109,36 @@ def test_proposed_tool_with_no_result_is_recorded_as_skipped(store: TasksStore) 
     assert skipped.tool_args == {"a": 1}
 
 
+def test_tool_blocked_records_waiting_step_and_awaits_user(
+    store: TasksStore,
+) -> None:
+    task = store.create(goal="Search for the latest weather")
+    events = [
+        StreamEvent(
+            type="tool_blocked",
+            tool_name="web_search",
+            tool_args={"query": "Amsterdam weather"},
+            detail='{"query": "Amsterdam weather"}',
+        ),
+        StreamEvent(type="token", content="I need approval before searching the web."),
+    ]
+    runtime = _runtime_with_events(store, events)
+
+    result = asyncio.run(runtime.execute(task.id))
+
+    assert result.status == TaskStatus.AWAITING_USER
+    assert result.finished_at is None
+    blocked_step = result.plan[0]
+    assert blocked_step.status == TaskStepStatus.PENDING
+    assert blocked_step.description == (
+        "Waiting for user approval: web_search is blocked by local-only mode"
+    )
+    assert blocked_step.tool_name == "web_search"
+    assert blocked_step.tool_args == {"query": "Amsterdam weather"}
+    assert blocked_step.tool_result == '{"query": "Amsterdam weather"}'
+    assert result.plan[-1].description == "Final response"
+
+
 def test_failed_loop_marks_task_failed_with_error(store: TasksStore) -> None:
     task = store.create(goal="boom")
 

@@ -70,13 +70,15 @@ class TaskRuntime:
             raise
 
         try:
-            self._record_trace(task_id, events)
+            blocked_on_tool = self._record_trace(task_id, events)
             # Cooperative cancel: if the user PATCHed status=cancelled while
             # the loop was running, preserve that state instead of forcing
             # the row to COMPLETED. The trace we just recorded still lands so
             # the user can see how far the task got before being stopped.
             if self._was_cancelled(task_id):
                 logger.info("task %s cancelled mid-run; preserving cancelled state", task_id)
+            elif blocked_on_tool:
+                self.store.set_status(task_id, TaskStatus.AWAITING_USER)
             else:
                 self.store.set_status(task_id, TaskStatus.COMPLETED)
         except Exception as exc:  # noqa: BLE001
@@ -116,7 +118,7 @@ class TaskRuntime:
             events.append(ev)
         return events
 
-    def _record_trace(self, task_id: str, events: list[Any]) -> None:
+    def _record_trace(self, task_id: str, events: list[Any]) -> bool:
         """Translate StreamEvents into TaskStep entries.
 
         The loop emits a ``tool_call`` event when it requests a tool and a
@@ -125,6 +127,8 @@ class TaskRuntime:
         assistant response.
         """
         steps_added = 0
+        blocked_on_tool = False
+        blocked_step_added = False
         pending: list[dict[str, Any]] = []
         final_parts: list[str] = []
 
@@ -156,6 +160,27 @@ class TaskRuntime:
                     ),
                 )
                 steps_added += 1
+            elif etype == "tool_blocked":
+                blocked_on_tool = True
+                if steps_added >= _MAX_STEPS and blocked_step_added:
+                    continue
+                tool_name = str(getattr(ev, "tool_name", "") or "tool")
+                detail = str(getattr(ev, "detail", "") or "").strip()
+                self.store.append_step(
+                    task_id,
+                    TaskStep(
+                        description=(
+                            f"Waiting for user approval: {tool_name} is blocked "
+                            "by local-only mode"
+                        ),
+                        tool_name=tool_name,
+                        tool_args=dict(getattr(ev, "tool_args", None) or {}),
+                        tool_result=detail or None,
+                        status=TaskStepStatus.PENDING,
+                    ),
+                )
+                steps_added += 1
+                blocked_step_added = True
             elif etype == "token":
                 final_parts.append(getattr(ev, "content", "") or "")
 
@@ -188,6 +213,8 @@ class TaskRuntime:
                     finished_at=self._now(),
                 ),
             )
+
+        return blocked_on_tool
 
     @staticmethod
     def _now() -> str:
