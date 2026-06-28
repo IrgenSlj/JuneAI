@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import {
     OfflineNotice,
+    type ForgottenFact,
     type MemoryFact,
     type MemorySnapshot,
     type MemoryStats,
@@ -17,6 +18,8 @@
   let actionError: string | null = $state(null);
   let query = $state("");
   let pendingDelete: string | null = $state(null);
+  let forgotten: ForgottenFact[] = $state([]);
+  let pendingRestore: string | null = $state(null);
   let editingRef: string | null = $state(null);
   let editFields: Record<string, string> = $state({});
   let pendingSave = $state(false);
@@ -282,13 +285,15 @@
     loadError = null;
     actionError = null;
     try {
-      const [snap, stat] = await Promise.all([
+      const [snap, stat, trash] = await Promise.all([
         client.getMemory(profileName.value, search),
         client.getMemoryStats(profileName.value).catch(() => null),
+        client.getForgottenFacts(profileName.value).catch(() => null),
       ]);
       if (seq !== refreshSeq) return;
       snapshot = snap;
       stats = stat;
+      forgotten = trash?.facts ?? [];
     } catch (err) {
       if (seq !== refreshSeq) return;
       loadError = err instanceof Error ? err.message : String(err);
@@ -322,6 +327,20 @@
       actionError = err instanceof Error ? err.message : String(err);
     } finally {
       pendingDelete = null;
+    }
+  }
+
+  async function handleRestore(fact: ForgottenFact) {
+    if (!fact.fact_id || pendingRestore) return;
+    pendingRestore = fact.fact_id;
+    actionError = null;
+    try {
+      await client.restoreForgottenFact(profileName.value, fact.fact_id);
+      await refresh();
+    } catch (err) {
+      actionError = err instanceof Error ? err.message : String(err);
+    } finally {
+      pendingRestore = null;
     }
   }
 
@@ -577,6 +596,48 @@
         </section>
       {/if}
     {/each}
+
+    {#if !query.trim() && forgotten.length > 0}
+      <section class="group forgotten-group">
+        <div class="group-head">
+          <h2>Recently forgotten</h2>
+          <span class="count">{forgotten.length}</span>
+        </div>
+        <p class="section-caption">
+          Forgetting is reversible. These facts left recall but are kept here so
+          you can bring any of them back.
+        </p>
+        <ul class="facts">
+          {#each forgotten as fact (fact.fact_id)}
+            <li class="fact">
+              <div class="fact-main">
+                <div class="fact-head">
+                  <div class="fact-title">{fact.text}</div>
+                  <div class="fact-meta-right">
+                    {#if fact.forgotten_at}
+                      <time class="fact-time" datetime={fact.forgotten_at}>
+                        forgotten {formatRelative(fact.forgotten_at)}
+                      </time>
+                    {/if}
+                  </div>
+                </div>
+              </div>
+              <div class="fact-actions">
+                <button
+                  type="button"
+                  class="restore"
+                  onclick={() => handleRestore(fact)}
+                  disabled={pendingRestore === fact.fact_id}
+                  aria-label="Restore this memory"
+                >
+                  {pendingRestore === fact.fact_id ? "…" : "Restore"}
+                </button>
+              </div>
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/if}
   {/if}
 </main>
 
@@ -858,7 +919,8 @@
 
   .edit,
   .delete,
-  .copy {
+  .copy,
+  .restore {
     background: transparent;
     color: var(--color-fg-muted);
     border: 1px solid var(--color-border);
@@ -868,7 +930,8 @@
     cursor: pointer;
   }
   .edit:hover:not(:disabled),
-  .copy:hover:not(:disabled) {
+  .copy:hover:not(:disabled),
+  .restore:hover:not(:disabled) {
     color: var(--color-accent);
     border-color: var(--color-accent);
   }
@@ -878,9 +941,13 @@
   }
   .edit:disabled,
   .delete:disabled,
-  .copy:disabled {
+  .copy:disabled,
+  .restore:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+  .forgotten-group {
+    opacity: 0.85;
   }
 
   .fact-editor {
