@@ -103,6 +103,9 @@ class Task:
     plan: list[TaskStep] = field(default_factory=list)
     owner_skill: str | None = None
     schedule: str | None = None
+    # Explicit deadline (ISO 8601). Due state is derived at read time, never by a
+    # background timer (ADR 0016: no heartbeat). None means no deadline.
+    due_at: str | None = None
     error: str | None = None
     blocked_reason: str | None = None
     next_action: str | None = None
@@ -132,6 +135,7 @@ class Task:
             "plan": [step.to_dict() for step in self.plan],
             "owner_skill": self.owner_skill,
             "schedule": self.schedule,
+            "due_at": self.due_at,
             "error": self.error,
             "blocked_reason": self.blocked_reason,
             "next_action": self.next_action,
@@ -157,6 +161,7 @@ class Task:
             plan=[TaskStep.from_dict(step) for step in (raw.get("plan") or [])],
             owner_skill=raw.get("owner_skill"),
             schedule=raw.get("schedule"),
+            due_at=raw.get("due_at"),
             error=raw.get("error"),
             blocked_reason=raw.get("blocked_reason"),
             next_action=raw.get("next_action"),

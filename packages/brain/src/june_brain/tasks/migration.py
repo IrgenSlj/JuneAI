@@ -20,6 +20,7 @@ _TASK_COLS = {
     "final_deliverable": "TEXT",
     "approved_tools": "TEXT DEFAULT '[]'",
     "blocked_kind": "TEXT",
+    "due_at": "TEXT",
 }
 
 

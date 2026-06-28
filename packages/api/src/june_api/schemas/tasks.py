@@ -33,6 +33,10 @@ class TaskView(BaseModel):
     plan: list[TaskStepView] = Field(default_factory=list)
     owner_skill: str | None = None
     schedule: str | None = None
+    due_at: str | None = Field(
+        default=None,
+        description="Explicit deadline (ISO 8601); due state is derived at read time.",
+    )
     error: str | None = None
     blocked_reason: str | None = Field(
         default=None,
@@ -83,6 +87,10 @@ class TaskCreateRequest(BaseModel):
         default=None,
         description="Optional schedule descriptor (cron-like) for recurring tasks.",
     )
+    due_at: str | None = Field(
+        default=None,
+        description="Optional explicit deadline (ISO 8601) for this promise.",
+    )
 
 
 class TaskPatchRequest(BaseModel):
@@ -94,6 +102,10 @@ class TaskPatchRequest(BaseModel):
         ),
     )
     error: str | None = Field(default=None, description="Optional error message for failed status.")
+    due_at: str | None = Field(
+        default=None,
+        description="Set the deadline (ISO 8601). Empty string clears it; null leaves it unchanged.",
+    )
 
 
 class TaskApproveRequest(BaseModel):

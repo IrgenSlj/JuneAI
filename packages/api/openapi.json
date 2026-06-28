@@ -3835,6 +3835,18 @@
             ],
             "title": "Schedule",
             "description": "Optional schedule descriptor (cron-like) for recurring tasks."
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At",
+            "description": "Optional explicit deadline (ISO 8601) for this promise."
           }
         },
         "type": "object",
@@ -3904,6 +3916,18 @@
             ],
             "title": "Error",
             "description": "Optional error message for failed status."
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At",
+            "description": "Set the deadline (ISO 8601). Empty string clears it; null leaves it unchanged."
           }
         },
         "type": "object",
@@ -4055,6 +4079,18 @@
               }
             ],
             "title": "Schedule"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At",
+            "description": "Explicit deadline (ISO 8601); due state is derived at read time."
           },
           "error": {
             "anyOf": [

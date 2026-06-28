@@ -84,6 +84,7 @@ def _to_view(task: Task) -> TaskView:
         ],
         owner_skill=task.owner_skill,
         schedule=task.schedule,
+        due_at=task.due_at,
         error=task.error,
         blocked_reason=task.blocked_reason,
         next_action=task.next_action,
@@ -217,6 +218,7 @@ def create_task(user_id: str, payload: TaskCreateRequest) -> TaskView:
         goal=payload.goal,
         owner_skill=payload.owner_skill,
         schedule=payload.schedule,
+        due_at=payload.due_at,
     )
     return _to_view(task)
 
@@ -232,6 +234,11 @@ def patch_task(
     task = store.get(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="task not found")
+    # due_at: None leaves it unchanged; "" clears it; a value sets it.
+    if payload.due_at is not None:
+        task = store.set_due(task_id, payload.due_at)
+        if task is None:
+            raise HTTPException(status_code=404, detail="task not found")
     if payload.status is not None:
         try:
             status_enum = TaskStatus(payload.status.strip().lower())

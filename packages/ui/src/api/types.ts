@@ -2099,6 +2099,11 @@ export interface components {
              * @description Optional schedule descriptor (cron-like) for recurring tasks.
              */
             schedule?: string | null;
+            /**
+             * Due At
+             * @description Optional explicit deadline (ISO 8601) for this promise.
+             */
+            due_at?: string | null;
         };
         /** TaskDeleteResponse */
         TaskDeleteResponse: {
@@ -2129,6 +2134,11 @@ export interface components {
              * @description Optional error message for failed status.
              */
             error?: string | null;
+            /**
+             * Due At
+             * @description Set the deadline (ISO 8601). Empty string clears it; null leaves it unchanged.
+             */
+            due_at?: string | null;
         };
         /**
          * TaskStepView
@@ -2181,6 +2191,11 @@ export interface components {
             owner_skill?: string | null;
             /** Schedule */
             schedule?: string | null;
+            /**
+             * Due At
+             * @description Explicit deadline (ISO 8601); due state is derived at read time.
+             */
+            due_at?: string | null;
             /** Error */
             error?: string | null;
             /**

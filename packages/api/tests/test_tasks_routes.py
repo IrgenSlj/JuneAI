@@ -159,6 +159,33 @@ def test_post_run_returns_404_for_unknown(client: TestClient) -> None:
     assert res.status_code == 404
 
 
+def test_create_with_due_at_and_patch_clears_it(client: TestClient) -> None:
+    created = client.post(
+        "/tasks/alice",
+        json={"goal": "file taxes", "due_at": "2026-07-01T17:00:00Z"},
+    ).json()
+    assert created["due_at"] == "2026-07-01T17:00:00Z"
+
+    # Reschedule via patch.
+    patched = client.patch(
+        f"/tasks/alice/{created['id']}", json={"due_at": "2026-07-05T09:00:00Z"}
+    ).json()
+    assert patched["due_at"] == "2026-07-05T09:00:00Z"
+
+    # Empty string clears the deadline; null would leave it unchanged.
+    cleared = client.patch(f"/tasks/alice/{created['id']}", json={"due_at": ""}).json()
+    assert cleared["due_at"] is None
+
+
+def test_patch_due_at_null_leaves_deadline_unchanged(client: TestClient) -> None:
+    created = client.post(
+        "/tasks/alice", json={"goal": "x", "due_at": "2026-08-01T00:00:00Z"}
+    ).json()
+    # A status-only patch must not wipe the deadline.
+    patched = client.patch(f"/tasks/alice/{created['id']}", json={"status": "paused"}).json()
+    assert patched["due_at"] == "2026-08-01T00:00:00Z"
+
+
 def test_post_approve_adds_tool_and_reruns(client: TestClient) -> None:
     created = client.post("/tasks/alice", json={"goal": "text my friend"}).json()
     res = client.post(
