@@ -252,6 +252,31 @@ now the smallest useful version of the Trusted Continuity Engine:
 Each step should still ship as a small runnable slice, validated locally, pushed
 to `main`, and recorded below.
 
+## Autonomous Execution Plan (2026-06-28)
+
+Ordered queue of gated, individually-pushed slices completing the Trusted
+Continuity Engine. Each: small slice -> `./tools/check.sh` green -> commit ->
+push. Delegated chunks go to implementer/reviewer subagents; the gate and push
+stay on the main thread.
+
+1. Promise deadlines (`due_at`) — set/show a due date; home and Promises surface
+   "due soon" / "overdue" computed at read time. Strict no-heartbeat: due state
+   is derived when the user looks, never by a timer. Realizes the home mockup
+   ("one has a deadline tomorrow").
+2. Reversible forget for structured rows (goals/open_loops/calendar/journal/
+   body_metrics) — completes the "forgetting is reversible" invariant for every
+   memory type. (Facts + entities already done.)
+3. Memory "why this exists" — surface created_at / source / last-used so each
+   memory explains itself.
+4. Trust retention controls — clear the activity log and empty the forgotten
+   trash from the UI; show what is retained.
+5. Frontend Playwright smoke tests — setup, chat, memory, promises, trust.
+6. Skill permission scopes — show a skill's network/filesystem/cloud scope
+   before use.
+
+Inventive but bounded; respects every invariant (no heartbeat, privacy visible,
+honesty fixed, graceful degradation shipped in the same change).
+
 ## Progress Log
 
 ### 2026-06-28 - Reversible Forget (Memory Governance)
