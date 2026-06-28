@@ -15,6 +15,12 @@ The UI should feel simple. The system should be technically rigorous, local-firs
 and visibly private. June is tuned for a known model roster (Gemma 4 + Gemini),
 not abstracted to be model-agnostic.
 
+The current implementation checklist lives in
+[`development-plan.md`](development-plan.md). It consolidates the 2026-06-28
+external review into sequenced, shippable slices. Where product worldview differs,
+this roadmap and `rebuild-plan.md` remain authoritative; where day-to-day
+implementation order differs, the development plan is the working checklist.
+
 This supersedes the earlier "personal operating layer / Quick Capture / Daily
 Home" framing (ADR 0013, ADR 0014, the agentic-pivot plan, the v0.1.1
 scheduled-development plan), which are retained as historical context only.
