@@ -98,6 +98,10 @@ export interface paths {
         /**
          * Get Memory
          * @description Return everything June remembers about a user, across all three stores.
+         *
+         *     When ``q`` is supplied, the snapshot is filtered locally across visible
+         *     fact fields and metadata. Search mode scans larger per-store limits, then
+         *     caps each section back to the normal snapshot size.
          */
         get: operations["get_memory_memory__user_id__get"];
         put?: never;
@@ -2474,7 +2478,10 @@ export interface operations {
     };
     get_memory_memory__user_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Optional case-insensitive substring filter. */
+                q?: string;
+            };
             header?: never;
             path: {
                 user_id: string;

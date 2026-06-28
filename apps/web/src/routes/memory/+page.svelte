@@ -20,6 +20,8 @@
   let editingRef: string | null = $state(null);
   let editFields: Record<string, string> = $state({});
   let pendingSave = $state(false);
+  let searchTimer: ReturnType<typeof setTimeout> | null = null;
+  let refreshSeq = 0;
 
   type SectionKind =
     | "semantic"
@@ -173,7 +175,7 @@
 
     const visible = section.facts.length;
     if (query.trim()) {
-      return `Showing ${visible} loaded match${visible === 1 ? "" : "es"} from ${loaded} of ${total}.`;
+      return `Showing ${visible} matching item${visible === 1 ? "" : "s"} from ${total} total.`;
     }
 
     return `Showing ${loaded} of ${total}.`;
@@ -274,24 +276,40 @@
   );
 
   async function refresh() {
+    const seq = ++refreshSeq;
+    const search = query.trim();
     loading = true;
     loadError = null;
     actionError = null;
     try {
       const [snap, stat] = await Promise.all([
-        client.getMemory(profileName.value),
+        client.getMemory(profileName.value, search),
         client.getMemoryStats(profileName.value).catch(() => null),
       ]);
+      if (seq !== refreshSeq) return;
       snapshot = snap;
       stats = stat;
     } catch (err) {
+      if (seq !== refreshSeq) return;
       loadError = err instanceof Error ? err.message : String(err);
     } finally {
-      loading = false;
+      if (seq === refreshSeq) loading = false;
     }
   }
 
-  onMount(refresh);
+  function scheduleSearch() {
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      refresh();
+    }, 250);
+  }
+
+  onMount(() => {
+    refresh();
+    return () => {
+      if (searchTimer) clearTimeout(searchTimer);
+    };
+  });
 
   async function handleDelete(fact: MemoryFact) {
     if (!fact.ref || pendingDelete) return;
@@ -354,7 +372,11 @@
       <input
         type="search"
         placeholder="Search memories…"
-        bind:value={query}
+        value={query}
+        oninput={(event) => {
+          query = (event.currentTarget as HTMLInputElement).value;
+          scheduleSearch();
+        }}
         aria-label="Filter memories"
       />
       <button type="button" onclick={refresh} disabled={loading}>

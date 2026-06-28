@@ -190,7 +190,7 @@
           "memory"
         ],
         "summary": "Get Memory",
-        "description": "Return everything June remembers about a user, across all three stores.",
+        "description": "Return everything June remembers about a user, across all three stores.\n\nWhen ``q`` is supplied, the snapshot is filtered locally across visible\nfact fields and metadata. Search mode scans larger per-store limits, then\ncaps each section back to the normal snapshot size.",
         "operationId": "get_memory_memory__user_id__get",
         "parameters": [
           {
@@ -201,6 +201,18 @@
               "type": "string",
               "title": "User Id"
             }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Optional case-insensitive substring filter.",
+              "default": "",
+              "title": "Q"
+            },
+            "description": "Optional case-insensitive substring filter."
           }
         ],
         "responses": {

@@ -303,8 +303,14 @@ export function createJuneClient(options: JuneClientOptions) {
     },
 
     /** GET /memory/{user_id} — structured highlights of what June remembers. */
-    getMemory(userId: string): Promise<MemorySnapshot> {
-      return getJson<MemorySnapshot>(`/memory/${encodeURIComponent(userId)}`);
+    getMemory(userId: string, query = ""): Promise<MemorySnapshot> {
+      const params = new URLSearchParams();
+      const q = query.trim();
+      if (q) params.set("q", q);
+      const qs = params.toString();
+      return getJson<MemorySnapshot>(
+        `/memory/${encodeURIComponent(userId)}${qs ? `?${qs}` : ""}`,
+      );
     },
 
     /** GET /memory/{user_id}/stats — per-store totals and last-write timestamp. */

@@ -49,6 +49,39 @@ def client(memory_env):
     return TestClient(app)
 
 
+def _seed_mixed_search_memory(user_id: str = "alex") -> None:
+    from june_brain.memory import KnowledgeGraph, Memory, VectorStore
+
+    mem = Memory(user_id)
+    mem.save_goal("cook ramen", category="food", next_step="buy noodles")
+    mem.save_goal("learn rust", category="career", next_step="read the book")
+    mem.save_open_loop("order ramen bowls", next_step="choose ceramic set")
+    mem.save_open_loop("file taxes", next_step="collect receipts")
+    mem.save_calendar_item(
+        "Ramen dinner",
+        "2026-07-01",
+        details="Try the tonkotsu place",
+    )
+    mem.save_calendar_item(
+        "Dentist",
+        "2026-07-02",
+        details="Routine cleaning",
+    )
+    mem.save_journal("Tried a spicy ramen broth today.")
+    mem.save_journal("Finished a chapter of a Rust book.")
+    mem.log_body_metrics(sleep_hours=7.5, notes="Ramen after the workout.")
+    mem.save_message("user", "Ramen was excellent tonight.")
+    mem.save_message("assistant", "I'll remember that.")
+
+    vector = VectorStore(user_id, embedder=_HashEmbedder())
+    vector.upsert("Alex prefers shoyu ramen", source="test", metadata={"kind": "food"})
+    vector.upsert("Alex is learning rust", source="test", metadata={"kind": "career"})
+
+    graph = KnowledgeGraph(user_id)
+    graph.add_node("Noodle Lab", kind="place", props={"description": "Favorite ramen shop"})
+    graph.add_node("Ana", kind="person", props={"description": "Sister"})
+
+
 def test_memory_snapshot_empty_for_new_user(client):
     response = client.get("/memory/new_user")
     assert response.status_code == 200
@@ -131,6 +164,54 @@ def test_memory_snapshot_includes_semantic_and_entities(memory_env, client):
     assert entities[0]["title"] == "Ana"
     assert entities[0]["ref"] == f"node:{node['node_id']}"
     assert entities[0]["kind"] == "entity:person"
+
+
+def test_memory_snapshot_query_filters_across_stores(memory_env, client):
+    _seed_mixed_search_memory()
+
+    response = client.get("/memory/alex", params={"q": "ramen"})
+    assert response.status_code == 200
+    data = response.json()
+
+    assert [goal["title"] for goal in data["goals"]] == ["cook ramen"]
+    assert [loop["title"] for loop in data["open_loops"]] == ["order ramen bowls"]
+    assert [item["title"] for item in data["calendar"]] == ["Ramen dinner"]
+    assert [entry["body"] for entry in data["journal"]] == [
+        "Tried a spicy ramen broth today."
+    ]
+    assert [metric["metadata"]["notes"] for metric in data["body_metrics"]] == [
+        "Ramen after the workout."
+    ]
+    assert [fact["body"] for fact in data["semantic_facts"]] == [
+        "Alex prefers shoyu ramen"
+    ]
+    assert [entity["title"] for entity in data["entities"]] == ["Noodle Lab"]
+    assert data["recent_messages"] == 1
+
+
+def test_memory_snapshot_without_query_is_unfiltered(memory_env, client):
+    _seed_mixed_search_memory()
+
+    response = client.get("/memory/alex")
+    assert response.status_code == 200
+    data = response.json()
+
+    assert {goal["title"] for goal in data["goals"]} == {"cook ramen", "learn rust"}
+    assert {loop["title"] for loop in data["open_loops"]} == {
+        "order ramen bowls",
+        "file taxes",
+    }
+    assert {item["title"] for item in data["calendar"]} == {"Ramen dinner", "Dentist"}
+    assert {entry["body"] for entry in data["journal"]} == {
+        "Tried a spicy ramen broth today.",
+        "Finished a chapter of a Rust book.",
+    }
+    assert {fact["body"] for fact in data["semantic_facts"]} == {
+        "Alex prefers shoyu ramen",
+        "Alex is learning rust",
+    }
+    assert {entity["title"] for entity in data["entities"]} == {"Noodle Lab", "Ana"}
+    assert data["recent_messages"] == 2
 
 
 def test_delete_semantic_fact_removes_from_snapshot(memory_env, client):

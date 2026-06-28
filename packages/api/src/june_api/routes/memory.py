@@ -8,7 +8,9 @@ recall no longer surfaces it.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Query
 from june_brain.memory import KnowledgeGraph, Memory, MemoryManager, VectorStore
 
 from ..schemas import (
@@ -32,6 +34,14 @@ router = APIRouter(tags=["memory"])
 # A ref with a newline or NUL injected by a misbehaving skill would corrupt
 # logs and the JSON payload; an oversized ref is never legitimate either.
 _MAX_REF_LENGTH = 512
+_SEARCH_SCAN_LIMIT = 10_000
+_GOAL_LIMIT = 20
+_OPEN_LOOP_LIMIT = 20
+_CALENDAR_LIMIT = 20
+_JOURNAL_LIMIT = 20
+_BODY_METRIC_LIMIT = 14
+_SEMANTIC_FACT_LIMIT = 30
+_ENTITY_LIMIT = 30
 
 
 def _validate_ref(ref: str) -> str:
@@ -50,6 +60,54 @@ def _validate_ref(ref: str) -> str:
             detail="ref contains control characters",
         )
     return cleaned
+
+
+def _search_terms(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, dict):
+        terms: list[str] = []
+        for key in sorted(value, key=str):
+            terms.append(str(key))
+            terms.extend(_search_terms(value[key]))
+        return terms
+    if isinstance(value, (list, tuple, set)):
+        items = sorted(value, key=str) if isinstance(value, set) else value
+        terms: list[str] = []
+        for item in items:
+            terms.extend(_search_terms(item))
+        return terms
+    return [str(value)]
+
+
+def _fact_matches_query(fact: MemoryFact, query: str) -> bool:
+    needle = query.casefold()
+    haystack = [fact.kind, fact.title, fact.body, fact.ref]
+    haystack.extend(_search_terms(fact.metadata))
+    return any(needle in term.casefold() for term in haystack)
+
+
+def _filter_facts(facts: list[MemoryFact], query: str) -> list[MemoryFact]:
+    if not query:
+        return facts
+    return [fact for fact in facts if _fact_matches_query(fact, query)]
+
+
+def _latest_chronological(facts: list[MemoryFact], limit: int, query: str) -> list[MemoryFact]:
+    if not query:
+        return facts
+    return facts[-limit:]
+
+
+def _first_matches(facts: list[MemoryFact], limit: int, query: str) -> list[MemoryFact]:
+    if not query:
+        return facts
+    return facts[:limit]
+
+
+def _message_matches_query(message: dict, query: str) -> bool:
+    needle = query.casefold()
+    return needle in str(message.get("content", "")).casefold()
 
 
 def _goal_to_fact(row: dict) -> MemoryFact:
@@ -167,21 +225,79 @@ def _entity_to_fact(node: dict) -> MemoryFact:
 
 
 @router.get("/memory/{user_id}", response_model=MemorySnapshot)
-def get_memory(user_id: str) -> MemorySnapshot:
-    """Return everything June remembers about a user, across all three stores."""
+def get_memory(
+    user_id: str,
+    q: str = Query(default="", description="Optional case-insensitive substring filter."),
+) -> MemorySnapshot:
+    """Return everything June remembers about a user, across all three stores.
+
+    When ``q`` is supplied, the snapshot is filtered locally across visible
+    fact fields and metadata. Search mode scans larger per-store limits, then
+    caps each section back to the normal snapshot size.
+    """
+    query = q.strip()
+    structured_limit = _SEARCH_SCAN_LIMIT if query else None
     mem = Memory(user_id)
     vector = VectorStore(user_id)
     graph = KnowledgeGraph(user_id)
+    goals = _filter_facts(
+        [_goal_to_fact(g) for g in mem.get_goals(limit=structured_limit or _GOAL_LIMIT)],
+        query,
+    )
+    open_loops = _filter_facts(
+        [
+            _loop_to_fact(loop)
+            for loop in mem.get_open_loops(
+                status="",
+                limit=structured_limit or _OPEN_LOOP_LIMIT,
+            )
+        ],
+        query,
+    )
+    calendar = _filter_facts(
+        [
+            _calendar_to_fact(item)
+            for item in mem.get_calendar_items(limit=structured_limit or _CALENDAR_LIMIT)
+        ],
+        query,
+    )
+    journal = _filter_facts(
+        [_journal_to_fact(j) for j in mem.get_journal(limit=structured_limit or _JOURNAL_LIMIT)],
+        query,
+    )
+    body_metrics = _filter_facts(
+        [
+            _body_metric_to_fact(b)
+            for b in mem.get_body_metrics(days=structured_limit or _BODY_METRIC_LIMIT)
+        ],
+        query,
+    )
+    semantic_facts = _filter_facts(
+        [
+            _semantic_to_fact(f)
+            for f in vector.list_facts(limit=structured_limit or _SEMANTIC_FACT_LIMIT)
+        ],
+        query,
+    )
+    entities = _filter_facts(
+        [_entity_to_fact(n) for n in graph.find_nodes(limit=structured_limit or _ENTITY_LIMIT)],
+        query,
+    )
+    messages = mem.load_chat()
     return MemorySnapshot(
         user_id=user_id,
-        goals=[_goal_to_fact(g) for g in mem.get_goals(limit=20)],
-        open_loops=[_loop_to_fact(loop) for loop in mem.get_open_loops(status="", limit=20)],
-        calendar=[_calendar_to_fact(item) for item in mem.get_calendar_items(limit=20)],
-        journal=[_journal_to_fact(j) for j in mem.get_journal(limit=20)],
-        body_metrics=[_body_metric_to_fact(b) for b in mem.get_body_metrics(days=14)],
-        semantic_facts=[_semantic_to_fact(f) for f in vector.list_facts(limit=30)],
-        entities=[_entity_to_fact(n) for n in graph.find_nodes(limit=30)],
-        recent_messages=len(mem.load_chat()),
+        goals=_latest_chronological(goals, _GOAL_LIMIT, query),
+        open_loops=_latest_chronological(open_loops, _OPEN_LOOP_LIMIT, query),
+        calendar=_first_matches(calendar, _CALENDAR_LIMIT, query),
+        journal=_latest_chronological(journal, _JOURNAL_LIMIT, query),
+        body_metrics=_latest_chronological(body_metrics, _BODY_METRIC_LIMIT, query),
+        semantic_facts=_first_matches(semantic_facts, _SEMANTIC_FACT_LIMIT, query),
+        entities=_first_matches(entities, _ENTITY_LIMIT, query),
+        recent_messages=(
+            sum(1 for message in messages if _message_matches_query(message, query))
+            if query
+            else len(messages)
+        ),
     )
 
 
