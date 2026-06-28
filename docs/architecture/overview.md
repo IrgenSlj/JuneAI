@@ -54,7 +54,7 @@ folder," and "reload" is "read the manifest and rehydrate."
   memory/                  # one SQLite june.db: facts + sqlite-vec vectors + graph
   character/persona.json   # the character block
   skills/                  # installed skill configs
-  tasks/ledger.jsonl       # append-only event ledger (Tier 2)
+  tasks/                   # promise artifacts / future append-only ledger
   config/                  # providers.toml, privacy mode, salience weights, thresholds
 ```
 
@@ -108,8 +108,10 @@ Harness modules (Tier 1 target shape):
   `{trivial|standard|hard|creative}`, feeding tier selection.
 - **`capability/probe.py`** — fixed micro-tasks scored against known-good answers,
   producing a `CapabilityProfile` ({good|weak|poor} per operation) the compaction
-  and self-edit fallbacks read. Plumbed in Tier 1; surfaced on the System page in
-  Tier 2.
+  and self-edit fallbacks read. Plumbed in Tier 1 and surfaced in Trust.
+- **`tasks/`** — the promises primitive. A promise records goal, status, trace
+  steps, blocked reason, next action, final deliverable, and recurrence metadata.
+  Blocked work stays `awaiting_user` until the user changes policy or retries.
 
 Shipped: the hand-written loop (`loop/`), the three-store memory, the model
 provider layer, the MCP skills client, and pattern/context detection. The
@@ -129,8 +131,10 @@ wrap the brain, handle HTTP and SSE, and nothing else.
   and edit across the three stores via `MemoryManager`.
 - **`GET /skills`**, **toggle routes** — discovered skill servers and per-tool
   toggles.
-- **`GET /system`** — provider status, Ollama health, memory paths; gains the
-  capability profile in Tier 2.
+- **`GET /system`** — Trust/runtime status: provider, privacy dial, Ollama health,
+  semantic recall readiness, and build version.
+- **`GET /tasks/{user_id}`** and related task routes — promises, waiting states,
+  traces, blocked reason, next action, and deliverables.
 
 Invariant: no cloud call without a provenance event; local-only mode blocks egress.
 All schemas are Pydantic models; `tools/codegen.sh` produces the TypeScript types
@@ -146,9 +150,9 @@ shell serves the same build.
 
 - **`packages/ui/`** — reusable components (`ChatBubble`, `MessageList`,
   `Composer`, `MemoryCard`, ...), stores, and the generated typed client.
-- **`apps/web/`** — routes: `/` (chat with the per-turn provenance chip and
-  cloud-boundary banner), `/memory` (browser + the native graph in Tier 2),
-  `/tasks`, `/skills`, `/settings`, `/system`.
+- **`apps/web/`** — routes: `/` (chat plus continuity summary), `/memory`
+  (browser + the native graph in Tier 2), `/tasks` (Promises), `/skills`,
+  `/settings`, `/system` (Trust).
 - **`packages/ui/src/platform/`** — a capability layer exposing `notify`,
   `registerHotkey`, `pickFile`, and Ollama supervision, with Tauri, Capacitor, and
   Web backends selected at load.

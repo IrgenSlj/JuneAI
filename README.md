@@ -36,9 +36,10 @@ no signup, no telemetry without consent, and one button to export everything.
 > spine** of June's [vision](docs/vision.md) is
 > built — portable data directory, model-specific provider layer, measured harness
 > loop, layered context with anchored compaction, salience recall, an honest
-> character, and a visible cloud boundary. Current focus: running the loop
-> experiment and making that measured loop the live path. See the
-> [roadmap](ROADMAP.md).
+> character, and a visible cloud boundary. Current focus: building June into a
+> **trusted continuity engine**: home continuity, Promises, Memory governance,
+> Trust, Skills permissions, and event-driven Time. See the
+> [development plan](docs/product/development-plan.md).
 
 June's center of gravity is the user, not the task. She borrows a coding agent's
 skeleton but inverts its four operations: she **defers** to the user instead of
@@ -78,9 +79,11 @@ On `main` today:
   shape tone, never erode candor into flattery.
 - **Portable by design.** Everything June is lives under one documented, versioned
   data directory — copy the folder to move machines.
-- **Tasks, skills, and a trust surface.** Long-running tasks with a live SSE step
-  trace; capabilities as standalone [MCP](https://modelcontextprotocol.io) servers,
-  independently toggled; `/system` shows a rolling log of every request and tool call.
+- **Promises, skills, and Trust.** Long-running promises keep blocked reason,
+  next action, final deliverable, and a live SSE step trace; capabilities are
+  standalone [MCP](https://modelcontextprotocol.io) servers, independently
+  toggled; `/system` is the Trust surface with waiting work, runtime health,
+  traces, and the activity log.
 
 ## Architecture
 
@@ -156,11 +159,11 @@ verifying it with a single round-trip. From there:
 
 | Route       | What it does                                                        |
 | ----------- | ------------------------------------------------------------------- |
-| `/`         | Chat with streaming responses, inline tool calls, provenance chips  |
-| `/tasks`    | Give June work; watch the step trace stream in live                 |
+| `/`         | Chat plus a continuity summary of what June is holding              |
+| `/tasks`    | Promises: standing work, waiting states, traces, deliverables       |
 | `/memory`   | Browse, search, edit, and forget what June remembers                |
 | `/skills`   | Toggle MCP skills, try tools in a playground, browse the registry   |
-| `/system`   | Runtime status and a live activity log of every request and tool    |
+| `/system`   | Trust: waiting work, runtime status, traces, activity, degraded modes |
 | `/settings` | Privacy dial, provider switch, Gemini key, theme                    |
 
 ## Repository layout
@@ -215,14 +218,12 @@ When you change a Pydantic schema or an API route, regenerate the client:
 
 ## Roadmap
 
-The **Tier 1 spine** is built — portable data directory, model-specific provider
-layer, measured harness loop, layered context with anchored compaction, salience
-recall, honest character, and a visible cloud boundary — on top of the shipped
-foundation (three-store memory, tasks, MCP skills, desktop DMG). Current focus is
-finishing Tier 1: run the loop experiment and make the measured loop the live path.
-Tier 2 (proactivity, native memory graph, encrypted backup, Google skills) starts
-only after Tier 1 is used. See [ROADMAP.md](ROADMAP.md) and the
-[rebuild plan](docs/product/rebuild-plan.md).
+The **Tier 1 spine** is built. The active product direction is the
+**Trusted Continuity Engine**: make June visibly hold promises, memory, trust
+state, skill permissions, and explicit time boundaries before adding broader
+autonomy. See [ROADMAP.md](ROADMAP.md), the
+[product overview](docs/product/overview.md), and the
+[development plan](docs/product/development-plan.md).
 
 ## Contributing
 

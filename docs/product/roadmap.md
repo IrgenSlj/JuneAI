@@ -15,6 +15,12 @@ The UI should feel simple. The system should be technically rigorous, local-firs
 and visibly private. June is tuned for a known model roster (Gemma 4 + Gemini),
 not abstracted to be model-agnostic.
 
+The active direction is the **Trusted Continuity Engine**. Chat remains the
+natural input surface, but June's product center is the standing record of what
+she is holding: Promises, Memory, Trust, Skills, and explicit Time. The home
+surface should answer "what is June holding for me?" before it asks for more
+input.
+
 The current implementation checklist lives in
 [`development-plan.md`](development-plan.md). It consolidates the 2026-06-28
 external review into sequenced, shippable slices. Where product worldview differs,
@@ -29,8 +35,9 @@ scheduled-development plan), which are retained as historical context only.
 
 ### Web PWA
 
-The PWA remains the primary shared UI surface: chat, memory, tasks, skills,
-system activity, settings, and setup. Installable via browser PWA support.
+The PWA remains the primary shared UI surface: chat with a continuity summary,
+Promises, Memory, Skills, Trust, settings, and setup. Installable via browser PWA
+support.
 
 ### Desktop Shell
 
@@ -50,7 +57,25 @@ anchored compaction, the honest character block, and per-turn provenance with a
 visible cloud boundary. The hand-written loop is the one live engine (ADR 0018);
 the LangGraph engine has been removed.
 
-## Active Track — Tier 1: The Spine (built)
+## Active Track — Trusted Continuity Engine
+
+Theme: **make June's continuity visible and reliable before adding broader
+autonomy.**
+
+Shipped slices:
+
+- Home summarizes open promises, waiting promises, privacy/runtime mode, and
+  semantic recall health.
+- `/tasks` is presented as **Promises**, with blocked reason, next action,
+  retry, visible waiting state, trace, and final deliverable.
+- `/system` is presented as **Trust**, with waiting work, runtime health,
+  semantic recall readiness, traces, activity log, export, and clear controls.
+
+Near-term sequence is tracked in [`development-plan.md`](development-plan.md):
+make Promises more durable, deepen Trust approvals/retention, then grow Memory
+governance and Time without a heartbeat.
+
+## Spine Status — Tier 1 Built
 
 Theme: **remember what matters, hold the thread, one honest voice, a visible cloud
 boundary — running on local Gemma 4.**
@@ -139,12 +164,14 @@ observe, refine; do not over-specify the perfect rule in the abstract.
   (dedup/re-index/decay) when truly idle; idle inference forbidden.
 - **D.4** Conservative, reversible forgetting — relevance + decay budget biased
   hard toward retention; reversible and visible in the memory browser.
-- **D.5** Durable task ledger built around continuity — append-only log; tasks
-  reconstructable after crash; modeled as promises, not terminating TODOs.
+- **D.5** Durable promise ledger built around continuity — append-only log;
+  promises reconstructable after crash, tied to artifacts and memory only with
+  visible user control.
 - **D.6** Native memory graph — custom HTML5 canvas + ~40-line force simulation,
   opened on demand in the Memory page; no graph library.
-- **D.7** System page — self-monitor + capability profile in plain language;
-  on-demand and calm, not an always-pulsing dashboard.
+- **D.7** Trust surface — self-monitor, capability profile, waiting work, traces,
+  and retention controls in plain language; on-demand and calm, not an
+  always-pulsing dashboard.
 - **D.8** Privacy Mode 2 — client-side-encrypted backup of the whole data dir;
   OS keychain day-to-day, passphrase only when moving machines; vetted crypto.
 - **D.9** Privacy Mode 3 — Google (Gmail/Calendar/Drive/Maps) as per-service MCP
@@ -159,7 +186,7 @@ observe, refine; do not over-specify the perfect rule in the abstract.
 - **Rung 4 (core self-modification): permanently excluded.**
 - Daily/weekly life loops — obey D.2/D.3 (run when the user shows up, never on a
   timer).
-- Page IA rename (Memory / Tasks / Trust) — cosmetic until Tier 1–2 land.
+- Deeper Home continuity across Promises, Memory, Skills, Trust, and Time.
 - CLEAR as standing practice — the 70% compaction threshold and salience weights
   are guesses until measured.
 

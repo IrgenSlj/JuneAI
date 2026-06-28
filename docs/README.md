@@ -4,11 +4,11 @@ This directory is the documentation root. Everything you need to understand, con
 
 ## What's New
 
-- **New direction (28 May 2026)** — June is a personal assistant whose center of
-  gravity is the user, not the task. The canonical, decision-by-decision working
-  plan is the [rebuild plan](product/rebuild-plan.md); the durable worldview is
-  the [vision](vision.md). This supersedes the earlier "personal operating layer /
-  Quick Capture" framing (ADR 0013, ADR 0014), retained as historical context.
+- **Current direction (28 June 2026)** — June is a trusted continuity engine.
+  Chat is the input surface; the product center is what June is holding:
+  Promises, Memory, Trust, Skills, and explicit Time. The active implementation
+  checklist is the [development plan](product/development-plan.md); the durable
+  worldview is the [vision](vision.md).
 - **The four inversions** — June borrows a coding agent's skeleton but inverts its
   four operations: defer (not verify), continue (not complete), forget (not
   accumulate), stay quiet (not act fast). See
@@ -23,13 +23,14 @@ This directory is the documentation root. Everything you need to understand, con
 - [**Vision**](vision.md) — the product premise and the non-negotiables
 - [**Product overview**](product/overview.md) — what June is
 - [**Roadmap**](product/roadmap.md) — what ships next, sequencing the rebuild plan
+- [**Development plan**](product/development-plan.md) — active implementation checklist and progress log
 - [**Architecture overview**](architecture/overview.md) — how the system is layered
 - [**Architecture decisions**](decisions/README.md) — the ADRs that justify the design
-- [**Rebuild plan**](product/rebuild-plan.md) — the authoritative, decision-by-decision working plan
+- [**Rebuild plan**](product/rebuild-plan.md) — historical reshape plan and completed spine work
 - [**Experiments**](experiments/loop-clear.md) — CLEAR measurements (e.g. loop engine)
 - [**Environment**](setup/environment.md) — runtime configuration reference
 - [**Desktop setup**](setup/desktop.md) — Rust toolchain, run/build commands for the desktop shell
-- [**Design brief**](design/claude-design-prompt.md) — the prompt for iterating on June's UI
+- [**Design brief**](design/master-brief.md) — UI/UX direction for the continuity surfaces
 
 ## Structure
 
@@ -38,6 +39,7 @@ docs/
 ├── vision.md                      # product north star
 ├── product/
 │   ├── rebuild-plan.md            # canonical, decision-by-decision working plan
+│   ├── development-plan.md        # active implementation plan and progress log
 │   ├── overview.md                # what June is
 │   └── roadmap.md                 # Tier 1/2/3, sequences the rebuild plan
 ├── architecture/
@@ -50,7 +52,7 @@ docs/
 ├── experiments/
 │   └── loop-clear.md              # CLEAR loop-engine measurement (C.2)
 ├── design/
-│   └── claude-design-prompt.md    # UI design brief
+│   └── master-brief.md            # UI design brief
 ├── setup/
 │   ├── environment.md             # env vars, .env template
 │   └── desktop.md                 # Rust toolchain, dev/build commands
@@ -59,7 +61,7 @@ docs/
 
 ## Documentation Rules
 
-1. The [rebuild plan](product/rebuild-plan.md) is the authoritative direction. Where it conflicts with anything else, it wins; the [vision](vision.md) is the tiebreaker for product premise.
+1. The [development plan](product/development-plan.md) is the active implementation direction. Where product premise conflicts, [vision](vision.md) and [overview](product/overview.md) win.
 2. Every architectural decision gets an ADR. If it is worth debating, it is worth recording.
 3. The product overview describes what June is. The roadmap describes what ships next and sequences the rebuild plan.
 4. No emojis in documentation.

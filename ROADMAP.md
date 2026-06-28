@@ -40,22 +40,24 @@ recall, difficulty router, and capability probe all flow through it. The CLEAR
 baseline (`docs/experiments/loop-clear.md`) measured the handwritten loop at
 3-17x faster at equal efficacy, so the LangGraph engine was removed (ADR 0018).
 
-What "done" looks like — and now holds: June runs on local Gemma 4, recalls a
+What "done" looks like and now holds: June runs on local Gemma 4, recalls a
 relevant older fact over a merely-similar recent one, compacts a long conversation
 without losing the stated goal, answers in a consistent voice that will gently
 disagree, and never reaches the cloud without a visible provenance line.
 
-The discipline for the next session: **use June against real conversations before
-opening Tier 2.** Tune salience weights, compaction triggers, and the difficulty
-classifier from what you observe — then pick the first Tier 2 differentiator below.
+The discipline now: grow the product around the spine as a **Trusted Continuity
+Engine**. Chat stays the input surface; the product center is what June is holding:
+open promises, waiting approvals, memory state, degraded capabilities, skill
+permissions, and explicit time boundaries. The active checklist is
+`docs/product/development-plan.md`.
 
 ### Shipped on top of the spine (this work)
 
 - **Glass-box trace.** Every turn records the rendered prompt, per-iteration model
   output, full tool I/O, reasoning, and compaction; persisted to
   `JUNE_DATA_DIR/traces/` (capped by `JUNE_TRACE_MAX`, `DELETE /system/traces` to
-  clear). The activity terminal is the live, expandable view; the System page is
-  unchanged.
+  clear). The activity terminal is the live, expandable view; Trust can clear and
+  export persisted traces.
 - **Tools advertised to the model.** The handwritten loop now tells the model which
   tools exist + the JSON call format (`loop/wiring.py:make_tools_block`), so
   `web_search` etc. are actually callable. `user_id` is injected when a tool needs it.
@@ -66,13 +68,17 @@ classifier from what you observe — then pick the first Tier 2 differentiator b
 - **Reasoning visible.** The active model (Gemma 4, Gemini) is asked to externalize its
   own reasoning in `<think>` tags, routed to the hidable reasoning channel — no separate
   thinking model.
+- **Trusted continuity surface.** Home summarizes open/waiting promises and
+  semantic recall health; `/tasks` is presented as Promises; `/system` is
+  presented as Trust with waiting work, runtime health, traces, and activity.
+- **First-class promise state.** Blocked promises persist `blocked_reason`,
+  `next_action`, and `final_deliverable`, so UI and future agents do not infer
+  user-facing status from trace text.
 
 ### Open knobs for next sessions (small, optional)
 
 - **`BRAVE_SEARCH_API_KEY`** — set it for reliable `web_search`; the DuckDuckGo HTML
   fallback is flaky.
-- **Traces "clear" button** — the `DELETE /system/traces` endpoint exists; no UI control
-  yet (clearing is API-only / auto-capped today).
 - **Reasoning latency** — the `<think>` instruction adds a thinking pass to every turn;
   if it feels heavy on trivial queries, gate it by difficulty.
 - **Switch-and-retry edge** — the one-click switch resends the last user message; revisit
@@ -91,9 +97,11 @@ Build simple, observe, refine — these need a working June to tune against.
   deadlines become OS notifications; the clock alone never wakes her.
 - **D.3** Self-monitor + idle housekeeping + reference-context diffing.
 - **D.4** Conservative, reversible forgetting — biased hard toward retention.
-- **D.5** Durable task ledger built around continuity — tasks as promises.
+- **D.5** Durable promise ledger built around continuity — promises remain
+  resumable, explainable, and tied to artifacts/memory with user control.
 - **D.6** Native memory graph — custom canvas, ~40-line force sim, no library.
-- **D.7** System page — responsiveness + capability profile, calm not pulsing.
+- **D.7** Trust surface — responsiveness, capability profile, traces, waiting
+  work, and retention controls in plain language.
 - **D.8** Privacy Mode 2 — client-side-encrypted backup (keychain + passphrase).
 - **D.9** Privacy Mode 3 — Google as per-service skills, grant-once, revocable.
 
@@ -101,8 +109,9 @@ Build simple, observe, refine — these need a working June to tune against.
 
 Full live brain map; self-improvement Rungs 2–3 (capability-blocked, not just
 safety-gated); daily/weekly life loops (run when the user shows up, never on a
-timer); page IA rename (Memory / Tasks / Trust). **Rung 4 (core self-modification)
-is permanently excluded** — the fixed engine is what makes June auditable.
+timer); deeper continuity views across Home, Promises, Memory, Skills, and Trust.
+**Rung 4 (core self-modification) is permanently excluded** — the fixed engine is
+what makes June auditable.
 
 ## Non-goals
 

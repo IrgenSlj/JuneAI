@@ -4,9 +4,8 @@
 
 Accepted. Reverses the timer-driven proactivity introduced in ADR 0013 (Personal
 Assistant Framework, the daily orchestration engine) and the scheduled background
-jobs of ADR 0014. Anchored by the [build specification](../product/build-spec.md),
-Part A ("Explicitly rejected"), Principle 5, and Invariant 2; the differentiator is
-specified in build-spec D.2.
+jobs of ADR 0014. Originally anchored by the retired build specification; current
+active sequencing lives in [`development-plan.md`](../product/development-plan.md).
 
 ## Context
 
@@ -34,8 +33,8 @@ two fatal problems for June:
 because time passed.** Concretely:
 
 - **No heartbeat-as-cron.** June does not wake on a periodic timer to scan state and
-  decide whether to act. Time-*awareness* is allowed (a passive temporal context
-  layer, build-spec D.1); time-*triggered action* is not.
+  decide whether to act. Time-*awareness* is allowed as passive temporal context;
+  time-*triggered action* is not.
 - **June never cold-starts a session.** She does not initiate a conversation out of
   nowhere. Within a *live* turn she may open richly and surface a salient thread,
   but only when its salience (the recency × frequency × relevance score) crosses a
@@ -49,9 +48,9 @@ because time passed.** Concretely:
 - **Sensitive context is surfaced by the user, not volunteered.** Heavy or painful
   memories are never resurfaced proactively (behavioral safety floor).
 
-Proactivity is a **Tier 2** differentiator (build-spec D.2). It is built only after
-the Tier 1 spine ships and is used, and it is built simple-then-tuned against real
-use — not specified as a perfect abstract rule.
+Proactivity is a later differentiator. It is built only after the continuity spine
+is useful, and it is built simple-then-tuned against real use — not specified as a
+perfect abstract rule.
 
 ## What This Changes
 
@@ -83,7 +82,7 @@ message) are deliberately out of scope.
 
 ## References
 
-- [build-spec.md](../product/build-spec.md) — Part A, Principle 5, Invariant 2, D.1, D.2
+- [development-plan.md](../product/development-plan.md) — active continuity and Time sequence
 - ADR 0013 — Personal Assistant Framework (daily orchestration reversed)
 - ADR 0014 — Personal Operating Layer (scheduled background jobs reframed)
 - ADR 0015 — Center of Gravity Is the User; The Four Inversions

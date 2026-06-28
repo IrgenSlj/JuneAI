@@ -235,4 +235,5 @@ Negative:
 - ADR 0010 — Agentic Core
 - ADR 0013 — Personal Assistant Framework
 - `docs/product/personal-operating-layer-research.md`
-- the v0.1.1 scheduled-development plan (removed in repo consolidation; superseded by `docs/product/build-spec.md`)
+- the v0.1.1 scheduled-development plan (removed in repo consolidation; superseded
+  by ADR 0015 and the current `docs/product/development-plan.md`)

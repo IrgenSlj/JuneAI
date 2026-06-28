@@ -3,8 +3,9 @@
 ## Status
 
 Accepted. Supersedes the product framing of ADR 0014 (Personal Operating Layer) and
-reframes ADR 0013 (Personal Assistant Framework). Anchored by the canonical
-[build specification](../product/build-spec.md).
+reframes ADR 0013 (Personal Assistant Framework). Originally anchored by the
+retired build specification; current active sequencing lives in
+[`development-plan.md`](../product/development-plan.md).
 
 ## Context
 
@@ -67,7 +68,7 @@ character block — is a sound synthesis of known work, built in service of thos
 
 ## Build Discipline
 
-The build proceeds in tiers (see the build spec). **Tier 1 (the spine)** delivers
+The build proceeds in tiers. **Tier 1 (the spine)** delivers
 the one-sentence vision and nothing more; **Tier 2** is built only after Tier 1
 ships and has been used; **Tier 3** is north-star design intent. The spec is
 deliberately complete to be a reference, not a backlog — building all of it at once
@@ -95,7 +96,7 @@ inversions before the data models make sense.
 
 ## References
 
-- [build-spec.md](../product/build-spec.md) — Parts A, E, I
+- [development-plan.md](../product/development-plan.md) — active implementation sequence
 - ADR 0013 — Personal Assistant Framework (reframed)
 - ADR 0014 — Personal Operating Layer (superseded framing)
 - ADR 0016 — Event-Driven Proactivity; No Heartbeat

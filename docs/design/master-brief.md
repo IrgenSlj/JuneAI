@@ -3,14 +3,13 @@
 > **For:** Claude (on claude.ai, Artifacts enabled, latest Opus/Sonnet) — or any
 > chat-with-rendered-UI tool. **Two deliverables in one brief:** (Track A) the full
 > product UI/UX system, and (Track B) a depth presentation with architectural
-> diagrams. **Status:** v1, 2026-06-21. Supersedes nothing; it *wraps* the narrower
-> chat-redesign brief at `docs/design/claude-design-prompt.md`, which remains the
-> authority for the chat surface's two-register layout and the mascot.
+> diagrams. **Status:** v2, 2026-06-28. This is now the standalone design brief;
+> the older narrow chat-redesign prompt was removed during documentation
+> consolidation.
 >
-> **Authority order if anything here conflicts:** `docs/product/rebuild-plan.md`
-> (load-bearing decisions) > `docs/vision.md` (why) > this brief (how it should look
-> and read) > taste. Where this brief and `claude-design-prompt.md` disagree about
-> the *chat screen specifically*, defer to `claude-design-prompt.md`.
+> **Authority order if anything here conflicts:** rebuild-plan for load-bearing
+> decisions, development-plan for active sequence, vision for why, then this brief
+> for how it should look and read.
 
 ---
 
@@ -22,8 +21,8 @@ that Track B's slides reuse.
 - **Track A — Product UI/UX.** Produce a single React + Tailwind artifact with a
   top tab strip switching between every named screen/state in §4, a light/dark
   toggle, and a design-tokens block at the top. Lock the **mascot and visual
-  direction first** (see `claude-design-prompt.md` §"The Mascot"), then the chat
-  surface, then the other surfaces.
+  direction first**, then the chat/home continuity surface, then the other
+  surfaces.
 - **Track B — Presentation.** Produce a second artifact: a slide deck (React,
   one slide per view, keyboard/next-prev navigation) that explains June in depth,
   carrying the diagrams in §6. Reuse Track A's tokens, mascot, and accent so the
@@ -86,19 +85,19 @@ These come from `vision.md` and the project invariants (CLAUDE.md). Design *towa
 
 ## 4. Track A — the surfaces to design
 
-Design each as a state in the one artifact. The chat surface details (two registers,
-centered composer, activity terminal, mascot-as-busy-indicator) are fully specified
-in `claude-design-prompt.md` — **read it and treat §4.1 below as the index, not a
-re-spec.** §4.2–§4.7 are new surfaces this master brief adds.
+Design each as a state in the one artifact. The chat surface uses two registers,
+a centered composer, an activity terminal, and the mascot as busy indicator.
 
-### 4.1 Chat — the core (see `claude-design-prompt.md`)
+### 4.1 Chat and home continuity — the core
 Two registers on one screen: **Conversation** (foreground bubbles — only what was
 actually said) and **Activity** (a subdued, monospaced "flight recorder" below the
 **centered composer** — recall, route, tool calls, and the provenance/cloud-boundary
 line). States to render: idle/greeting; active with terminal collapsed; active with
 terminal expanded; a **cloud-escalation** turn where the boundary line is unmissable;
-and **mobile** collapsed + expanded. The mascot (June sun / solstice mark) replaces
-the wordmark and doubles as the global busy indicator.
+and **mobile** collapsed + expanded. The empty state must include the continuity
+summary: open promises, waiting approvals, runtime/privacy mode, and degraded
+memory or local capability. The mascot (June sun / solstice mark) replaces the
+wordmark and doubles as the global busy indicator.
 
 ### 4.2 The approval gate (NEW — the "defers" inversion made visible)
 This is June's anti-injection guard layer surfacing as a UI moment. When the model
@@ -133,7 +132,7 @@ An inspectable, editable, exportable record of what June has learned. Design:
   here as "what June is currently holding onto for this thread."
 - Tone: this is *your* memory, yours to read and correct. Not a database admin panel.
 
-### 4.4 Tasks — promises, not TODOs
+### 4.4 Promises — not TODOs
 Long-running units of work modeled as **promises**: standing intentions the *user*
 made, observable and resumable, that do not terminate the way a checkbox does.
 Design the list and a single-promise view. Avoid checkbox/streak/productivity-app
@@ -151,7 +150,7 @@ revocable anytime, always visible; reads before writes.** Design the OAuth-grant
 moment and the "this skill is currently active" indicator. The access model is
 grant-once-revocable, NOT approve-on-every-access (that trains blind-clicking).
 
-### 4.6 System / Trust — the glass box
+### 4.6 Trust — the glass box
 Two audiences in one calm, on-demand page (not an always-pulsing dashboard):
 - **Plain-language for everyone:** "June's local brain is running well today" /
   "struggling today" — derived from the **capability profile** (the probe's verdict
@@ -173,7 +172,7 @@ Two audiences in one calm, on-demand page (not an always-pulsing dashboard):
 
 ### Header (shared across surfaces)
 Slim: animated **mascot** (left, in place of a wordmark) · discreet nav (Chat,
-Memory, Tasks, Skills, System) · right side one-line **runtime status**: active model
+Promises, Memory, Skills, Trust) · right side one-line **runtime status**: active model
 (local Gemma / cloud Gemini) + a colored reachability dot + a one-word privacy label
 (local-only / cloud-opt-in) · light/dark toggle · settings glyph.
 
@@ -360,13 +359,12 @@ specific things you would change on a second pass and ask which direction to pus
 ## Appendix — reference reading in this repo (for grounding, not for pasting whole)
 
 - `docs/vision.md` — why June exists; the four inversions; the non-negotiables.
-- `docs/product/rebuild-plan.md` + `REBUILD.md` — the authoritative working plan and
-  live checklist (the reshape + targeted rewrite; phases S0-S13).
+- `docs/product/development-plan.md` — the active working plan and progress log.
+- `docs/product/rebuild-plan.md` — the historical reshape plan for spine decisions.
 - `docs/product/overview.md` — what June is, surface by surface; model routing;
   memory model; privacy spectrum; safety floor.
 - `docs/architecture/overview.md` — the layered view, the one-turn data flow, the
   data directory (source material for §6.1, §6.2, §6.3, §6.6).
 - `docs/decisions/0021-guard-layer.md` — the guard layer / injection kill chain
   (source for §6.5).
-- `docs/design/claude-design-prompt.md` — the authoritative chat-surface + mascot
-  brief this document wraps.
+- `docs/design/master-brief.md` — this standalone product/design brief.

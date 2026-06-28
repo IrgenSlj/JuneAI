@@ -82,14 +82,14 @@ piece slots into the turn above.
 - **Memory** — an inspectable, editable, exportable record of what June has
   learned across the three stores. The native on-demand graph (Tier 2) is opened
   here, not in an external app.
-- **Tasks** — long-running units of work modeled as promises: the user's standing
+- **Promises** — long-running units of work modeled as standing commitments: the user's
   intentions, observable and resumable, not TODOs that simply terminate. A promise
   can be running, blocked, awaiting approval, awaiting the user, completed, or
   cancelled, and each state should explain what happens next.
 - **Skills** — capabilities the agent can call, each a standalone MCP server,
   independently enabled. Google services arrive as per-service skills (Tier 2).
-- **System / Trust** — responsiveness and the capability profile in plain
-  language, plus the visible record of every time data left the device.
+- **Trust** — responsiveness, capability profile, waiting work, traces, retention
+  controls, and the visible record of every time data left the device.
 
 ## Model Routing
 
@@ -157,9 +157,9 @@ This is core to the product, not boilerplate.
 ## Status
 
 June ships today as a web application and an experimental macOS desktop DMG. The
-brain, API, three-store memory, model routing, tasks, scheduler, notification bus,
-and skills system run on the hand-written harness loop (ADR 0018). The Tier 1
-spine is built: the portable data directory, the model-specific provider layer,
-the measured loop, layered context, salience recall, the character block, and
-the visible cloud boundary. See [roadmap.md](roadmap.md) for the Tier 2 and
-Tier 3 surfaces beyond it.
+brain, API, three-store memory, model routing, promises, scheduler, notification
+bus, and skills system run on the hand-written harness loop (ADR 0018). The Tier
+1 spine is built. Current work turns that spine into the Trusted Continuity
+Engine: home continuity, Promises, Memory governance, Trust, Skills permissions,
+and explicit Time. See [development-plan.md](development-plan.md) for active
+implementation and [roadmap.md](roadmap.md) for sequencing.

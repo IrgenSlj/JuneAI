@@ -4,7 +4,9 @@
 > supersedes the earlier `build-spec.md` (retired during repo consolidation;
 > recoverable from git history). The durable product worldview lives in
 > `docs/vision.md`. Every deliberate decision is recorded as a new ADR (Part 8).
-> Live progress is tracked in `REBUILD.md`.
+> Live progress is now tracked in `docs/product/development-plan.md`. The old
+> root `REBUILD.md` checklist was removed during the 2026-06-28 documentation
+> consolidation; use git history if you need the historical checklist.
 > **Prepared:** 12 June 2026. **Repo:** `IrgenSlj/JuneAI`. **Owner:** Irgen Salianji.
 
 ---
@@ -51,7 +53,7 @@ scheduler, test suite + check.sh single gate, ADR trail.
 - estimate_tokens 4-char/token heuristic as sole counter — S4.
 - packages/june-skill-telegram -> skills/telegram — S1.
 - "June AI logo.png" -> assets/logo.png — S1.
-- Superseded plan docs -> docs/archive/ with INDEX — S1.
+- Superseded plan docs removed during documentation consolidation — S1.
 - apps/landing/index.html placeholder -> real page — S13.
 
 ### 1.3 Defects to fix opportunistically
@@ -79,7 +81,7 @@ DuckDuckGo fallback flaky (S6 permissioned search + Brave key); dev.sh misnamed
    local roles remain Gemma-specific per ADR 0017.
 
 (Target repo + brain package shapes: see Part 2.1/2.2 of the source brief and the
-section layout in `REBUILD.md`.)
+current implementation status in `development-plan.md`.)
 
 ---
 
@@ -104,11 +106,12 @@ section layout in `REBUILD.md`.)
 
 ## PART 4-7 — SESSIONS
 
-Full per-slice detail lives in `REBUILD.md` (the living checklist). Summary map:
+The historical per-slice rebuild detail lived in the removed root `REBUILD.md`.
+Current work is sequenced in `development-plan.md`. Summary map:
 
 | # | Session | Outcome | New ADR |
 |---|---|---|---|
-| S0 | Baseline + tracking | Tag, REBUILD.md, measured baseline | — |
+| S0 | Baseline + tracking | Tag, measured baseline | — |
 | S1 | Dead weight + reshape | LangGraph gone; repo shape final | 0018 |
 | S2 | sqlite-vec storage | One storage engine; huge install drop | 0019 |
 | S3 | Memory decomposition | manager.py facade < 250 ln | — |

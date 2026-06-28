@@ -12,7 +12,12 @@ FastAPI boundary in front of `june-brain`. One HTTP surface that every shell (we
 - `GET /skills` — MCP skill processes and tools currently available to the agent.
 - `POST /skills/{key}/toggle` — enable or disable a skill.
 - `POST /skills/{key}/tools/{tool}/toggle` — enable or disable one tool inside a skill.
-- `GET /system` — runtime and Ollama status.
+- `GET /tasks/{user_id}` and related routes — Promises: standing work, live step
+  traces, blocked reason, next action, retry state, and final deliverable.
+- `GET /system` — Trust/runtime status: provider, privacy dial, Ollama status,
+  semantic recall readiness, and build version.
+- `GET /system/traces`, `GET /system/traces/{turn_id}`, `DELETE /system/traces`
+  — persisted glass-box turn traces for Trust.
 - `GET /setup/status`, `POST /setup/apply`, `GET /settings`, `POST /settings/forget-key` — first-run setup and non-secret runtime settings.
 - `POST /demo/seed` — seed a profile with demo memory.
 

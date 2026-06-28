@@ -5,7 +5,8 @@
 Accepted. Reinforces ADR 0002 (Gemma 4 and Gemini only) and ADR 0009 (private by
 default and model routing), and reverses the earlier "provider-agnostic /
 OpenAI-compatible abstraction" stance carried in the model-client construction.
-Anchored by the [build specification](../product/build-spec.md), C.1.
+Originally anchored by the retired build specification; current active sequencing
+lives in [`development-plan.md`](../product/development-plan.md).
 
 ## Context
 
@@ -39,12 +40,12 @@ exactly two models, with a clean seam for a third.
 - **One path to models.** All model access goes through a provider. No raw Ollama or
   HTTP model call lives anywhere else in the brain.
 - **Provenance and health are first-class.** Every cloud (Gemini) call emits a
-  provenance event before and after (ADR 0016's transparency companion / build-spec
-  C.6). `health()` lets callers detect an unreachable or unloaded model and surface
+  provenance event before and after (ADR 0016's transparency companion). `health()`
+  lets callers detect an unreachable or unloaded model and surface
   it rather than hang.
 
 `GenerateResult` carries the concrete `model_id` (e.g. `gemma4:e2b`) and the `tier`
-so provenance and the difficulty-routed tier selection (build-spec C.6) are exact.
+so provenance and the difficulty-routed tier selection are exact.
 
 ## Alternatives Considered
 
@@ -67,7 +68,7 @@ changes.
 
 ## References
 
-- [build-spec.md](../product/build-spec.md) — C.1, Part A Principle 6
+- [development-plan.md](../product/development-plan.md) — active implementation sequence
 - ADR 0002 — Gemma 4 and Gemini as the only supported models
 - ADR 0009 — Private by Default and Model Routing
 - ADR 0016 — Event-Driven Proactivity; No Heartbeat (provenance companion)

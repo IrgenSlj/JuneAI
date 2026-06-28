@@ -1,6 +1,6 @@
 # Baseline metrics — pre-reshape (June 2026)
 
-Captured at the start of the rebuild (REBUILD.md S0.2), against the tag
+Captured at the start of the rebuild, against the tag
 `v0.2.0-prereshape`. Every later session that claims an improvement measures
 against this file. Numbers are from a MacBook (Apple Silicon), Python 3.14,
 Ollama-backed Gemma.

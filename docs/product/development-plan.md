@@ -73,7 +73,8 @@ Critical gaps:
 - Embedding readiness can silently degrade semantic recall.
 - Settings and System can show contradictory runtime truth.
 - Mobile layouts overflow in core screens.
-- Tasks work mechanically but are not yet durable promises.
+- Promises have first-class blocked state and deliverables, but still need deeper
+  artifacts, approvals, retry policy, and memory integration.
 - The browser UI lacks regression coverage for the paths users actually touch.
 
 ## Phase 0 - Runtime Truth And Stability
@@ -162,8 +163,8 @@ Goal: make June continue work as promises, not one-off prompts.
 Goal: keep the calm local-first identity while improving density and clarity.
 
 1. Rework information architecture around user concepts.
-   - Candidate top level: Chat, Tasks, Memory, Skills, Trust.
-   - Treat System details as part of Trust for non-developers.
+   - Candidate top level: Chat/Home, Promises, Memory, Skills, Trust.
+   - Treat implementation details as part of Trust for non-developers.
 
 2. Clarify state language.
    - Use consistent iconography and semantic color for local, cloud, degraded,
@@ -185,7 +186,7 @@ Goal: keep the codebase easy to change as the product surface grows.
 
 1. Split large modules by responsibility.
    - Prioritize the SQLite memory repository, tools registry, Skills page, and
-     System page.
+     Trust page.
    - Do not split stable small facades just to make files smaller.
 
 2. Add frontend tests.

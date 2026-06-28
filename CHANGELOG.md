@@ -7,11 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Trusted continuity direction (2026-06-28)
+
+- **Consolidated the active product direction** around June as a Trusted
+  Continuity Engine: Home continuity, Promises, Memory, Trust, Skills, and
+  explicit Time. The active implementation source is now
+  `docs/product/development-plan.md`.
+- **Reduced stale planning docs** by removing the old root `REBUILD.md`, the old
+  rebuild session playbook, and the narrow Claude chat-design prompt. Their useful
+  guidance now lives in `development-plan.md`, `overview.md`, and
+  `docs/design/master-brief.md`.
+- **Updated shipped surfaces**: `/tasks` is documented as Promises, `/system` as
+  Trust, and promise state now includes blocked reason, next action, and final
+  deliverable.
+
 ### Rebuild — Phase 1 (reshape + targeted rewrite, in progress)
 
 The repo is being reshaped to the "trust made visible — installable, valuable on
 day one, provably safe" thesis (`docs/product/rebuild-plan.md`, tracked in
-`REBUILD.md`). Shipped so far (S1-S5):
+`docs/product/development-plan.md`). Shipped so far (S1-S5):
 
 - **Removed** the LangGraph/LangChain engine and its four dependencies; one
   hand-written loop engine behind the fixed `HarnessLoop` interface (ADR 0018).
@@ -33,7 +47,7 @@ day one, provably safe" thesis (`docs/product/rebuild-plan.md`, tracked in
 
 ### Trust surfaces, design artifact, and repo consolidation (2026-06-21)
 
-- **Glass-box turn-trace browser** on the System page: lists every persisted turn
+- **Glass-box turn-trace browser** on the Trust page: lists every persisted turn
   and expands its complete agentic trace — the assembled prompt, each LLM
   iteration's raw output, the model's reasoning/thinking, every tool call and
   result, and the cloud-boundary provenance line — wired to the existing
@@ -42,7 +56,7 @@ day one, provably safe" thesis (`docs/product/rebuild-plan.md`, tracked in
   makes them persistent and browsable.)
 - **Capability profile exposed**: new `GET /system/capability` (cached accessor —
   never runs the probe from the request path) renders a plain-language health
-  verdict and a good/weak/poor table on the System page; shows "not yet measured"
+  verdict and a good/weak/poor table on the Trust page; shows "not yet measured"
   honestly when no probe has run.
 - **Declared skill policy**: `model_policy` (local_only / cloud_allowed /
   cloud_required) added to `SkillInfo` + `GET /skills`, shown as a per-skill badge.
@@ -50,10 +64,10 @@ day one, provably safe" thesis (`docs/product/rebuild-plan.md`, tracked in
   beside each fact's timestamp, calmer spacing — with no behavioral change.
 - **Repo consolidated onto the rebuild plan**: retired `docs/product/build-spec.md`
   (its decisions live on in the ADRs and shipped code; recoverable from git
-  history), removed the superseded archived plans (`docs/archive/`, `docs/plans/`),
+  history), removed the superseded archived/planning docs,
   and purged abandoned-direction copy (LangGraph, shopping/chores) from the live
-  System and landing surfaces. `docs/product/rebuild-plan.md` + `REBUILD.md` are now
-  the single working source of truth; `docs/vision.md` holds the durable worldview.
+  System and landing surfaces. The current working source of truth is now
+  `docs/product/development-plan.md`; `docs/vision.md` holds the durable worldview.
 - **Design system imported**: the realized UI/UX prototype from claude.ai/design at
   `docs/design/artifact/` (runnable over a static server) with
   `docs/design/master-brief.md` as the UI/UX + presentation brief. The shipped

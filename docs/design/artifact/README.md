@@ -18,8 +18,8 @@ python3 -m http.server 8080
 # then open http://localhost:8080/June.html
 ```
 
-Use the top tab strip to switch surfaces (Mascot, Chat, Mobile, Memory, Tasks,
-Skills, System, Settings, First run, Tokens), the sun/moon for light/dark, and —
+Use the top tab strip to switch surfaces (Mascot, Chat, Mobile, Memory, Promises,
+Skills, Trust, Settings, First run, Tokens), the sun/moon for light/dark, and —
 on the Chat tab — the scenario strip (Greeting / Active turn / Cloud turn /
 Approval gate) and the activity toggle.
 
@@ -30,8 +30,8 @@ Approval gate) and the activity toggle.
 - `components/primitives.jsx` — Wordmark, StatusDot, ModelStatus, QuietButton.
 - `components/Mascot.jsx` — the abstract sun/solstice mark + busy/idle motion.
 - `components/ProductHeader.jsx` — the shared slim header.
-- Surfaces: `ChatStage`, `MemoryScreen`, `TasksScreen`, `SkillsScreen`,
-  `SystemScreen`, `SettingsScreen`, `FirstRun`, plus `ApprovalGate`, `Bubble`,
+- Surfaces: `ChatStage`, `MemoryScreen`, `TasksScreen` (Promises), `SkillsScreen`,
+  `SystemScreen` (Trust), `SettingsScreen`, `FirstRun`, plus `ApprovalGate`, `Bubble`,
   `ActivityTerminal`, `CenteredComposer` (the two-register chat), `MobileChat2`
   (phone), `MascotBoard`, `TokensView`, `DesktopFrame`, `frames/ios-frame.jsx`.
 

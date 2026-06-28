@@ -1,9 +1,10 @@
 # CLAUDE.md — working agreement for June AI
 
-Read this first, then the rebuild plan. This file is the short, durable
+Read this first, then the development plan. This file is the short, durable
 orientation for any agent working in this repo. Where it conflicts with
-`docs/product/rebuild-plan.md` (the active working plan) or `docs/vision.md`
-(the durable worldview), those win (and fix this file).
+`docs/product/development-plan.md` (the active implementation plan),
+`docs/product/overview.md` (what June is), or `docs/vision.md` (the durable
+worldview), those win (and fix this file).
 
 ## What June is
 
@@ -19,16 +20,26 @@ The four inversions of a coding agent (ADR 0015) define her:
 
 ## Canonical direction
 
-- `docs/product/rebuild-plan.md` + `REBUILD.md` — the active working plan and live checklist; the single source of truth for what to build next.
+- `docs/product/development-plan.md` — the active working plan, progress log, and
+  step-by-step implementation checklist.
+- `docs/product/overview.md` — the product truth: June is a trusted continuity
+  engine, not primarily a chat app.
 - `docs/vision.md` — the durable product worldview (the four inversions, the non-negotiables).
 - ADRs: `docs/decisions/0015` (four inversions), `0016` (event-driven, no heartbeat), `0017` (model-specific providers). ADRs are append-only; supersede by writing a new one.
-- `ROADMAP.md` / `docs/product/roadmap.md` sequence the work. The Tier 1 spine is built; the live chat path runs the hand-written loop.
+- `ROADMAP.md` / `docs/product/roadmap.md` sequence the public product tracks.
+  The Tier 1 spine is built; current development grows Home continuity,
+  Promises, Memory governance, Trust, Skills permissions, and Time.
 
 ## Repo layout
 
 Monorepo. `packages/brain` (Python "Brain": loop, providers, memory, context, character, router, scheduler, skills), `packages/api` (FastAPI REST+SSE), `packages/ui` + `apps/web` (SvelteKit PWA), `apps/desktop` (Tauri shell), `skills/` (MCP servers). Stores: one SQLite `june.db` (structured rows + a sqlite-vec vector index + a graph) behind one `MemoryManager`, under `<datadir>/memory/` (ADR 0019); embeddings via local Ollama.
 
 The brain's harness loop lives in `packages/brain/src/june_brain/loop/`. The hand-written loop (`handwritten.py`) is the one engine and the live chat path (ADR 0018; the LangGraph engine and its flags were removed in the rebuild). Loop choices (tier, tools) flow as data through a fixed shape; the shape itself is never self-modified. Tools use June's own abstraction in `tools_base.py` (no LangChain).
+
+Promises live in `packages/brain/src/june_brain/tasks/`, are exposed through
+`/tasks`, and are rendered as **Promises** in the UI. A blocked promise must carry
+explicit `blocked_reason`, `next_action`, and any `final_deliverable`; do not make
+the UI infer user-facing state from trace text.
 
 ## Build, test, run
 
