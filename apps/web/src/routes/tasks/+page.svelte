@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import { OfflineNotice, ConfirmDialog, type TaskView, type TaskStepView } from "@june/ui";
   import { client } from "$lib/api.js";
-  import { formatRelative } from "$lib/dates.js";
+  import { formatRelative, dueState } from "$lib/dates.js";
   import { profileName } from "$lib/stores/user.svelte.js";
 
   let tasks: TaskView[] = $state([]);
@@ -12,7 +12,15 @@
   let pendingAction: string | null = $state(null);
 
   let newGoal = $state("");
+  let newDue = $state("");
   let creating = $state(false);
+  let pendingDue: string | null = $state(null);
+
+  const DUE_LABEL: Record<string, string> = {
+    overdue: "overdue",
+    due_soon: "due soon",
+    scheduled: "due",
+  };
 
   let expanded: Record<string, boolean> = $state({});
 
@@ -111,14 +119,43 @@
     creating = true;
     actionError = null;
     try {
-      await client.createTask(profileName.value, { goal });
+      // <input type="datetime-local"> yields local time without a zone; send as-is.
+      const due_at = newDue ? new Date(newDue).toISOString() : undefined;
+      await client.createTask(profileName.value, { goal, due_at });
       newGoal = "";
+      newDue = "";
       await refresh();
     } catch (err) {
       actionError = err instanceof Error ? err.message : String(err);
     } finally {
       creating = false;
     }
+  }
+
+  async function setDue(task: TaskView, value: string) {
+    if (pendingDue) return;
+    pendingDue = task.id;
+    actionError = null;
+    try {
+      // Empty clears the deadline; a value sets it (ISO 8601).
+      const due_at = value ? new Date(value).toISOString() : "";
+      const updated = await client.patchTask(profileName.value, task.id, { due_at });
+      tasks = tasks.map((t) => (t.id === updated.id ? updated : t));
+    } catch (err) {
+      actionError = err instanceof Error ? err.message : String(err);
+    } finally {
+      pendingDue = null;
+    }
+  }
+
+  /** ISO -> value for <input type="datetime-local"> (local, no seconds/zone). */
+  function toLocalInput(iso: string | null | undefined): string {
+    if (!iso) return "";
+    const t = Date.parse(iso);
+    if (Number.isNaN(t)) return "";
+    const d = new Date(t);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
   async function patchStatus(task: TaskView, status: string) {
@@ -257,6 +294,15 @@
         disabled={creating}
         autocomplete="off"
       />
+      <label for="task-due" class="sr-only">Optional deadline</label>
+      <input
+        id="task-due"
+        type="datetime-local"
+        class="due-input"
+        bind:value={newDue}
+        disabled={creating}
+        title="Optional deadline"
+      />
       <button type="submit" disabled={creating || newGoal.trim().length === 0}>
         {creating ? "Creating…" : "Create task"}
       </button>
@@ -335,6 +381,12 @@
           <time class="meta-time" datetime={task.updated_at}>
             {formatRelative(task.updated_at)}
           </time>
+          {#if task.due_at && dueState(task.due_at)}
+            {@const ds = dueState(task.due_at)}
+            <span class="due-badge due-{ds}" title={`Due ${formatRelative(task.due_at)}`}>
+              {DUE_LABEL[ds ?? "scheduled"]} {formatRelative(task.due_at)}
+            </span>
+          {/if}
         </div>
       </div>
       <div class="task-actions">
@@ -407,6 +459,30 @@
         </button>
       </div>
     </div>
+
+    {#if isActive(task.status)}
+      <div class="task-due-editor">
+        <label for="due-{task.id}">Deadline</label>
+        <input
+          id="due-{task.id}"
+          type="datetime-local"
+          class="due-input"
+          value={toLocalInput(task.due_at)}
+          disabled={pendingDue === task.id}
+          onchange={(e) => setDue(task, e.currentTarget.value)}
+        />
+        {#if task.due_at}
+          <button
+            type="button"
+            class="due-clear"
+            onclick={() => setDue(task, "")}
+            disabled={pendingDue === task.id}
+          >
+            Clear
+          </button>
+        {/if}
+      </div>
+    {/if}
 
     {#if task.error}
       <div class="task-error" role="alert">{task.error}</div>
@@ -600,6 +676,63 @@
   .composer button:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+  .composer input.due-input {
+    flex: 0 0 auto;
+    color-scheme: light dark;
+  }
+
+  /* Deadline badge on a card — semantic color by urgency. */
+  .due-badge {
+    font-size: var(--size-xs);
+    padding: 1px var(--space-2);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    white-space: nowrap;
+  }
+  .due-overdue {
+    color: var(--color-danger);
+    border-color: var(--color-danger);
+    background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  }
+  .due-due_soon {
+    color: var(--color-warn);
+    border-color: var(--color-warn);
+    background: color-mix(in srgb, var(--color-warn) 10%, transparent);
+  }
+  .due-scheduled {
+    color: var(--color-fg-muted);
+  }
+
+  .task-due-editor {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+    font-size: var(--size-xs);
+    color: var(--color-fg-muted);
+  }
+  .task-due-editor .due-input {
+    background: var(--color-bg);
+    color: var(--color-fg-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-2);
+    font: inherit;
+    color-scheme: light dark;
+  }
+  .due-clear {
+    background: transparent;
+    color: var(--color-fg-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-2);
+    cursor: pointer;
+    font-size: var(--size-xs);
+  }
+  .due-clear:hover:not(:disabled) {
+    color: var(--color-danger);
+    border-color: var(--color-danger);
   }
 
   .sr-only {

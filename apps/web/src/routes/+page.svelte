@@ -20,6 +20,7 @@
   import { system, loadSystem } from "$lib/stores/system.svelte.js";
   import { onMount } from "svelte";
   import { client } from "$lib/api.js";
+  import { dueState } from "$lib/dates.js";
   import { profileName } from "$lib/stores/user.svelte.js";
 
   let focusComposer: (() => void) | undefined = $state();
@@ -71,13 +72,21 @@
     });
   }
 
-  function promiseSummary(openCount: number, waitingCount: number, blockedCount: number): string {
+  function promiseSummary(
+    openCount: number,
+    waitingCount: number,
+    blockedCount: number,
+    overdueCount: number,
+    dueSoonCount: number,
+  ): string {
     if (continuityError) return "I could not read open promises.";
     if (openCount === 0) return "No open promises are waiting right now.";
 
     const parts = [`${openCount} open ${openCount === 1 ? "promise" : "promises"}`];
     if (waitingCount > 0) parts.push(`${waitingCount} waiting on you`);
     if (blockedCount > 0) parts.push(`${blockedCount} blocked by local-only mode`);
+    if (overdueCount > 0) parts.push(`${overdueCount} overdue`);
+    else if (dueSoonCount > 0) parts.push(`${dueSoonCount} due soon`);
     return `I am holding ${parts.join(", ")}.`;
   }
 
@@ -101,10 +110,17 @@
   const openPromiseCount = $derived(openPromises.length);
   const waitingCount = $derived(waitingPromises.length);
   const blockedCount = $derived(blockedPromises.length);
+  // Due state is derived here, at render time — no background timer (ADR 0016).
+  const overdueCount = $derived(
+    openPromises.filter((t) => dueState(t.due_at) === "overdue").length,
+  );
+  const dueSoonCount = $derived(
+    openPromises.filter((t) => dueState(t.due_at) === "due_soon").length,
+  );
   const recallStatus = $derived(system.data?.semantic_recall_status ?? "unknown");
   const recallDegraded = $derived(recallStatus === "degraded");
   const continuityLine = $derived(
-    promiseSummary(openPromiseCount, waitingCount, blockedCount),
+    promiseSummary(openPromiseCount, waitingCount, blockedCount, overdueCount, dueSoonCount),
   );
   const privacyLabel = $derived(
     system.data ? dialLabel(system.data.privacy_dial) : system.error ? "offline" : "checking",
@@ -199,8 +215,8 @@
           <div class="continuity-line">
             <span
               class="continuity-dot"
-              class:warn={waitingCount > 0 || recallDegraded || continuityError !== null}
-              class:ok={waitingCount === 0 && !recallDegraded && continuityError === null}
+              class:warn={waitingCount > 0 || overdueCount > 0 || recallDegraded || continuityError !== null}
+              class:ok={waitingCount === 0 && overdueCount === 0 && !recallDegraded && continuityError === null}
               aria-hidden="true"
             ></span>
             <span>{continuityLine}</span>
@@ -214,6 +230,16 @@
               <span class="metric-main">{waitingCount}</span>
               <span class="metric-label">waiting on you</span>
             </a>
+            {#if overdueCount > 0 || dueSoonCount > 0}
+              <a
+                class="continuity-metric"
+                class:warn={overdueCount > 0}
+                href="/tasks"
+              >
+                <span class="metric-main">{overdueCount > 0 ? overdueCount : dueSoonCount}</span>
+                <span class="metric-label">{overdueCount > 0 ? "overdue" : "due soon"}</span>
+              </a>
+            {/if}
             <a class="continuity-metric" href="/system">
               <span class="metric-main">{privacyLabel}</span>
               <span class="metric-label">{runtimeLabel}</span>
