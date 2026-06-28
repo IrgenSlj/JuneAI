@@ -305,6 +305,8 @@ Validation:
 - Promises web check: `svelte-check found 0 errors and 0 warnings`.
 - Promise metadata focused tests: `48 passed`.
 - Frontend package checks: `@june/ui` and `@june/web` passed.
+- Full gate: `./tools/check.sh` passed with `662` backend tests, frontend
+  checks, OpenAPI drift check, Ruff, and the narrowed mypy real-bug gate.
 
 ### 2026-06-28 - Phase 1 Trust And Memory UX
 
