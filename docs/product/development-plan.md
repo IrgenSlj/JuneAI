@@ -198,3 +198,32 @@ The first implementation tranche is Phase 0:
 
 After this tranche, run `./tools/check.sh`, inspect desktop and mobile screens,
 commit, and push.
+
+## Progress Log
+
+### 2026-06-28 - Phase 0 Runtime Truth
+
+Pushed on branch `codex/development-plan-implementation`:
+
+- Added this consolidated development plan and linked it from the product roadmap.
+- Suppressed raw model reasoning in provider and streamed loop paths by default.
+- Passed native tool specs into streamed provider calls.
+- Added focused tests for streamed tool specs and suppressed reasoning traces.
+- Exposed semantic recall readiness in `GET /system`, including the configured
+  embedding model and degraded keyword-fallback state.
+- Regenerated OpenAPI and TypeScript API types.
+- Clarified active runtime vs saved model overrides in Settings.
+- Updated System copy from ChromaDB/old setup routes to sqlite-vec/current routes.
+- Surfaced semantic recall readiness in System.
+- Fixed the composer shortcut so Cmd/Ctrl+Enter sends and plain Enter inserts a
+  newline.
+- Added mobile overflow guards to Settings and System.
+- Added System trace export/clear controls and hid unmeasured capability defaults
+  behind `unknown` UI labels.
+
+Validation:
+
+- Focused backend/API tests: `62 passed`.
+- Frontend package checks: `@june/ui` and `@june/web` passed.
+- Full gate: `./tools/check.sh` passed with `656` backend tests, frontend checks,
+  OpenAPI drift check, Ruff, and the narrowed mypy real-bug gate.
