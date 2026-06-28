@@ -139,6 +139,46 @@
     ],
   };
 
+  const STATS_BUCKETS_BY_SECTION: Partial<Record<SectionKind, string>> = {
+    semantic: "semantic_facts",
+    entities: "entities",
+  };
+
+  function factsForSection(sectionId: SectionKind): MemoryFact[] {
+    return sections.find((section) => section.id === sectionId)?.facts ?? [];
+  }
+
+  function statsTotalForSection(sectionId: SectionKind): number | null {
+    const bucketKind = STATS_BUCKETS_BY_SECTION[sectionId];
+    if (!bucketKind) return null;
+    const bucket = stats?.buckets?.find((candidate) => candidate.kind === bucketKind);
+    return typeof bucket?.count === "number" ? bucket.count : null;
+  }
+
+  function countLabelText(sectionId: SectionKind, singular: string, plural: string): string {
+    const loaded = factsForSection(sectionId).length;
+    const total = statsTotalForSection(sectionId);
+    const isCapped = total !== null && total > loaded;
+    const labelCount = isCapped ? total : loaded;
+    const countText = isCapped ? `${loaded} of ${total}` : `${loaded}`;
+    return `${countText} ${labelCount === 1 ? singular : plural}`;
+  }
+
+  function cappedListText(section: Section): string | null {
+    const total = statsTotalForSection(section.id);
+    if (total === null) return null;
+
+    const loaded = factsForSection(section.id).length;
+    if (total <= loaded) return null;
+
+    const visible = section.facts.length;
+    if (query.trim()) {
+      return `Showing ${visible} loaded match${visible === 1 ? "" : "es"} from ${loaded} of ${total}.`;
+    }
+
+    return `Showing ${loaded} of ${total}.`;
+  }
+
   function fieldsFromFact(section: SectionKind, fact: MemoryFact): Record<string, string> {
     const meta = fact.metadata ?? {};
     if (section === "goals") {
@@ -387,8 +427,8 @@
       {#if query.trim()}
         {totalShown} match{totalShown === 1 ? "" : "es"} for "{query}"
       {:else}
-        {snapshot.semantic_facts?.length ?? 0} fact{(snapshot.semantic_facts?.length ?? 0) === 1 ? "" : "s"},
-        {snapshot.entities?.length ?? 0} entit{(snapshot.entities?.length ?? 0) === 1 ? "y" : "ies"},
+        {countLabelText("semantic", "fact", "facts")},
+        {countLabelText("entities", "entity", "entities")},
         {snapshot.recent_messages ?? 0} message{(snapshot.recent_messages ?? 0) === 1 ? "" : "s"} in history
       {/if}
     </p>
@@ -400,7 +440,12 @@
             <h2>{section.title}</h2>
             <span class="count">{section.facts.length}</span>
           </div>
-          <p class="section-caption">{section.caption}</p>
+          <p class="section-caption">
+            {section.caption}
+            {#if cappedListText(section)}
+              <span class="cap-note">{cappedListText(section)}</span>
+            {/if}
+          </p>
           {#if section.facts.length === 0}
             <p class="muted">{section.empty}</p>
           {:else}
@@ -516,6 +561,8 @@
 <style>
   .page {
     max-width: 760px;
+    width: 100%;
+    box-sizing: border-box;
     margin: 0 auto;
     padding: var(--space-5) var(--space-4) var(--space-7);
     display: flex;
@@ -547,10 +594,12 @@
   .controls {
     display: flex;
     gap: var(--space-2);
+    flex-wrap: wrap;
   }
 
   .controls input {
-    flex: 1;
+    flex: 1 1 14rem;
+    min-width: 0;
     background: var(--color-bg-raised);
     color: var(--color-fg-primary);
     border: 1px solid var(--color-border);
@@ -564,6 +613,7 @@
   }
 
   .controls button {
+    flex: 0 0 auto;
     background: var(--color-bg-raised);
     color: var(--color-fg-primary);
     border: 1px solid var(--color-border);
@@ -639,6 +689,8 @@
     display: flex;
     align-items: baseline;
     gap: var(--space-2);
+    flex-wrap: wrap;
+    min-width: 0;
   }
   .group h2 {
     margin: 0;
@@ -647,6 +699,8 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--color-fg-subtle);
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
   .count {
     font-size: var(--size-xs);
@@ -660,6 +714,12 @@
     font-size: var(--size-sm);
     color: var(--color-fg-muted);
     line-height: var(--leading-normal);
+  }
+
+  .cap-note {
+    display: inline-block;
+    margin-left: var(--space-1);
+    color: var(--color-fg-subtle);
   }
 
   .muted {
@@ -681,6 +741,7 @@
     display: flex;
     gap: var(--space-3);
     align-items: flex-start;
+    min-width: 0;
     background: var(--color-bg-raised);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
@@ -700,6 +761,7 @@
     align-items: baseline;
     gap: var(--space-3);
     justify-content: space-between;
+    min-width: 0;
   }
   .fact-title {
     font-size: var(--size-sm);
@@ -708,6 +770,7 @@
     line-height: var(--leading-normal);
     min-width: 0;
     flex: 1;
+    overflow-wrap: anywhere;
   }
   .fact-meta-right {
     display: flex;
@@ -715,6 +778,7 @@
     align-items: flex-end;
     gap: 2px;
     flex-shrink: 0;
+    max-width: 100%;
   }
   .fact-time {
     font-size: var(--size-xs);
@@ -726,12 +790,14 @@
     font-family: var(--font-mono);
     color: var(--color-fg-subtle);
     opacity: 0.7;
+    overflow-wrap: anywhere;
   }
 
   .fact-body {
     color: var(--color-fg-muted);
     font-size: var(--size-sm);
     line-height: var(--leading-normal);
+    overflow-wrap: anywhere;
   }
 
   .meta {
@@ -746,6 +812,8 @@
   .meta-row {
     display: inline-flex;
     gap: var(--space-1);
+    min-width: 0;
+    max-width: 100%;
   }
   .meta dt {
     color: var(--color-fg-subtle);
@@ -756,6 +824,7 @@
   .meta dd {
     margin: 0;
     color: var(--color-fg-muted);
+    overflow-wrap: anywhere;
   }
 
   .fact-actions {
@@ -794,6 +863,7 @@
 
   .fact-editor {
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
@@ -803,6 +873,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
+    min-width: 0;
   }
 
   .field-label {
@@ -814,6 +885,7 @@
   }
 
   .fact-editor input {
+    min-width: 0;
     background: var(--color-bg);
     color: var(--color-fg-primary);
     border: 1px solid var(--color-border);
@@ -830,6 +902,7 @@
   .editor-actions {
     display: flex;
     gap: var(--space-2);
+    flex-wrap: wrap;
     margin-top: var(--space-1);
   }
 
@@ -870,6 +943,7 @@
     align-items: baseline;
     gap: var(--space-3);
     flex-wrap: wrap;
+    min-width: 0;
   }
 
   .stats-total {
@@ -881,6 +955,8 @@
 
   .stats-total-label {
     color: var(--color-fg-muted);
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .stats-last {
@@ -888,6 +964,8 @@
     color: var(--color-fg-subtle);
     font-family: var(--font-mono);
     font-size: var(--size-xs);
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .stats-buckets {
@@ -895,7 +973,7 @@
     padding: 0;
     margin: 0;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr));
     gap: var(--space-2);
   }
 
@@ -907,6 +985,7 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     background: var(--color-bg);
+    min-width: 0;
   }
 
   .stats-bucket-count {
@@ -919,6 +998,7 @@
   .stats-bucket-kind {
     color: var(--color-fg-muted);
     font-size: var(--size-sm);
+    overflow-wrap: anywhere;
   }
 
   .stats-bucket-store {
@@ -927,6 +1007,7 @@
     font-size: var(--size-xs);
     text-transform: uppercase;
     letter-spacing: 0.06em;
+    overflow-wrap: anywhere;
   }
 
   .stats-recent {
@@ -965,5 +1046,42 @@
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 520px) {
+    .page {
+      padding-inline: var(--space-3);
+    }
+
+    .controls input,
+    .controls button {
+      flex-basis: 100%;
+    }
+
+    .stats-last {
+      margin-left: 0;
+      width: 100%;
+    }
+
+    .fact {
+      flex-direction: column;
+    }
+
+    .fact-head {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-1);
+    }
+
+    .fact-meta-right {
+      align-items: flex-start;
+    }
+
+    .fact-actions {
+      width: 100%;
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
   }
 </style>
