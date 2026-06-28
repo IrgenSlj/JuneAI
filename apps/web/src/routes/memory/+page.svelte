@@ -392,6 +392,23 @@
     if (typeof raw === "string" && raw.trim().length > 0) return raw.trim();
     return null;
   }
+
+  /** Plain-language "why this exists" from the raw source tag. */
+  function factOrigin(fact: MemoryFact): string | null {
+    const src = factSource(fact);
+    if (!src) return null;
+    if (src.startsWith("skill:")) {
+      const key = src.split(":")[1] || "a";
+      return `written by the ${key} skill`;
+    }
+    const map: Record<string, string> = {
+      conversation: "learned from a conversation",
+      api: "added by you",
+      manual: "added by you",
+      extractor: "learned from a conversation",
+    };
+    return map[src] ?? `via ${src}`;
+  }
 </script>
 
 <svelte:head>
@@ -549,8 +566,10 @@
                           {#if ts}
                             <time class="fact-time" datetime={ts}>{formatRelative(ts)}</time>
                           {/if}
-                          {#if factSource(fact)}
-                            <span class="fact-source">via {factSource(fact)}</span>
+                          {#if factOrigin(fact)}
+                            <span class="fact-source" title="Why June has this">
+                              {factOrigin(fact)}
+                            </span>
                           {/if}
                         </div>
                       </div>
