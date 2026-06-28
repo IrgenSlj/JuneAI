@@ -259,25 +259,50 @@ Continuity Engine. Each: small slice -> `./tools/check.sh` green -> commit ->
 push. Delegated chunks go to implementer/reviewer subagents; the gate and push
 stay on the main thread.
 
-1. Promise deadlines (`due_at`) — set/show a due date; home and Promises surface
-   "due soon" / "overdue" computed at read time. Strict no-heartbeat: due state
-   is derived when the user looks, never by a timer. Realizes the home mockup
-   ("one has a deadline tomorrow").
-2. Reversible forget for structured rows (goals/open_loops/calendar/journal/
-   body_metrics) — completes the "forgetting is reversible" invariant for every
-   memory type. (Facts + entities already done.)
-3. Memory "why this exists" — surface created_at / source / last-used so each
-   memory explains itself.
-4. Trust retention controls — clear the activity log and empty the forgotten
-   trash from the UI; show what is retained.
-5. Frontend Playwright smoke tests — setup, chat, memory, promises, trust.
-6. Skill permission scopes — show a skill's network/filesystem/cloud scope
-   before use.
+1. [DONE] Promise deadlines (`due_at`) — set/show a due date; home and Promises
+   surface "due soon" / "overdue" computed at read time. No timer.
+2. [DONE] Reversible forget for structured rows — every memory type is now
+   reversible (facts, entities, goals, open_loops, calendar, journal,
+   body_metrics).
+3. [DONE] Memory "why this exists" — humanized origin label ("learned from a
+   conversation", "added by you", "written by the X skill").
+4. [DONE] Trust retention controls — empty the forgotten trash from the UI;
+   approval records visible/filterable; activity clear already existed.
+5. [TODO] Frontend Playwright smoke tests — setup, chat, memory, promises,
+   trust. Deferred: infra-heavy and not yet wired into the gate.
+6. [DONE] Skill permission scopes — each skill shows derived capability scopes
+   before use; network/execute highlighted.
+
+Remaining beyond this queue: event-driven wakeups (subscribed external changes)
+as the larger half of Time, and the Playwright harness. Both are documented for
+a future tranche.
 
 Inventive but bounded; respects every invariant (no heartbeat, privacy visible,
 honesty fixed, graceful degradation shipped in the same change).
 
 ## Progress Log
+
+### 2026-06-28 - Reversible Forget Complete + Review Hardening
+
+Pushed on `main`.
+
+- Reversible forget now covers EVERY memory type. Structured rows (goals,
+  open_loops, calendar, journal, body_metrics) archive to `forgotten_structured`
+  before deletion and restore by replaying `mgr.write` (recreating the row and
+  its vector paraphrase via tested code). `MemoryManager.list_forgotten/restore/
+  purge_forgotten` span all three stores by ref prefix. Verified live (goal
+  forget -> trash -> restore -> back in snapshot).
+- Review hardening (from a reviewer subagent pass over the session's diff):
+  - Restore is atomic (single transaction) for facts and entities; a crash can
+    no longer leave a memory in both the live store and the trash.
+  - Restore preserves the original `created_at`/`updated_at`, so a restored
+    memory no longer jumps to the top of recency-ordered views.
+  - Forget made atomic too, for lifecycle symmetry.
+  - body_metric restore preserved (it would have landed on today and could
+    overwrite a real metric); threaded an optional date through.
+
+Validation: full gate green, 699 backend tests; live smoke tests of approval,
+deadline, and structured forget/restore against the running API.
 
 ### 2026-06-28 - Autonomous Tranche (deadlines, trash lifecycle, skill scopes)
 
