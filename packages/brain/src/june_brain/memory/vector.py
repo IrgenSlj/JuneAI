@@ -269,32 +269,40 @@ class VectorStore:
     def forget(self, fact_id: str) -> bool:
         """Archive a fact to the trash, then delete it from the live store.
 
+        Atomic: the trash-row insert and the live-row delete happen in one
+        transaction, so a crash can never leave the fact in both stores. The
+        vec0 index entry is dropped outside the txn — it is rebuildable, and a
+        lingering index row with no shadow row is filtered out of recall.
         Returns False when the fact doesn't exist (nothing to forget).
         """
         record = self.get(fact_id)
         if record is None:
             return False
         conn = _get_connection(_db_path())
-        conn.execute(
-            """INSERT INTO forgotten_facts
-                 (user_id, fact_id, text, source, metadata, created_at, forgotten_at)
-               VALUES (?,?,?,?,?,?,?)
-               ON CONFLICT(user_id, fact_id) DO UPDATE SET
-                 text=excluded.text, source=excluded.source,
-                 metadata=excluded.metadata, created_at=excluded.created_at,
-                 forgotten_at=excluded.forgotten_at""",
-            (
-                self.user_id,
-                record["fact_id"],
-                record["text"],
-                record["source"],
-                json.dumps(record["metadata"]),
-                record["created_at"],
-                datetime.now().isoformat(),
-            ),
-        )
-        conn.commit()
-        self.delete(fact_id)
+        with conn:  # single transaction: commit both writes or neither
+            conn.execute(
+                """INSERT INTO forgotten_facts
+                     (user_id, fact_id, text, source, metadata, created_at, forgotten_at)
+                   VALUES (?,?,?,?,?,?,?)
+                   ON CONFLICT(user_id, fact_id) DO UPDATE SET
+                     text=excluded.text, source=excluded.source,
+                     metadata=excluded.metadata, created_at=excluded.created_at,
+                     forgotten_at=excluded.forgotten_at""",
+                (
+                    self.user_id,
+                    record["fact_id"],
+                    record["text"],
+                    record["source"],
+                    json.dumps(record["metadata"]),
+                    record["created_at"],
+                    datetime.now().isoformat(),
+                ),
+            )
+            conn.execute(
+                "DELETE FROM semantic_facts WHERE user_id=? AND fact_id=?",
+                (self.user_id, fact_id),
+            )
+        vec_index.delete(conn, fact_id)
         return True
 
     def list_forgotten(self, limit: int = 50) -> list[dict[str, Any]]:

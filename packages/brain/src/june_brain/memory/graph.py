@@ -132,29 +132,41 @@ class KnowledgeGraph:
     # ------------------------------------------------------------------
 
     def forget_node(self, node_id: str) -> bool:
-        """Archive a node to the trash, then remove it (and its edges)."""
+        """Archive a node to the trash, then remove it (and its edges).
+
+        Atomic: the trash-row insert and the node/edge deletes happen in one
+        transaction, so a crash can never leave the entity in both stores.
+        """
         node = self.get_node(node_id)
         if node is None:
             return False
-        self._conn.execute(
-            """INSERT INTO forgotten_nodes
-                 (user_id, node_id, kind, label, props, updated_at, forgotten_at)
-               VALUES (?,?,?,?,?,?,?)
-               ON CONFLICT(user_id, node_id) DO UPDATE SET
-                 kind=excluded.kind, label=excluded.label, props=excluded.props,
-                 updated_at=excluded.updated_at, forgotten_at=excluded.forgotten_at""",
-            (
-                self.user_id,
-                node["node_id"],
-                node["kind"],
-                node["label"],
-                json.dumps(node["props"]),
-                node["updated_at"],
-                _now(),
-            ),
-        )
-        self._conn.commit()
-        self.remove_node(node_id)
+        conn = self._conn
+        with conn:  # single transaction: commit all writes or none
+            conn.execute(
+                """INSERT INTO forgotten_nodes
+                     (user_id, node_id, kind, label, props, updated_at, forgotten_at)
+                   VALUES (?,?,?,?,?,?,?)
+                   ON CONFLICT(user_id, node_id) DO UPDATE SET
+                     kind=excluded.kind, label=excluded.label, props=excluded.props,
+                     updated_at=excluded.updated_at, forgotten_at=excluded.forgotten_at""",
+                (
+                    self.user_id,
+                    node["node_id"],
+                    node["kind"],
+                    node["label"],
+                    json.dumps(node["props"]),
+                    node["updated_at"],
+                    _now(),
+                ),
+            )
+            conn.execute(
+                "DELETE FROM graph_edges WHERE user_id=? AND (src=? OR dst=?)",
+                (self.user_id, node_id, node_id),
+            )
+            conn.execute(
+                "DELETE FROM graph_nodes WHERE user_id=? AND node_id=?",
+                (self.user_id, node_id),
+            )
         return True
 
     def list_forgotten_nodes(self, limit: int = 50) -> list[dict[str, Any]]:
