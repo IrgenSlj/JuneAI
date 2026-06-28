@@ -286,15 +286,16 @@
 </script>
 
 <svelte:head>
-  <title>System — June</title>
+  <title>Trust — June</title>
 </svelte:head>
 
 <main class="page" id="main-content">
   <header class="top">
     <div class="heading">
-      <h1>System</h1>
+      <h1>Trust</h1>
       <p class="lede">
-        How June is wired together right now. Counts and status pull from the running stack
+        What June is doing, what is degraded, what stayed local, and what records
+        are kept on this machine. Counts and status pull from the running stack
         and refresh every {REFRESH_MS / 1000} seconds.
       </p>
     </div>
