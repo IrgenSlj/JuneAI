@@ -10,6 +10,7 @@
     type SkillInfo,
     type SkillsResponse,
     type SystemStatus,
+    type TaskView,
     type TraceSummary,
     type TraceEventView,
   } from "@june/ui";
@@ -24,6 +25,8 @@
   let system: SystemStatus | null = $state(null);
   let capability: CapabilityProfileView | null = $state(null);
   let activity: ActivityEntryView[] = $state([]);
+  let waitingPromises: TaskView[] = $state([]);
+  let waitingPromisesError: string | null = $state(null);
   let loading = $state(true);
   let clearingActivity = $state(false);
   let clearingTraces = $state(false);
@@ -46,8 +49,9 @@
     loading = true;
     loadError = null;
     tracesError = null;
+    waitingPromisesError = null;
     try {
-      const [snap, sk, sys, cap, act, trl] = await Promise.all([
+      const [snap, sk, sys, cap, act, trl, waiting] = await Promise.all([
         client.getMemory(profileName.value),
         client.getSkills(),
         client.getSystem(),
@@ -57,6 +61,10 @@
           tracesError = e instanceof Error ? e.message : String(e);
           return { traces: [], count: 0 };
         }),
+        client.getTasks(profileName.value, "awaiting_user", 10).catch((e: unknown) => {
+          waitingPromisesError = e instanceof Error ? e.message : String(e);
+          return { tasks: [], count: 0 };
+        }),
       ]);
       memory = snap;
       skills = (sk as SkillsResponse).skills ?? [];
@@ -64,6 +72,7 @@
       capability = cap;
       activity = act.entries ?? [];
       traces = trl.traces ?? [];
+      waitingPromises = waiting.tasks ?? [];
       // Keep an open trace's detail in sync with its (possibly updated) summary,
       // so the event-count badge can never disagree with the expanded panel.
       if (selectedTraceId) {
@@ -356,6 +365,39 @@
         {#if !capability.checked_at}
           <p class="hint cap-hint">The API still holds fallback defaults internally; this screen hides them until a probe records real measurements.</p>
         {/if}
+      {/if}
+    </div>
+  </section>
+
+  <section class="layer">
+    <div class="layer-label">Approvals</div>
+    <div class="card wide approvals-card">
+      <div class="card-head">
+        <h2>Waiting work</h2>
+        <span class="badge" class:warn={waitingPromises.length > 0} class:muted={waitingPromises.length === 0}>
+          {waitingPromises.length} waiting
+        </span>
+      </div>
+      <p class="card-body">
+        Promises that stopped before crossing a boundary or taking an action.
+      </p>
+      {#if waitingPromisesError}
+        <p class="hint trace-error">{waitingPromisesError}</p>
+      {:else if waitingPromises.length === 0}
+        <p class="hint">No promises are waiting on approval right now.</p>
+      {:else}
+        <ul class="approval-list">
+          {#each waitingPromises as promise (promise.id)}
+            <li class="approval-row">
+              <a class="approval-title" href="/tasks">{promise.goal}</a>
+              <p>{promise.blocked_reason || "June needs your input before this can continue."}</p>
+              {#if promise.next_action}
+                <p class="approval-next">{promise.next_action}</p>
+              {/if}
+              <time datetime={promise.updated_at}>{formatRelative(promise.updated_at)}</time>
+            </li>
+          {/each}
+        </ul>
       {/if}
     </div>
   </section>
@@ -1074,6 +1116,66 @@
     color: var(--color-fg-subtle);
     font-size: var(--size-xs);
     line-height: var(--leading-normal);
+  }
+
+  .approvals-card {
+    gap: var(--space-3);
+  }
+  .approval-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .approval-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.5fr) minmax(0, 1.2fr) auto;
+    gap: var(--space-3);
+    align-items: baseline;
+    padding: var(--space-2) 0;
+    border-top: 1px solid var(--color-border);
+    min-width: 0;
+  }
+  .approval-row:first-child {
+    border-top: none;
+  }
+  .approval-title {
+    color: var(--color-fg-primary);
+    text-decoration: none;
+    font-weight: 600;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .approval-title:hover {
+    color: var(--color-accent);
+  }
+  .approval-row p {
+    margin: 0;
+    color: var(--color-fg-muted);
+    font-size: var(--size-sm);
+    line-height: var(--leading-normal);
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .approval-next {
+    color: var(--color-fg-subtle);
+  }
+  .approval-row time {
+    color: var(--color-fg-subtle);
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    white-space: nowrap;
+  }
+  @media (max-width: 860px) {
+    .approval-row {
+      grid-template-columns: 1fr;
+      gap: var(--space-1);
+    }
+    .approval-row time {
+      white-space: normal;
+    }
   }
 
   code {
