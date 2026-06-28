@@ -95,6 +95,7 @@ def _harness_turn_inputs(request: ChatRequest) -> tuple[SessionState, Message]:
             user_id=request.user_id,
             messages=history,
             skill=request.skill,
+            approved_tools=set(request.approved_tools),
         ),
         Message(role="user", content=request.message),
     )

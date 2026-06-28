@@ -939,6 +939,11 @@ export interface components {
              * @default assistant
              */
             skill: string;
+            /**
+             * Approved Tools
+             * @description Tool names the user has approved for this conversation (the guard's per-conversation allow-list, ADR 0021 S6.2). Sent by the client so a previously approved consequential action runs without asking again. Taint-flagged network actions always ask regardless.
+             */
+            approved_tools?: string[];
         };
         /** DemoSeedRequest */
         DemoSeedRequest: {

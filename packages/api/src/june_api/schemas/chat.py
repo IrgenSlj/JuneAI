@@ -16,6 +16,15 @@ class ChatRequest(BaseModel):
         default="assistant",
         description="Optional skill hint to guide the agent. Defaults to general assistant behavior.",
     )
+    approved_tools: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Tool names the user has approved for this conversation (the guard's "
+            "per-conversation allow-list, ADR 0021 S6.2). Sent by the client so a "
+            "previously approved consequential action runs without asking again. "
+            "Taint-flagged network actions always ask regardless."
+        ),
+    )
 
 
 class RecallHit(BaseModel):

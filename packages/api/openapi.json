@@ -2157,6 +2157,14 @@
             "title": "Skill",
             "description": "Optional skill hint to guide the agent. Defaults to general assistant behavior.",
             "default": "assistant"
+          },
+          "approved_tools": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Approved Tools",
+            "description": "Tool names the user has approved for this conversation (the guard's per-conversation allow-list, ADR 0021 S6.2). Sent by the client so a previously approved consequential action runs without asking again. Taint-flagged network actions always ask regardless."
           }
         },
         "type": "object",

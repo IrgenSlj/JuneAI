@@ -252,6 +252,29 @@ def test_chat_forwards_approval_needed_tool_blocked(harness_client):
     assert blocked["detail"] == "Sends data off your device"
 
 
+def test_chat_passes_approved_tools_into_session(harness_client):
+    """approved_tools on the request becomes the session's per-conversation
+    allow-list, so the guard can waive a previously approved action."""
+    captured: dict[str, Any] = {}
+
+    class _CapturingLoop:
+        async def stream_turn(self, session: Any, user_msg: Any) -> AsyncIterator[StreamEvent]:
+            captured["approved_tools"] = set(session.approved_tools)
+            yield StreamEvent(type="done")
+
+    client = harness_client(_CapturingLoop())
+    response = client.post(
+        "/chat",
+        json={
+            "user_id": "u",
+            "message": "send it",
+            "approved_tools": ["send_telegram_message"],
+        },
+    )
+    assert response.status_code == 200
+    assert captured["approved_tools"] == {"send_telegram_message"}
+
+
 def test_chat_skips_empty_recall_hits(harness_client):
     """A recall event with no hits should not emit a frame to avoid empty UI noise."""
     loop = _FakeLoop([
