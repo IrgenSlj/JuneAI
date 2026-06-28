@@ -176,6 +176,14 @@ class KnowledgeGraph:
             for r in rows
         ]
 
+    def purge_forgotten_nodes(self) -> int:
+        """Permanently empty the entity trash. Returns the number of rows removed."""
+        cur = self._conn.execute(
+            "DELETE FROM forgotten_nodes WHERE user_id=?", (self.user_id,)
+        )
+        self._conn.commit()
+        return int(cur.rowcount or 0)
+
     def restore_node(self, node_id: str) -> dict[str, Any] | None:
         """Bring a trashed node back to the live graph with its original id."""
         row = self._conn.execute(

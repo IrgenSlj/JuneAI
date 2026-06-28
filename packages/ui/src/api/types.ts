@@ -223,7 +223,11 @@ export interface paths {
         get: operations["list_forgotten_memories_memory__user_id__forgotten_get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Purge Forgotten Memories
+         * @description Permanently empty the trash. Irreversible — restore is no longer possible.
+         */
+        delete: operations["purge_forgotten_memories_memory__user_id__forgotten_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1192,6 +1196,20 @@ export interface components {
              * @default
              */
             vote: string;
+        };
+        /**
+         * MemoryPurgeResponse
+         * @description Result of DELETE /memory/{user_id}/forgotten — empties the trash.
+         */
+        MemoryPurgeResponse: {
+            /** User Id */
+            user_id: string;
+            /**
+             * Purged
+             * @description Number of forgotten memories permanently removed.
+             * @default 0
+             */
+            purged: number;
         };
         /**
          * MemoryRestoreRequest
@@ -2898,6 +2916,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ForgottenListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    purge_forgotten_memories_memory__user_id__forgotten_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryPurgeResponse"];
                 };
             };
             /** @description Validation Error */

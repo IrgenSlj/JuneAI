@@ -20,6 +20,7 @@ from ..schemas import (
     MemoryFact,
     MemoryFeedbackRequest,
     MemoryFeedbackResponse,
+    MemoryPurgeResponse,
     MemoryRestoreRequest,
     MemoryRestoreResponse,
     MemorySnapshot,
@@ -471,6 +472,13 @@ def list_forgotten_memories(user_id: str, limit: int = 50) -> ForgottenListRespo
         for r in rows
     ]
     return ForgottenListResponse(user_id=user_id, memories=memories, count=len(memories))
+
+
+@router.delete("/memory/{user_id}/forgotten", response_model=MemoryPurgeResponse)
+def purge_forgotten_memories(user_id: str) -> MemoryPurgeResponse:
+    """Permanently empty the trash. Irreversible — restore is no longer possible."""
+    purged = MemoryManager(user_id).purge_forgotten()
+    return MemoryPurgeResponse(user_id=user_id, purged=purged)
 
 
 @router.post("/memory/{user_id}/forgotten/restore", response_model=MemoryRestoreResponse)

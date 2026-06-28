@@ -316,6 +316,15 @@ class VectorStore:
             for r in rows
         ]
 
+    def purge_forgotten(self) -> int:
+        """Permanently empty the fact trash. Returns the number of rows removed."""
+        conn = _get_connection(_db_path())
+        cur = conn.execute(
+            "DELETE FROM forgotten_facts WHERE user_id=?", (self.user_id,)
+        )
+        conn.commit()
+        return int(cur.rowcount or 0)
+
     def restore(self, fact_id: str) -> dict[str, Any] | None:
         """Bring a trashed fact back to the live store with its original id.
 

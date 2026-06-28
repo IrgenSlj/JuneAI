@@ -102,6 +102,13 @@ class MemoryRestoreResponse(BaseModel):
     restored: bool
 
 
+class MemoryPurgeResponse(BaseModel):
+    """Result of DELETE /memory/{user_id}/forgotten — empties the trash."""
+
+    user_id: str
+    purged: int = Field(default=0, description="Number of forgotten memories permanently removed.")
+
+
 class MemoryStoreCount(BaseModel):
     """Counts for one logical bucket inside a memory store."""
 

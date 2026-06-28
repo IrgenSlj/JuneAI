@@ -303,6 +303,28 @@ def test_forgotten_entity_is_listed_and_restorable(memory_env, client):
     assert any(e["ref"] == ref for e in snapshot["entities"])
 
 
+def test_purge_forgotten_empties_the_trash(memory_env, client):
+    from june_brain.memory import Memory, VectorStore
+
+    Memory("alex")
+    vector = VectorStore("alex", embedder=_HashEmbedder())
+    a = vector.upsert("fact one")
+    b = vector.upsert("fact two")
+    client.delete(f"/memory/alex/fact/semantic:{a['fact_id']}")
+    client.delete(f"/memory/alex/fact/semantic:{b['fact_id']}")
+    assert client.get("/memory/alex/forgotten").json()["count"] == 2
+
+    purged = client.delete("/memory/alex/forgotten")
+    assert purged.status_code == 200
+    assert purged.json()["purged"] == 2
+    # Trash is empty and nothing is restorable now.
+    assert client.get("/memory/alex/forgotten").json()["count"] == 0
+    restore = client.post(
+        "/memory/alex/forgotten/restore", json={"ref": f"semantic:{a['fact_id']}"}
+    )
+    assert restore.status_code == 404
+
+
 def test_restore_unknown_ref_returns_404(client):
     response = client.post(
         "/memory/alex/forgotten/restore", json={"ref": "semantic:does-not-exist"}

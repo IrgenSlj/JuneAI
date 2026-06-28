@@ -498,6 +498,47 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Purge Forgotten Memories",
+        "description": "Permanently empty the trash. Irreversible \u2014 restore is no longer possible.",
+        "operationId": "purge_forgotten_memories_memory__user_id__forgotten_delete",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryPurgeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/memory/{user_id}/forgotten/restore": {
@@ -2580,6 +2621,26 @@
         ],
         "title": "MemoryFeedbackResponse",
         "description": "Result of POST /memory/{user_id}/feedback."
+      },
+      "MemoryPurgeResponse": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "purged": {
+            "type": "integer",
+            "title": "Purged",
+            "description": "Number of forgotten memories permanently removed.",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id"
+        ],
+        "title": "MemoryPurgeResponse",
+        "description": "Result of DELETE /memory/{user_id}/forgotten \u2014 empties the trash."
       },
       "MemoryRestoreRequest": {
         "properties": {

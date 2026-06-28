@@ -31,6 +31,7 @@ export type MemoryWriteResponse = components["schemas"]["MemoryWriteResponse"];
 export type ForgottenMemory = components["schemas"]["ForgottenMemory"];
 export type ForgottenListResponse = components["schemas"]["ForgottenListResponse"];
 export type MemoryRestoreResponse = components["schemas"]["MemoryRestoreResponse"];
+export type MemoryPurgeResponse = components["schemas"]["MemoryPurgeResponse"];
 export type SkillInfo = components["schemas"]["SkillInfo"];
 export type SkillToolInfo = components["schemas"]["SkillToolInfo"];
 export type SkillsResponse = components["schemas"]["SkillsResponse"];
@@ -333,6 +334,14 @@ export function createJuneClient(options: JuneClientOptions) {
       return requestJson<MemoryRestoreResponse>(
         `/memory/${encodeURIComponent(userId)}/forgotten/restore`,
         { method: "POST", body: JSON.stringify({ ref }) },
+      );
+    },
+
+    /** DELETE /memory/{user_id}/forgotten — permanently empty the trash. */
+    purgeForgottenMemories(userId: string): Promise<MemoryPurgeResponse> {
+      return requestJson<MemoryPurgeResponse>(
+        `/memory/${encodeURIComponent(userId)}/forgotten`,
+        { method: "DELETE" },
       );
     },
 

@@ -223,6 +223,10 @@ class MemoryManager:
         fact_id = ref.removeprefix("semantic:") if ref.startswith("semantic:") else ref
         return self.vector.restore(fact_id)
 
+    def purge_forgotten(self) -> int:
+        """Permanently empty every trash bin. Returns the total rows removed."""
+        return self.vector.purge_forgotten() + self.graph.purge_forgotten_nodes()
+
     # ------------------------------------------------------------------
     # Update — patch a structured row by ref
     # ------------------------------------------------------------------

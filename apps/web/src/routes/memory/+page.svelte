@@ -344,6 +344,22 @@
     }
   }
 
+  let purging = $state(false);
+
+  async function handlePurge() {
+    if (purging || forgotten.length === 0) return;
+    purging = true;
+    actionError = null;
+    try {
+      await client.purgeForgottenMemories(profileName.value);
+      await refresh();
+    } catch (err) {
+      actionError = err instanceof Error ? err.message : String(err);
+    } finally {
+      purging = false;
+    }
+  }
+
   let copiedRef: string | null = $state(null);
 
   async function handleCopy(fact: MemoryFact) {
@@ -602,10 +618,19 @@
         <div class="group-head">
           <h2>Recently forgotten</h2>
           <span class="count">{forgotten.length}</span>
+          <button
+            type="button"
+            class="purge"
+            onclick={handlePurge}
+            disabled={purging}
+            title="Permanently delete everything in the trash"
+          >
+            {purging ? "…" : "Empty trash"}
+          </button>
         </div>
         <p class="section-caption">
           Forgetting is reversible. These memories left recall but are kept here
-          so you can bring any of them back.
+          so you can bring any of them back. Emptying the trash is permanent.
         </p>
         <ul class="facts">
           {#each forgotten as memory (memory.ref)}
@@ -951,6 +976,24 @@
   }
   .forgotten-group {
     opacity: 0.85;
+  }
+  .purge {
+    margin-left: auto;
+    background: transparent;
+    color: var(--color-fg-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--size-xs);
+    cursor: pointer;
+  }
+  .purge:hover:not(:disabled) {
+    color: var(--color-danger);
+    border-color: var(--color-danger);
+  }
+  .purge:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
 
   .fact-editor {
