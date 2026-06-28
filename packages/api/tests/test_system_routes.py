@@ -36,9 +36,53 @@ def test_system_status_returns_runtime_view(client: TestClient) -> None:
         "base_url",
         "ollama_reachable",
         "ollama_has_model",
+        "embedding_model",
+        "embedding_available",
+        "semantic_recall_status",
+        "semantic_recall_detail",
         "api_key_present",
     ):
         assert key in body
+
+
+def test_system_status_marks_semantic_recall_degraded_when_embed_model_missing(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from june_api.routes import system as system_route
+    from june_brain.config import RuntimeConfig
+
+    monkeypatch.setattr(system_route, "default_embed_model", lambda: "test-embed")
+    monkeypatch.setattr(system_route, "is_ollama_running", lambda _base_url: True)
+
+    def _available(model: str, _base_url: str) -> bool:
+        return model == "gemma4:e2b"
+
+    monkeypatch.setattr(system_route, "is_model_available", _available)
+    monkeypatch.setattr(
+        system_route,
+        "resolve_runtime_config",
+        lambda: RuntimeConfig(
+            preset_key="gemma",
+            label="Gemma 4 (local)",
+            provider="openai_compatible",
+            model="gemma4:e2b",
+            api_key="ollama",
+            base_url="http://localhost:11434/v1",
+            temperature=0.4,
+            max_tokens=4096,
+            tool_strategy="native",
+            prompt_style="gemma",
+        ),
+    )
+
+    body = client.get("/system").json()
+
+    assert body["ollama_reachable"] is True
+    assert body["ollama_has_model"] is True
+    assert body["embedding_model"] == "test-embed"
+    assert body["embedding_available"] is False
+    assert body["semantic_recall_status"] == "degraded"
+    assert "keyword search" in body["semantic_recall_detail"]
 
 
 def test_activity_list_starts_empty(client: TestClient) -> None:

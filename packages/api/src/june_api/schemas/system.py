@@ -28,6 +28,22 @@ class SystemStatus(BaseModel):
         default=False,
         description="True when the active Gemma tag is already pulled. Only meaningful for the gemma preset.",
     )
+    embedding_model: str = Field(
+        default="",
+        description="Configured local embedding model used for semantic recall.",
+    )
+    embedding_available: bool = Field(
+        default=False,
+        description="True when the configured local embedding model is available.",
+    )
+    semantic_recall_status: str = Field(
+        default="unknown",
+        description="'ready' when vector recall can embed queries, 'degraded' when it falls back to keyword search, or 'unknown' when not checked.",
+    )
+    semantic_recall_detail: str = Field(
+        default="",
+        description="Human-readable explanation of semantic recall readiness.",
+    )
     api_key_present: bool = Field(
         default=False,
         description="True when the active runtime has the credentials it needs. Only meaningful for the gemini preset.",

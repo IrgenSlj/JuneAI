@@ -7,6 +7,7 @@ from june_brain.activity import ActivityLog
 from june_brain.build_info import build_version
 from june_brain.config import resolve_runtime_config
 from june_brain.loop.trace import TraceStore
+from june_brain.memory.embeddings import default_embed_model
 from june_brain.ollama_manager import is_model_available, is_ollama_running
 
 from ..schemas import (
@@ -58,10 +59,31 @@ def get_system_status() -> SystemStatus:
 
     ollama_reachable = False
     ollama_has_model = False
+    embedding_model = default_embed_model()
+    embedding_available = False
+    semantic_recall_status = "unknown"
+    semantic_recall_detail = "Semantic recall readiness was not checked for this runtime."
     if runtime.preset_key == "gemma":
         ollama_reachable = is_ollama_running(runtime.base_url)
         if ollama_reachable:
             ollama_has_model = is_model_available(runtime.model, runtime.base_url)
+            embedding_available = is_model_available(embedding_model, runtime.base_url)
+            if embedding_available:
+                semantic_recall_status = "ready"
+                semantic_recall_detail = (
+                    f"Embedding model {embedding_model!r} is available for semantic recall."
+                )
+            else:
+                semantic_recall_status = "degraded"
+                semantic_recall_detail = (
+                    f"Embedding model {embedding_model!r} is not pulled; semantic recall "
+                    "falls back to SQLite keyword search."
+                )
+        else:
+            semantic_recall_status = "degraded"
+            semantic_recall_detail = (
+                "Ollama is not reachable; semantic recall falls back to SQLite keyword search."
+            )
 
     return SystemStatus(
         provider=runtime.preset_key,
@@ -73,6 +95,10 @@ def get_system_status() -> SystemStatus:
         base_url=runtime.base_url,
         ollama_reachable=ollama_reachable,
         ollama_has_model=ollama_has_model,
+        embedding_model=embedding_model,
+        embedding_available=embedding_available,
+        semantic_recall_status=semantic_recall_status,
+        semantic_recall_detail=semantic_recall_detail,
         api_key_present=bool(runtime.api_key) and runtime.api_key != "ollama",
         version=build_version(),
     )
