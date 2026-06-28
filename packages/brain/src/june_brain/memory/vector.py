@@ -260,6 +260,87 @@ class VectorStore:
         )
         _get_connection(_db_path()).commit()
 
+    # ------------------------------------------------------------------
+    # Reversible forget — forgetting is conservative and reversible (vision /
+    # CLAUDE.md). Snapshot the fact into the trash table BEFORE deleting it from
+    # the live store, so recall never sees forgotten data yet the user can undo.
+    # ------------------------------------------------------------------
+
+    def forget(self, fact_id: str) -> bool:
+        """Archive a fact to the trash, then delete it from the live store.
+
+        Returns False when the fact doesn't exist (nothing to forget).
+        """
+        record = self.get(fact_id)
+        if record is None:
+            return False
+        conn = _get_connection(_db_path())
+        conn.execute(
+            """INSERT INTO forgotten_facts
+                 (user_id, fact_id, text, source, metadata, created_at, forgotten_at)
+               VALUES (?,?,?,?,?,?,?)
+               ON CONFLICT(user_id, fact_id) DO UPDATE SET
+                 text=excluded.text, source=excluded.source,
+                 metadata=excluded.metadata, created_at=excluded.created_at,
+                 forgotten_at=excluded.forgotten_at""",
+            (
+                self.user_id,
+                record["fact_id"],
+                record["text"],
+                record["source"],
+                json.dumps(record["metadata"]),
+                record["created_at"],
+                datetime.now().isoformat(),
+            ),
+        )
+        conn.commit()
+        self.delete(fact_id)
+        return True
+
+    def list_forgotten(self, limit: int = 50) -> list[dict[str, Any]]:
+        """List trashed facts, most recently forgotten first."""
+        rows = _get_connection(_db_path()).execute(
+            "SELECT fact_id, text, source, metadata, created_at, forgotten_at "
+            "FROM forgotten_facts WHERE user_id=? ORDER BY forgotten_at DESC LIMIT ?",
+            (self.user_id, limit),
+        ).fetchall()
+        return [
+            {
+                "fact_id": r["fact_id"],
+                "text": r["text"],
+                "source": r["source"],
+                "metadata": _loads(r["metadata"]),
+                "created_at": r["created_at"],
+                "forgotten_at": r["forgotten_at"],
+            }
+            for r in rows
+        ]
+
+    def restore(self, fact_id: str) -> dict[str, Any] | None:
+        """Bring a trashed fact back to the live store with its original id.
+
+        Returns the restored record, or None when no trashed fact matches.
+        """
+        row = _get_connection(_db_path()).execute(
+            "SELECT fact_id, text, source, metadata, created_at "
+            "FROM forgotten_facts WHERE user_id=? AND fact_id=?",
+            (self.user_id, fact_id),
+        ).fetchone()
+        if not row:
+            return None
+        restored = self.upsert(
+            row["text"],
+            metadata=_loads(row["metadata"]),
+            fact_id=row["fact_id"],
+            source=row["source"],
+        )
+        _get_connection(_db_path()).execute(
+            "DELETE FROM forgotten_facts WHERE user_id=? AND fact_id=?",
+            (self.user_id, fact_id),
+        )
+        _get_connection(_db_path()).commit()
+        return restored
+
     def delete_by_ref(self, ref: str) -> int:
         """Remove every semantic paraphrase attached to a structured ref."""
         fact_ids = self.fact_ids_for_ref(ref)

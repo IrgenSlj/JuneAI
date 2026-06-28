@@ -369,6 +369,17 @@ CREATE TABLE IF NOT EXISTS semantic_facts (
     PRIMARY KEY (user_id, fact_id)
 );
 CREATE INDEX IF NOT EXISTS idx_semantic_facts_created ON semantic_facts(user_id, created_at);
+CREATE TABLE IF NOT EXISTS forgotten_facts (
+    user_id      TEXT NOT NULL,
+    fact_id      TEXT NOT NULL,
+    text         TEXT NOT NULL,
+    source       TEXT NOT NULL DEFAULT 'conversation',
+    metadata     TEXT NOT NULL DEFAULT '{}',
+    created_at   TEXT NOT NULL,
+    forgotten_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, fact_id)
+);
+CREATE INDEX IF NOT EXISTS idx_forgotten_facts_when ON forgotten_facts(user_id, forgotten_at);
 CREATE TABLE IF NOT EXISTS embedding_cache (
     model       TEXT NOT NULL,
     text_hash   TEXT NOT NULL,

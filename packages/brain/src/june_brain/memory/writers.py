@@ -289,10 +289,8 @@ def forget(mgr: Any, ref: str) -> bool:
         return False
     if ref.startswith("semantic:"):
         fact_id = ref.removeprefix("semantic:")
-        if not mgr.vector.get(fact_id):
-            return False
-        mgr.vector.delete(fact_id)
-        return True
+        # Reversible: archive to the trash, not a hard delete (vision / CLAUDE.md).
+        return mgr.vector.forget(fact_id)
     if ref.startswith("node:"):
         node_id = ref.removeprefix("node:")
         if not mgr.graph.get_node(node_id):
@@ -342,11 +340,8 @@ def forget(mgr: Any, ref: str) -> bool:
         removed_sqlite = mgr.sqlite.delete_body_metric(date)
         removed_vector = delete_structured_vector(mgr, ref)
         return removed_sqlite or removed_vector > 0
-    # Fall-through: treat as a vector fact_id.
-    if mgr.vector.get(ref):
-        mgr.vector.delete(ref)
-        return True
-    return False
+    # Fall-through: treat as a vector fact_id. Reversible, like semantic: refs.
+    return mgr.vector.forget(ref)
 
 
 def update(

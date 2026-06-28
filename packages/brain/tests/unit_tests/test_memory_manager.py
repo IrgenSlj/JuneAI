@@ -238,6 +238,35 @@ def test_forget_removes_vector_fact(manager):
     assert manager.vector.get(record["fact_id"]) is None
 
 
+def test_forget_archives_fact_to_trash(manager):
+    record = manager.vector.upsert("ephemeral fact")
+    assert manager.forget(f"semantic:{record['fact_id']}") is True
+    trash = manager.list_forgotten()
+    assert [t["fact_id"] for t in trash] == [record["fact_id"]]
+    assert trash[0]["text"] == "ephemeral fact"
+    assert trash[0]["forgotten_at"]
+
+
+def test_restore_brings_back_a_forgotten_fact(manager):
+    record = manager.vector.upsert("User loves ramen")
+    manager.forget(f"semantic:{record['fact_id']}")
+    assert manager.vector.get(record["fact_id"]) is None
+
+    restored = manager.restore(record["fact_id"])
+    assert restored is not None
+    assert restored["fact_id"] == record["fact_id"]  # exact id preserved
+    # Back in the live store and recallable again.
+    assert manager.vector.get(record["fact_id"]) is not None
+    hits = manager.recall("what food do I love", k=5)
+    assert any("ramen" in h["text"].lower() for h in hits)
+    # And gone from the trash.
+    assert manager.list_forgotten() == []
+
+
+def test_restore_unknown_fact_returns_none(manager):
+    assert manager.restore("does-not-exist") is None
+
+
 def test_forget_removes_graph_node(manager):
     node = manager.graph.add_node("Ana", kind="person")
     assert manager.forget(f"node:{node['node_id']}") is True

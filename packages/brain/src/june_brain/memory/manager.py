@@ -180,6 +180,18 @@ class MemoryManager:
         return writers.forget(self, ref)
 
     # ------------------------------------------------------------------
+    # Reversible forget — the trash bin for semantic facts
+    # ------------------------------------------------------------------
+
+    def list_forgotten(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Recently forgotten semantic facts that can still be restored."""
+        return self.vector.list_forgotten(limit=limit)
+
+    def restore(self, fact_id: str) -> dict[str, Any] | None:
+        """Restore a forgotten semantic fact by its id; None if not in the trash."""
+        return self.vector.restore(fact_id)
+
+    # ------------------------------------------------------------------
     # Update — patch a structured row by ref
     # ------------------------------------------------------------------
 
