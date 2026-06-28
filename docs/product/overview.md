@@ -31,6 +31,17 @@ radical, user-readable transparency of her inner life. Everything else — tiere
 memory, salience scoring, anchored compaction, the character block — is a sound
 synthesis of known work, built in service of those two.
 
+## Product Center
+
+June is not primarily a chat product. Chat is the input surface. The product
+center is continuity: what June remembers, what she has promised to hold, what is
+blocked, what is waiting on the user, and what she is allowed to do.
+
+The mature home surface should summarize that continuity before offering a text
+box: open promises, blocked approvals, degraded local capabilities, recent memory
+changes, and whether anything left the machine. The user should be able to answer
+"what is June holding for me?" without reading a transcript.
+
 ## The Product in One Turn
 
 A user opens June. She greets them within a live turn — never cold-starting a
@@ -72,7 +83,9 @@ piece slots into the turn above.
   learned across the three stores. The native on-demand graph (Tier 2) is opened
   here, not in an external app.
 - **Tasks** — long-running units of work modeled as promises: the user's standing
-  intentions, observable and resumable, not TODOs that simply terminate.
+  intentions, observable and resumable, not TODOs that simply terminate. A promise
+  can be running, blocked, awaiting approval, awaiting the user, completed, or
+  cancelled, and each state should explain what happens next.
 - **Skills** — capabilities the agent can call, each a standalone MCP server,
   independently enabled. Google services arrive as per-service skills (Tier 2).
 - **System / Trust** — responsiveness and the capability profile in plain

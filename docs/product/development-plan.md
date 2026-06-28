@@ -25,6 +25,39 @@ The app is structurally sound. The highest leverage work is not a greenfield
 rewrite; it is making the runtime honest, resilient, and understandable for a
 non-technical user.
 
+## Product Direction - Trusted Continuity Engine
+
+June should become less of a chat app and more of a trusted continuity engine.
+Chat remains the most natural input surface, but the product center is the
+standing record of what June is holding for the user:
+
+- **Promises** — durable commitments, blocked states, waits, approvals, artifacts,
+  and final deliverables.
+- **Memory** — inspectable, editable, explainable, reversible records of what June
+  believes and why.
+- **Trust** — a calm operational surface for local/cloud boundaries, degraded
+  modes, traces, approvals, and data retention.
+- **Skills** — permissioned capabilities whose scopes and side effects are visible
+  before use.
+- **Time** — explicit deadlines and event-driven wakeups, never heartbeat-style
+  background wandering.
+
+The eventual home screen should not be an empty chat. It should answer, in plain
+language, what June is holding:
+
+> I am holding 4 open threads for you. One is waiting on your reply, one is
+> blocked by local-only mode, and one has a deadline tomorrow. Nothing has left
+> this machine today.
+
+Design implication: June should feel like a personal control room, not a SaaS
+dashboard and not a novelty assistant. Surfaces should be quiet, dense, legible,
+and explicit about state: local, cloud, degraded, blocked, waiting, done.
+
+Agentic implication: avoid fake autonomy. June should act only when the user
+speaks, a subscribed event changes, or an explicit deadline arrives. If a task
+needs a consequential action, June defers with an approval request rather than
+pretending to continue.
+
 Strengths:
 
 - The local-first product direction is coherent.
