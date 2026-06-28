@@ -19,6 +19,7 @@ _TASK_COLS = {
     "next_action": "TEXT",
     "final_deliverable": "TEXT",
     "approved_tools": "TEXT DEFAULT '[]'",
+    "blocked_kind": "TEXT",
 }
 
 

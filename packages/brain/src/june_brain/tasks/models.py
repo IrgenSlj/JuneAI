@@ -107,6 +107,10 @@ class Task:
     blocked_reason: str | None = None
     next_action: str | None = None
     final_deliverable: str | None = None
+    # How this promise is blocked, so the UI shows the right unblock control
+    # without parsing reason text: "approval" (approve one action) or
+    # "local_only" (change the privacy dial). None when not blocked.
+    blocked_kind: str | None = None
     # Tools the user approved for this promise (the guard's per-promise
     # allow-list, ADR 0021 S6.2). Lets a retry run a previously approval-gated
     # action without re-blocking; taint-flagged network actions still ask.
@@ -132,6 +136,7 @@ class Task:
             "blocked_reason": self.blocked_reason,
             "next_action": self.next_action,
             "final_deliverable": self.final_deliverable,
+            "blocked_kind": self.blocked_kind,
             "approved_tools": list(self.approved_tools),
             "created_at": self.created_at,
             "updated_at": self.updated_at,
