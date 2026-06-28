@@ -213,13 +213,14 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List Forgotten Facts
-         * @description Recently forgotten semantic facts that can still be restored.
+         * List Forgotten Memories
+         * @description Recently forgotten memories that can still be restored.
          *
-         *     Forgetting is conservative and reversible: a forgotten fact is archived to a
-         *     trash bin (never recalled) rather than destroyed, so the user can undo.
+         *     Forgetting is conservative and reversible: a forgotten memory is archived to
+         *     a trash bin (never recalled) rather than destroyed, so the user can undo.
+         *     Covers semantic facts and graph entities.
          */
-        get: operations["list_forgotten_facts_memory__user_id__forgotten_get"];
+        get: operations["list_forgotten_memories_memory__user_id__forgotten_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -228,7 +229,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/memory/{user_id}/forgotten/{fact_id}/restore": {
+    "/memory/{user_id}/forgotten/restore": {
         parameters: {
             query?: never;
             header?: never;
@@ -238,10 +239,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Restore Forgotten Fact
-         * @description Restore a forgotten semantic fact to the live store with its original id.
+         * Restore Forgotten Memory
+         * @description Restore a forgotten memory to its live store with its original id.
          */
-        post: operations["restore_forgotten_fact_memory__user_id__forgotten__fact_id__restore_post"];
+        post: operations["restore_forgotten_memory_memory__user_id__forgotten_restore_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1034,58 +1035,58 @@ export interface components {
             cleared_from: "keyring" | "file" | "none";
         };
         /**
-         * ForgottenFact
-         * @description One semantic fact in the trash, recoverable via restore.
-         */
-        ForgottenFact: {
-            /**
-             * Fact Id
-             * @description Original id; restore brings the fact back under it.
-             */
-            fact_id: string;
-            /**
-             * Text
-             * @description The forgotten fact's text.
-             * @default
-             */
-            text: string;
-            /**
-             * Source
-             * @description Where the fact originally came from.
-             * @default
-             */
-            source: string;
-            /**
-             * Created At
-             * @description When the fact was first written.
-             * @default
-             */
-            created_at: string;
-            /**
-             * Forgotten At
-             * @description When the fact was forgotten.
-             * @default
-             */
-            forgotten_at: string;
-            /** Metadata */
-            metadata?: {
-                [key: string]: unknown;
-            };
-        };
-        /**
          * ForgottenListResponse
          * @description GET /memory/{user_id}/forgotten — the recoverable trash bin.
          */
         ForgottenListResponse: {
             /** User Id */
             user_id: string;
-            /** Facts */
-            facts?: components["schemas"]["ForgottenFact"][];
+            /** Memories */
+            memories?: components["schemas"]["ForgottenMemory"][];
             /**
              * Count
              * @default 0
              */
             count: number;
+        };
+        /**
+         * ForgottenMemory
+         * @description One memory in the trash, recoverable via restore.
+         *
+         *     Covers any forgettable memory type — ``ref`` carries the same scheme the
+         *     delete route accepts (``semantic:<id>``, ``node:<id>``), so restore routes
+         *     to the right store.
+         */
+        ForgottenMemory: {
+            /**
+             * Ref
+             * @description Opaque ref; restore brings the memory back under it.
+             */
+            ref: string;
+            /**
+             * Kind
+             * @description Short type label, e.g. 'fact' or 'entity'.
+             * @default
+             */
+            kind: string;
+            /**
+             * Text
+             * @description Human-readable text/label of the memory.
+             * @default
+             */
+            text: string;
+            /**
+             * Created At
+             * @description When the memory was first written.
+             * @default
+             */
+            created_at: string;
+            /**
+             * Forgotten At
+             * @description When the memory was forgotten.
+             * @default
+             */
+            forgotten_at: string;
         };
         /**
          * GreetingResponse
@@ -1193,14 +1194,25 @@ export interface components {
             vote: string;
         };
         /**
+         * MemoryRestoreRequest
+         * @description Body of POST /memory/{user_id}/forgotten/restore.
+         */
+        MemoryRestoreRequest: {
+            /**
+             * Ref
+             * @description Ref of the forgotten memory to restore.
+             */
+            ref: string;
+        };
+        /**
          * MemoryRestoreResponse
-         * @description Result of POST /memory/{user_id}/forgotten/{fact_id}/restore.
+         * @description Result of POST /memory/{user_id}/forgotten/restore.
          */
         MemoryRestoreResponse: {
             /** User Id */
             user_id: string;
-            /** Fact Id */
-            fact_id: string;
+            /** Ref */
+            ref: string;
             /** Restored */
             restored: boolean;
         };
@@ -2851,7 +2863,7 @@ export interface operations {
             };
         };
     };
-    list_forgotten_facts_memory__user_id__forgotten_get: {
+    list_forgotten_memories_memory__user_id__forgotten_get: {
         parameters: {
             query?: {
                 limit?: number;
@@ -2884,17 +2896,20 @@ export interface operations {
             };
         };
     };
-    restore_forgotten_fact_memory__user_id__forgotten__fact_id__restore_post: {
+    restore_forgotten_memory_memory__user_id__forgotten_restore_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 user_id: string;
-                fact_id: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemoryRestoreRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

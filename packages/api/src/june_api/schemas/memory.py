@@ -65,30 +65,40 @@ class MemoryDeleteResponse(BaseModel):
     removed: bool
 
 
-class ForgottenFact(BaseModel):
-    """One semantic fact in the trash, recoverable via restore."""
+class ForgottenMemory(BaseModel):
+    """One memory in the trash, recoverable via restore.
 
-    fact_id: str = Field(..., description="Original id; restore brings the fact back under it.")
-    text: str = Field(default="", description="The forgotten fact's text.")
-    source: str = Field(default="", description="Where the fact originally came from.")
-    created_at: str = Field(default="", description="When the fact was first written.")
-    forgotten_at: str = Field(default="", description="When the fact was forgotten.")
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    Covers any forgettable memory type — ``ref`` carries the same scheme the
+    delete route accepts (``semantic:<id>``, ``node:<id>``), so restore routes
+    to the right store.
+    """
+
+    ref: str = Field(..., description="Opaque ref; restore brings the memory back under it.")
+    kind: str = Field(default="", description="Short type label, e.g. 'fact' or 'entity'.")
+    text: str = Field(default="", description="Human-readable text/label of the memory.")
+    created_at: str = Field(default="", description="When the memory was first written.")
+    forgotten_at: str = Field(default="", description="When the memory was forgotten.")
 
 
 class ForgottenListResponse(BaseModel):
     """GET /memory/{user_id}/forgotten — the recoverable trash bin."""
 
     user_id: str
-    facts: list[ForgottenFact] = Field(default_factory=list)
+    memories: list[ForgottenMemory] = Field(default_factory=list)
     count: int = 0
 
 
+class MemoryRestoreRequest(BaseModel):
+    """Body of POST /memory/{user_id}/forgotten/restore."""
+
+    ref: str = Field(..., min_length=1, description="Ref of the forgotten memory to restore.")
+
+
 class MemoryRestoreResponse(BaseModel):
-    """Result of POST /memory/{user_id}/forgotten/{fact_id}/restore."""
+    """Result of POST /memory/{user_id}/forgotten/restore."""
 
     user_id: str
-    fact_id: str
+    ref: str
     restored: bool
 
 

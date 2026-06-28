@@ -124,6 +124,80 @@ class KnowledgeGraph:
         )
         self._conn.commit()
 
+    # ------------------------------------------------------------------
+    # Reversible forget — archive an entity before deleting it, mirroring the
+    # vector store's trash so forgetting stays conservative and reversible.
+    # Edges touching the node are not restored (they may point at other
+    # already-gone nodes); the entity itself returns with its original id.
+    # ------------------------------------------------------------------
+
+    def forget_node(self, node_id: str) -> bool:
+        """Archive a node to the trash, then remove it (and its edges)."""
+        node = self.get_node(node_id)
+        if node is None:
+            return False
+        self._conn.execute(
+            """INSERT INTO forgotten_nodes
+                 (user_id, node_id, kind, label, props, updated_at, forgotten_at)
+               VALUES (?,?,?,?,?,?,?)
+               ON CONFLICT(user_id, node_id) DO UPDATE SET
+                 kind=excluded.kind, label=excluded.label, props=excluded.props,
+                 updated_at=excluded.updated_at, forgotten_at=excluded.forgotten_at""",
+            (
+                self.user_id,
+                node["node_id"],
+                node["kind"],
+                node["label"],
+                json.dumps(node["props"]),
+                node["updated_at"],
+                _now(),
+            ),
+        )
+        self._conn.commit()
+        self.remove_node(node_id)
+        return True
+
+    def list_forgotten_nodes(self, limit: int = 50) -> list[dict[str, Any]]:
+        """List trashed nodes, most recently forgotten first."""
+        rows = self._conn.execute(
+            "SELECT node_id, kind, label, props, updated_at, forgotten_at "
+            "FROM forgotten_nodes WHERE user_id=? ORDER BY forgotten_at DESC LIMIT ?",
+            (self.user_id, limit),
+        ).fetchall()
+        return [
+            {
+                "node_id": r["node_id"],
+                "kind": r["kind"],
+                "label": r["label"],
+                "props": _loads(r["props"]),
+                "updated_at": r["updated_at"],
+                "forgotten_at": r["forgotten_at"],
+            }
+            for r in rows
+        ]
+
+    def restore_node(self, node_id: str) -> dict[str, Any] | None:
+        """Bring a trashed node back to the live graph with its original id."""
+        row = self._conn.execute(
+            "SELECT node_id, kind, label, props FROM forgotten_nodes "
+            "WHERE user_id=? AND node_id=?",
+            (self.user_id, node_id),
+        ).fetchone()
+        if not row:
+            return None
+        restored = self.add_node(
+            row["label"],
+            kind=row["kind"],
+            props=_loads(row["props"]),
+            node_id=row["node_id"],
+        )
+        self._conn.execute(
+            "DELETE FROM forgotten_nodes WHERE user_id=? AND node_id=?",
+            (self.user_id, node_id),
+        )
+        self._conn.commit()
+        return restored
+
     def remove_edge(self, src: str, dst: str, kind: str = "") -> None:
         """Delete an edge. If ``kind`` is empty, remove all edges between the two nodes."""
         if kind.strip():

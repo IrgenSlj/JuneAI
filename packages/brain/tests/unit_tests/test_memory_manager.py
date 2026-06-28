@@ -240,19 +240,22 @@ def test_forget_removes_vector_fact(manager):
 
 def test_forget_archives_fact_to_trash(manager):
     record = manager.vector.upsert("ephemeral fact")
-    assert manager.forget(f"semantic:{record['fact_id']}") is True
+    ref = f"semantic:{record['fact_id']}"
+    assert manager.forget(ref) is True
     trash = manager.list_forgotten()
-    assert [t["fact_id"] for t in trash] == [record["fact_id"]]
+    assert [t["ref"] for t in trash] == [ref]
+    assert trash[0]["kind"] == "fact"
     assert trash[0]["text"] == "ephemeral fact"
     assert trash[0]["forgotten_at"]
 
 
 def test_restore_brings_back_a_forgotten_fact(manager):
     record = manager.vector.upsert("User loves ramen")
-    manager.forget(f"semantic:{record['fact_id']}")
+    ref = f"semantic:{record['fact_id']}"
+    manager.forget(ref)
     assert manager.vector.get(record["fact_id"]) is None
 
-    restored = manager.restore(record["fact_id"])
+    restored = manager.restore(ref)
     assert restored is not None
     assert restored["fact_id"] == record["fact_id"]  # exact id preserved
     # Back in the live store and recallable again.
@@ -263,8 +266,38 @@ def test_restore_brings_back_a_forgotten_fact(manager):
     assert manager.list_forgotten() == []
 
 
-def test_restore_unknown_fact_returns_none(manager):
-    assert manager.restore("does-not-exist") is None
+def test_forget_and_restore_graph_entity(manager):
+    node = manager.graph.add_node("Marco", kind="person", props={"role": "friend"})
+    ref = f"node:{node['node_id']}"
+    assert manager.forget(ref) is True
+    assert manager.graph.get_node(node["node_id"]) is None
+
+    trash = manager.list_forgotten()
+    assert [t["ref"] for t in trash] == [ref]
+    assert trash[0]["kind"] == "person"
+    assert trash[0]["text"] == "Marco"
+
+    restored = manager.restore(ref)
+    assert restored is not None
+    assert restored["node_id"] == node["node_id"]
+    back = manager.graph.get_node(node["node_id"])
+    assert back is not None and back["label"] == "Marco"
+    assert back["props"] == {"role": "friend"}
+    assert manager.list_forgotten() == []
+
+
+def test_list_forgotten_merges_and_orders_by_recency(manager):
+    f = manager.vector.upsert("a fact")
+    n = manager.graph.add_node("Ana", kind="person")
+    manager.forget(f"semantic:{f['fact_id']}")
+    manager.forget(f"node:{n['node_id']}")
+    refs = [t["ref"] for t in manager.list_forgotten()]
+    assert set(refs) == {f"semantic:{f['fact_id']}", f"node:{n['node_id']}"}
+
+
+def test_restore_unknown_ref_returns_none(manager):
+    assert manager.restore("semantic:does-not-exist") is None
+    assert manager.restore("node:does-not-exist") is None
 
 
 def test_forget_removes_graph_node(manager):

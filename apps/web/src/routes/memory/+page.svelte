@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import {
     OfflineNotice,
-    type ForgottenFact,
+    type ForgottenMemory,
     type MemoryFact,
     type MemorySnapshot,
     type MemoryStats,
@@ -18,7 +18,7 @@
   let actionError: string | null = $state(null);
   let query = $state("");
   let pendingDelete: string | null = $state(null);
-  let forgotten: ForgottenFact[] = $state([]);
+  let forgotten: ForgottenMemory[] = $state([]);
   let pendingRestore: string | null = $state(null);
   let editingRef: string | null = $state(null);
   let editFields: Record<string, string> = $state({});
@@ -288,12 +288,12 @@
       const [snap, stat, trash] = await Promise.all([
         client.getMemory(profileName.value, search),
         client.getMemoryStats(profileName.value).catch(() => null),
-        client.getForgottenFacts(profileName.value).catch(() => null),
+        client.getForgottenMemories(profileName.value).catch(() => null),
       ]);
       if (seq !== refreshSeq) return;
       snapshot = snap;
       stats = stat;
-      forgotten = trash?.facts ?? [];
+      forgotten = trash?.memories ?? [];
     } catch (err) {
       if (seq !== refreshSeq) return;
       loadError = err instanceof Error ? err.message : String(err);
@@ -330,12 +330,12 @@
     }
   }
 
-  async function handleRestore(fact: ForgottenFact) {
-    if (!fact.fact_id || pendingRestore) return;
-    pendingRestore = fact.fact_id;
+  async function handleRestore(memory: ForgottenMemory) {
+    if (!memory.ref || pendingRestore) return;
+    pendingRestore = memory.ref;
     actionError = null;
     try {
-      await client.restoreForgottenFact(profileName.value, fact.fact_id);
+      await client.restoreForgottenMemory(profileName.value, memory.ref);
       await refresh();
     } catch (err) {
       actionError = err instanceof Error ? err.message : String(err);
@@ -604,19 +604,22 @@
           <span class="count">{forgotten.length}</span>
         </div>
         <p class="section-caption">
-          Forgetting is reversible. These facts left recall but are kept here so
-          you can bring any of them back.
+          Forgetting is reversible. These memories left recall but are kept here
+          so you can bring any of them back.
         </p>
         <ul class="facts">
-          {#each forgotten as fact (fact.fact_id)}
+          {#each forgotten as memory (memory.ref)}
             <li class="fact">
               <div class="fact-main">
                 <div class="fact-head">
-                  <div class="fact-title">{fact.text}</div>
+                  <div class="fact-title">{memory.text}</div>
                   <div class="fact-meta-right">
-                    {#if fact.forgotten_at}
-                      <time class="fact-time" datetime={fact.forgotten_at}>
-                        forgotten {formatRelative(fact.forgotten_at)}
+                    {#if memory.kind}
+                      <span class="fact-source">{memory.kind}</span>
+                    {/if}
+                    {#if memory.forgotten_at}
+                      <time class="fact-time" datetime={memory.forgotten_at}>
+                        forgotten {formatRelative(memory.forgotten_at)}
                       </time>
                     {/if}
                   </div>
@@ -626,11 +629,11 @@
                 <button
                   type="button"
                   class="restore"
-                  onclick={() => handleRestore(fact)}
-                  disabled={pendingRestore === fact.fact_id}
+                  onclick={() => handleRestore(memory)}
+                  disabled={pendingRestore === memory.ref}
                   aria-label="Restore this memory"
                 >
-                  {pendingRestore === fact.fact_id ? "…" : "Restore"}
+                  {pendingRestore === memory.ref ? "…" : "Restore"}
                 </button>
               </div>
             </li>

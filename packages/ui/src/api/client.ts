@@ -28,7 +28,7 @@ export type MemoryFeedbackRequest = components["schemas"]["MemoryFeedbackRequest
 export type MemoryFeedbackResponse = components["schemas"]["MemoryFeedbackResponse"];
 export type MemoryWriteRequest = components["schemas"]["MemoryWriteRequest"];
 export type MemoryWriteResponse = components["schemas"]["MemoryWriteResponse"];
-export type ForgottenFact = components["schemas"]["ForgottenFact"];
+export type ForgottenMemory = components["schemas"]["ForgottenMemory"];
 export type ForgottenListResponse = components["schemas"]["ForgottenListResponse"];
 export type MemoryRestoreResponse = components["schemas"]["MemoryRestoreResponse"];
 export type SkillInfo = components["schemas"]["SkillInfo"];
@@ -321,18 +321,18 @@ export function createJuneClient(options: JuneClientOptions) {
       return getJson<MemoryStats>(`/memory/${encodeURIComponent(userId)}/stats`);
     },
 
-    /** GET /memory/{user_id}/forgotten — recoverable trash of forgotten facts. */
-    getForgottenFacts(userId: string, limit = 50): Promise<ForgottenListResponse> {
+    /** GET /memory/{user_id}/forgotten — recoverable trash of forgotten memories. */
+    getForgottenMemories(userId: string, limit = 50): Promise<ForgottenListResponse> {
       return getJson<ForgottenListResponse>(
         `/memory/${encodeURIComponent(userId)}/forgotten?limit=${limit}`,
       );
     },
 
-    /** POST /memory/{user_id}/forgotten/{fact_id}/restore — undo a forget. */
-    restoreForgottenFact(userId: string, factId: string): Promise<MemoryRestoreResponse> {
+    /** POST /memory/{user_id}/forgotten/restore — undo a forget by ref. */
+    restoreForgottenMemory(userId: string, ref: string): Promise<MemoryRestoreResponse> {
       return requestJson<MemoryRestoreResponse>(
-        `/memory/${encodeURIComponent(userId)}/forgotten/${encodeURIComponent(factId)}/restore`,
-        { method: "POST" },
+        `/memory/${encodeURIComponent(userId)}/forgotten/restore`,
+        { method: "POST", body: JSON.stringify({ ref }) },
       );
     },
 

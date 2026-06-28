@@ -184,11 +184,43 @@ class MemoryManager:
     # ------------------------------------------------------------------
 
     def list_forgotten(self, limit: int = 50) -> list[dict[str, Any]]:
-        """Recently forgotten semantic facts that can still be restored."""
-        return self.vector.list_forgotten(limit=limit)
+        """Recently forgotten memories that can still be restored.
 
-    def restore(self, fact_id: str) -> dict[str, Any] | None:
-        """Restore a forgotten semantic fact by its id; None if not in the trash."""
+        Merges the per-store trash bins (semantic facts + graph entities) into
+        one ref-keyed list, most recently forgotten first. Each entry carries a
+        ``ref`` (the same scheme ``forget`` accepts), a short ``kind``, the
+        display ``text``, and ``forgotten_at``.
+        """
+        entries: list[dict[str, Any]] = []
+        for f in self.vector.list_forgotten(limit=limit):
+            entries.append(
+                {
+                    "ref": f"semantic:{f['fact_id']}",
+                    "kind": "fact",
+                    "text": f["text"],
+                    "created_at": f.get("created_at", ""),
+                    "forgotten_at": f.get("forgotten_at", ""),
+                }
+            )
+        for n in self.graph.list_forgotten_nodes(limit=limit):
+            entries.append(
+                {
+                    "ref": f"node:{n['node_id']}",
+                    "kind": n.get("kind") or "entity",
+                    "text": n["label"],
+                    "created_at": n.get("updated_at", ""),
+                    "forgotten_at": n.get("forgotten_at", ""),
+                }
+            )
+        entries.sort(key=lambda e: e["forgotten_at"], reverse=True)
+        return entries[:limit]
+
+    def restore(self, ref: str) -> dict[str, Any] | None:
+        """Restore a forgotten memory by its ref; None if not in any trash bin."""
+        ref = ref.strip()
+        if ref.startswith("node:"):
+            return self.graph.restore_node(ref.removeprefix("node:"))
+        fact_id = ref.removeprefix("semantic:") if ref.startswith("semantic:") else ref
         return self.vector.restore(fact_id)
 
     # ------------------------------------------------------------------

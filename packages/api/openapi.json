@@ -452,9 +452,9 @@
         "tags": [
           "memory"
         ],
-        "summary": "List Forgotten Facts",
-        "description": "Recently forgotten semantic facts that can still be restored.\n\nForgetting is conservative and reversible: a forgotten fact is archived to a\ntrash bin (never recalled) rather than destroyed, so the user can undo.",
-        "operationId": "list_forgotten_facts_memory__user_id__forgotten_get",
+        "summary": "List Forgotten Memories",
+        "description": "Recently forgotten memories that can still be restored.\n\nForgetting is conservative and reversible: a forgotten memory is archived to\na trash bin (never recalled) rather than destroyed, so the user can undo.\nCovers semantic facts and graph entities.",
+        "operationId": "list_forgotten_memories_memory__user_id__forgotten_get",
         "parameters": [
           {
             "name": "user_id",
@@ -500,14 +500,14 @@
         }
       }
     },
-    "/memory/{user_id}/forgotten/{fact_id}/restore": {
+    "/memory/{user_id}/forgotten/restore": {
       "post": {
         "tags": [
           "memory"
         ],
-        "summary": "Restore Forgotten Fact",
-        "description": "Restore a forgotten semantic fact to the live store with its original id.",
-        "operationId": "restore_forgotten_fact_memory__user_id__forgotten__fact_id__restore_post",
+        "summary": "Restore Forgotten Memory",
+        "description": "Restore a forgotten memory to its live store with its original id.",
+        "operationId": "restore_forgotten_memory_memory__user_id__forgotten_restore_post",
         "parameters": [
           {
             "name": "user_id",
@@ -517,17 +517,18 @@
               "type": "string",
               "title": "User Id"
             }
-          },
-          {
-            "name": "fact_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Fact Id"
-            }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemoryRestoreRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2374,62 +2375,18 @@
         "title": "ForgetKeyResponse",
         "description": "Outcome of POST /settings/forget-key."
       },
-      "ForgottenFact": {
-        "properties": {
-          "fact_id": {
-            "type": "string",
-            "title": "Fact Id",
-            "description": "Original id; restore brings the fact back under it."
-          },
-          "text": {
-            "type": "string",
-            "title": "Text",
-            "description": "The forgotten fact's text.",
-            "default": ""
-          },
-          "source": {
-            "type": "string",
-            "title": "Source",
-            "description": "Where the fact originally came from.",
-            "default": ""
-          },
-          "created_at": {
-            "type": "string",
-            "title": "Created At",
-            "description": "When the fact was first written.",
-            "default": ""
-          },
-          "forgotten_at": {
-            "type": "string",
-            "title": "Forgotten At",
-            "description": "When the fact was forgotten.",
-            "default": ""
-          },
-          "metadata": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Metadata"
-          }
-        },
-        "type": "object",
-        "required": [
-          "fact_id"
-        ],
-        "title": "ForgottenFact",
-        "description": "One semantic fact in the trash, recoverable via restore."
-      },
       "ForgottenListResponse": {
         "properties": {
           "user_id": {
             "type": "string",
             "title": "User Id"
           },
-          "facts": {
+          "memories": {
             "items": {
-              "$ref": "#/components/schemas/ForgottenFact"
+              "$ref": "#/components/schemas/ForgottenMemory"
             },
             "type": "array",
-            "title": "Facts"
+            "title": "Memories"
           },
           "count": {
             "type": "integer",
@@ -2443,6 +2400,45 @@
         ],
         "title": "ForgottenListResponse",
         "description": "GET /memory/{user_id}/forgotten \u2014 the recoverable trash bin."
+      },
+      "ForgottenMemory": {
+        "properties": {
+          "ref": {
+            "type": "string",
+            "title": "Ref",
+            "description": "Opaque ref; restore brings the memory back under it."
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Short type label, e.g. 'fact' or 'entity'.",
+            "default": ""
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "Human-readable text/label of the memory.",
+            "default": ""
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At",
+            "description": "When the memory was first written.",
+            "default": ""
+          },
+          "forgotten_at": {
+            "type": "string",
+            "title": "Forgotten At",
+            "description": "When the memory was forgotten.",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "ref"
+        ],
+        "title": "ForgottenMemory",
+        "description": "One memory in the trash, recoverable via restore.\n\nCovers any forgettable memory type \u2014 ``ref`` carries the same scheme the\ndelete route accepts (``semantic:<id>``, ``node:<id>``), so restore routes\nto the right store."
       },
       "GreetingResponse": {
         "properties": {
@@ -2585,15 +2581,31 @@
         "title": "MemoryFeedbackResponse",
         "description": "Result of POST /memory/{user_id}/feedback."
       },
+      "MemoryRestoreRequest": {
+        "properties": {
+          "ref": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Ref",
+            "description": "Ref of the forgotten memory to restore."
+          }
+        },
+        "type": "object",
+        "required": [
+          "ref"
+        ],
+        "title": "MemoryRestoreRequest",
+        "description": "Body of POST /memory/{user_id}/forgotten/restore."
+      },
       "MemoryRestoreResponse": {
         "properties": {
           "user_id": {
             "type": "string",
             "title": "User Id"
           },
-          "fact_id": {
+          "ref": {
             "type": "string",
-            "title": "Fact Id"
+            "title": "Ref"
           },
           "restored": {
             "type": "boolean",
@@ -2603,11 +2615,11 @@
         "type": "object",
         "required": [
           "user_id",
-          "fact_id",
+          "ref",
           "restored"
         ],
         "title": "MemoryRestoreResponse",
-        "description": "Result of POST /memory/{user_id}/forgotten/{fact_id}/restore."
+        "description": "Result of POST /memory/{user_id}/forgotten/restore."
       },
       "MemorySnapshot": {
         "properties": {

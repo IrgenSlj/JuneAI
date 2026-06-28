@@ -293,10 +293,8 @@ def forget(mgr: Any, ref: str) -> bool:
         return mgr.vector.forget(fact_id)
     if ref.startswith("node:"):
         node_id = ref.removeprefix("node:")
-        if not mgr.graph.get_node(node_id):
-            return False
-        mgr.graph.remove_node(node_id)
-        return True
+        # Reversible: archive the entity to the trash, not a hard delete.
+        return mgr.graph.forget_node(node_id)
     if ref.startswith("edge:"):
         body = ref.removeprefix("edge:")
         parts = body.split("|", 2)

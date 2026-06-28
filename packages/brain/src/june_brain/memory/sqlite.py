@@ -359,6 +359,17 @@ CREATE TABLE IF NOT EXISTS graph_edges (
 );
 CREATE INDEX IF NOT EXISTS idx_graph_edges_src ON graph_edges(user_id, src);
 CREATE INDEX IF NOT EXISTS idx_graph_edges_dst ON graph_edges(user_id, dst);
+CREATE TABLE IF NOT EXISTS forgotten_nodes (
+    user_id      TEXT NOT NULL,
+    node_id      TEXT NOT NULL,
+    kind         TEXT NOT NULL DEFAULT 'entity',
+    label        TEXT NOT NULL DEFAULT '',
+    props        TEXT NOT NULL DEFAULT '{}',
+    updated_at   TEXT NOT NULL,
+    forgotten_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, node_id)
+);
+CREATE INDEX IF NOT EXISTS idx_forgotten_nodes_when ON forgotten_nodes(user_id, forgotten_at);
 CREATE TABLE IF NOT EXISTS semantic_facts (
     user_id     TEXT NOT NULL,
     fact_id     TEXT NOT NULL,

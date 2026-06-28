@@ -260,30 +260,53 @@ def test_forgotten_fact_is_listed_and_restorable(memory_env, client):
     Memory("alex")
     vector = VectorStore("alex", embedder=_HashEmbedder())
     record = vector.upsert("temporary fact")
-    fact_id = record["fact_id"]
+    ref = f"semantic:{record['fact_id']}"
 
     # Forget it — it leaves the snapshot but lands in the trash.
-    client.delete(f"/memory/alex/fact/semantic:{fact_id}")
+    client.delete(f"/memory/alex/fact/{ref}")
     assert client.get("/memory/alex").json()["semantic_facts"] == []
 
     forgotten = client.get("/memory/alex/forgotten").json()
     assert forgotten["count"] == 1
-    assert forgotten["facts"][0]["fact_id"] == fact_id
-    assert forgotten["facts"][0]["text"] == "temporary fact"
-    assert forgotten["facts"][0]["forgotten_at"]
+    assert forgotten["memories"][0]["ref"] == ref
+    assert forgotten["memories"][0]["kind"] == "fact"
+    assert forgotten["memories"][0]["text"] == "temporary fact"
+    assert forgotten["memories"][0]["forgotten_at"]
 
     # Restore it — back in the snapshot, gone from the trash.
-    restored = client.post(f"/memory/alex/forgotten/{fact_id}/restore")
+    restored = client.post("/memory/alex/forgotten/restore", json={"ref": ref})
     assert restored.status_code == 200
     assert restored.json()["restored"] is True
 
     snapshot = client.get("/memory/alex").json()
-    assert any(f["ref"] == f"semantic:{fact_id}" for f in snapshot["semantic_facts"])
+    assert any(f["ref"] == ref for f in snapshot["semantic_facts"])
     assert client.get("/memory/alex/forgotten").json()["count"] == 0
 
 
-def test_restore_unknown_fact_returns_404(client):
-    response = client.post("/memory/alex/forgotten/does-not-exist/restore")
+def test_forgotten_entity_is_listed_and_restorable(memory_env, client):
+    from june_brain.memory import KnowledgeGraph, Memory
+
+    Memory("alex")
+    graph = KnowledgeGraph("alex")
+    node = graph.add_node("Marco", kind="person")
+    ref = f"node:{node['node_id']}"
+
+    client.delete(f"/memory/alex/fact/{ref}")
+    assert client.get("/memory/alex").json()["entities"] == []
+
+    forgotten = client.get("/memory/alex/forgotten").json()
+    assert any(m["ref"] == ref and m["text"] == "Marco" for m in forgotten["memories"])
+
+    restored = client.post("/memory/alex/forgotten/restore", json={"ref": ref})
+    assert restored.status_code == 200
+    snapshot = client.get("/memory/alex").json()
+    assert any(e["ref"] == ref for e in snapshot["entities"])
+
+
+def test_restore_unknown_ref_returns_404(client):
+    response = client.post(
+        "/memory/alex/forgotten/restore", json={"ref": "semantic:does-not-exist"}
+    )
     assert response.status_code == 404
 
 
