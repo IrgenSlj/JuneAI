@@ -179,6 +179,12 @@
     return "danger";
   }
 
+  function semanticRecallLabel(status: string | null | undefined): string {
+    if (status === "ready") return "semantic ready";
+    if (status === "degraded") return "keyword fallback";
+    return "semantic unknown";
+  }
+
   const capabilityHeadline = $derived.by(() => {
     if (!capability) return null;
     if (!capability.checked_at) return null;
@@ -336,7 +342,7 @@
           <li><code>GET /memory/{"{user}"}</code>, <code>POST /memory/{"{user}"}/fact</code>, <code>PATCH /memory/{"{user}"}/fact/{"{ref}"}</code>, <code>DELETE /memory/{"{user}"}/fact/{"{ref}"}</code></li>
           <li><code>POST /memory/{"{user}"}/feedback</code> — thumbs up / down on recalled memories</li>
           <li><code>GET /skills</code>, <code>POST /skills/{"{key}"}/toggle</code>, <code>POST /skills/{"{key}"}/tools/{"{tool}"}/toggle</code></li>
-          <li><code>GET /system</code>, <code>GET /setup</code>, <code>POST /setup</code>, <code>GET /settings</code></li>
+          <li><code>GET /system</code>, <code>GET /setup/status</code>, <code>POST /setup/apply</code>, <code>GET /settings</code></li>
         </ul>
       </div>
     </div>
@@ -403,11 +409,26 @@
           {/if}
         </div>
         <div class="store">
-          <h3>ChromaDB — semantic</h3>
+          <div class="store-head">
+            <h3>sqlite-vec — semantic</h3>
+            {#if system}
+              <span
+                class="badge"
+                class:ok={system.semantic_recall_status === "ready"}
+                class:warn={system.semantic_recall_status === "degraded"}
+                class:muted={system.semantic_recall_status !== "ready" && system.semantic_recall_status !== "degraded"}
+              >
+                {semanticRecallLabel(system.semantic_recall_status)}
+              </span>
+            {/if}
+          </div>
           {#if memoryCounts}
             <ul class="counts">
               <li><span>facts</span><b>{memoryCounts.semantic}</b></li>
             </ul>
+          {/if}
+          {#if system?.semantic_recall_detail}
+            <p class="store-note">{system.semantic_recall_detail}</p>
           {/if}
         </div>
         <div class="store">
@@ -471,7 +492,7 @@
         {#if system}
           <dl class="kv">
             <div class="kv-row"><dt>label</dt><dd>{system.label}</dd></div>
-            <div class="kv-row"><dt>model</dt><dd><code>{system.model || "—"}</code></dd></div>
+            <div class="kv-row"><dt>active model</dt><dd><code>{system.model || "—"}</code></dd></div>
             <div class="kv-row"><dt>mode</dt><dd>{system.mode}</dd></div>
             {#if system.base_url}
               <div class="kv-row"><dt>endpoint</dt><dd><code>{system.base_url}</code></dd></div>
@@ -486,6 +507,13 @@
                   {/if}
                 </dd>
               </div>
+              <div class="kv-row">
+                <dt>embeddings</dt>
+                <dd>
+                  <code>{system.embedding_model || "—"}</code>
+                  · {system.embedding_available ? "available" : semanticRecallLabel(system.semantic_recall_status)}
+                </dd>
+              </div>
             {:else}
               <div class="kv-row">
                 <dt>api key</dt>
@@ -493,6 +521,10 @@
               </div>
             {/if}
           </dl>
+          <p class="provider-note">
+            Active runtime values are resolved by the API process. Environment variables
+            can override saved Settings when the API starts.
+          </p>
         {/if}
       </div>
     </div>
@@ -554,9 +586,9 @@
         <span class="badge muted">{traces.length} turn{traces.length === 1 ? "" : "s"}</span>
       </div>
       <p class="card-body">
-        The complete glass-box record for every turn: the assembled prompt, each LLM iteration's
-        raw output, the model's reasoning and thinking, every tool call and result, and the
-        cloud-boundary provenance line. Select a turn to expand its full trace.
+        The glass-box record for every turn: the assembled prompt, cleaned LLM
+        iterations, suppressed-reasoning markers, every tool call and result, and
+        the cloud-boundary provenance line. Select a turn to expand its full trace.
       </p>
       {#if tracesError}
         <p class="hint trace-error">{tracesError}</p>
@@ -617,6 +649,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
+    min-width: 0;
   }
 
   .top {
@@ -644,6 +677,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-3);
+    flex-wrap: wrap;
   }
   .hint {
     color: var(--color-fg-subtle);
@@ -701,6 +735,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
+    min-width: 0;
   }
   .card.wide {
     grid-column: 1 / -1;
@@ -711,6 +746,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3);
+    flex-wrap: wrap;
   }
   .card h2 {
     margin: 0;
@@ -774,6 +810,7 @@
     display: flex;
     gap: var(--space-6);
     justify-content: center;
+    flex-wrap: wrap;
   }
 
   .endpoints {
@@ -785,6 +822,9 @@
     gap: var(--space-1);
     color: var(--color-fg-muted);
     font-size: var(--size-sm);
+  }
+  .endpoints li {
+    overflow-wrap: anywhere;
   }
   .endpoints code {
     font-size: var(--size-xs);
@@ -816,6 +856,19 @@
   .store:first-of-type {
     border-top: none;
     padding-top: 0;
+  }
+  .store-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+  .store-note {
+    margin: var(--space-2) 0 0;
+    color: var(--color-fg-subtle);
+    font-size: var(--size-xs);
+    line-height: var(--leading-normal);
   }
 
   .counts {
@@ -920,10 +973,19 @@
     margin: 0;
     color: var(--color-fg-muted);
     flex: 1;
+    min-width: 0;
+  }
+
+  .provider-note {
+    margin: 0;
+    color: var(--color-fg-subtle);
+    font-size: var(--size-xs);
+    line-height: var(--leading-normal);
   }
 
   code {
     font-family: var(--font-mono);
+    overflow-wrap: anywhere;
   }
 
   .activity-card {
@@ -967,7 +1029,7 @@
   }
   .activity-row {
     display: grid;
-    grid-template-columns: 70px 1fr auto auto auto;
+    grid-template-columns: 70px minmax(0, 1fr) auto auto auto;
     gap: var(--space-2);
     padding: var(--space-1) var(--space-2);
     border: 1px solid var(--color-border);
@@ -1044,7 +1106,7 @@
   }
   .trace-summary-btn {
     display: grid;
-    grid-template-columns: 1fr auto auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
     gap: var(--space-3);
     width: 100%;
     padding: var(--space-2) var(--space-3);
@@ -1119,5 +1181,56 @@
   }
   .cap-hint {
     margin-top: var(--space-2);
+  }
+
+  @media (max-width: 640px) {
+    .page {
+      padding-inline: var(--space-3);
+    }
+    .activity-row {
+      grid-template-columns: 1fr auto;
+      align-items: start;
+    }
+    .activity-kind,
+    .activity-label,
+    .activity-time {
+      grid-column: 1 / -1;
+      text-align: left;
+    }
+    .activity-label {
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    .trace-summary-btn {
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: var(--space-2);
+    }
+    .trace-count {
+      grid-column: 1;
+      grid-row: 2;
+    }
+    .trace-time {
+      grid-column: 1 / -1;
+      grid-row: 3;
+      text-align: left;
+    }
+    .trace-chevron {
+      grid-column: 2;
+      grid-row: 1;
+      justify-self: end;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .counts {
+      grid-template-columns: 1fr;
+    }
+    .kv-row {
+      flex-direction: column;
+      gap: 2px;
+    }
+    .kv dt {
+      width: auto;
+    }
   }
 </style>

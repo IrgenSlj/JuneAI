@@ -1,8 +1,8 @@
 <script lang="ts">
   /**
-   * Message composer. Enter and Cmd/Ctrl+Enter send, Shift+Enter inserts a
-   * newline. While a turn is streaming, the submit button turns into a Stop
-   * button that fires `onCancel`.
+   * Message composer. Cmd/Ctrl+Enter sends, Enter inserts a newline. While a
+   * turn is streaming, the submit button turns into a Stop button that fires
+   * `onCancel`.
    *
    * The caller can bind `focus` to pull focus from a parent-level shortcut
    * (e.g. Cmd+K).
@@ -48,12 +48,8 @@
 
   function handleKey(event: KeyboardEvent) {
     const isEnter = event.key === "Enter";
-    const isShift = event.shiftKey;
     const isMod = event.metaKey || event.ctrlKey;
-    if (isEnter && !isShift) {
-      event.preventDefault();
-      submit();
-    } else if (isEnter && isMod) {
+    if (isEnter && isMod && !event.shiftKey) {
       event.preventDefault();
       submit();
     }
@@ -131,6 +127,7 @@
 
   textarea {
     flex: 1;
+    min-width: 0;
     resize: none;
     border: none;
     outline: none;

@@ -8,6 +8,15 @@
 
   type Provider = "gemma" | "gemini";
 
+  const DEFAULT_MODELS: Record<Provider, string> = {
+    gemma: "gemma4:e2b",
+    gemini: "gemini-2.0-flash",
+  };
+  const MODEL_ENV_HINTS: Record<Provider, string> = {
+    gemma: "GEMMA_MODEL or MODEL_NAME",
+    gemini: "GEMINI_MODEL or MODEL_NAME",
+  };
+
   let settings: SettingsView | null = $state(null);
   let loaded = $state(false);
   let unreachable = $state(false);
@@ -25,6 +34,45 @@
   let profileInput = $state(profileName.value);
 
   let confirmForgetOpen = $state(false);
+
+  function asProvider(value: string | undefined): Provider | null {
+    return value === "gemma" || value === "gemini" ? value : null;
+  }
+
+  function providerName(value: Provider | string | null): string {
+    if (value === "gemma") return "Gemma 4 (local)";
+    if (value === "gemini") return "Gemini (cloud)";
+    return "No provider";
+  }
+
+  function savedModelFor(value: Provider | null): string {
+    if (!settings || !value) return "";
+    return value === "gemma" ? settings.gemma_model || "" : settings.gemini_model || "";
+  }
+
+  const activeProvider = $derived.by(() => asProvider(settings?.provider));
+  const activeSavedModel = $derived(
+    activeProvider ? savedModelFor(activeProvider) : "",
+  );
+  const activeDefaultModel = $derived(
+    activeProvider ? DEFAULT_MODELS[activeProvider] : "",
+  );
+  const activeEnvHint = $derived(
+    activeProvider ? MODEL_ENV_HINTS[activeProvider] : "model environment variables",
+  );
+  const activeModelNote = $derived.by(() => {
+    if (!settings || !activeProvider) return "";
+    const activeModel = settings.model || "";
+    if (!activeModel) return "No active model is resolved for this provider yet.";
+    if (activeSavedModel && activeModel !== activeSavedModel) {
+      return `Saved ${providerName(activeProvider)} model is ${activeSavedModel}; the API is currently using ${activeModel}. Environment variables (${activeEnvHint}) can override saved Settings at startup.`;
+    }
+    if (!activeSavedModel && activeModel !== activeDefaultModel) {
+      return `No saved model override is set; the API is currently using ${activeModel}. This usually means ${activeEnvHint} is set in the API environment.`;
+    }
+    if (activeSavedModel) return `Matches the saved ${providerName(activeProvider)} model override.`;
+    return `Using the ${providerName(activeProvider)} preset default.`;
+  });
 
   const isDesktop = platform.runtime === "tauri";
   let autostart = $state(false);
@@ -186,16 +234,20 @@
             <span class="name">Gemma 4 (local)</span>
             <span class="desc">
               {#if provider === "gemma"}
-                {#if settings.ollama_reachable && settings.ollama_has_model}
-                  <span class="ok">Ollama ready with {settings.model || "gemma4:e2b"}.</span>
-                {:else if settings.ollama_reachable}
-                  <span class="warn">
-                    Model not pulled. <a href="/help/ollama">Fix it</a>.
-                  </span>
+                {#if activeProvider === "gemma"}
+                  {#if settings.ollama_reachable && settings.ollama_has_model}
+                    <span class="ok">Ollama ready with active model {settings.model || DEFAULT_MODELS.gemma}.</span>
+                  {:else if settings.ollama_reachable}
+                    <span class="warn">
+                      Active model not pulled. <a href="/help/ollama">Fix it</a>.
+                    </span>
+                  {:else}
+                    <span class="warn">
+                      Ollama isn't reachable. <a href="/help/ollama">Fix it</a>.
+                    </span>
+                  {/if}
                 {:else}
-                  <span class="warn">
-                    Ollama isn't reachable. <a href="/help/ollama">Fix it</a>.
-                  </span>
+                  <span>Save and verify to switch to local inference via Ollama.</span>
                 {/if}
               {:else}
                 <span>Local inference via Ollama.</span>
@@ -219,9 +271,21 @@
         </label>
       </fieldset>
 
+      <div class="runtime-summary">
+        <span class="summary-label">Active runtime</span>
+        <div class="runtime-line">
+          <span>{providerName(activeProvider)}</span>
+          <span aria-hidden="true">·</span>
+          <code>{settings.model || "not resolved"}</code>
+        </div>
+        {#if activeModelNote}
+          <p>{activeModelNote}</p>
+        {/if}
+      </div>
+
       <div class="grid">
         <div class="field">
-          <label for="gemma-model">Gemma model tag</label>
+          <label for="gemma-model">Saved Gemma model tag</label>
           <input
             id="gemma-model"
             type="text"
@@ -230,7 +294,7 @@
           />
         </div>
         <div class="field">
-          <label for="gemini-model">Gemini model</label>
+          <label for="gemini-model">Saved Gemini model</label>
           <input
             id="gemini-model"
             type="text"
@@ -239,6 +303,10 @@
           />
         </div>
       </div>
+      <p class="hint">
+        Saved model fields apply when you Save and verify. The active runtime above is
+        what the API process is using right now.
+      </p>
     </section>
 
     <section class="card">
@@ -499,6 +567,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
+    min-width: 0;
   }
 
   header {
@@ -521,6 +590,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
+    min-width: 0;
   }
   h2 {
     margin: 0;
@@ -554,6 +624,7 @@
     border-radius: var(--radius-md);
     cursor: pointer;
     transition: border-color 120ms ease, background 120ms ease;
+    min-width: 0;
   }
   .option:hover {
     border-color: var(--color-border-strong);
@@ -566,13 +637,16 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
+    min-width: 0;
   }
   .name {
     font-weight: 500;
+    overflow-wrap: anywhere;
   }
   .desc {
     color: var(--color-fg-muted);
     font-size: var(--size-sm);
+    overflow-wrap: anywhere;
   }
   .ok {
     color: var(--color-success);
@@ -607,6 +681,7 @@
     color: var(--color-fg-primary);
     font-family: var(--font-mono);
     font-size: var(--size-sm);
+    min-width: 0;
   }
   .field input:focus {
     outline: none;
@@ -620,6 +695,7 @@
     font-size: var(--size-sm);
     color: var(--color-fg-muted);
     margin: 0;
+    flex-wrap: wrap;
   }
   .dot {
     width: 8px;
@@ -645,6 +721,7 @@
     align-items: center;
     justify-content: flex-end;
     gap: var(--space-4);
+    flex-wrap: wrap;
   }
   .note {
     margin: 0;
@@ -773,6 +850,7 @@
   }
   .profile-row input {
     flex: 1;
+    min-width: 0;
   }
   .profile-row button {
     flex-shrink: 0;
@@ -780,8 +858,62 @@
   }
 
   @media (max-width: 520px) {
+    .page {
+      padding-inline: var(--space-3);
+    }
     .grid {
       grid-template-columns: 1fr;
     }
+    .option {
+      align-items: flex-start;
+    }
+    .profile-row {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .actions {
+      align-items: stretch;
+    }
+    .actions button {
+      width: 100%;
+    }
+  }
+
+  .runtime-summary {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-sunken);
+    min-width: 0;
+  }
+  .summary-label {
+    color: var(--color-fg-subtle);
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .runtime-line {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+    flex-wrap: wrap;
+    color: var(--color-fg-primary);
+    font-size: var(--size-sm);
+  }
+  .runtime-summary p {
+    margin: 0;
+    color: var(--color-fg-muted);
+    font-size: var(--size-sm);
+    line-height: var(--leading-normal);
+    overflow-wrap: anywhere;
+  }
+  code {
+    font-family: var(--font-mono);
+    overflow-wrap: anywhere;
   }
 </style>
