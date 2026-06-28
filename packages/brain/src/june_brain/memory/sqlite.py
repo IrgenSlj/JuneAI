@@ -391,6 +391,17 @@ CREATE TABLE IF NOT EXISTS forgotten_facts (
     PRIMARY KEY (user_id, fact_id)
 );
 CREATE INDEX IF NOT EXISTS idx_forgotten_facts_when ON forgotten_facts(user_id, forgotten_at);
+CREATE TABLE IF NOT EXISTS forgotten_structured (
+    user_id      TEXT NOT NULL,
+    ref          TEXT NOT NULL,
+    kind         TEXT NOT NULL,
+    summary      TEXT NOT NULL DEFAULT '',
+    fields       TEXT NOT NULL DEFAULT '{}',
+    source       TEXT NOT NULL DEFAULT 'manual',
+    forgotten_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, ref)
+);
+CREATE INDEX IF NOT EXISTS idx_forgotten_structured_when ON forgotten_structured(user_id, forgotten_at);
 CREATE TABLE IF NOT EXISTS embedding_cache (
     model       TEXT NOT NULL,
     text_hash   TEXT NOT NULL,
@@ -1141,10 +1152,13 @@ class Memory:
         resting_hr: int = 0,
         steps: int = 0,
         notes: str = "",
+        date: str = "",
     ) -> dict:
-        today = _today().isoformat()
+        # Default to today; an explicit date lets a restore land on the
+        # original day rather than overwriting today's metric.
+        day = date.strip() or _today().isoformat()
         item = {
-            "date": today,
+            "date": day,
             "weight_kg": round(float(weight_kg), 1) if weight_kg else 0.0,
             "sleep_hours": round(float(sleep_hours), 1) if sleep_hours else 0.0,
             "sleep_quality": max(0, min(5, int(sleep_quality))),
@@ -1190,6 +1204,27 @@ class Memory:
         )
         self._conn.commit()
         return cur.rowcount > 0
+
+    # ------------------------------------------------------------------
+    # Reversible forget — structured rows trash
+    # ------------------------------------------------------------------
+
+    def list_forgotten_structured(self, limit: int = 50) -> list[dict]:
+        """List trashed structured rows, most recently forgotten first."""
+        rows = self._conn.execute(
+            "SELECT ref, kind, summary, fields, source, forgotten_at "
+            "FROM forgotten_structured WHERE user_id=? ORDER BY forgotten_at DESC LIMIT ?",
+            (self.user_id, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def purge_forgotten_structured(self) -> int:
+        """Permanently empty the structured trash. Returns the number of rows removed."""
+        cur = self._conn.execute(
+            "DELETE FROM forgotten_structured WHERE user_id=?", (self.user_id,)
+        )
+        self._conn.commit()
+        return int(cur.rowcount or 0)
 
     def get_today_body_metrics(self) -> dict | None:
         row = self._conn.execute(

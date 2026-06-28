@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Callable
+from datetime import datetime
 from hashlib import sha256
 from typing import Any
 
@@ -246,6 +248,7 @@ def write_body_metric(mgr: Any, fields: dict[str, Any], source: str) -> dict[str
             resting_hr=int(fields.get("resting_hr") or 0),
             steps=int(fields.get("steps") or 0),
             notes=str(fields.get("notes", "")),
+            date=str(fields.get("date", "")),
         ),
         ref_for=lambda row: f"body_metric:{row.get('date', '')}",
         paraphrase=lambda row: _paraphrase_body_metric(row),
@@ -266,6 +269,179 @@ def write_mood(mgr: Any, fields: dict[str, Any], source: str) -> dict[str, Any]:
     if sync_structured_vector(mgr, "mood", ref, text, source):
         stores.append("vector")
     return {"written": True, "kind": "mood", "ref": ref, "stores": stores}
+
+
+def list_forgotten_all(mgr: Any, limit: int) -> list[dict[str, Any]]:
+    """Merge per-store trash bins into one ref-keyed list, most recently forgotten first."""
+    entries: list[dict[str, Any]] = []
+    for f in mgr.vector.list_forgotten(limit=limit):
+        entries.append({
+            "ref": f"semantic:{f['fact_id']}", "kind": "fact", "text": f["text"],
+            "created_at": f.get("created_at", ""), "forgotten_at": f.get("forgotten_at", ""),
+        })
+    for n in mgr.graph.list_forgotten_nodes(limit=limit):
+        entries.append({
+            "ref": f"node:{n['node_id']}", "kind": n.get("kind") or "entity",
+            "text": n["label"], "created_at": n.get("updated_at", ""),
+            "forgotten_at": n.get("forgotten_at", ""),
+        })
+    for s in mgr.sqlite.list_forgotten_structured(limit=limit):
+        entries.append({
+            "ref": s["ref"], "kind": s["kind"], "text": s["summary"],
+            "created_at": "", "forgotten_at": s["forgotten_at"],
+        })
+    entries.sort(key=lambda e: e["forgotten_at"], reverse=True)
+    return entries[:limit]
+
+
+def _archive_structured(mgr: Any, ref: str, kind: str) -> bool:
+    """Snapshot a structured row into forgotten_structured before deletion.
+
+    Returns True if a row was found and archived, False if not found.
+    The archive INSERT and the live-row delete are separate commits (the
+    existing delete helpers commit internally). Archive-then-delete keeps
+    things correct: a crash between archive and delete leaves a spurious
+    trash entry the user can purge, never a lost row.
+    """
+    conn = mgr.sqlite._conn
+    user_id = mgr.sqlite.user_id
+    now = datetime.now().isoformat()
+
+    row: dict | None = None
+    fields: dict
+    summary: str
+
+    if kind == "goal":
+        title = ref.removeprefix("goal:")
+        r = conn.execute(
+            "SELECT title,category,target_date,next_step,status FROM goals "
+            "WHERE user_id=? AND lower(title)=lower(?)",
+            (user_id, title),
+        ).fetchone()
+        if r is None:
+            return False
+        row = dict(r)
+        fields = {k: row[k] for k in ("title", "category", "target_date", "next_step", "status")}
+        summary = row["title"]
+
+    elif kind == "open_loop":
+        topic = ref.removeprefix("open_loop:")
+        r = conn.execute(
+            "SELECT topic,next_step,due_date,status FROM open_loops "
+            "WHERE user_id=? AND lower(topic)=lower(?)",
+            (user_id, topic),
+        ).fetchone()
+        if r is None:
+            return False
+        row = dict(r)
+        fields = {k: row[k] for k in ("topic", "next_step", "due_date", "status")}
+        summary = row["topic"]
+
+    elif kind == "calendar":
+        body = ref.removeprefix("calendar:")
+        parts = body.split("|", 2)
+        title = parts[0]
+        date = parts[1] if len(parts) > 1 else ""
+        time = parts[2] if len(parts) > 2 else ""
+        query = (
+            "SELECT title,date,time,details,status,source FROM calendar_items "
+            "WHERE user_id=? AND lower(title)=lower(?)"
+        )
+        params: list = [user_id, title]
+        if date:
+            query += " AND lower(date)=lower(?)"
+            params.append(date)
+        if time:
+            query += " AND lower(time)=lower(?)"
+            params.append(time)
+        r = conn.execute(query, params).fetchone()
+        if r is None:
+            return False
+        row = dict(r)
+        # row["source"] is the calendar-event origin (e.g. "conversation");
+        # write_calendar reads it via fields.get("source", "conversation").
+        fields = {k: row[k] for k in ("title", "date", "time", "details", "status", "source")}
+        summary = row["title"]
+
+    elif kind == "journal":
+        entry_id_str = ref.removeprefix("journal:")
+        try:
+            entry_id = int(entry_id_str)
+        except ValueError:
+            return False
+        r = conn.execute(
+            "SELECT id,entry FROM journal WHERE user_id=? AND id=?",
+            (user_id, entry_id),
+        ).fetchone()
+        if r is None:
+            return False
+        row = dict(r)
+        fields = {"entry": row["entry"]}
+        summary = row["entry"][:80]
+
+    elif kind == "body_metric":
+        date = ref.removeprefix("body_metric:")
+        r = conn.execute(
+            "SELECT date,weight_kg,sleep_hours,sleep_quality,energy,stress,"
+            "soreness,resting_hr,steps,notes FROM body_metrics "
+            "WHERE user_id=? AND date=?",
+            (user_id, date),
+        ).fetchone()
+        if r is None:
+            return False
+        row = dict(r)
+        fields = {k: row[k] for k in (
+            "date", "weight_kg", "sleep_hours", "sleep_quality", "energy",
+            "stress", "soreness", "resting_hr", "steps", "notes",
+        )}
+        summary = f"Body check on {row['date']}"
+
+    else:
+        return False
+
+    with conn:
+        conn.execute(
+            """INSERT INTO forgotten_structured
+                 (user_id, ref, kind, summary, fields, source, forgotten_at)
+               VALUES (?,?,?,?,?,?,?)
+               ON CONFLICT(user_id, ref) DO UPDATE SET
+                 kind=excluded.kind, summary=excluded.summary,
+                 fields=excluded.fields, source=excluded.source,
+                 forgotten_at=excluded.forgotten_at""",
+            (user_id, ref, kind, summary, json.dumps(fields), "manual", now),
+        )
+    return True
+
+
+def restore_structured(mgr: Any, ref: str) -> dict | None:
+    """Restore a structured row from the forgotten_structured trash.
+
+    Replays the original write via mgr.write so the live row AND its
+    vector paraphrase are both recreated through the same tested code path.
+    Deletes the trash entry after a successful write.
+    Returns the write-result dict, or None if the ref is not in the trash.
+    """
+    conn = mgr.sqlite._conn
+    user_id = mgr.sqlite.user_id
+    r = conn.execute(
+        "SELECT ref,kind,fields,source FROM forgotten_structured "
+        "WHERE user_id=? AND ref=?",
+        (user_id, ref),
+    ).fetchone()
+    if r is None:
+        return None
+    kind = r["kind"]
+    fields = json.loads(r["fields"])
+    source = r["source"]
+    result = mgr.write({"kind": kind, "fields": fields}, source)
+    if not result.get("written"):
+        return None
+    conn.execute(
+        "DELETE FROM forgotten_structured WHERE user_id=? AND ref=?",
+        (user_id, ref),
+    )
+    conn.commit()
+    return result
 
 
 def forget(mgr: Any, ref: str) -> bool:
@@ -304,11 +480,13 @@ def forget(mgr: Any, ref: str) -> bool:
         return False
     if ref.startswith("goal:"):
         title = ref.removeprefix("goal:")
+        _archive_structured(mgr, ref, "goal")
         removed_sqlite = mgr.sqlite.delete_goal(title)
         removed_vector = delete_structured_vector(mgr, ref)
         return removed_sqlite or removed_vector > 0
     if ref.startswith("open_loop:"):
         topic = ref.removeprefix("open_loop:")
+        _archive_structured(mgr, ref, "open_loop")
         removed_sqlite = mgr.sqlite.delete_open_loop(topic)
         removed_vector = delete_structured_vector(mgr, ref)
         return removed_sqlite or removed_vector > 0
@@ -318,6 +496,7 @@ def forget(mgr: Any, ref: str) -> bool:
         title = parts[0]
         date = parts[1] if len(parts) > 1 else ""
         time = parts[2] if len(parts) > 2 else ""
+        _archive_structured(mgr, ref, "calendar")
         removed_sqlite = mgr.sqlite.delete_calendar_item(title, date, time)
         if len(parts) > 1:
             removed_vector = delete_structured_vector(mgr, ref)
@@ -328,13 +507,16 @@ def forget(mgr: Any, ref: str) -> bool:
     if ref.startswith("journal:"):
         entry_id = ref.removeprefix("journal:")
         try:
-            removed_sqlite = mgr.sqlite.delete_journal_entry(int(entry_id))
+            entry_id_int = int(entry_id)
         except ValueError:
             return False
+        _archive_structured(mgr, ref, "journal")
+        removed_sqlite = mgr.sqlite.delete_journal_entry(entry_id_int)
         removed_vector = delete_structured_vector(mgr, ref)
         return removed_sqlite or removed_vector > 0
     if ref.startswith("body_metric:"):
         date = ref.removeprefix("body_metric:")
+        _archive_structured(mgr, ref, "body_metric")
         removed_sqlite = mgr.sqlite.delete_body_metric(date)
         removed_vector = delete_structured_vector(mgr, ref)
         return removed_sqlite or removed_vector > 0

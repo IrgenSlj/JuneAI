@@ -649,3 +649,181 @@ def test_feedback_down_demotes_recall(manager):
 def test_parse_json_block_strips_code_fence():
     raw = "```json\n{\"facts\": []}\n```"
     assert _parse_json_block(raw) == {"facts": []}
+
+
+# ---------------------------------------------------------------------------
+# Reversible forget — structured rows
+# ---------------------------------------------------------------------------
+
+
+def test_forget_goal_is_reversible(manager):
+    result = manager.write(
+        {"kind": "goal", "fields": {"title": "run a marathon", "category": "health", "next_step": "start training"}},
+        source="manual",
+    )
+    ref = result["ref"]
+    assert manager.forget(ref) is True
+    assert all(g["title"].lower() != "run a marathon" for g in manager.sqlite.get_goals(limit=20))
+    trash = manager.list_forgotten()
+    trash_refs = [t["ref"] for t in trash]
+    assert ref in trash_refs
+    assert next(t for t in trash if t["ref"] == ref)["kind"] == "goal"
+    assert "run a marathon" in next(t for t in trash if t["ref"] == ref)["text"].lower()
+
+    restored = manager.restore(ref)
+    assert restored is not None
+    assert any(g["title"].lower() == "run a marathon" for g in manager.sqlite.get_goals(limit=20))
+    assert not any(t["ref"] == ref for t in manager.list_forgotten())
+
+
+def test_forget_open_loop_is_reversible(manager):
+    result = manager.write(
+        {"kind": "open_loop", "fields": {"topic": "call dentist", "next_step": "find number"}},
+        source="manual",
+    )
+    ref = result["ref"]
+    assert manager.forget(ref) is True
+    assert all(
+        loop["topic"].lower() != "call dentist"
+        for loop in manager.sqlite.get_open_loops(status="", limit=20)
+    )
+    trash = manager.list_forgotten()
+    assert any(t["ref"] == ref and t["kind"] == "open_loop" for t in trash)
+    assert any("call dentist" in t["text"].lower() for t in trash if t["ref"] == ref)
+
+    restored = manager.restore(ref)
+    assert restored is not None
+    assert any(
+        loop["topic"].lower() == "call dentist"
+        for loop in manager.sqlite.get_open_loops(status="", limit=20)
+    )
+    assert not any(t["ref"] == ref for t in manager.list_forgotten())
+
+
+def test_forget_calendar_is_reversible(manager):
+    result = manager.write(
+        {
+            "kind": "calendar",
+            "fields": {"title": "eye checkup", "date": "2026-07-15", "time": "09:00"},
+        },
+        source="manual",
+    )
+    ref = result["ref"]
+    assert manager.forget(ref) is True
+    assert all(
+        item["title"].lower() != "eye checkup"
+        for item in manager.sqlite.get_calendar_items(limit=20)
+    )
+    trash = manager.list_forgotten()
+    assert any(t["ref"] == ref and t["kind"] == "calendar" for t in trash)
+
+    restored = manager.restore(ref)
+    assert restored is not None
+    assert any(
+        item["title"].lower() == "eye checkup"
+        for item in manager.sqlite.get_calendar_items(limit=20)
+    )
+    assert not any(t["ref"] == ref for t in manager.list_forgotten())
+
+
+def test_forget_journal_is_reversible(manager):
+    result = manager.write(
+        {"kind": "journal", "fields": {"entry": "felt great today, made progress"}},
+        source="manual",
+    )
+    ref = result["ref"]
+    assert manager.forget(ref) is True
+    assert not any(
+        "great today" in e.get("entry", "").lower()
+        for e in manager.sqlite.get_journal(limit=20)
+    )
+    trash = manager.list_forgotten()
+    assert any(t["ref"] == ref and t["kind"] == "journal" for t in trash)
+
+    restored = manager.restore(ref)
+    assert restored is not None
+    assert any(
+        "great today" in e.get("entry", "").lower()
+        for e in manager.sqlite.get_journal(limit=20)
+    )
+    assert not any(t["ref"] == ref for t in manager.list_forgotten())
+
+
+def test_forget_body_metric_is_reversible(manager):
+    # Write a metric on a PAST date so restore must land on that same day,
+    # not today — guards the original-date-preservation fix.
+    result = manager.write(
+        {
+            "kind": "body_metric",
+            "fields": {"date": "2026-01-15", "weight_kg": 75.5, "sleep_hours": 7.5, "energy": 4},
+        },
+        source="manual",
+    )
+    ref = result["ref"]
+    assert ref == "body_metric:2026-01-15"
+    assert manager.forget(ref) is True
+    assert manager.sqlite.get_body_metrics(days=400) == []
+    trash = manager.list_forgotten()
+    assert any(t["ref"] == ref and t["kind"] == "body_metric" for t in trash)
+
+    restored = manager.restore(ref)
+    assert restored is not None
+    rows = manager.sqlite.get_body_metrics(days=400)
+    assert len(rows) == 1
+    assert rows[0]["date"] == "2026-01-15"  # original day preserved, not today
+    assert rows[0]["weight_kg"] == 75.5
+    assert not any(t["ref"] == ref for t in manager.list_forgotten())
+
+
+def test_forget_goal_excludes_from_recall_until_restored(manager):
+    result = manager.write(
+        {"kind": "goal", "fields": {"title": "climb Kilimanjaro", "next_step": "book guide"}},
+        source="manual",
+    )
+    ref = result["ref"]
+    hits_before = manager.recall("Kilimanjaro", k=5)
+    assert any("kilimanjaro" in h["text"].lower() for h in hits_before)
+
+    manager.forget(ref)
+    hits_after = manager.recall("Kilimanjaro", k=5)
+    assert not any("kilimanjaro" in h["text"].lower() for h in hits_after)
+
+    manager.restore(ref)
+    hits_restored = manager.recall("Kilimanjaro", k=5)
+    assert any("kilimanjaro" in h["text"].lower() for h in hits_restored)
+
+
+def test_list_forgotten_merges_all_stores(manager):
+    f = manager.vector.upsert("a semantic fact")
+    n = manager.graph.add_node("CityX", kind="place")
+    goal_result = manager.write(
+        {"kind": "goal", "fields": {"title": "learn piano"}}, source="manual"
+    )
+    manager.forget(f"semantic:{f['fact_id']}")
+    manager.forget(f"node:{n['node_id']}")
+    manager.forget(goal_result["ref"])
+
+    trash = manager.list_forgotten()
+    refs = {t["ref"] for t in trash}
+    assert f"semantic:{f['fact_id']}" in refs
+    assert f"node:{n['node_id']}" in refs
+    assert goal_result["ref"] in refs
+
+
+def test_purge_forgotten_empties_structured_trash(manager):
+    result = manager.write(
+        {"kind": "goal", "fields": {"title": "read more books"}}, source="manual"
+    )
+    manager.forget(result["ref"])
+    assert any(t["ref"] == result["ref"] for t in manager.list_forgotten())
+
+    count = manager.purge_forgotten()
+    assert count >= 1
+    assert manager.list_forgotten() == []
+    assert manager.sqlite.list_forgotten_structured() == []
+
+
+def test_restore_unknown_structured_ref_returns_none(manager):
+    assert manager.restore("goal:does-not-exist") is None
+    assert manager.restore("open_loop:does-not-exist") is None
+    assert manager.restore("journal:99999") is None

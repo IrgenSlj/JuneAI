@@ -186,46 +186,25 @@ class MemoryManager:
     def list_forgotten(self, limit: int = 50) -> list[dict[str, Any]]:
         """Recently forgotten memories that can still be restored.
 
-        Merges the per-store trash bins (semantic facts + graph entities) into
-        one ref-keyed list, most recently forgotten first. Each entry carries a
-        ``ref`` (the same scheme ``forget`` accepts), a short ``kind``, the
-        display ``text``, and ``forgotten_at``.
+        Merges the per-store trash bins (semantic facts, graph entities, and
+        structured rows) into one ref-keyed list, most recently forgotten first.
+        Each entry carries ``ref``, ``kind``, ``text``, and ``forgotten_at``.
         """
-        entries: list[dict[str, Any]] = []
-        for f in self.vector.list_forgotten(limit=limit):
-            entries.append(
-                {
-                    "ref": f"semantic:{f['fact_id']}",
-                    "kind": "fact",
-                    "text": f["text"],
-                    "created_at": f.get("created_at", ""),
-                    "forgotten_at": f.get("forgotten_at", ""),
-                }
-            )
-        for n in self.graph.list_forgotten_nodes(limit=limit):
-            entries.append(
-                {
-                    "ref": f"node:{n['node_id']}",
-                    "kind": n.get("kind") or "entity",
-                    "text": n["label"],
-                    "created_at": n.get("updated_at", ""),
-                    "forgotten_at": n.get("forgotten_at", ""),
-                }
-            )
-        entries.sort(key=lambda e: e["forgotten_at"], reverse=True)
-        return entries[:limit]
+        return writers.list_forgotten_all(self, limit)
 
     def restore(self, ref: str) -> dict[str, Any] | None:
         """Restore a forgotten memory by its ref; None if not in any trash bin."""
         ref = ref.strip()
         if ref.startswith("node:"):
             return self.graph.restore_node(ref.removeprefix("node:"))
+        if ref.startswith(("goal:", "open_loop:", "calendar:", "journal:", "body_metric:")):
+            return writers.restore_structured(self, ref)
         fact_id = ref.removeprefix("semantic:") if ref.startswith("semantic:") else ref
         return self.vector.restore(fact_id)
 
     def purge_forgotten(self) -> int:
         """Permanently empty every trash bin. Returns the total rows removed."""
-        return self.vector.purge_forgotten() + self.graph.purge_forgotten_nodes()
+        return self.vector.purge_forgotten() + self.graph.purge_forgotten_nodes() + self.sqlite.purge_forgotten_structured()
 
     # ------------------------------------------------------------------
     # Update — patch a structured row by ref
