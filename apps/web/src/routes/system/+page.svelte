@@ -26,7 +26,10 @@
   let activity: ActivityEntryView[] = $state([]);
   let loading = $state(true);
   let clearingActivity = $state(false);
+  let clearingTraces = $state(false);
+  let exportingTraces = $state(false);
   let confirmClearOpen = $state(false);
+  let confirmClearTracesOpen = $state(false);
   let lastRefresh: Date | null = $state(null);
   let loadError: string | null = $state(null);
   let timer: ReturnType<typeof setInterval> | null = null;
@@ -165,6 +168,58 @@
     }
   }
 
+  function clearTraces() {
+    if (clearingTraces || traces.length === 0) return;
+    confirmClearTracesOpen = true;
+  }
+
+  async function doClearTraces() {
+    clearingTraces = true;
+    try {
+      await client.clearTraces();
+      traces = [];
+      selectedTraceId = null;
+      selectedTraceEvents = [];
+    } catch (err) {
+      tracesError = err instanceof Error ? err.message : String(err);
+    } finally {
+      clearingTraces = false;
+    }
+  }
+
+  async function exportTraces() {
+    if (exportingTraces || traces.length === 0) return;
+    exportingTraces = true;
+    tracesError = null;
+    try {
+      const full = await Promise.all(traces.map((trace) => client.getTrace(trace.turn_id)));
+      const blob = new Blob(
+        [
+          JSON.stringify(
+            {
+              exported_at: new Date().toISOString(),
+              count: full.length,
+              traces: full,
+            },
+            null,
+            2,
+          ),
+        ],
+        { type: "application/json" },
+      );
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `june-traces-${new Date().toISOString().slice(0, 10)}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      tracesError = err instanceof Error ? err.message : String(err);
+    } finally {
+      exportingTraces = false;
+    }
+  }
+
   function statusKind(status: number | null | undefined): "ok" | "warn" | "bad" | "muted" {
     if (!status) return "muted";
     if (status >= 500) return "bad";
@@ -177,6 +232,16 @@
     if (verdict === "good") return "ok";
     if (verdict === "weak") return "warn";
     return "danger";
+  }
+
+  function capabilityBadgeClass(verdict: string): string {
+    if (!capability?.checked_at) return "muted";
+    return verdictBadgeClass(verdict);
+  }
+
+  function capabilityVerdict(verdict: string): string {
+    if (!capability?.checked_at) return "unknown";
+    return verdict;
   }
 
   function semanticRecallLabel(status: string | null | undefined): string {
@@ -271,24 +336,24 @@
           <tbody>
             <tr>
               <td class="cap-label">Summarization</td>
-              <td><span class="badge {verdictBadgeClass(capability.summarization)}">{capability.summarization}</span></td>
+              <td><span class="badge {capabilityBadgeClass(capability.summarization)}">{capabilityVerdict(capability.summarization)}</span></td>
             </tr>
             <tr>
               <td class="cap-label">Structured output</td>
-              <td><span class="badge {verdictBadgeClass(capability.structured_output)}">{capability.structured_output}</span></td>
+              <td><span class="badge {capabilityBadgeClass(capability.structured_output)}">{capabilityVerdict(capability.structured_output)}</span></td>
             </tr>
             <tr>
               <td class="cap-label">Long context</td>
-              <td><span class="badge {verdictBadgeClass(capability.long_context)}">{capability.long_context}</span></td>
+              <td><span class="badge {capabilityBadgeClass(capability.long_context)}">{capabilityVerdict(capability.long_context)}</span></td>
             </tr>
             <tr>
               <td class="cap-label">Relevance scoring</td>
-              <td><span class="badge {verdictBadgeClass(capability.relevance_scoring)}">{capability.relevance_scoring}</span></td>
+              <td><span class="badge {capabilityBadgeClass(capability.relevance_scoring)}">{capabilityVerdict(capability.relevance_scoring)}</span></td>
             </tr>
           </tbody>
         </table>
         {#if !capability.checked_at}
-          <p class="hint cap-hint">These are optimistic defaults. Run a probe to get real measurements.</p>
+          <p class="hint cap-hint">The API still holds fallback defaults internally; this screen hides them until a probe records real measurements.</p>
         {/if}
       {/if}
     </div>
@@ -583,7 +648,25 @@
     <div class="card activity-card">
       <div class="card-head">
         <h2>Turn traces</h2>
-        <span class="badge muted">{traces.length} turn{traces.length === 1 ? "" : "s"}</span>
+        <div class="activity-actions">
+          <span class="badge muted">{traces.length} turn{traces.length === 1 ? "" : "s"}</span>
+          <button
+            type="button"
+            class="activity-clear"
+            onclick={exportTraces}
+            disabled={exportingTraces || traces.length === 0}
+          >
+            {exportingTraces ? "Exporting…" : "Export JSON"}
+          </button>
+          <button
+            type="button"
+            class="activity-clear"
+            onclick={clearTraces}
+            disabled={clearingTraces || traces.length === 0}
+          >
+            {clearingTraces ? "Clearing…" : "Clear traces"}
+          </button>
+        </div>
       </div>
       <p class="card-body">
         The glass-box record for every turn: the assembled prompt, cleaned LLM
@@ -639,6 +722,15 @@
   confirmLabel="Clear log"
   danger={true}
   onConfirm={doClearActivity}
+/>
+
+<ConfirmDialog
+  bind:open={confirmClearTracesOpen}
+  title="Clear turn traces"
+  message="Clear every persisted turn trace? This removes prompt, iteration, and tool-call trace records from this machine."
+  confirmLabel="Clear traces"
+  danger={true}
+  onConfirm={doClearTraces}
 />
 
 <style>

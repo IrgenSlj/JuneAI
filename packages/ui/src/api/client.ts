@@ -174,6 +174,11 @@ export function createJuneClient(options: JuneClientOptions) {
       return getJson<TurnTraceView>(`/system/traces/${encodeURIComponent(turnId)}`);
     },
 
+    /** DELETE /system/traces — clear persisted turn traces. */
+    clearTraces(): Promise<TraceListResponse> {
+      return requestJson<TraceListResponse>("/system/traces", { method: "DELETE" });
+    },
+
     /** GET /setup/status — whether the active provider is usable end to end. */
     getSetupStatus(): Promise<SetupStatus> {
       return getJson<SetupStatus>("/setup/status");
