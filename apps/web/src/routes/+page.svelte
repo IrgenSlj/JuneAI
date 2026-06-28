@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { Composer, MessageList, OfflineNotice, ActivityStream } from "@june/ui";
+  import {
+    Composer,
+    MessageList,
+    OfflineNotice,
+    ActivityStream,
+    type TaskView,
+  } from "@june/ui";
   import {
     chat,
     sendMessage,
@@ -17,7 +23,10 @@
 
   let focusComposer: (() => void) | undefined = $state();
   let greeting = $state("");
+  let continuityTasks: TaskView[] = $state([]);
+  let continuityError: string | null = $state(null);
 
+  const ACTIVE_PROMISE_STATUSES = new Set(["planning", "running", "paused", "awaiting_user"]);
   const hasActivity = $derived(chat.activity.length > 0);
   // Show the platform-correct send-shortcut glyph in the composer hint.
   const modKeyLabel =
@@ -25,15 +34,81 @@
       ? "⌘"
       : "Ctrl";
 
-  onMount(async () => {
-    await loadHistory(profileName.value);
-    try {
-      const res = await client.getGreeting(profileName.value, profileName.value);
-      greeting = res.greeting;
-    } catch {
-      // Brain down — the static fallback in the template covers this.
-    }
+  onMount(() => {
+    void loadHistory(profileName.value);
+    void loadContinuity();
+    void client
+      .getGreeting(profileName.value, profileName.value)
+      .then((res) => {
+        greeting = res.greeting;
+      })
+      .catch(() => {
+        // Brain down — the static fallback in the template covers this.
+      });
   });
+
+  async function loadContinuity(): Promise<void> {
+    continuityError = null;
+    try {
+      const res = await client.getTasks(profileName.value, undefined, 20);
+      continuityTasks = res.tasks ?? [];
+    } catch (err) {
+      continuityError = err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  function isLocalOnlyBlocked(task: TaskView): boolean {
+    return (task.plan ?? []).some((step) => {
+      const description = String(step.description ?? "").toLowerCase();
+      const result = String(step.tool_result ?? "").toLowerCase();
+      return (
+        step.status === "pending" &&
+        (description.includes("local-only") || result.includes("local-only"))
+      );
+    });
+  }
+
+  function promiseSummary(openCount: number, waitingCount: number, blockedCount: number): string {
+    if (continuityError) return "I could not read open promises.";
+    if (openCount === 0) return "No open promises are waiting right now.";
+
+    const parts = [`${openCount} open ${openCount === 1 ? "promise" : "promises"}`];
+    if (waitingCount > 0) parts.push(`${waitingCount} waiting on you`);
+    if (blockedCount > 0) parts.push(`${blockedCount} blocked by local-only mode`);
+    return `I am holding ${parts.join(", ")}.`;
+  }
+
+  function dialLabel(dial: string): string {
+    return (
+      {
+        local_only: "local-only",
+        private_by_default: "private",
+        cloud_first: "cloud-first",
+      }[dial] ?? dial
+    );
+  }
+
+  const openPromises = $derived(
+    continuityTasks.filter((task) => ACTIVE_PROMISE_STATUSES.has(task.status)),
+  );
+  const waitingPromises = $derived(
+    continuityTasks.filter((task) => task.status === "awaiting_user"),
+  );
+  const blockedPromises = $derived(waitingPromises.filter(isLocalOnlyBlocked));
+  const openPromiseCount = $derived(openPromises.length);
+  const waitingCount = $derived(waitingPromises.length);
+  const blockedCount = $derived(blockedPromises.length);
+  const recallStatus = $derived(system.data?.semantic_recall_status ?? "unknown");
+  const recallDegraded = $derived(recallStatus === "degraded");
+  const continuityLine = $derived(
+    promiseSummary(openPromiseCount, waitingCount, blockedCount),
+  );
+  const privacyLabel = $derived(
+    system.data ? dialLabel(system.data.privacy_dial) : system.error ? "offline" : "checking",
+  );
+  const runtimeLabel = $derived(
+    system.data ? (system.data.mode === "local" ? "local runtime" : "cloud runtime") : "runtime",
+  );
 
   const canRegenerate = $derived(
     !chat.streaming &&
@@ -116,9 +191,45 @@
         />
       </div>
     {:else if chat.messages.length === 0}
-      <div class="greeting">
-        <p class="greeting-line">{greeting || "Hi, I'm June."}</p>
-        <p class="greeting-sub">I'll remember what matters so you don't have to.</p>
+      <div class="home-state">
+        <section class="continuity" aria-label="Continuity summary">
+          <div class="continuity-line">
+            <span
+              class="continuity-dot"
+              class:warn={waitingCount > 0 || recallDegraded || continuityError !== null}
+              class:ok={waitingCount === 0 && !recallDegraded && continuityError === null}
+              aria-hidden="true"
+            ></span>
+            <span>{continuityLine}</span>
+          </div>
+          <div class="continuity-grid">
+            <a class="continuity-metric" href="/tasks">
+              <span class="metric-main">{openPromiseCount}</span>
+              <span class="metric-label">open promises</span>
+            </a>
+            <a class="continuity-metric" class:warn={waitingCount > 0} href="/tasks">
+              <span class="metric-main">{waitingCount}</span>
+              <span class="metric-label">waiting on you</span>
+            </a>
+            <a class="continuity-metric" href="/system">
+              <span class="metric-main">{privacyLabel}</span>
+              <span class="metric-label">{runtimeLabel}</span>
+            </a>
+            <a class="continuity-metric" class:warn={recallDegraded} href="/system">
+              <span class="metric-main">{recallStatus}</span>
+              <span class="metric-label">semantic recall</span>
+            </a>
+          </div>
+          {#if continuityError}
+            <button type="button" class="continuity-retry" onclick={loadContinuity}>
+              Retry promises
+            </button>
+          {/if}
+        </section>
+        <div class="greeting">
+          <p class="greeting-line">{greeting || "Hi, I'm June."}</p>
+          <p class="greeting-sub">I'll remember what matters so you don't have to.</p>
+        </div>
       </div>
     {:else}
       <MessageList
@@ -265,21 +376,114 @@
     flex: 1 1 50%;
   }
 
-  .greeting {
+  .home-state {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    align-items: center;
     justify-content: flex-end;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-2) var(--space-5);
+  }
+
+  .continuity {
+    width: min(100%, 720px);
+    margin: 0 auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--color-bg-raised) 88%, transparent);
+    padding: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .continuity-line {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+    color: var(--color-fg-secondary);
+    font-size: var(--size-sm);
+    line-height: var(--leading-normal);
+  }
+  .continuity-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-pill);
+    flex: 0 0 auto;
+  }
+  .continuity-dot.ok {
+    background: var(--color-success);
+  }
+  .continuity-dot.warn {
+    background: var(--color-warn);
+  }
+  .continuity-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-border);
+  }
+  .continuity-metric {
+    min-width: 0;
+    background: var(--color-bg-base);
+    color: var(--color-fg-primary);
+    text-decoration: none;
+    padding: var(--space-2) var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .continuity-metric:hover {
+    color: var(--color-accent);
+  }
+  .continuity-metric.warn .metric-main {
+    color: var(--color-warn);
+  }
+  .metric-main {
+    font-family: var(--font-mono);
+    font-size: var(--size-sm);
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .metric-label {
+    color: var(--color-fg-subtle);
+    font-size: var(--size-xs);
+    line-height: var(--leading-tight);
+  }
+  .continuity-retry {
+    align-self: flex-start;
+    background: transparent;
+    color: var(--color-fg-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-3);
+    font: inherit;
+    font-size: var(--size-xs);
+    cursor: pointer;
+  }
+  .continuity-retry:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+
+  .greeting {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     text-align: center;
-    padding: 0 var(--space-5) var(--space-5);
+    padding: 0 var(--space-3);
   }
   .greeting-line {
     font-family: var(--font-sans);
     font-size: 26px;
     line-height: 1.4;
-    letter-spacing: -0.01em;
+    letter-spacing: 0;
     color: var(--color-fg-primary);
     margin: 0;
     max-width: 560px;
@@ -502,5 +706,18 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  @media (max-width: 640px) {
+    .home-state {
+      justify-content: center;
+      padding: var(--space-4) 0 var(--space-4);
+    }
+    .continuity-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .continuity-metric {
+      min-height: 64px;
+    }
   }
 </style>
