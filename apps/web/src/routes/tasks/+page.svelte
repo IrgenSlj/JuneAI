@@ -142,6 +142,22 @@
     }
   }
 
+  async function approveAndRetry(task: TaskView, tool: string) {
+    const key = `${task.id}:approve`;
+    if (pendingAction || !tool) return;
+    pendingAction = key;
+    actionError = null;
+    try {
+      const updated = await client.approveTaskTool(profileName.value, task.id, tool);
+      tasks = tasks.map((t) => (t.id === updated.id ? updated : t));
+      openStream(updated);
+    } catch (err) {
+      actionError = err instanceof Error ? err.message : String(err);
+    } finally {
+      pendingAction = null;
+    }
+  }
+
   async function removeTask(task: TaskView) {
     if (pendingAction) return;
     confirmTask = task;
@@ -412,6 +428,16 @@
           <p class="waiting-meta">
             Tool: <code>{step.tool_name}</code>
           </p>
+        {/if}
+        {#if task.blocked_kind === "approval" && step?.tool_name}
+          <button
+            type="button"
+            class="waiting-approve"
+            onclick={() => approveAndRetry(task, step!.tool_name!)}
+            disabled={pendingAction !== null}
+          >
+            {pendingAction === `${task.id}:approve` ? "…" : "Approve & retry"}
+          </button>
         {/if}
       </div>
     {/if}
@@ -798,6 +824,22 @@
   }
   .waiting-meta code {
     color: var(--color-fg-primary);
+  }
+  .waiting-approve {
+    align-self: flex-start;
+    margin-top: var(--space-2);
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--size-sm);
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .waiting-approve:disabled {
+    opacity: 0.6;
+    cursor: default;
   }
 
   .task-deliverable {

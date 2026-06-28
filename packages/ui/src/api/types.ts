@@ -2078,6 +2078,11 @@ export interface components {
              */
             final_deliverable?: string | null;
             /**
+             * Blocked Kind
+             * @description How the promise is blocked while awaiting the user: 'approval' (a consequential action the guard gated) or 'local_only' (a networked tool the privacy dial forbids). Lets the UI pick the right unblock control without parsing the reason text.
+             */
+            blocked_kind?: string | null;
+            /**
              * Approved Tools
              * @description Tools the user has approved for this promise. A retry runs these without re-asking; taint-flagged network actions still always ask.
              */

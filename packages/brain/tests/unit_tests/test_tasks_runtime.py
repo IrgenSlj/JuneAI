@@ -134,6 +134,7 @@ def test_tool_blocked_records_waiting_step_and_awaits_user(
         "Switch to Private-by-default if this networked tool is acceptable, "
         "then retry the promise."
     )
+    assert result.blocked_kind == "local_only"
     assert result.final_deliverable == "I need approval before searching the web."
     blocked_step = result.plan[0]
     assert blocked_step.status == TaskStepStatus.PENDING
@@ -174,6 +175,7 @@ def test_approval_block_records_distinct_reason_and_next_action(
         "(Sends data off your device)."
     )
     assert result.next_action == "Approve this action, then retry the promise."
+    assert result.blocked_kind == "approval"
     blocked_step = result.plan[0]
     assert blocked_step.status == TaskStepStatus.PENDING
     assert blocked_step.description == "Waiting for your approval: send_telegram_message"

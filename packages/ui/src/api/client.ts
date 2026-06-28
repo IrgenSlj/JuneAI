@@ -369,6 +369,17 @@ export function createJuneClient(options: JuneClientOptions) {
       );
     },
 
+    /**
+     * POST /tasks/{user_id}/{task_id}/approve — approve one gated tool for a
+     * blocked promise and re-run it. The guard still enforces taint rules.
+     */
+    approveTaskTool(userId: string, taskId: string, tool: string): Promise<TaskView> {
+      return requestJson<TaskView>(
+        `/tasks/${encodeURIComponent(userId)}/${encodeURIComponent(taskId)}/approve`,
+        { method: "POST", body: JSON.stringify({ tool }) },
+      );
+    },
+
     /** DELETE /tasks/{user_id}/{task_id} — remove a task. */
     deleteTask(userId: string, taskId: string): Promise<TaskDeleteResponse> {
       return requestJson<TaskDeleteResponse>(

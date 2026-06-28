@@ -35,6 +35,7 @@ class _TraceOutcome:
     blocked_reason: str | None = None
     next_action: str | None = None
     final_deliverable: str | None = None
+    blocked_kind: str | None = None
 
 
 class TaskRuntime:
@@ -94,6 +95,7 @@ class TaskRuntime:
                         or "Change the privacy dial, then retry this promise."
                     ),
                     final_deliverable=outcome.final_deliverable,
+                    kind=outcome.blocked_kind,
                 )
             else:
                 self.store.set_status(
@@ -154,6 +156,7 @@ class TaskRuntime:
         steps_added = 0
         blocked_reason: str | None = None
         next_action: str | None = None
+        blocked_kind: str | None = None
         blocked_step_added = False
         pending: list[dict[str, Any]] = []
         final_parts: list[str] = []
@@ -202,8 +205,10 @@ class TaskRuntime:
                     )
                     next_action = "Approve this action, then retry the promise."
                     waiting_desc = f"Waiting for your approval: {tool_name}"
+                    blocked_kind = "approval"
                 else:
                     blocked_reason = f"{tool_name} is blocked by local-only mode."
+                    blocked_kind = "local_only"
                     next_action = (
                         "Switch to Private-by-default if this networked tool is acceptable, "
                         "then retry the promise."
@@ -262,6 +267,7 @@ class TaskRuntime:
             blocked_reason=blocked_reason,
             next_action=next_action,
             final_deliverable=final_text or None,
+            blocked_kind=blocked_kind,
         )
 
     @staticmethod

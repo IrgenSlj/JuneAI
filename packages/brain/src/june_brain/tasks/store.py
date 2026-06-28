@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     next_action TEXT,
     final_deliverable TEXT,
     approved_tools TEXT DEFAULT '[]',
+    blocked_kind TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     started_at TEXT,
@@ -222,6 +223,7 @@ class TasksStore:
         if status == TaskStatus.RUNNING:
             task.blocked_reason = None
             task.next_action = None
+            task.blocked_kind = None
             task.final_deliverable = None
             if previous in {TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED}:
                 task.finished_at = None
@@ -230,6 +232,7 @@ class TasksStore:
         if status == TaskStatus.COMPLETED:
             task.blocked_reason = None
             task.next_action = None
+            task.blocked_kind = None
         if error is not None:
             task.error = error
         if final_deliverable is not None:
@@ -247,14 +250,20 @@ class TasksStore:
         reason: str,
         next_action: str,
         final_deliverable: str | None = None,
+        kind: str | None = None,
     ) -> Task | None:
-        """Mark a task as waiting on the user with explicit promise metadata."""
+        """Mark a task as waiting on the user with explicit promise metadata.
+
+        ``kind`` records how it is blocked ("approval" or "local_only") so the
+        UI can pick the right unblock control without parsing the reason text.
+        """
         task = self.get(task_id)
         if task is None:
             return None
         task.status = TaskStatus.AWAITING_USER
         task.blocked_reason = reason.strip() or "Waiting on the user."
         task.next_action = next_action.strip() or "Review this promise and retry."
+        task.blocked_kind = kind
         if final_deliverable is not None:
             task.final_deliverable = final_deliverable
         task.finished_at = None
@@ -374,9 +383,10 @@ class TasksStore:
             """INSERT INTO tasks
                 (id, user_id, goal, status, plan, owner_skill, schedule, error,
                  blocked_reason, next_action, final_deliverable, approved_tools,
+                 blocked_kind,
                  created_at, updated_at, started_at, finished_at,
                  is_recurring, recurrence_rule, parent_task_id)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 task.id,
                 task.user_id,
@@ -390,6 +400,7 @@ class TasksStore:
                 task.next_action,
                 task.final_deliverable,
                 json.dumps(list(task.approved_tools)),
+                task.blocked_kind,
                 task.created_at,
                 task.updated_at,
                 task.started_at,
@@ -406,6 +417,7 @@ class TasksStore:
             """UPDATE tasks SET
                 goal=?, status=?, plan=?, owner_skill=?, schedule=?, error=?,
                 blocked_reason=?, next_action=?, final_deliverable=?, approved_tools=?,
+                blocked_kind=?,
                 updated_at=?, started_at=?, finished_at=?,
                 is_recurring=?, recurrence_rule=?, parent_task_id=?
                 WHERE id=? AND user_id=?""",
@@ -420,6 +432,7 @@ class TasksStore:
                 task.next_action,
                 task.final_deliverable,
                 json.dumps(list(task.approved_tools)),
+                task.blocked_kind,
                 task.updated_at,
                 task.started_at,
                 task.finished_at,
@@ -456,6 +469,7 @@ def _row_to_task(row) -> Task:  # type: ignore[no-untyped-def]
         blocked_reason=d.get("blocked_reason"),
         next_action=d.get("next_action"),
         final_deliverable=d.get("final_deliverable"),
+        blocked_kind=d.get("blocked_kind"),
         approved_tools=list(approved_tools) if isinstance(approved_tools, list) else [],
         created_at=d["created_at"],
         updated_at=d["updated_at"],

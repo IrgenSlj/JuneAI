@@ -46,6 +46,15 @@ class TaskView(BaseModel):
         default=None,
         description="Final assistant-facing deliverable captured when the promise finishes.",
     )
+    blocked_kind: str | None = Field(
+        default=None,
+        description=(
+            "How the promise is blocked while awaiting the user: 'approval' (a "
+            "consequential action the guard gated) or 'local_only' (a networked "
+            "tool the privacy dial forbids). Lets the UI pick the right unblock "
+            "control without parsing the reason text."
+        ),
+    )
     approved_tools: list[str] = Field(
         default_factory=list,
         description=(

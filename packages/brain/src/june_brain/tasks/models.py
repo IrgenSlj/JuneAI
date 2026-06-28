@@ -161,6 +161,7 @@ class Task:
             blocked_reason=raw.get("blocked_reason"),
             next_action=raw.get("next_action"),
             final_deliverable=raw.get("final_deliverable"),
+            blocked_kind=raw.get("blocked_kind"),
             approved_tools=list(raw.get("approved_tools") or []),
             created_at=str(raw.get("created_at") or _now()),
             updated_at=str(raw.get("updated_at") or _now()),
