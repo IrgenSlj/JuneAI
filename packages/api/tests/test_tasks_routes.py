@@ -18,12 +18,14 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     test module under packages/brain.
     """
     import june_api.routes.tasks as tasks_route
+    import june_brain.activity as activity_pkg
     import june_brain.memory as memory_pkg
     import june_brain.memory.sqlite as memory_sqlite
 
     monkeypatch.setattr(memory_pkg, "MEMORY_DIR", str(tmp_path), raising=False)
     monkeypatch.setattr(memory_sqlite, "_local", type(memory_sqlite._local)())
     monkeypatch.setattr(tasks_route, "execute_task_in_background", lambda *a, **k: None)
+    activity_pkg.reset_for_tests()
     return TestClient(create_app())
 
 
@@ -168,6 +170,19 @@ def test_post_approve_adds_tool_and_reruns(client: TestClient) -> None:
     assert body["status"] == "running"
     assert body["approved_tools"] == ["send_telegram_message"]
     assert body["started_at"] is not None
+
+
+def test_post_approve_records_approval_activity(client: TestClient) -> None:
+    created = client.post("/tasks/alice", json={"goal": "text my friend"}).json()
+    client.post(
+        f"/tasks/alice/{created['id']}/approve",
+        json={"tool": "send_telegram_message"},
+    )
+    approvals = client.get("/system/activity?kind=approval").json()["entries"]
+    assert len(approvals) == 1
+    assert approvals[0]["label"] == "approved · send_telegram_message"
+    assert approvals[0]["detail"]["decision"] == "approved"
+    assert approvals[0]["detail"]["task_id"] == created["id"]
 
 
 def test_post_approve_rejects_empty_tool(client: TestClient) -> None:

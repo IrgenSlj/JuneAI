@@ -67,7 +67,10 @@ def harness_client(tmp_path):
         "june_api.routes.chat.MemoryManager.extract",
         return_value={"facts": 0, "entities": 0, "relations": 0},
     ):
+        import june_brain.activity as activity_pkg
+
         vector_module.reset_singletons()
+        activity_pkg.reset_for_tests()
         app = create_app()
 
         def _install(loop: Any) -> TestClient:
@@ -250,6 +253,13 @@ def test_chat_forwards_approval_needed_tool_blocked(harness_client):
     assert blocked["action_class"] == "write_network"
     assert blocked["network"] is False
     assert blocked["detail"] == "Sends data off your device"
+
+    # The withheld action is recorded as a visible approval entry in Trust.
+    approvals = client.get("/system/activity?kind=approval").json()["entries"]
+    assert len(approvals) == 1
+    assert approvals[0]["label"] == "needs approval · send_telegram_message"
+    assert approvals[0]["detail"]["decision"] == "requested"
+    assert approvals[0]["detail"]["action_class"] == "write_network"
 
 
 def test_chat_passes_approved_tools_into_session(harness_client):

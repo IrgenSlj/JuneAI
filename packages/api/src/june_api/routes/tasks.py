@@ -8,10 +8,12 @@ module covers CRUD plus a poll-based SSE live-trace endpoint.
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import StreamingResponse
+from june_brain.activity import ActivityLog
 from june_brain.tasks import Task, TasksStore, TaskStatus, execute_task_in_background
 
 from ..schemas import (
@@ -28,11 +30,34 @@ from ..schemas import (
 MAX_POLL_SECONDS = 1800  # 30 minutes hard ceiling
 _TERMINAL = {TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED}
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["tasks"])
 
 
 def _store_for(user_id: str) -> TasksStore:
     return TasksStore(user_id=user_id)
+
+
+def _record_promise_approval(task_id: str, goal: str, tool: str) -> None:
+    """Log the user's decision to approve a gated tool for a promise.
+
+    Makes the grant a visible record in Trust alongside the request. Best-effort:
+    a logging failure must never block the approve-and-retry path.
+    """
+    try:
+        ActivityLog().record(
+            kind="approval",
+            label=f"approved · {tool}",
+            detail={
+                "tool": tool,
+                "task_id": task_id,
+                "goal": goal,
+                "surface": "promise",
+                "decision": "approved",
+            },
+        )
+    except Exception:  # noqa: BLE001
+        logger.debug("promise-approval activity log failed", exc_info=True)
 
 
 def _to_view(task: Task) -> TaskView:
@@ -270,6 +295,7 @@ def approve_task_tool(
     task = store.approve_tool(task_id, payload.tool)
     if task is None:
         raise HTTPException(status_code=404, detail="task not found")
+    _record_promise_approval(task_id, task.goal, payload.tool)
     if task.status == TaskStatus.RUNNING:
         # Already in flight — record the approval but don't start a second run.
         return _to_view(task)

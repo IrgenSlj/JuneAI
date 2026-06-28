@@ -8,6 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
+from june_brain.activity import ActivityLog
 from june_brain.loop.interface import HarnessLoop, SessionState, TurnProvenance, TurnResult
 from june_brain.memory import Memory, MemoryManager
 from june_brain.providers.base import Message
@@ -142,6 +143,28 @@ def _turn_result_events(result: TurnResult) -> Iterable[ChatEvent]:
 
 
 
+def _record_approval_request(tool_name: str, action_class: str, reason: str) -> None:
+    """Log a consequential action June withheld pending the user's approval.
+
+    Makes the approval gate a visible record in Trust, not just an in-stream
+    event. Best-effort: a logging failure must never break the chat stream.
+    """
+    try:
+        ActivityLog().record(
+            kind="approval",
+            label=f"needs approval · {tool_name}",
+            detail={
+                "tool": tool_name,
+                "action_class": action_class,
+                "reason": reason,
+                "surface": "chat",
+                "decision": "requested",
+            },
+        )
+    except Exception:  # noqa: BLE001
+        logger.debug("approval-request activity log failed", exc_info=True)
+
+
 async def _iter_harness_events(
     loop: HarnessLoop,
     request: ChatRequest,
@@ -185,6 +208,8 @@ async def _iter_harness_events(
                 #  - Guard approval gate (needs_approval=True): a consequential
                 #    action June will not take without the user's explicit OK;
                 #    the UI renders an approval card with the action class/reason.
+                if ev.needs_approval:
+                    _record_approval_request(ev.tool_name, ev.action_class, ev.detail)
                 yield _event_to_sse(
                     ChatEvent(
                         type="tool_blocked",
