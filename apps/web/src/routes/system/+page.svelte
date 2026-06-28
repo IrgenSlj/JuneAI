@@ -664,8 +664,11 @@
       {:else}
         <ul class="activity-list">
           {#each activity as entry (entry.id)}
-            <li class="activity-row">
-              <span class="activity-kind">{entry.kind}</span>
+            <li class="activity-row" class:activity-row-approval={entry.kind === "approval"}>
+              <span
+                class="activity-kind"
+                class:activity-kind-approval={entry.kind === "approval"}
+              >{entry.kind}</span>
               <span class="activity-label">{entry.label}</span>
               {#if entry.status !== null && entry.status !== undefined}
                 <span class="activity-status activity-status-{statusKind(entry.status)}">
@@ -1239,6 +1242,16 @@
     color: var(--color-fg-subtle);
     text-transform: uppercase;
     letter-spacing: 0.06em;
+  }
+  /* Approvals are trust-critical — give them an accent so they stand out among
+     routine request/tool rows in the glass box. */
+  .activity-row-approval {
+    border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+    background: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg));
+  }
+  .activity-kind-approval {
+    color: var(--color-accent);
+    font-weight: 700;
   }
   .activity-label {
     font-family: var(--font-mono);
