@@ -17,6 +17,7 @@ from june_brain.config_store import (
     load_stored_config,
     save_stored_config,
 )
+from june_brain.memory.embeddings import default_embed_model
 from june_brain.ollama_manager import is_model_available, is_ollama_running
 
 from ..schemas import SetupApplyRequest, SetupApplyResponse, SetupStatus
@@ -40,10 +41,31 @@ def get_setup_status() -> SetupStatus:
 
     ollama_reachable = False
     ollama_has_model = False
+    embedding_model = default_embed_model()
+    embedding_available = False
+    semantic_recall_status = "unknown"
+    semantic_recall_detail = "Semantic recall readiness was not checked for this runtime."
     if runtime.preset_key == "gemma":
         ollama_reachable = is_ollama_running(runtime.base_url)
         if ollama_reachable:
             ollama_has_model = is_model_available(runtime.model, runtime.base_url)
+            embedding_available = is_model_available(embedding_model, runtime.base_url)
+            if embedding_available:
+                semantic_recall_status = "ready"
+                semantic_recall_detail = (
+                    f"Embedding model {embedding_model!r} is available for semantic recall."
+                )
+            else:
+                semantic_recall_status = "degraded"
+                semantic_recall_detail = (
+                    f"Embedding model {embedding_model!r} is not pulled; semantic recall "
+                    "falls back to SQLite keyword search."
+                )
+        else:
+            semantic_recall_status = "degraded"
+            semantic_recall_detail = (
+                "Ollama is not reachable; semantic recall falls back to SQLite keyword search."
+            )
 
     api_key_present = bool(runtime.api_key) and runtime.api_key != "ollama"
 
@@ -58,6 +80,10 @@ def get_setup_status() -> SetupStatus:
         model=runtime.model,
         ollama_reachable=ollama_reachable,
         ollama_has_model=ollama_has_model,
+        embedding_model=embedding_model,
+        embedding_available=embedding_available,
+        semantic_recall_status=semantic_recall_status,
+        semantic_recall_detail=semantic_recall_detail,
         api_key_present=api_key_present,
         user_name=stored.user_name or "",
     )

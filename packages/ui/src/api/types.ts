@@ -1567,6 +1567,30 @@ export interface components {
              */
             ollama_has_model: boolean;
             /**
+             * Embedding Model
+             * @description Configured local embedding model used for semantic recall.
+             * @default
+             */
+            embedding_model: string;
+            /**
+             * Embedding Available
+             * @description True when the configured local embedding model is available.
+             * @default false
+             */
+            embedding_available: boolean;
+            /**
+             * Semantic Recall Status
+             * @description 'ready' when semantic recall can embed queries, 'degraded' when it falls back to keyword search.
+             * @default unknown
+             */
+            semantic_recall_status: string;
+            /**
+             * Semantic Recall Detail
+             * @description Human-readable explanation of semantic recall readiness.
+             * @default
+             */
+            semantic_recall_detail: string;
+            /**
              * Api Key Present
              * @description Gemini preset only.
              * @default false

@@ -3055,6 +3055,30 @@
             "description": "Gemma preset only.",
             "default": false
           },
+          "embedding_model": {
+            "type": "string",
+            "title": "Embedding Model",
+            "description": "Configured local embedding model used for semantic recall.",
+            "default": ""
+          },
+          "embedding_available": {
+            "type": "boolean",
+            "title": "Embedding Available",
+            "description": "True when the configured local embedding model is available.",
+            "default": false
+          },
+          "semantic_recall_status": {
+            "type": "string",
+            "title": "Semantic Recall Status",
+            "description": "'ready' when semantic recall can embed queries, 'degraded' when it falls back to keyword search.",
+            "default": "unknown"
+          },
+          "semantic_recall_detail": {
+            "type": "string",
+            "title": "Semantic Recall Detail",
+            "description": "Human-readable explanation of semantic recall readiness.",
+            "default": ""
+          },
           "api_key_present": {
             "type": "boolean",
             "title": "Api Key Present",

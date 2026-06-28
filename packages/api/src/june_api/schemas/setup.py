@@ -29,6 +29,22 @@ class SetupStatus(BaseModel):
     model: str = Field(default="", description="Active model identifier, if any.")
     ollama_reachable: bool = Field(default=False, description="Gemma preset only.")
     ollama_has_model: bool = Field(default=False, description="Gemma preset only.")
+    embedding_model: str = Field(
+        default="",
+        description="Configured local embedding model used for semantic recall.",
+    )
+    embedding_available: bool = Field(
+        default=False,
+        description="True when the configured local embedding model is available.",
+    )
+    semantic_recall_status: str = Field(
+        default="unknown",
+        description="'ready' when semantic recall can embed queries, 'degraded' when it falls back to keyword search.",
+    )
+    semantic_recall_detail: str = Field(
+        default="",
+        description="Human-readable explanation of semantic recall readiness.",
+    )
     api_key_present: bool = Field(default=False, description="Gemini preset only.")
     user_name: str = Field(default="", description="User's name, if set.")
 
