@@ -279,6 +279,29 @@ honesty fixed, graceful degradation shipped in the same change).
 
 ## Progress Log
 
+### 2026-06-28 - Autonomous Tranche (deadlines, trash lifecycle, skill scopes)
+
+Pushed on `main`, continuing the continuity engine autonomously.
+
+- Reversible forget extended to graph entities; trash surface generalized to
+  ref-based (`ForgottenMemory{ref,kind,text,...}`, restore by ref). Facts +
+  entities are now both reversible. Structured rows remain a documented follow-up.
+- Promise deadlines: `due_at` persisted (additive migration), set on create and
+  via PATCH (empty clears, null leaves unchanged), surfaced on the Promises page
+  (urgency badge + inline editor) and the home continuity summary (overdue /
+  due-soon counts, metric, status dot). Due state derived at read time — no
+  timer (ADR 0016).
+- Trash lifecycle completed: `DELETE /memory/{user}/forgotten` purges the trash;
+  Memory page gained an "Empty trash" control. Reversible until explicitly
+  emptied.
+- Skill capability scopes: each skill shows plain-language scopes ("sends data
+  off device", "runs code", ...) derived from its tools' guard action classes
+  (ADR 0021) — honest, not a manifest claim; network/execute highlighted.
+
+Validation: full gate green after each slice (688 backend tests at the last
+slice); OpenAPI client regenerated where schemas changed. Live API smoke-tested
+end-to-end (deadline create/clear, approve+activity record).
+
 ### 2026-06-28 - Reversible Forget (Memory Governance)
 
 Pushed on `main`. Closed a stated non-negotiable the code violated: forgetting
