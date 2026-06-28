@@ -254,6 +254,37 @@ to `main`, and recorded below.
 
 ## Progress Log
 
+### 2026-06-28 - Approval Gate As Visible State
+
+Pushed on `main`. Made the guard's approval gate (ADR 0021, S6.2) a first-class,
+observable product state instead of prose the model relays. Previously only the
+Local-only egress block emitted a structured event; a consequential action the
+guard withheld (network egress, code execution, tainted reads) reached the user
+as a fake `tool_result` carrying "[ACTION BLOCKED]" text.
+
+- Loop now records structured block details and emits a `tool_blocked` event
+  with `needs_approval` and `action_class` for each withheld call, instead of a
+  misleading `tool_result`. The model still gets the observation to relay.
+- `/chat` SSE forwards `needs_approval` and `action_class` and stops hardcoding
+  `network=True`, so the UI can tell a dial-change block from an approval gate.
+- `ChatRequest` accepts a per-conversation `approved_tools` allow-list, fed into
+  the session; the chat surface renders a distinct approval card and an
+  "Approve & retry" path that adds the tool and re-sends.
+- Promises distinguish the two blocks: the runtime branches on `needs_approval`,
+  records a distinct `blocked_reason`/`next_action`, and persists a structured
+  `blocked_kind` ("approval"|"local_only", additive migration) so the UI never
+  parses reason text.
+- Promises persist an `approved_tools` allow-list; `POST /tasks/{u}/{id}/approve`
+  approves one tool and re-runs, and the runtime carries the list into its
+  session. Taint-flagged network actions always ask regardless.
+- Promises page shows an "Approve & retry" button for approval-blocked promises.
+
+Validation:
+
+- Focused tests: loop egress/guard, chat stream, tasks runtime/store/routes.
+- Full gate: `./tools/check.sh` passed with `673` backend tests, frontend
+  checks, OpenAPI drift check, Ruff, and the narrowed mypy real-bug gate.
+
 ### 2026-06-28 - Phase 0 Runtime Truth
 
 Pushed on branch `codex/development-plan-implementation`:
