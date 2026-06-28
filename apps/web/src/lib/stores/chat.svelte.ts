@@ -25,6 +25,13 @@ export const chat = $state({
   /** Set when a networked tool was blocked by Local-only mode this turn, so the
    * UI can offer a one-click switch + retry. Cleared on the next send. */
   blockedTool: null as { name: string } | null,
+  /** Set when the guard withheld a consequential action pending the user's
+   * explicit approval (network egress, code execution). Distinct from
+   * blockedTool: resolved by approving the one action, not changing the dial. */
+  pendingApproval: null as { name: string; actionClass: string; reason: string } | null,
+  /** Tools the user approved for this conversation (the guard's allow-list).
+   * Sent with every turn so an approved action runs without asking again. */
+  approvedTools: [] as string[],
   /** The last user message, kept so a mode-switch can retry the same request. */
   lastUserMessage: "" as string,
 });
@@ -104,6 +111,22 @@ export async function switchToPrivateAndRetry(): Promise<void> {
   if (retry) await sendMessage(retry);
 }
 
+/**
+ * Approve the single consequential action June asked about and retry the last
+ * request. The tool joins this conversation's allow-list, so the guard waives
+ * it from here on (taint-flagged network actions still always ask).
+ */
+export async function approveAndRetry(): Promise<void> {
+  const pending = chat.pendingApproval;
+  if (!pending) return;
+  if (!chat.approvedTools.includes(pending.name)) {
+    chat.approvedTools = [...chat.approvedTools, pending.name];
+  }
+  chat.pendingApproval = null;
+  const retry = chat.lastUserMessage;
+  if (retry) await sendMessage(retry);
+}
+
 export async function sendMessage(text: string): Promise<void> {
   if (chat.streaming) return;
 
@@ -125,6 +148,7 @@ export async function sendMessage(text: string): Promise<void> {
   chat.streamStartedAt = Date.now();
   chat.abortController = new AbortController();
   chat.blockedTool = null;
+  chat.pendingApproval = null;
   chat.lastUserMessage = text;
   currentReasoningStepId = null;
 
@@ -133,6 +157,7 @@ export async function sendMessage(text: string): Promise<void> {
       user_id: profileName.value,
       message: text,
       skill: "assistant",
+      approved_tools: chat.approvedTools,
       signal: chat.abortController.signal,
     })) {
       handleEvent(event, assistantId);
@@ -223,13 +248,27 @@ function handleEvent(event: ChatEvent, assistantId: string) {
       });
       break;
     case "tool_blocked":
-      chat.blockedTool = { name: event.tool_name };
-      pushActivity({
-        kind: "tool_blocked",
-        label: `blocked · ${event.tool_name} (local-only)`,
-        network: true,
-        detail: event.detail,
-      });
+      if (event.needs_approval) {
+        // A consequential action June won't take without explicit approval.
+        chat.pendingApproval = {
+          name: event.tool_name,
+          actionClass: event.action_class ?? "",
+          reason: event.detail ?? "",
+        };
+        pushActivity({
+          kind: "tool_blocked",
+          label: `blocked · ${event.tool_name} (needs approval)`,
+          detail: event.detail,
+        });
+      } else {
+        chat.blockedTool = { name: event.tool_name };
+        pushActivity({
+          kind: "tool_blocked",
+          label: `blocked · ${event.tool_name} (local-only)`,
+          network: true,
+          detail: event.detail,
+        });
+      }
       break;
     case "reasoning": {
       if (currentReasoningStepId !== null) {

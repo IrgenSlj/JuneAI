@@ -15,6 +15,7 @@
     voteRecall,
     loadHistory,
     switchToPrivateAndRetry,
+    approveAndRetry,
   } from "$lib/stores/chat.svelte.js";
   import { system, loadSystem } from "$lib/stores/system.svelte.js";
   import { onMount } from "svelte";
@@ -260,6 +261,17 @@
         </span>
         <button type="button" class="blocked-switch" onclick={switchToPrivateAndRetry}>
           Switch to Private-by-default &amp; retry
+        </button>
+      </div>
+    {/if}
+    {#if chat.pendingApproval && !chat.streaming}
+      <div class="approval-notice" role="status">
+        <span class="blocked-text">
+          June wants to use <strong>{chat.pendingApproval.name}</strong>{#if chat.pendingApproval.reason}
+            — {chat.pendingApproval.reason}{/if}. This needs your approval before it runs.
+        </span>
+        <button type="button" class="blocked-switch" onclick={approveAndRetry}>
+          Approve &amp; retry
         </button>
       </div>
     {/if}
@@ -537,6 +549,21 @@
     border: 1px solid var(--color-warn);
     border-radius: var(--radius-md);
     background: color-mix(in srgb, var(--color-warn) 10%, transparent);
+    font-size: var(--size-sm);
+    color: var(--color-fg-secondary);
+  }
+  .approval-notice {
+    max-width: 820px;
+    width: 100%;
+    margin: 0 auto var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    border: 1px solid var(--color-accent);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
     font-size: var(--size-sm);
     color: var(--color-fg-secondary);
   }
