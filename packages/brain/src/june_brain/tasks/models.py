@@ -104,6 +104,9 @@ class Task:
     owner_skill: str | None = None
     schedule: str | None = None
     error: str | None = None
+    blocked_reason: str | None = None
+    next_action: str | None = None
+    final_deliverable: str | None = None
     created_at: str = field(default_factory=_now)
     updated_at: str = field(default_factory=_now)
     started_at: str | None = None
@@ -122,6 +125,9 @@ class Task:
             "owner_skill": self.owner_skill,
             "schedule": self.schedule,
             "error": self.error,
+            "blocked_reason": self.blocked_reason,
+            "next_action": self.next_action,
+            "final_deliverable": self.final_deliverable,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "started_at": self.started_at,
@@ -142,6 +148,9 @@ class Task:
             owner_skill=raw.get("owner_skill"),
             schedule=raw.get("schedule"),
             error=raw.get("error"),
+            blocked_reason=raw.get("blocked_reason"),
+            next_action=raw.get("next_action"),
+            final_deliverable=raw.get("final_deliverable"),
             created_at=str(raw.get("created_at") or _now()),
             updated_at=str(raw.get("updated_at") or _now()),
             started_at=raw.get("started_at"),

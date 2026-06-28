@@ -3771,6 +3771,42 @@
             ],
             "title": "Error"
           },
+          "blocked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked Reason",
+            "description": "Why this promise is waiting on the user, if blocked."
+          },
+          "next_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Action",
+            "description": "Plain-language action the user can take to unblock the promise."
+          },
+          "final_deliverable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Deliverable",
+            "description": "Final assistant-facing deliverable captured when the promise finishes."
+          },
           "created_at": {
             "type": "string",
             "title": "Created At"

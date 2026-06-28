@@ -401,13 +401,25 @@
       <div class="task-waiting" role="status">
         <div class="waiting-title">Waiting on you</div>
         <p>
-          {step?.description || "June needs your approval before this promise can continue."}
+          {task.blocked_reason ||
+            step?.description ||
+            "June needs your approval before this promise can continue."}
         </p>
+        {#if task.next_action}
+          <p>{task.next_action}</p>
+        {/if}
         {#if step?.tool_name}
           <p class="waiting-meta">
             Tool: <code>{step.tool_name}</code>
           </p>
         {/if}
+      </div>
+    {/if}
+
+    {#if task.status === "completed" && task.final_deliverable}
+      <div class="task-deliverable">
+        <div class="deliverable-title">Deliverable</div>
+        <p>{task.final_deliverable}</p>
       </div>
     {/if}
 
@@ -777,7 +789,7 @@
   .waiting-title {
     font-size: var(--size-xs);
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0;
     text-transform: uppercase;
     color: var(--color-accent);
   }
@@ -786,6 +798,34 @@
   }
   .waiting-meta code {
     color: var(--color-fg-primary);
+  }
+
+  .task-deliverable {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .task-deliverable p {
+    margin: 0;
+    color: var(--color-fg-muted);
+    font-size: var(--size-sm);
+    line-height: var(--leading-normal);
+    display: -webkit-box;
+    line-clamp: 4;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .deliverable-title {
+    font-size: var(--size-xs);
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    color: var(--color-fg-subtle);
   }
 
   .trace-wrap {

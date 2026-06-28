@@ -56,6 +56,7 @@ def test_executing_a_goal_only_task_records_the_final_response(store: TasksStore
     result = asyncio.run(runtime.execute(task.id))
 
     assert result.status == TaskStatus.COMPLETED
+    assert result.final_deliverable == "hello there"
     assert len(result.plan) == 1
     assert result.plan[0].description == "Final response"
     assert result.plan[0].tool_result == "hello there"
@@ -128,6 +129,12 @@ def test_tool_blocked_records_waiting_step_and_awaits_user(
 
     assert result.status == TaskStatus.AWAITING_USER
     assert result.finished_at is None
+    assert result.blocked_reason == "web_search is blocked by local-only mode."
+    assert result.next_action == (
+        "Switch to Private-by-default if this networked tool is acceptable, "
+        "then retry the promise."
+    )
+    assert result.final_deliverable == "I need approval before searching the web."
     blocked_step = result.plan[0]
     assert blocked_step.status == TaskStepStatus.PENDING
     assert blocked_step.description == (

@@ -29,6 +29,9 @@ CREATE TABLE IF NOT EXISTS tasks (
     owner_skill TEXT,
     schedule TEXT,
     error TEXT,
+    blocked_reason TEXT,
+    next_action TEXT,
+    final_deliverable TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     started_at TEXT,
@@ -75,6 +78,9 @@ class TasksStore:
         schedule: str | None = None,
         plan: list[TaskStep] | None = None,
         status: TaskStatus = TaskStatus.PLANNING,
+        blocked_reason: str | None = None,
+        next_action: str | None = None,
+        final_deliverable: str | None = None,
         is_recurring: bool = False,
         recurrence_rule: str = "",
         parent_task_id: str | None = None,
@@ -86,6 +92,9 @@ class TasksStore:
             plan=list(plan or []),
             owner_skill=owner_skill,
             schedule=schedule,
+            blocked_reason=blocked_reason,
+            next_action=next_action,
+            final_deliverable=final_deliverable,
             is_recurring=is_recurring,
             recurrence_rule=recurrence_rule,
             parent_task_id=parent_task_id,
@@ -198,23 +207,58 @@ class TasksStore:
         status: TaskStatus,
         *,
         error: str | None = None,
+        final_deliverable: str | None = None,
     ) -> Task | None:
         task = self.get(task_id)
         if task is None:
             return None
+        previous = task.status
         task.status = status
         now = _now()
         task.updated_at = now
         if status == TaskStatus.RUNNING and task.started_at is None:
             task.started_at = now
+        if status == TaskStatus.RUNNING:
+            task.blocked_reason = None
+            task.next_action = None
+            task.final_deliverable = None
+            if previous in {TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED}:
+                task.finished_at = None
         if status in {TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED}:
             task.finished_at = now
+        if status == TaskStatus.COMPLETED:
+            task.blocked_reason = None
+            task.next_action = None
         if error is not None:
             task.error = error
+        if final_deliverable is not None:
+            task.final_deliverable = final_deliverable
         self._update(task)
         # Spawn a child task if this is a recurring task that just completed
         if status == TaskStatus.COMPLETED and task.is_recurring:
             self._spawn_recurring_child(task)
+        return task
+
+    def set_blocked(
+        self,
+        task_id: str,
+        *,
+        reason: str,
+        next_action: str,
+        final_deliverable: str | None = None,
+    ) -> Task | None:
+        """Mark a task as waiting on the user with explicit promise metadata."""
+        task = self.get(task_id)
+        if task is None:
+            return None
+        task.status = TaskStatus.AWAITING_USER
+        task.blocked_reason = reason.strip() or "Waiting on the user."
+        task.next_action = next_action.strip() or "Review this promise and retry."
+        if final_deliverable is not None:
+            task.final_deliverable = final_deliverable
+        task.finished_at = None
+        task.updated_at = _now()
+        self._update(task)
         return task
 
     def delete(self, task_id: str) -> bool:
@@ -311,9 +355,10 @@ class TasksStore:
         self._conn.execute(
             """INSERT INTO tasks
                 (id, user_id, goal, status, plan, owner_skill, schedule, error,
+                 blocked_reason, next_action, final_deliverable,
                  created_at, updated_at, started_at, finished_at,
                  is_recurring, recurrence_rule, parent_task_id)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 task.id,
                 task.user_id,
@@ -323,6 +368,9 @@ class TasksStore:
                 task.owner_skill,
                 task.schedule,
                 task.error,
+                task.blocked_reason,
+                task.next_action,
+                task.final_deliverable,
                 task.created_at,
                 task.updated_at,
                 task.started_at,
@@ -338,6 +386,7 @@ class TasksStore:
         self._conn.execute(
             """UPDATE tasks SET
                 goal=?, status=?, plan=?, owner_skill=?, schedule=?, error=?,
+                blocked_reason=?, next_action=?, final_deliverable=?,
                 updated_at=?, started_at=?, finished_at=?,
                 is_recurring=?, recurrence_rule=?, parent_task_id=?
                 WHERE id=? AND user_id=?""",
@@ -348,6 +397,9 @@ class TasksStore:
                 task.owner_skill,
                 task.schedule,
                 task.error,
+                task.blocked_reason,
+                task.next_action,
+                task.final_deliverable,
                 task.updated_at,
                 task.started_at,
                 task.finished_at,
@@ -377,6 +429,9 @@ def _row_to_task(row) -> Task:  # type: ignore[no-untyped-def]
         owner_skill=d.get("owner_skill"),
         schedule=d.get("schedule"),
         error=d.get("error"),
+        blocked_reason=d.get("blocked_reason"),
+        next_action=d.get("next_action"),
+        final_deliverable=d.get("final_deliverable"),
         created_at=d["created_at"],
         updated_at=d["updated_at"],
         started_at=d.get("started_at"),

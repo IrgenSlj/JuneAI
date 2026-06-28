@@ -2025,6 +2025,21 @@ export interface components {
             schedule?: string | null;
             /** Error */
             error?: string | null;
+            /**
+             * Blocked Reason
+             * @description Why this promise is waiting on the user, if blocked.
+             */
+            blocked_reason?: string | null;
+            /**
+             * Next Action
+             * @description Plain-language action the user can take to unblock the promise.
+             */
+            next_action?: string | null;
+            /**
+             * Final Deliverable
+             * @description Final assistant-facing deliverable captured when the promise finishes.
+             */
+            final_deliverable?: string | null;
             /** Created At */
             created_at: string;
             /** Updated At */

@@ -196,3 +196,30 @@ def test_task_round_trips_plan_through_json(store: TasksStore) -> None:
     assert fetched is not None
     assert [s.description for s in fetched.plan] == ["alpha", "beta"]
     assert fetched.plan[1].tool_args == {"k": "v"}
+
+
+def test_blocked_promise_metadata_persists_and_clears_on_retry(store: TasksStore) -> None:
+    t = store.create(goal="Search for current prices")
+    blocked = store.set_blocked(
+        t.id,
+        reason="web_search is blocked by local-only mode.",
+        next_action="Switch privacy mode, then retry.",
+        final_deliverable="I need approval before searching.",
+    )
+    assert blocked is not None
+    assert blocked.status == TaskStatus.AWAITING_USER
+    assert blocked.blocked_reason == "web_search is blocked by local-only mode."
+    assert blocked.next_action == "Switch privacy mode, then retry."
+    assert blocked.final_deliverable == "I need approval before searching."
+    assert blocked.finished_at is None
+
+    fetched = store.get(t.id)
+    assert fetched is not None
+    assert fetched.blocked_reason == "web_search is blocked by local-only mode."
+    assert fetched.next_action == "Switch privacy mode, then retry."
+
+    retried = store.set_status(t.id, TaskStatus.RUNNING)
+    assert retried is not None
+    assert retried.blocked_reason is None
+    assert retried.next_action is None
+    assert retried.final_deliverable is None

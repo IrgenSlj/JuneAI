@@ -81,6 +81,25 @@ def test_patch_status_failed_with_error(client: TestClient) -> None:
     assert body["error"] == "nope"
 
 
+def test_task_view_includes_promise_metadata(client: TestClient) -> None:
+    from june_brain.tasks import TasksStore
+
+    created = client.post("/tasks/alice", json={"goal": "search the web"}).json()
+    store = TasksStore(user_id="alice")
+    store.set_blocked(
+        created["id"],
+        reason="web_search is blocked by local-only mode.",
+        next_action="Switch privacy mode, then retry.",
+        final_deliverable="I need approval before searching.",
+    )
+
+    body = client.get(f"/tasks/alice/{created['id']}").json()
+    assert body["status"] == "awaiting_user"
+    assert body["blocked_reason"] == "web_search is blocked by local-only mode."
+    assert body["next_action"] == "Switch privacy mode, then retry."
+    assert body["final_deliverable"] == "I need approval before searching."
+
+
 def test_patch_rejects_unknown_status(client: TestClient) -> None:
     created = client.post("/tasks/alice", json={"goal": "x"}).json()
     res = client.patch(f"/tasks/alice/{created['id']}", json={"status": "wibble"})

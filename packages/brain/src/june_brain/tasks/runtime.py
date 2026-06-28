@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from dataclasses import dataclass
 from datetime import UTC
 from typing import Any
 
@@ -27,6 +28,13 @@ from .store import TasksStore
 logger = logging.getLogger(__name__)
 
 _MAX_STEPS = 25  # Safety: a runaway loop should stop here.
+
+
+@dataclass(frozen=True)
+class _TraceOutcome:
+    blocked_reason: str | None = None
+    next_action: str | None = None
+    final_deliverable: str | None = None
 
 
 class TaskRuntime:
@@ -70,17 +78,29 @@ class TaskRuntime:
             raise
 
         try:
-            blocked_on_tool = self._record_trace(task_id, events)
+            outcome = self._record_trace(task_id, events)
             # Cooperative cancel: if the user PATCHed status=cancelled while
             # the loop was running, preserve that state instead of forcing
             # the row to COMPLETED. The trace we just recorded still lands so
             # the user can see how far the task got before being stopped.
             if self._was_cancelled(task_id):
                 logger.info("task %s cancelled mid-run; preserving cancelled state", task_id)
-            elif blocked_on_tool:
-                self.store.set_status(task_id, TaskStatus.AWAITING_USER)
+            elif outcome.blocked_reason:
+                self.store.set_blocked(
+                    task_id,
+                    reason=outcome.blocked_reason,
+                    next_action=(
+                        outcome.next_action
+                        or "Change the privacy dial, then retry this promise."
+                    ),
+                    final_deliverable=outcome.final_deliverable,
+                )
             else:
-                self.store.set_status(task_id, TaskStatus.COMPLETED)
+                self.store.set_status(
+                    task_id,
+                    TaskStatus.COMPLETED,
+                    final_deliverable=outcome.final_deliverable,
+                )
         except Exception as exc:  # noqa: BLE001
             self.store.set_status(task_id, TaskStatus.FAILED, error=str(exc))
             logger.exception("task %s failed during trace recording", task_id)
@@ -118,7 +138,7 @@ class TaskRuntime:
             events.append(ev)
         return events
 
-    def _record_trace(self, task_id: str, events: list[Any]) -> bool:
+    def _record_trace(self, task_id: str, events: list[Any]) -> _TraceOutcome:
         """Translate StreamEvents into TaskStep entries.
 
         The loop emits a ``tool_call`` event when it requests a tool and a
@@ -127,7 +147,8 @@ class TaskRuntime:
         assistant response.
         """
         steps_added = 0
-        blocked_on_tool = False
+        blocked_reason: str | None = None
+        next_action: str | None = None
         blocked_step_added = False
         pending: list[dict[str, Any]] = []
         final_parts: list[str] = []
@@ -161,10 +182,14 @@ class TaskRuntime:
                 )
                 steps_added += 1
             elif etype == "tool_blocked":
-                blocked_on_tool = True
+                tool_name = str(getattr(ev, "tool_name", "") or "tool")
+                blocked_reason = f"{tool_name} is blocked by local-only mode."
+                next_action = (
+                    "Switch to Private-by-default if this networked tool is acceptable, "
+                    "then retry the promise."
+                )
                 if steps_added >= _MAX_STEPS and blocked_step_added:
                     continue
-                tool_name = str(getattr(ev, "tool_name", "") or "tool")
                 detail = str(getattr(ev, "detail", "") or "").strip()
                 self.store.append_step(
                     task_id,
@@ -214,7 +239,11 @@ class TaskRuntime:
                 ),
             )
 
-        return blocked_on_tool
+        return _TraceOutcome(
+            blocked_reason=blocked_reason,
+            next_action=next_action,
+            final_deliverable=final_text or None,
+        )
 
     @staticmethod
     def _now() -> str:

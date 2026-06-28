@@ -58,6 +58,8 @@
   }
 
   function isLocalOnlyBlocked(task: TaskView): boolean {
+    const blockedReason = String(task.blocked_reason ?? "").toLowerCase();
+    if (blockedReason.includes("local-only")) return true;
     return (task.plan ?? []).some((step) => {
       const description = String(step.description ?? "").toLowerCase();
       const result = String(step.tool_result ?? "").toLowerCase();

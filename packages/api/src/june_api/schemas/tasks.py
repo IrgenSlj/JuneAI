@@ -34,6 +34,18 @@ class TaskView(BaseModel):
     owner_skill: str | None = None
     schedule: str | None = None
     error: str | None = None
+    blocked_reason: str | None = Field(
+        default=None,
+        description="Why this promise is waiting on the user, if blocked.",
+    )
+    next_action: str | None = Field(
+        default=None,
+        description="Plain-language action the user can take to unblock the promise.",
+    )
+    final_deliverable: str | None = Field(
+        default=None,
+        description="Final assistant-facing deliverable captured when the promise finishes.",
+    )
     created_at: str
     updated_at: str
     started_at: str | None = None
