@@ -60,6 +60,15 @@ class SkillInfo(BaseModel):
         default_factory=list,
         description="Tools this skill contributes to the agent when running.",
     )
+    scopes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Capability scopes derived from this skill's tools (the guard's "
+            "action taxonomy, ADR 0021): e.g. 'reads local data', 'sends data "
+            "off device', 'runs code'. Shows what a skill can do before use; "
+            "network/execute scopes are the ones to scrutinize."
+        ),
+    )
 
 
 class SkillsResponse(BaseModel):

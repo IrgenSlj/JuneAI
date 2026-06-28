@@ -362,6 +362,19 @@
             <div class="skill-error" role="alert">{skill.error}</div>
           {/if}
 
+          {#if skill.scopes?.length}
+            <div class="skill-scopes" aria-label="What this skill can do">
+              {#each skill.scopes as scope (scope)}
+                <span
+                  class="scope-badge"
+                  class:scope-sensitive={scope === "sends data off device" || scope === "runs code"}
+                >
+                  {scope}
+                </span>
+              {/each}
+            </div>
+          {/if}
+
           {#if skill.tools?.length}
             <details class="tools-wrap" open={skill.tools.length <= 5}>
               <summary>
@@ -820,6 +833,26 @@
     color: var(--color-danger);
     font-size: var(--size-sm);
     font-family: var(--font-mono);
+  }
+
+  .skill-scopes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+  }
+  .scope-badge {
+    font-size: var(--size-xs);
+    padding: 1px var(--space-2);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    color: var(--color-fg-muted);
+    background: var(--color-bg);
+  }
+  /* Network egress and code execution are the scopes worth scrutinizing. */
+  .scope-sensitive {
+    color: var(--color-warn);
+    border-color: var(--color-warn);
+    background: color-mix(in srgb, var(--color-warn) 10%, transparent);
   }
 
   .tools-wrap {

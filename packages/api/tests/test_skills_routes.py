@@ -248,3 +248,38 @@ def test_tool_toggle_unknown_skill_returns_404(client):
         json={"enabled": False},
     )
     assert res.status_code == 404
+
+
+def test_scopes_derived_from_tool_action_classes():
+    """A skill's scopes reflect what its tools actually do, ordered by sensitivity."""
+    from june_api.routes.skills import _scopes_for_tools
+
+    scopes = _scopes_for_tools(
+        [
+            {"name": "save_goal"},       # write_local
+            {"name": "web_search"},      # read_network
+            {"name": "send_telegram"},   # write_network
+            {"name": "run_script"},      # execute
+            {"name": "get_weather"},     # read_local
+        ]
+    )
+    assert scopes == [
+        "runs code",
+        "sends data off device",
+        "reads from the internet",
+        "writes local data",
+        "reads local data",
+    ]
+
+
+def test_scopes_empty_for_no_tools():
+    from june_api.routes.skills import _scopes_for_tools
+
+    assert _scopes_for_tools([]) == []
+
+
+def test_list_skills_includes_scopes(client):
+    payload = client.get("/skills").json()
+    # Fake tools are named "<key>_tool" -> classify_action fallthrough = write_local.
+    for skill in payload["skills"]:
+        assert skill["scopes"] == ["writes local data"]

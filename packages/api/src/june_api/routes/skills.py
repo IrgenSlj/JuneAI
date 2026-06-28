@@ -65,7 +65,40 @@ def _reload_agent_or_500(context: str) -> None:
         ) from exc
 
 
+# Map the guard's action classes (ADR 0021) to plain-language capability scopes
+# shown before a skill is used. Ordered most- to least-sensitive for display.
+_SCOPE_LABELS: dict[str, str] = {
+    "execute": "runs code",
+    "write_network": "sends data off device",
+    "read_network": "reads from the internet",
+    "write_local": "writes local data",
+    "read_local": "reads local data",
+}
+_SCOPE_ORDER = ["execute", "write_network", "read_network", "write_local", "read_local"]
+
+
+def _scopes_for_tools(tools: list[dict]) -> list[str]:
+    """Derive a skill's capability scopes from its tools' action classes.
+
+    Honest by construction: the scope reflects what the tools actually do, not a
+    hand-authored manifest claim. Falls back to no scopes if classification fails.
+    """
+    from june_brain.guard import classify_action
+
+    seen: set[str] = set()
+    for tool in tools:
+        name = str(tool.get("name", ""))
+        if not name:
+            continue
+        try:
+            seen.add(classify_action(name))
+        except Exception:  # noqa: BLE001 — classification is best-effort
+            continue
+    return [_SCOPE_LABELS[c] for c in _SCOPE_ORDER if c in seen]
+
+
 def _status_to_info(payload: dict) -> SkillInfo:
+    raw_tools = payload.get("tools", []) or []
     return SkillInfo(
         key=str(payload.get("key", "")),
         description=str(payload.get("description", "")),
@@ -80,8 +113,9 @@ def _status_to_info(payload: dict) -> SkillInfo:
                 enabled=bool(tool.get("enabled", True)),
                 input_schema=dict(tool.get("input_schema") or {}),
             )
-            for tool in payload.get("tools", []) or []
+            for tool in raw_tools
         ],
+        scopes=_scopes_for_tools(raw_tools),
     )
 
 

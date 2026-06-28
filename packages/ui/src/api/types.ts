@@ -1816,6 +1816,11 @@ export interface components {
              * @description Tools this skill contributes to the agent when running.
              */
             tools?: components["schemas"]["SkillToolInfo"][];
+            /**
+             * Scopes
+             * @description Capability scopes derived from this skill's tools (the guard's action taxonomy, ADR 0021): e.g. 'reads local data', 'sends data off device', 'runs code'. Shows what a skill can do before use; network/execute scopes are the ones to scrutinize.
+             */
+            scopes?: string[];
         };
         /**
          * SkillToggleRequest
