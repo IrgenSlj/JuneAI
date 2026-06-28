@@ -278,10 +278,17 @@ as a fake `tool_result` carrying "[ACTION BLOCKED]" text.
   approves one tool and re-runs, and the runtime carries the list into its
   session. Taint-flagged network actions always ask regardless.
 - Promises page shows an "Approve & retry" button for approval-blocked promises.
+- Both approval moments persist to the activity log as `kind=approval`: a chat
+  block records the withheld action (`decision=requested`), the promise approve
+  endpoint records the grant (`decision=approved`). Best-effort; never breaks the
+  stream or approve path. Filterable via `/system/activity?kind=approval`.
+- Trust renders approval records with an accent border and bold kind badge so
+  trust-critical "June asked / you decided" moments stand out from routine rows.
 
 Validation:
 
-- Focused tests: loop egress/guard, chat stream, tasks runtime/store/routes.
+- Focused tests: loop egress/guard, chat stream, tasks runtime/store/routes,
+  approval activity records.
 - Full gate: `./tools/check.sh` passed with `673` backend tests, frontend
   checks, OpenAPI drift check, Ruff, and the narrowed mypy real-bug gate.
 
