@@ -183,21 +183,35 @@ class TaskRuntime:
                 steps_added += 1
             elif etype == "tool_blocked":
                 tool_name = str(getattr(ev, "tool_name", "") or "tool")
-                blocked_reason = f"{tool_name} is blocked by local-only mode."
-                next_action = (
-                    "Switch to Private-by-default if this networked tool is acceptable, "
-                    "then retry the promise."
-                )
+                detail = str(getattr(ev, "detail", "") or "").strip()
+                # Two block flavours share this event: the guard's approval gate
+                # (a consequential action June won't take without an explicit OK)
+                # and the Local-only egress block (a networked tool the privacy
+                # dial forbids). They need different next actions — approve the
+                # one action vs. change the dial — so the promise must not
+                # conflate them.
+                if getattr(ev, "needs_approval", False):
+                    reason_tail = f" ({detail})" if detail else ""
+                    blocked_reason = (
+                        f"{tool_name} needs your approval before it can run{reason_tail}."
+                    )
+                    next_action = "Approve this action, then retry the promise."
+                    waiting_desc = f"Waiting for your approval: {tool_name}"
+                else:
+                    blocked_reason = f"{tool_name} is blocked by local-only mode."
+                    next_action = (
+                        "Switch to Private-by-default if this networked tool is acceptable, "
+                        "then retry the promise."
+                    )
+                    waiting_desc = (
+                        f"Waiting for user approval: {tool_name} is blocked by local-only mode"
+                    )
                 if steps_added >= _MAX_STEPS and blocked_step_added:
                     continue
-                detail = str(getattr(ev, "detail", "") or "").strip()
                 self.store.append_step(
                     task_id,
                     TaskStep(
-                        description=(
-                            f"Waiting for user approval: {tool_name} is blocked "
-                            "by local-only mode"
-                        ),
+                        description=waiting_desc,
                         tool_name=tool_name,
                         tool_args=dict(getattr(ev, "tool_args", None) or {}),
                         tool_result=detail or None,

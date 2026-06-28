@@ -146,6 +146,40 @@ def test_tool_blocked_records_waiting_step_and_awaits_user(
     assert result.plan[-1].description == "Final response"
 
 
+def test_approval_block_records_distinct_reason_and_next_action(
+    store: TasksStore,
+) -> None:
+    """A guard approval block (needs_approval) must not be labelled local-only;
+    its next action is to approve the action, not change the privacy dial."""
+    task = store.create(goal="Text my friend the plan")
+    events = [
+        StreamEvent(
+            type="tool_blocked",
+            tool_name="send_telegram_message",
+            tool_args={"text": "hi"},
+            detail="Sends data off your device",
+            needs_approval=True,
+            action_class="write_network",
+        ),
+        StreamEvent(type="token", content="I need your OK before sending that."),
+    ]
+    runtime = _runtime_with_events(store, events)
+
+    result = asyncio.run(runtime.execute(task.id))
+
+    assert result.status == TaskStatus.AWAITING_USER
+    assert result.finished_at is None
+    assert result.blocked_reason == (
+        "send_telegram_message needs your approval before it can run "
+        "(Sends data off your device)."
+    )
+    assert result.next_action == "Approve this action, then retry the promise."
+    blocked_step = result.plan[0]
+    assert blocked_step.status == TaskStepStatus.PENDING
+    assert blocked_step.description == "Waiting for your approval: send_telegram_message"
+    assert "local-only" not in blocked_step.description
+
+
 def test_failed_loop_marks_task_failed_with_error(store: TasksStore) -> None:
     task = store.create(goal="boom")
 
