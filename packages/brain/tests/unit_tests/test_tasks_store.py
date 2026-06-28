@@ -223,3 +223,25 @@ def test_blocked_promise_metadata_persists_and_clears_on_retry(store: TasksStore
     assert retried.blocked_reason is None
     assert retried.next_action is None
     assert retried.final_deliverable is None
+
+
+def test_approve_tool_adds_to_allow_list_and_persists(store: TasksStore) -> None:
+    t = store.create(goal="Text my friend")
+    assert t.approved_tools == []
+
+    approved = store.approve_tool(t.id, "send_telegram_message")
+    assert approved is not None
+    assert approved.approved_tools == ["send_telegram_message"]
+
+    # Idempotent: approving the same tool twice does not duplicate it.
+    again = store.approve_tool(t.id, "send_telegram_message")
+    assert again is not None
+    assert again.approved_tools == ["send_telegram_message"]
+
+    fetched = store.get(t.id)
+    assert fetched is not None
+    assert fetched.approved_tools == ["send_telegram_message"]
+
+
+def test_approve_tool_missing_task_returns_none(store: TasksStore) -> None:
+    assert store.approve_tool("does-not-exist", "web_search") is None

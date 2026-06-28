@@ -131,7 +131,12 @@ class TaskRuntime:
         from ..loop.interface import SessionState
 
         loop = self._resolve_loop()
-        session = SessionState(user_id=task.user_id, messages=[], skill="default")
+        session = SessionState(
+            user_id=task.user_id,
+            messages=[],
+            skill="default",
+            approved_tools=set(task.approved_tools),
+        )
         user_msg = Message(role="user", content=task.goal)
         events: list[Any] = []
         async for ev in loop.stream_turn(session, user_msg):

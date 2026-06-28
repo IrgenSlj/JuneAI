@@ -1948,6 +1948,68 @@
         }
       }
     },
+    "/tasks/{user_id}/{task_id}/approve": {
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Approve Task Tool",
+        "description": "Approve one consequential tool for a blocked promise, then re-run it.\n\nThe promise's runtime carries this allow-list into its session, so the\nguard waives the approved action on the retry. Taint-flagged network\nactions still always ask. No-op on an already-running promise.",
+        "operationId": "approve_task_tool_tasks__user_id___task_id__approve_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskApproveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/healthz": {
       "get": {
         "tags": [
@@ -3516,6 +3578,21 @@
         "title": "SystemStatus",
         "description": "What the shells need to display a honest runtime indicator."
       },
+      "TaskApproveRequest": {
+        "properties": {
+          "tool": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Tool",
+            "description": "Name of the tool to approve for this promise. The promise is then re-run with this tool on its allow-list."
+          }
+        },
+        "type": "object",
+        "required": [
+          "tool"
+        ],
+        "title": "TaskApproveRequest"
+      },
       "TaskCreateRequest": {
         "properties": {
           "goal": {
@@ -3814,6 +3891,14 @@
             ],
             "title": "Final Deliverable",
             "description": "Final assistant-facing deliverable captured when the promise finishes."
+          },
+          "approved_tools": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Approved Tools",
+            "description": "Tools the user has approved for this promise. A retry runs these without re-asking; taint-flagged network actions still always ask."
           },
           "created_at": {
             "type": "string",

@@ -15,6 +15,7 @@ from fastapi.responses import StreamingResponse
 from june_brain.tasks import Task, TasksStore, TaskStatus, execute_task_in_background
 
 from ..schemas import (
+    TaskApproveRequest,
     TaskCreateRequest,
     TaskDeleteResponse,
     TaskEventFrame,
@@ -62,6 +63,7 @@ def _to_view(task: Task) -> TaskView:
         blocked_reason=task.blocked_reason,
         next_action=task.next_action,
         final_deliverable=task.final_deliverable,
+        approved_tools=list(task.approved_tools),
         created_at=task.created_at,
         updated_at=task.updated_at,
         started_at=task.started_at,
@@ -244,6 +246,36 @@ def run_task(
         if task is None:
             raise HTTPException(status_code=404, detail="task not found")
         background_tasks.add_task(execute_task_in_background, store, task_id)
+    return _to_view(task)
+
+
+@router.post("/tasks/{user_id}/{task_id}/approve", response_model=TaskView)
+def approve_task_tool(
+    user_id: str,
+    task_id: str,
+    payload: TaskApproveRequest,
+    background_tasks: BackgroundTasks,
+) -> TaskView:
+    """Approve one consequential tool for a blocked promise, then re-run it.
+
+    The promise's runtime carries this allow-list into its session, so the
+    guard waives the approved action on the retry. Taint-flagged network
+    actions still always ask. No-op on an already-running promise.
+    """
+    store = _store_for(user_id)
+    task = store.get(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="task not found")
+    task = store.approve_tool(task_id, payload.tool)
+    if task is None:
+        raise HTTPException(status_code=404, detail="task not found")
+    if task.status == TaskStatus.RUNNING:
+        # Already in flight — record the approval but don't start a second run.
+        return _to_view(task)
+    task = store.set_status(task_id, TaskStatus.RUNNING)
+    if task is None:
+        raise HTTPException(status_code=404, detail="task not found")
+    background_tasks.add_task(execute_task_in_background, store, task_id)
     return _to_view(task)
 
 

@@ -55,6 +55,7 @@ from .system import (
     TurnTraceView,
 )
 from .tasks import (
+    TaskApproveRequest,
     TaskCreateRequest,
     TaskDeleteResponse,
     TaskEventFrame,
@@ -113,6 +114,7 @@ __all__ = [
     "TraceListResponse",
     "TraceSummary",
     "TurnTraceView",
+    "TaskApproveRequest",
     "TaskCreateRequest",
     "TaskDeleteResponse",
     "TaskEventFrame",

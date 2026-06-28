@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     blocked_reason TEXT,
     next_action TEXT,
     final_deliverable TEXT,
+    approved_tools TEXT DEFAULT '[]',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     started_at TEXT,
@@ -261,6 +262,23 @@ class TasksStore:
         self._update(task)
         return task
 
+    def approve_tool(self, task_id: str, tool_name: str) -> Task | None:
+        """Add a tool to this promise's allow-list so a retry can run it.
+
+        Idempotent — approving the same tool twice is a no-op beyond touching
+        ``updated_at``. The guard still enforces taint rules at dispatch time,
+        so an approval never waives the exfiltration pattern.
+        """
+        task = self.get(task_id)
+        if task is None:
+            return None
+        name = tool_name.strip()
+        if name and name not in task.approved_tools:
+            task.approved_tools = [*task.approved_tools, name]
+        task.updated_at = _now()
+        self._update(task)
+        return task
+
     def delete(self, task_id: str) -> bool:
         cur = self._conn.execute(
             "DELETE FROM tasks WHERE id=? AND user_id=?",
@@ -355,10 +373,10 @@ class TasksStore:
         self._conn.execute(
             """INSERT INTO tasks
                 (id, user_id, goal, status, plan, owner_skill, schedule, error,
-                 blocked_reason, next_action, final_deliverable,
+                 blocked_reason, next_action, final_deliverable, approved_tools,
                  created_at, updated_at, started_at, finished_at,
                  is_recurring, recurrence_rule, parent_task_id)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 task.id,
                 task.user_id,
@@ -371,6 +389,7 @@ class TasksStore:
                 task.blocked_reason,
                 task.next_action,
                 task.final_deliverable,
+                json.dumps(list(task.approved_tools)),
                 task.created_at,
                 task.updated_at,
                 task.started_at,
@@ -386,7 +405,7 @@ class TasksStore:
         self._conn.execute(
             """UPDATE tasks SET
                 goal=?, status=?, plan=?, owner_skill=?, schedule=?, error=?,
-                blocked_reason=?, next_action=?, final_deliverable=?,
+                blocked_reason=?, next_action=?, final_deliverable=?, approved_tools=?,
                 updated_at=?, started_at=?, finished_at=?,
                 is_recurring=?, recurrence_rule=?, parent_task_id=?
                 WHERE id=? AND user_id=?""",
@@ -400,6 +419,7 @@ class TasksStore:
                 task.blocked_reason,
                 task.next_action,
                 task.final_deliverable,
+                json.dumps(list(task.approved_tools)),
                 task.updated_at,
                 task.started_at,
                 task.finished_at,
@@ -420,6 +440,10 @@ def _row_to_task(row) -> Task:  # type: ignore[no-untyped-def]
     except (TypeError, ValueError):
         plan_data = []
     d = dict(row)  # convert sqlite3.Row for safe access
+    try:
+        approved_tools = json.loads(d.get("approved_tools") or "[]")
+    except (TypeError, ValueError):
+        approved_tools = []
     return Task(
         id=d["id"],
         user_id=d["user_id"],
@@ -432,6 +456,7 @@ def _row_to_task(row) -> Task:  # type: ignore[no-untyped-def]
         blocked_reason=d.get("blocked_reason"),
         next_action=d.get("next_action"),
         final_deliverable=d.get("final_deliverable"),
+        approved_tools=list(approved_tools) if isinstance(approved_tools, list) else [],
         created_at=d["created_at"],
         updated_at=d["updated_at"],
         started_at=d.get("started_at"),

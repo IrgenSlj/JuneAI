@@ -46,6 +46,13 @@ class TaskView(BaseModel):
         default=None,
         description="Final assistant-facing deliverable captured when the promise finishes.",
     )
+    approved_tools: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Tools the user has approved for this promise. A retry runs these "
+            "without re-asking; taint-flagged network actions still always ask."
+        ),
+    )
     created_at: str
     updated_at: str
     started_at: str | None = None
@@ -78,6 +85,17 @@ class TaskPatchRequest(BaseModel):
         ),
     )
     error: str | None = Field(default=None, description="Optional error message for failed status.")
+
+
+class TaskApproveRequest(BaseModel):
+    tool: str = Field(
+        ...,
+        min_length=1,
+        description=(
+            "Name of the tool to approve for this promise. The promise is then "
+            "re-run with this tool on its allow-list."
+        ),
+    )
 
 
 class TaskDeleteResponse(BaseModel):

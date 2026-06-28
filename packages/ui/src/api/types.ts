@@ -786,6 +786,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tasks/{user_id}/{task_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Task Tool
+         * @description Approve one consequential tool for a blocked promise, then re-run it.
+         *
+         *     The promise's runtime carries this allow-list into its session, so the
+         *     guard waives the approved action on the retry. Taint-flagged network
+         *     actions still always ask. No-op on an already-running promise.
+         */
+        post: operations["approve_task_tool_tasks__user_id___task_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -1929,6 +1953,14 @@ export interface components {
              */
             version: string;
         };
+        /** TaskApproveRequest */
+        TaskApproveRequest: {
+            /**
+             * Tool
+             * @description Name of the tool to approve for this promise. The promise is then re-run with this tool on its allow-list.
+             */
+            tool: string;
+        };
         /** TaskCreateRequest */
         TaskCreateRequest: {
             /**
@@ -2045,6 +2077,11 @@ export interface components {
              * @description Final assistant-facing deliverable captured when the promise finishes.
              */
             final_deliverable?: string | null;
+            /**
+             * Approved Tools
+             * @description Tools the user has approved for this promise. A retry runs these without re-asking; taint-flagged network actions still always ask.
+             */
+            approved_tools?: string[];
             /** Created At */
             created_at: string;
             /** Updated At */
@@ -3707,6 +3744,42 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_task_tool_tasks__user_id___task_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskApproveRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

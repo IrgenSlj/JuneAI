@@ -107,6 +107,10 @@ class Task:
     blocked_reason: str | None = None
     next_action: str | None = None
     final_deliverable: str | None = None
+    # Tools the user approved for this promise (the guard's per-promise
+    # allow-list, ADR 0021 S6.2). Lets a retry run a previously approval-gated
+    # action without re-blocking; taint-flagged network actions still ask.
+    approved_tools: list[str] = field(default_factory=list)
     created_at: str = field(default_factory=_now)
     updated_at: str = field(default_factory=_now)
     started_at: str | None = None
@@ -128,6 +132,7 @@ class Task:
             "blocked_reason": self.blocked_reason,
             "next_action": self.next_action,
             "final_deliverable": self.final_deliverable,
+            "approved_tools": list(self.approved_tools),
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "started_at": self.started_at,
@@ -151,6 +156,7 @@ class Task:
             blocked_reason=raw.get("blocked_reason"),
             next_action=raw.get("next_action"),
             final_deliverable=raw.get("final_deliverable"),
+            approved_tools=list(raw.get("approved_tools") or []),
             created_at=str(raw.get("created_at") or _now()),
             updated_at=str(raw.get("updated_at") or _now()),
             started_at=raw.get("started_at"),

@@ -180,6 +180,21 @@ def test_approval_block_records_distinct_reason_and_next_action(
     assert "local-only" not in blocked_step.description
 
 
+def test_runtime_carries_approved_tools_into_session(store: TasksStore) -> None:
+    """A promise's approved tools become the loop session's allow-list, so the
+    guard waives a previously approved action on retry."""
+    task = store.create(goal="Text my friend")
+    store.approve_tool(task.id, "send_telegram_message")
+
+    loop = _StubLoop([StreamEvent(type="token", content="done")])
+    runtime = TaskRuntime(store, loop_factory=lambda: loop)
+
+    asyncio.run(runtime.execute(task.id))
+
+    assert loop.sessions, "loop was never driven"
+    assert loop.sessions[0].approved_tools == {"send_telegram_message"}
+
+
 def test_failed_loop_marks_task_failed_with_error(store: TasksStore) -> None:
     task = store.create(goal="boom")
 

@@ -157,6 +157,30 @@ def test_post_run_returns_404_for_unknown(client: TestClient) -> None:
     assert res.status_code == 404
 
 
+def test_post_approve_adds_tool_and_reruns(client: TestClient) -> None:
+    created = client.post("/tasks/alice", json={"goal": "text my friend"}).json()
+    res = client.post(
+        f"/tasks/alice/{created['id']}/approve",
+        json={"tool": "send_telegram_message"},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["status"] == "running"
+    assert body["approved_tools"] == ["send_telegram_message"]
+    assert body["started_at"] is not None
+
+
+def test_post_approve_rejects_empty_tool(client: TestClient) -> None:
+    created = client.post("/tasks/alice", json={"goal": "x"}).json()
+    res = client.post(f"/tasks/alice/{created['id']}/approve", json={"tool": ""})
+    assert res.status_code == 422
+
+
+def test_post_approve_returns_404_for_unknown(client: TestClient) -> None:
+    res = client.post("/tasks/alice/missing/approve", json={"tool": "web_search"})
+    assert res.status_code == 404
+
+
 def test_patch_returns_404_for_unknown(client: TestClient) -> None:
     res = client.patch("/tasks/alice/missing", json={"status": "running"})
     assert res.status_code == 404
