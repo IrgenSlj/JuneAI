@@ -14,10 +14,13 @@ from fastapi import APIRouter, HTTPException, Query
 from june_brain.memory import KnowledgeGraph, Memory, MemoryManager, VectorStore
 
 from ..schemas import (
+    ForgottenFact,
+    ForgottenListResponse,
     MemoryDeleteResponse,
     MemoryFact,
     MemoryFeedbackRequest,
     MemoryFeedbackResponse,
+    MemoryRestoreResponse,
     MemorySnapshot,
     MemoryStats,
     MemoryStoreCount,
@@ -444,6 +447,42 @@ def delete_memory_fact(user_id: str, ref: str) -> MemoryDeleteResponse:
     manager = MemoryManager(user_id)
     removed = manager.forget(ref)
     return MemoryDeleteResponse(user_id=user_id, ref=ref, removed=removed)
+
+
+@router.get("/memory/{user_id}/forgotten", response_model=ForgottenListResponse)
+def list_forgotten_facts(user_id: str, limit: int = 50) -> ForgottenListResponse:
+    """Recently forgotten semantic facts that can still be restored.
+
+    Forgetting is conservative and reversible: a forgotten fact is archived to a
+    trash bin (never recalled) rather than destroyed, so the user can undo.
+    """
+    limit = max(1, min(int(limit), 200))
+    rows = MemoryManager(user_id).list_forgotten(limit=limit)
+    facts = [
+        ForgottenFact(
+            fact_id=str(r.get("fact_id", "")),
+            text=str(r.get("text", "")),
+            source=str(r.get("source", "")),
+            created_at=str(r.get("created_at", "")),
+            forgotten_at=str(r.get("forgotten_at", "")),
+            metadata=dict(r.get("metadata") or {}),
+        )
+        for r in rows
+    ]
+    return ForgottenListResponse(user_id=user_id, facts=facts, count=len(facts))
+
+
+@router.post(
+    "/memory/{user_id}/forgotten/{fact_id}/restore",
+    response_model=MemoryRestoreResponse,
+)
+def restore_forgotten_fact(user_id: str, fact_id: str) -> MemoryRestoreResponse:
+    """Restore a forgotten semantic fact to the live store with its original id."""
+    fact_id = _validate_ref(fact_id)
+    restored = MemoryManager(user_id).restore(fact_id)
+    if restored is None:
+        raise HTTPException(status_code=404, detail="forgotten fact not found")
+    return MemoryRestoreResponse(user_id=user_id, fact_id=fact_id, restored=True)
 
 
 @router.post("/memory/{user_id}/fact", response_model=MemoryWriteResponse)

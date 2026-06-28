@@ -205,6 +205,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/memory/{user_id}/forgotten": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Forgotten Facts
+         * @description Recently forgotten semantic facts that can still be restored.
+         *
+         *     Forgetting is conservative and reversible: a forgotten fact is archived to a
+         *     trash bin (never recalled) rather than destroyed, so the user can undo.
+         */
+        get: operations["list_forgotten_facts_memory__user_id__forgotten_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/memory/{user_id}/forgotten/{fact_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Forgotten Fact
+         * @description Restore a forgotten semantic fact to the live store with its original id.
+         */
+        post: operations["restore_forgotten_fact_memory__user_id__forgotten__fact_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/memory/{user_id}/fact": {
         parameters: {
             query?: never;
@@ -991,6 +1034,60 @@ export interface components {
             cleared_from: "keyring" | "file" | "none";
         };
         /**
+         * ForgottenFact
+         * @description One semantic fact in the trash, recoverable via restore.
+         */
+        ForgottenFact: {
+            /**
+             * Fact Id
+             * @description Original id; restore brings the fact back under it.
+             */
+            fact_id: string;
+            /**
+             * Text
+             * @description The forgotten fact's text.
+             * @default
+             */
+            text: string;
+            /**
+             * Source
+             * @description Where the fact originally came from.
+             * @default
+             */
+            source: string;
+            /**
+             * Created At
+             * @description When the fact was first written.
+             * @default
+             */
+            created_at: string;
+            /**
+             * Forgotten At
+             * @description When the fact was forgotten.
+             * @default
+             */
+            forgotten_at: string;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * ForgottenListResponse
+         * @description GET /memory/{user_id}/forgotten — the recoverable trash bin.
+         */
+        ForgottenListResponse: {
+            /** User Id */
+            user_id: string;
+            /** Facts */
+            facts?: components["schemas"]["ForgottenFact"][];
+            /**
+             * Count
+             * @default 0
+             */
+            count: number;
+        };
+        /**
          * GreetingResponse
          * @description A short, local greeting for the empty-chat state.
          */
@@ -1094,6 +1191,18 @@ export interface components {
              * @default
              */
             vote: string;
+        };
+        /**
+         * MemoryRestoreResponse
+         * @description Result of POST /memory/{user_id}/forgotten/{fact_id}/restore.
+         */
+        MemoryRestoreResponse: {
+            /** User Id */
+            user_id: string;
+            /** Fact Id */
+            fact_id: string;
+            /** Restored */
+            restored: boolean;
         };
         /**
          * MemorySnapshot
@@ -2729,6 +2838,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemoryFeedbackResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_forgotten_facts_memory__user_id__forgotten_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForgottenListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_forgotten_fact_memory__user_id__forgotten__fact_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                fact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryRestoreResponse"];
                 };
             };
             /** @description Validation Error */

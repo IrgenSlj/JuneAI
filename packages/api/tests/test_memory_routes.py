@@ -254,6 +254,39 @@ def test_delete_unknown_ref_is_idempotent(client):
     assert response.json()["removed"] is False
 
 
+def test_forgotten_fact_is_listed_and_restorable(memory_env, client):
+    from june_brain.memory import Memory, VectorStore
+
+    Memory("alex")
+    vector = VectorStore("alex", embedder=_HashEmbedder())
+    record = vector.upsert("temporary fact")
+    fact_id = record["fact_id"]
+
+    # Forget it — it leaves the snapshot but lands in the trash.
+    client.delete(f"/memory/alex/fact/semantic:{fact_id}")
+    assert client.get("/memory/alex").json()["semantic_facts"] == []
+
+    forgotten = client.get("/memory/alex/forgotten").json()
+    assert forgotten["count"] == 1
+    assert forgotten["facts"][0]["fact_id"] == fact_id
+    assert forgotten["facts"][0]["text"] == "temporary fact"
+    assert forgotten["facts"][0]["forgotten_at"]
+
+    # Restore it — back in the snapshot, gone from the trash.
+    restored = client.post(f"/memory/alex/forgotten/{fact_id}/restore")
+    assert restored.status_code == 200
+    assert restored.json()["restored"] is True
+
+    snapshot = client.get("/memory/alex").json()
+    assert any(f["ref"] == f"semantic:{fact_id}" for f in snapshot["semantic_facts"])
+    assert client.get("/memory/alex/forgotten").json()["count"] == 0
+
+
+def test_restore_unknown_fact_returns_404(client):
+    response = client.post("/memory/alex/forgotten/does-not-exist/restore")
+    assert response.status_code == 404
+
+
 def test_delete_goal_row_removes_from_snapshot(memory_env, client):
     from june_brain.memory import Memory
 

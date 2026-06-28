@@ -6,10 +6,13 @@ OpenAPI spec that tools/codegen.sh converts to TypeScript for the UI.
 
 from .chat import ChatEvent, ChatHistory, ChatHistoryMessage, ChatRequest, RecallHit
 from .memory import (
+    ForgottenFact,
+    ForgottenListResponse,
     MemoryDeleteResponse,
     MemoryFact,
     MemoryFeedbackRequest,
     MemoryFeedbackResponse,
+    MemoryRestoreResponse,
     MemorySnapshot,
     MemoryStats,
     MemoryStoreCount,
@@ -71,10 +74,13 @@ __all__ = [
     "ChatHistoryMessage",
     "ChatRequest",
     "RecallHit",
+    "ForgottenFact",
+    "ForgottenListResponse",
     "MemoryDeleteResponse",
     "MemoryFact",
     "MemoryFeedbackRequest",
     "MemoryFeedbackResponse",
+    "MemoryRestoreResponse",
     "MemorySnapshot",
     "MemoryStats",
     "MemoryStoreCount",

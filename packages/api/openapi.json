@@ -447,6 +447,111 @@
         }
       }
     },
+    "/memory/{user_id}/forgotten": {
+      "get": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "List Forgotten Facts",
+        "description": "Recently forgotten semantic facts that can still be restored.\n\nForgetting is conservative and reversible: a forgotten fact is archived to a\ntrash bin (never recalled) rather than destroyed, so the user can undo.",
+        "operationId": "list_forgotten_facts_memory__user_id__forgotten_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForgottenListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/memory/{user_id}/forgotten/{fact_id}/restore": {
+      "post": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Restore Forgotten Fact",
+        "description": "Restore a forgotten semantic fact to the live store with its original id.",
+        "operationId": "restore_forgotten_fact_memory__user_id__forgotten__fact_id__restore_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "fact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Fact Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryRestoreResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/memory/{user_id}/fact": {
       "post": {
         "tags": [
@@ -2269,6 +2374,76 @@
         "title": "ForgetKeyResponse",
         "description": "Outcome of POST /settings/forget-key."
       },
+      "ForgottenFact": {
+        "properties": {
+          "fact_id": {
+            "type": "string",
+            "title": "Fact Id",
+            "description": "Original id; restore brings the fact back under it."
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "The forgotten fact's text.",
+            "default": ""
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "description": "Where the fact originally came from.",
+            "default": ""
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At",
+            "description": "When the fact was first written.",
+            "default": ""
+          },
+          "forgotten_at": {
+            "type": "string",
+            "title": "Forgotten At",
+            "description": "When the fact was forgotten.",
+            "default": ""
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fact_id"
+        ],
+        "title": "ForgottenFact",
+        "description": "One semantic fact in the trash, recoverable via restore."
+      },
+      "ForgottenListResponse": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/ForgottenFact"
+            },
+            "type": "array",
+            "title": "Facts"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id"
+        ],
+        "title": "ForgottenListResponse",
+        "description": "GET /memory/{user_id}/forgotten \u2014 the recoverable trash bin."
+      },
       "GreetingResponse": {
         "properties": {
           "greeting": {
@@ -2409,6 +2584,30 @@
         ],
         "title": "MemoryFeedbackResponse",
         "description": "Result of POST /memory/{user_id}/feedback."
+      },
+      "MemoryRestoreResponse": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "fact_id": {
+            "type": "string",
+            "title": "Fact Id"
+          },
+          "restored": {
+            "type": "boolean",
+            "title": "Restored"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "fact_id",
+          "restored"
+        ],
+        "title": "MemoryRestoreResponse",
+        "description": "Result of POST /memory/{user_id}/forgotten/{fact_id}/restore."
       },
       "MemorySnapshot": {
         "properties": {

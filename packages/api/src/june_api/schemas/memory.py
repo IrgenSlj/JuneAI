@@ -65,6 +65,33 @@ class MemoryDeleteResponse(BaseModel):
     removed: bool
 
 
+class ForgottenFact(BaseModel):
+    """One semantic fact in the trash, recoverable via restore."""
+
+    fact_id: str = Field(..., description="Original id; restore brings the fact back under it.")
+    text: str = Field(default="", description="The forgotten fact's text.")
+    source: str = Field(default="", description="Where the fact originally came from.")
+    created_at: str = Field(default="", description="When the fact was first written.")
+    forgotten_at: str = Field(default="", description="When the fact was forgotten.")
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ForgottenListResponse(BaseModel):
+    """GET /memory/{user_id}/forgotten — the recoverable trash bin."""
+
+    user_id: str
+    facts: list[ForgottenFact] = Field(default_factory=list)
+    count: int = 0
+
+
+class MemoryRestoreResponse(BaseModel):
+    """Result of POST /memory/{user_id}/forgotten/{fact_id}/restore."""
+
+    user_id: str
+    fact_id: str
+    restored: bool
+
+
 class MemoryStoreCount(BaseModel):
     """Counts for one logical bucket inside a memory store."""
 
