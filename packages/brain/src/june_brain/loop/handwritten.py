@@ -116,13 +116,18 @@ class HandwrittenLoop:
         self._network_calls: list[str] = []
         # Tool calls the guard blocked pending user approval (ADR 0021, S6.2).
         self._blocked_names: list[str] = []
+        # Structured records for those blocks, so the loop can surface a
+        # first-class approval event rather than leaking the block as trace text.
+        self._blocked_details: list[dict[str, Any]] = []
         if dispatch is not None:
             self._dispatch: Callable[[list[ToolCall], SessionState], Awaitable[list[Message]]] | None = dispatch
         else:
             from .wiring import make_dispatch_fn
 
             self._dispatched_names = []
-            self._dispatch = make_dispatch_fn(self._dispatched_names, self._blocked_names)
+            self._dispatch = make_dispatch_fn(
+                self._dispatched_names, self._blocked_names, self._blocked_details
+            )
 
         # --- compaction ---
         if maybe_compact is not None:
@@ -164,6 +169,7 @@ class HandwrittenLoop:
         self._dispatched_names.clear()
         self._network_calls.clear()
         self._blocked_names.clear()
+        self._blocked_details.clear()
         self._recall_state["memories_recalled"] = 0
         self._recall_state["recall_hits"] = []
 
@@ -600,9 +606,37 @@ class HandwrittenLoop:
                     runnable.append(tc)
 
                 if runnable:
+                    blocked_before = len(self._blocked_details)
                     run_obs = await self._dispatch(runnable, session)
+                    # Calls the guard withheld this batch, keyed by their position
+                    # in `runnable` so we can pair each back to its observation.
+                    blocked_by_index = {
+                        d["index"]: d
+                        for d in self._blocked_details[blocked_before:]
+                    }
                     for i, obs_msg in enumerate(run_obs):
                         tc_name = runnable[i].name if i < len(runnable) else ""
+                        blk = blocked_by_index.get(i)
+                        if blk is not None:
+                            # The tool never ran — surface a first-class approval
+                            # request instead of a fake result. The model still
+                            # gets the [ACTION BLOCKED] observation so it relays
+                            # the ask to the user in prose.
+                            reason = str(blk.get("reason") or "")
+                            yield StreamEvent(
+                                type="tool_blocked",
+                                tool_name=tc_name,
+                                tool_args=runnable[i].args if i < len(runnable) else {},
+                                detail=reason,
+                                needs_approval=True,
+                                action_class=str(blk.get("action_class") or ""),
+                            )
+                            trace.record(
+                                "tool_blocked",
+                                f"needs approval · {tc_name}",
+                                detail=reason,
+                            )
+                            continue
                         yield StreamEvent(
                             type="tool_result",
                             tool_name=tc_name,

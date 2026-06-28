@@ -112,6 +112,14 @@ class StreamEvent:
     # True on tool_call events for tools that reach the network — lets the UI
     # flag the call as egress even when the LLM tier is local.
     network: bool = False
+    # True on tool_blocked events the guard withheld pending the user's explicit
+    # approval (ADR 0021, S6.2 — network egress, code execution, tainted reads).
+    # Distinct from the Local-only block (network=True): the latter asks the user
+    # to change the privacy dial; this asks them to approve one consequential act.
+    needs_approval: bool = False
+    # The guard's action class for a blocked call (e.g. "write_network",
+    # "execute", "read_network"). Empty unless needs_approval is set.
+    action_class: str = ""
 
 
 @runtime_checkable

@@ -193,6 +193,7 @@ def make_extract_tool_calls_fn() -> Any:
 def make_dispatch_fn(
     dispatched_names: list[str],
     blocked_names: list[str] | None = None,
+    blocked_details: list[dict[str, Any]] | None = None,
 ) -> Any:
     """Return an async callable that executes ToolCalls via the tool registry.
 
@@ -204,6 +205,12 @@ def make_dispatch_fn(
     ``blocked_names`` (optional, also caller-owned) collects tool names the guard
     blocked pending user approval (ADR 0021, S6.2), so the loop can surface them.
     The per-conversation allow-list is read from ``session.approved_tools``.
+
+    ``blocked_details`` (optional, caller-owned) collects one structured record
+    per blocked call — ``{"index", "name", "action_class", "reason"}`` — so the
+    loop can emit a first-class ``tool_blocked`` approval event instead of
+    leaking the block as trace text. ``index`` is the position of the call within
+    the dispatched batch, letting the loop pair it back to its observation.
     """
     if blocked_names is None:
         blocked_names = []
@@ -229,7 +236,7 @@ def make_dispatch_fn(
     async def dispatch(tool_calls: list[ToolCall], session: SessionState) -> list[Message]:
         tool_map = _get_tool_map()
         observations: list[Message] = []
-        for tc in tool_calls:
+        for idx, tc in enumerate(tool_calls):
             tool = tool_map.get(tc.name)
             if tool is None:
                 observations.append(
@@ -258,11 +265,20 @@ def make_dispatch_fn(
             # via the (framed) observation, to relay the request to the user.
             prior_results = [m.content for m in session.messages if m.role == "tool"]
             allow_list = frozenset(getattr(session, "approved_tools", None) or ())
-            allowed, _action_class, block_reason = evaluate_call(
+            allowed, action_class, block_reason = evaluate_call(
                 tc.name, args, prior_results, allow_list=allow_list
             )
             if not allowed:
                 blocked_names.append(tc.name)
+                if blocked_details is not None:
+                    blocked_details.append(
+                        {
+                            "index": idx,
+                            "name": tc.name,
+                            "action_class": action_class,
+                            "reason": block_reason,
+                        }
+                    )
                 observations.append(
                     Message(
                         role="tool",

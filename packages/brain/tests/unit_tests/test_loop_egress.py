@@ -137,6 +137,80 @@ def test_local_only_blocks_networked_tool(monkeypatch: pytest.MonkeyPatch) -> No
     assert prov is not None and prov.egress == []  # nothing egressed
 
 
+def test_guard_block_surfaces_approval_event(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A consequential action the guard withholds (network write) emits a
+    first-class tool_blocked event with needs_approval set — not a fake
+    tool_result. The real dispatch + guard run; only the tool registry is faked."""
+
+    class _NetTool:
+        name = "send_telegram_message"
+        args: dict = {}
+
+        def invoke(self, a: dict | None = None) -> str:
+            return "sent"  # must never run
+
+    import june_brain.loop.agent_helpers as helpers_mod
+
+    monkeypatch.setattr(
+        helpers_mod, "_select_tools_for_runtime", lambda rt: [_NetTool()], raising=False
+    )
+    monkeypatch.setattr(
+        "june_brain.config.resolve_runtime_config", lambda: object(), raising=False
+    )
+
+    stream_calls = [0]
+
+    class P:
+        model_id = "mock"
+        tier = "local-fast"
+
+        async def generate(self, req: GenerateRequest) -> GenerateResult:
+            return GenerateResult(text="", input_tokens=1, output_tokens=1, latency_ms=1,
+                                  model_id=self.model_id, tier=self.tier)
+
+        async def stream(self, req: GenerateRequest) -> AsyncIterator[str]:
+            stream_calls[0] += 1
+            if stream_calls[0] == 1:
+                yield '{"tool_calls": [{"name": "send_telegram_message", "args": {"text": "hi"}}]}'
+            else:
+                # After being told it was blocked, the model relays the ask.
+                yield "I can't send that without your approval."
+
+        async def health(self) -> ProviderHealth:
+            return ProviderHealth(reachable=True)
+
+    extract_calls = [0]
+
+    def extractor(_r: GenerateResult) -> list[ToolCall]:
+        extract_calls[0] += 1
+        if extract_calls[0] == 1:
+            return [ToolCall(name="send_telegram_message", args={"text": "hi"})]
+        return []
+
+    # No dispatch= arg: the loop builds its real guard-backed dispatch.
+    loop = HandwrittenLoop(
+        registry=_registry_with("local-fast", P()),
+        role="local-fast",
+        assemble_context=lambda s, m: [m],
+        extract_tool_calls=extractor,
+        maybe_compact=_noop_compact,
+    )
+
+    events = _collect(loop.stream_turn(SessionState(user_id="u1", messages=[]),
+                                       Message(role="user", content="text my friend")))
+
+    blocked = [e for e in events if e.type == "tool_blocked"]
+    assert len(blocked) == 1
+    assert blocked[0].tool_name == "send_telegram_message"
+    assert blocked[0].needs_approval is True
+    assert blocked[0].action_class == "write_network"
+    assert blocked[0].detail  # carries the human-readable reason
+    # The blocked call must not masquerade as a completed result.
+    assert not any(
+        e.type == "tool_result" and e.tool_name == "send_telegram_message" for e in events
+    )
+
+
 def test_dispatch_injects_user_id(monkeypatch: pytest.MonkeyPatch) -> None:
     """A tool whose schema requires user_id gets the session user_id injected."""
     captured: dict[str, Any] = {}
