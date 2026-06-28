@@ -254,6 +254,30 @@ to `main`, and recorded below.
 
 ## Progress Log
 
+### 2026-06-28 - Reversible Forget (Memory Governance)
+
+Pushed on `main`. Closed a stated non-negotiable the code violated: forgetting
+was a hard delete, but the vision and CLAUDE.md require it to be conservative
+and reversible.
+
+- Semantic facts (and raw fact-id forgets) are archived to a `forgotten_facts`
+  trash table before they leave the live store, so recall never sees forgotten
+  data yet the fact can be restored with its original id. Capture-before-delete
+  keeps every read path unchanged — no risk of a forgotten fact leaking back
+  into recall.
+- `MemoryManager.list_forgotten` / `restore` over new vector-store trash methods.
+- `GET /memory/{user}/forgotten` and `POST /memory/{user}/forgotten/{id}/restore`.
+- Memory page shows a "Recently forgotten" section with one-click Restore.
+- Scope: semantic facts. Structured rows (goals/calendar/journal) and graph
+  nodes still hard-delete; extending reversibility to them is the next slice.
+
+Validation:
+
+- Focused tests: vector store, memory manager (forget/restore cycle), memory
+  routes (trash list + restore).
+- Full gate: `./tools/check.sh` green; `679` backend tests, frontend checks,
+  OpenAPI drift, Ruff, mypy.
+
 ### 2026-06-28 - Approval Gate As Visible State
 
 Pushed on `main`. Made the guard's approval gate (ADR 0021, S6.2) a first-class,
