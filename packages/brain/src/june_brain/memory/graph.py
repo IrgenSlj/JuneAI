@@ -185,26 +185,48 @@ class KnowledgeGraph:
         return int(cur.rowcount or 0)
 
     def restore_node(self, node_id: str) -> dict[str, Any] | None:
-        """Bring a trashed node back to the live graph with its original id."""
-        row = self._conn.execute(
-            "SELECT node_id, kind, label, props FROM forgotten_nodes "
+        """Bring a trashed node back to the live graph with its original id.
+
+        Atomic: the node re-insert and the trash-row delete happen in one
+        transaction, so a crash can never leave the entity in both stores. The
+        original ``updated_at`` is preserved so a restored entity does not jump
+        to the top of recency-ordered views.
+        """
+        conn = self._conn
+        row = conn.execute(
+            "SELECT node_id, kind, label, props, updated_at FROM forgotten_nodes "
             "WHERE user_id=? AND node_id=?",
             (self.user_id, node_id),
         ).fetchone()
         if not row:
             return None
-        restored = self.add_node(
-            row["label"],
-            kind=row["kind"],
-            props=_loads(row["props"]),
-            node_id=row["node_id"],
-        )
-        self._conn.execute(
-            "DELETE FROM forgotten_nodes WHERE user_id=? AND node_id=?",
-            (self.user_id, node_id),
-        )
-        self._conn.commit()
-        return restored
+        with conn:  # single transaction: commit both writes or neither
+            conn.execute(
+                """INSERT INTO graph_nodes (user_id, node_id, kind, label, props, updated_at)
+                   VALUES (?,?,?,?,?,?)
+                   ON CONFLICT(user_id, node_id) DO UPDATE SET
+                     kind=excluded.kind, label=excluded.label,
+                     props=excluded.props, updated_at=excluded.updated_at""",
+                (
+                    self.user_id,
+                    row["node_id"],
+                    row["kind"],
+                    row["label"],
+                    row["props"],
+                    row["updated_at"],
+                ),
+            )
+            conn.execute(
+                "DELETE FROM forgotten_nodes WHERE user_id=? AND node_id=?",
+                (self.user_id, node_id),
+            )
+        return {
+            "node_id": row["node_id"],
+            "kind": row["kind"],
+            "label": row["label"],
+            "props": _loads(row["props"]),
+            "updated_at": row["updated_at"],
+        }
 
     def remove_edge(self, src: str, dst: str, kind: str = "") -> None:
         """Delete an edge. If ``kind`` is empty, remove all edges between the two nodes."""

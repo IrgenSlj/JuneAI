@@ -328,27 +328,51 @@ class VectorStore:
     def restore(self, fact_id: str) -> dict[str, Any] | None:
         """Bring a trashed fact back to the live store with its original id.
 
-        Returns the restored record, or None when no trashed fact matches.
+        Atomic: the live-row re-insert and the trash-row delete happen in one
+        transaction, so a crash can never leave the fact in both stores. The
+        original ``created_at`` is preserved so a restored memory does not jump
+        to the top of recency-ordered views. Returns the restored record, or
+        None when no trashed fact matches.
         """
-        row = _get_connection(_db_path()).execute(
+        conn = _get_connection(_db_path())
+        row = conn.execute(
             "SELECT fact_id, text, source, metadata, created_at "
             "FROM forgotten_facts WHERE user_id=? AND fact_id=?",
             (self.user_id, fact_id),
         ).fetchone()
         if not row:
             return None
-        restored = self.upsert(
-            row["text"],
-            metadata=_loads(row["metadata"]),
-            fact_id=row["fact_id"],
-            source=row["source"],
-        )
-        _get_connection(_db_path()).execute(
-            "DELETE FROM forgotten_facts WHERE user_id=? AND fact_id=?",
-            (self.user_id, fact_id),
-        )
-        _get_connection(_db_path()).commit()
-        return restored
+        with conn:  # single transaction: commit both writes or neither
+            conn.execute(
+                """INSERT INTO semantic_facts
+                     (user_id, fact_id, text, source, metadata, created_at)
+                   VALUES (?,?,?,?,?,?)
+                   ON CONFLICT(user_id, fact_id) DO UPDATE SET
+                     text=excluded.text, source=excluded.source,
+                     metadata=excluded.metadata, created_at=excluded.created_at""",
+                (
+                    self.user_id,
+                    row["fact_id"],
+                    row["text"],
+                    row["source"],
+                    row["metadata"],
+                    row["created_at"],
+                ),
+            )
+            conn.execute(
+                "DELETE FROM forgotten_facts WHERE user_id=? AND fact_id=?",
+                (self.user_id, fact_id),
+            )
+        # Rebuild the vec0 index entry outside the txn — a rebuildable convenience
+        # that must never fail the restore (mirrors upsert's best-effort index).
+        self._index(row["fact_id"], row["text"])
+        return {
+            "fact_id": row["fact_id"],
+            "text": row["text"],
+            "source": row["source"],
+            "metadata": _loads(row["metadata"]),
+            "created_at": row["created_at"],
+        }
 
     def delete_by_ref(self, ref: str) -> int:
         """Remove every semantic paraphrase attached to a structured ref."""

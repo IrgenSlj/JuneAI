@@ -295,6 +295,24 @@ def test_list_forgotten_merges_and_orders_by_recency(manager):
     assert set(refs) == {f"semantic:{f['fact_id']}", f"node:{n['node_id']}"}
 
 
+def test_restore_preserves_original_created_at(manager):
+    """A restored fact keeps its original created_at, not 'now', so it does not
+    jump to the top of recency-ordered views."""
+    record = manager.vector.upsert("an old fact")
+    original = manager.vector.get(record["fact_id"])["created_at"]
+    manager.forget(f"semantic:{record['fact_id']}")
+    manager.restore(f"semantic:{record['fact_id']}")
+    assert manager.vector.get(record["fact_id"])["created_at"] == original
+
+
+def test_restore_entity_preserves_updated_at(manager):
+    node = manager.graph.add_node("Ada", kind="person")
+    original = manager.graph.get_node(node["node_id"])["updated_at"]
+    manager.forget(f"node:{node['node_id']}")
+    manager.restore(f"node:{node['node_id']}")
+    assert manager.graph.get_node(node["node_id"])["updated_at"] == original
+
+
 def test_restore_unknown_ref_returns_none(manager):
     assert manager.restore("semantic:does-not-exist") is None
     assert manager.restore("node:does-not-exist") is None
