@@ -282,6 +282,45 @@ honesty fixed, graceful degradation shipped in the same change).
 
 ## Progress Log
 
+### 2026-06-29 - Silence Model + Trust Ledger (backend, slices 1-8)
+
+Pushed on `main`. Implements the two flagship differentiators from the senior
+review per `docs/product/CLAUDE_HANDOFF_silence_and_trust.md`, in eight gated
+slices (each `./tools/check.sh` green, one commit, pushed). 761 backend tests.
+
+- ADRs 0022 (Trust Ledger) and 0023 (Silence Model) written and indexed; the
+  handoff saved into the repo as the anchoring spec.
+- Trust Ledger (`packages/brain/src/june_brain/trust/`): append-only,
+  hash-chained (blake2b/32, 64-zero genesis), device-global provenance in the
+  single june.db. Seq assigned under a process lock so racing appends cannot
+  fork the chain. Payloads redacted in the writer (no secret can enter).
+  `verify_chain` reports the first broken seq. Optional Ed25519 signing via
+  PyNaCl (lazy; added as the crypto-exception dep); unsigned is fully valid.
+- Ledger wired centrally and unbypassably: one egress entry per cloud call
+  (provenance `start`), an action entry per gated action that executes at the
+  guard dispatch chokepoint, and approval entries (June asks / user grants).
+  Export carries the full ledger. New autouse brain-test isolation keeps every
+  test off the user's real data dir now that more seams write to june.db.
+- Ledger API: `GET /system/ledger`, `POST /system/ledger/verify`, and a
+  `ledger_summary` on `/system` (count, last entry, egress-today, last
+  verification — cached so the status badge never pays an O(n) re-hash).
+- Silence Model (`packages/brain/src/june_brain/silence/`): a pure, local,
+  rules-first `decide()` over June-INITIATED candidates only -> now | batch |
+  suppress + a truthful reason + features. No model, no egress, no clock
+  (`now` injected). A structural test proves the reply path never imports it
+  (June always answers when spoken to).
+- Silence storage: `surfacing_decisions` + batched digest drained only by an
+  explicit event-boundary function (no timer; tokenize-based invariant test).
+  Each decision mirrored into the ledger. `GET /system/surfacing` +
+  `POST /system/surfacing/{id}/feedback` (verdict maps honestly to the
+  dismissal signal).
+- `GET /home/{user_id}/holdings`: read-only aggregation of open promises,
+  the held digest, and ledger egress/chain status. No new state.
+- Out of scope this round (future): the belief/contradiction engine,
+  presence-triggered consolidation, local preference learning, Silence v2.
+  Slices 9-10 (the `/system` Trust + control-room home UI) are deferred
+  pending `docs/product/CLAUDE_DESIGN_BRIEF_silence_and_trust.md`.
+
 ### 2026-06-28 - Reversible Forget Complete + Review Hardening
 
 Pushed on `main`.
