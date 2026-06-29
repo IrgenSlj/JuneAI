@@ -280,6 +280,80 @@ a future tranche.
 Inventive but bounded; respects every invariant (no heartbeat, privacy visible,
 honesty fixed, graceful degradation shipped in the same change).
 
+## Execution Queue (2026-06-29) - Continuity Engine completion
+
+Ordered, leverage-first. Each entry is a small gated slice: implementer subagent
+edits, reviewer subagent flags, the main thread runs `./tools/check.sh` and pushes
+(`fetch + rebase origin/main` first, since the checkout is shared). Tracks 1-2 are
+the priority; 3-4 deepen the core; 5 is design-gated big-bet work.
+
+### Track 1 - Close the Silence loop (make the shipped feature real)
+
+The policy + store + three UI surfaces exist, but nothing calls `decide()`. Give it
+real producers, a `now` sink, and a `batch` drain. No timer (ADR 0016): producers
+run at read time.
+
+1. Deadline producer (`silence/producers.py`, pure): promises with `due_at` ->
+   `SurfacingCandidate` (salience from urgency) -> `SurfacingContext` (injected
+   `now`, dismissals from the store) -> `decide()` -> `record()`. Done when a
+   promise due in 2h yields `now` and one due in 5 days yields `batch`, both
+   visible in `/system/surfacing`, with tests.
+2. `batch` drain at the session-open boundary: call `drain_digest()` at the "user
+   shows up" endpoint; surface drained items on Home with working Open / Dismiss
+   (Dismiss -> `record_feedback`). Done when held items appear next open, are
+   marked surfaced, and don't re-appear.
+3. `now` sink: wire a `now` verdict to a real delivery channel (existing
+   notification/SSE path; OS notification via the desktop shell if present). Honest
+   fallback shipped in-slice: an in-app "needs you now" banner on Home.
+4. Contradiction and promise-nudge producers (blocked promise needing input;
+   memory contradiction if the belief engine exists, else defer).
+
+### Track 2 - Playwright smoke tests (lock in the just-shipped UI)
+
+The one open `[TODO]` above; overdue now that Home/Receipts/Silence shipped with no
+browser coverage. Greenfield (no e2e harness exists today).
+
+1. Harness + setup->chat smoke against a throwaway data dir.
+2. Core-screen smokes: Home, Promises, Memory, Trust>Receipts (verify affordance),
+   Trust>Silence.
+3. Gate wiring behind a flag so the default gate stays fast (`JUNE_E2E=1`).
+
+### Track 3 - Durable / resumable Promises
+
+Map (confirmed): task state is fully persisted in SQLite `tasks`; execution is an
+in-memory asyncio coroutine in FastAPI BackgroundTasks, lost on restart -> a killed
+promise is a permanent `RUNNING` zombie that `_lifespan` never rescans and the 409
+guard refuses to re-kick. No retry/attempt field exists.
+
+1. Startup reconciliation in `_lifespan`: zombie `RUNNING` tasks move to a
+   recoverable state ("interrupted by restart") with the prior trace preserved, so
+   they can be resumed rather than stuck.
+2. Attempt counter + bounded retry (additive columns); surfaced in the Promises UI;
+   no infinite loops.
+3. Honest resume-on-wake: a resumed promise is re-dispatched with its prior trace
+   visible and a "resumed after restart" marker. (Idempotent step-level resume is a
+   documented future enhancement; the loop re-runs from scratch today.)
+
+### Track 4 - Skill permission hardening
+
+Scopes are already derived from guard action classes and shown before use. Harden
+enforcement and secret handling (`skills/manifest.py`, `secret_store.py`).
+
+1. Declared manifest scopes checked against derived (actual) scopes; flag drift.
+2. Skill secrets resolve through `secret_store` (OS keychain), never plaintext.
+3. Scope review at install and before a first risky (network/execute) action;
+   recorded to the ledger.
+
+### Track 5 - Big bets (design-gated; pause for explicit go)
+
+Each gets a short ADR before code (crypto / external accounts).
+
+1. Privacy Mode 2 - client-side-encrypted data-dir backup (vetted crypto; keychain
+   day-to-day, passphrase to move machines).
+2. Privacy Mode 3 - Gmail/Calendar/Drive as per-service MCP skills (reads first,
+   writes per-action, revocable, always visible).
+3. Desktop Python sidecar - the `.app` runs the brain without a separate shell.
+
 ## Progress Log
 
 ### 2026-06-29 - Silence/Trust UI (slices 9-10), from Claude Design
