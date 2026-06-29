@@ -18,6 +18,10 @@ from ..schemas import (
     LedgerPageResponse,
     LedgerSummary,
     LedgerVerifyResponse,
+    SurfacingDecisionView,
+    SurfacingFeedbackRequest,
+    SurfacingFeedbackResponse,
+    SurfacingPageResponse,
     SystemStatus,
     TraceEventView,
     TraceListResponse,
@@ -222,6 +226,53 @@ def verify_ledger() -> LedgerVerifyResponse:
     result = get_reader().verify_chain()
     return LedgerVerifyResponse(
         ok=result.ok, first_broken_seq=result.first_broken_seq, signed=result.signed
+    )
+
+
+# ---------------------------------------------------------------------------
+# Silence Model — the "why June stayed quiet" surface (ADR 0023)
+# ---------------------------------------------------------------------------
+
+
+def _surfacing_to_view(rec) -> SurfacingDecisionView:
+    return SurfacingDecisionView(
+        id=rec.id,
+        candidate_id=rec.candidate_id,
+        kind=rec.kind,
+        action=rec.action,
+        reason=rec.reason,
+        features=rec.features,
+        ts=rec.ts,
+        outcome=rec.outcome,
+        surfaced_at=rec.surfaced_at,
+        verdict=rec.verdict,
+    )
+
+
+@router.get("/system/surfacing", response_model=SurfacingPageResponse)
+def get_surfacing(cursor: str | None = None, limit: int = 50) -> SurfacingPageResponse:
+    """Recent Silence Model decisions with their truthful reasons (newest-first)."""
+    from june_brain.silence import get_store
+
+    limit = max(1, min(int(limit), 200))
+    records = get_store().page(cursor=cursor, limit=limit)
+    views = [_surfacing_to_view(r) for r in records]
+    next_cursor = views[-1].ts if len(views) == limit and views else None
+    return SurfacingPageResponse(entries=views, count=len(views), next_cursor=next_cursor)
+
+
+@router.post("/system/surfacing/{decision_id}/feedback", response_model=SurfacingFeedbackResponse)
+def surfacing_feedback(
+    decision_id: str, body: SurfacingFeedbackRequest
+) -> SurfacingFeedbackResponse:
+    """Record the user's judgment of a decision; it feeds v2 and the suppress signal."""
+    from june_brain.silence import get_store
+
+    updated = get_store().record_feedback(decision_id, body.verdict)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="surfacing decision not found")
+    return SurfacingFeedbackResponse(
+        id=updated.id, verdict=body.verdict, outcome=updated.outcome
     )
 
 

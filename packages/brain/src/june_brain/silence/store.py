@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS surfacing_decisions (
     features     TEXT NOT NULL DEFAULT '{}',
     ts           TEXT NOT NULL,
     outcome      TEXT,
-    surfaced_at  TEXT
+    surfaced_at  TEXT,
+    verdict      TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_surfacing_ts ON surfacing_decisions(ts);
 CREATE INDEX IF NOT EXISTS idx_surfacing_kind ON surfacing_decisions(kind, ts);
@@ -66,6 +67,7 @@ class SurfacingRecord:
     ts: str
     outcome: str | None = None
     surfaced_at: str | None = None
+    verdict: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -78,6 +80,7 @@ class SurfacingRecord:
             "ts": self.ts,
             "outcome": self.outcome,
             "surfaced_at": self.surfaced_at,
+            "verdict": self.verdict,
         }
 
 
@@ -96,6 +99,7 @@ def _row_to_record(row: sqlite3.Row) -> SurfacingRecord:
         ts=str(row["ts"]),
         outcome=row["outcome"],
         surfaced_at=row["surfaced_at"],
+        verdict=row["verdict"],
     )
 
 
@@ -187,6 +191,32 @@ class SurfacingStore:
         )
         self._conn.commit()
         return cur.rowcount > 0
+
+    def record_feedback(self, decision_id: str, verdict: str) -> SurfacingRecord | None:
+        """Record the user's judgment of a decision; map it to the dismissal signal.
+
+        ``verdict`` is the raw v2 training signal (stored verbatim). It also moves
+        ``dismissals_for_similar``, but honestly w.r.t. what June actually did:
+        the user "wants these" when they approve a surfacing OR reject a
+        suppression, and "doesn't want these" when they reject a surfacing OR
+        approve a suppression. Wanting → outcome=engaged; not wanting →
+        outcome=dismissed (which raises the suppress signal for similar items).
+        Returns the updated record, or None if the id is unknown.
+        """
+        if verdict not in ("good", "bad"):
+            raise ValueError(f"invalid surfacing verdict {verdict!r}")
+        rec = self.get(decision_id)
+        if rec is None:
+            return None
+        surfaced = rec.action in ("now", "batch")
+        user_wants = (surfaced and verdict == "good") or (not surfaced and verdict == "bad")
+        outcome = "engaged" if user_wants else "dismissed"
+        self._conn.execute(
+            "UPDATE surfacing_decisions SET verdict=?, outcome=? WHERE id=?",
+            (verdict, outcome, decision_id),
+        )
+        self._conn.commit()
+        return self.get(decision_id)
 
     # ------------------------------------------------------------------
     # Signals feeding the policy

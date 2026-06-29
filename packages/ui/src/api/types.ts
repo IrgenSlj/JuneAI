@@ -749,6 +749,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/surfacing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Surfacing
+         * @description Recent Silence Model decisions with their truthful reasons (newest-first).
+         */
+        get: operations["get_surfacing_system_surfacing_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/surfacing/{decision_id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Surfacing Feedback
+         * @description Record the user's judgment of a decision; it feeds v2 and the suppress signal.
+         */
+        post: operations["surfacing_feedback_system_surfacing__decision_id__feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/traces": {
         parameters: {
             query?: never;
@@ -2172,6 +2212,103 @@ export interface components {
              * @default 0
              */
             count: number;
+        };
+        /**
+         * SurfacingDecisionView
+         * @description One recorded surface-vs-defer decision.
+         */
+        SurfacingDecisionView: {
+            /** Id */
+            id: string;
+            /** Candidate Id */
+            candidate_id: string;
+            /**
+             * Kind
+             * @description Candidate kind: deadline | contradiction | promise_nudge | ...
+             */
+            kind: string;
+            /**
+             * Action
+             * @description 'now', 'batch', or 'suppress'.
+             */
+            action: string;
+            /**
+             * Reason
+             * @description Truthful plain-English reason naming the deciding feature.
+             */
+            reason: string;
+            /**
+             * Features
+             * @description Inputs that produced the decision.
+             */
+            features?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Ts
+             * @description ISO-8601 UTC timestamp of the decision.
+             */
+            ts: string;
+            /**
+             * Outcome
+             * @description engaged | dismissed | expired, once known; null otherwise.
+             */
+            outcome?: string | null;
+            /**
+             * Surfaced At
+             * @description When a batched item was drained into a digest; null if still held.
+             */
+            surfaced_at?: string | null;
+            /**
+             * Verdict
+             * @description User judgment of the decision: 'good' | 'bad'; null if none.
+             */
+            verdict?: string | null;
+        };
+        /**
+         * SurfacingFeedbackRequest
+         * @description POST /system/surfacing/{id}/feedback body.
+         */
+        SurfacingFeedbackRequest: {
+            /**
+             * Verdict
+             * @description Was June's decision good (right call) or bad (wrong call)?
+             * @enum {string}
+             */
+            verdict: "good" | "bad";
+        };
+        /**
+         * SurfacingFeedbackResponse
+         * @description POST /system/surfacing/{id}/feedback result — the updated decision.
+         */
+        SurfacingFeedbackResponse: {
+            /** Id */
+            id: string;
+            /** Verdict */
+            verdict: string;
+            /**
+             * Outcome
+             * @description The outcome the verdict mapped to (engaged | dismissed).
+             */
+            outcome?: string | null;
+        };
+        /**
+         * SurfacingPageResponse
+         * @description GET /system/surfacing payload — recent decisions, newest-first.
+         */
+        SurfacingPageResponse: {
+            /** Entries */
+            entries?: components["schemas"]["SurfacingDecisionView"][];
+            /**
+             * Count
+             * @default 0
+             */
+            count: number;
+            /**
+             * Next Cursor
+             * @description Pass as ?cursor= to fetch the next (older) page; null when no more.
+             */
+            next_cursor?: string | null;
         };
         /**
          * SystemStatus
@@ -3930,6 +4067,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LedgerVerifyResponse"];
+                };
+            };
+        };
+    };
+    get_surfacing_system_surfacing_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SurfacingPageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    surfacing_feedback_system_surfacing__decision_id__feedback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SurfacingFeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SurfacingFeedbackResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

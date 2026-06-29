@@ -31,6 +31,12 @@ from .settings import (
     SettingsView,
 )
 from .setup import SetupApplyRequest, SetupApplyResponse, SetupStatus
+from .silence import (
+    SurfacingDecisionView,
+    SurfacingFeedbackRequest,
+    SurfacingFeedbackResponse,
+    SurfacingPageResponse,
+)
 from .skills import (
     RegistryEntry,
     RegistryInstallResponse,
@@ -132,6 +138,10 @@ __all__ = [
     "TraceListResponse",
     "TraceSummary",
     "TurnTraceView",
+    "SurfacingDecisionView",
+    "SurfacingFeedbackRequest",
+    "SurfacingFeedbackResponse",
+    "SurfacingPageResponse",
     "TaskApproveRequest",
     "TaskCreateRequest",
     "TaskDeleteResponse",

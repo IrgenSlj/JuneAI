@@ -1693,6 +1693,119 @@
         }
       }
     },
+    "/system/surfacing": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Get Surfacing",
+        "description": "Recent Silence Model decisions with their truthful reasons (newest-first).",
+        "operationId": "get_surfacing_system_surfacing_get",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SurfacingPageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/surfacing/{decision_id}/feedback": {
+      "post": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Surfacing Feedback",
+        "description": "Record the user's judgment of a decision; it feeds v2 and the suppress signal.",
+        "operationId": "surfacing_feedback_system_surfacing__decision_id__feedback_post",
+        "parameters": [
+          {
+            "name": "decision_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Decision Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SurfacingFeedbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SurfacingFeedbackResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/system/traces": {
       "get": {
         "tags": [
@@ -4029,6 +4142,172 @@
         "type": "object",
         "title": "SkillsResponse",
         "description": "GET /skills payload."
+      },
+      "SurfacingDecisionView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "candidate_id": {
+            "type": "string",
+            "title": "Candidate Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Candidate kind: deadline | contradiction | promise_nudge | ..."
+          },
+          "action": {
+            "type": "string",
+            "title": "Action",
+            "description": "'now', 'batch', or 'suppress'."
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "Truthful plain-English reason naming the deciding feature."
+          },
+          "features": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Features",
+            "description": "Inputs that produced the decision."
+          },
+          "ts": {
+            "type": "string",
+            "title": "Ts",
+            "description": "ISO-8601 UTC timestamp of the decision."
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome",
+            "description": "engaged | dismissed | expired, once known; null otherwise."
+          },
+          "surfaced_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Surfaced At",
+            "description": "When a batched item was drained into a digest; null if still held."
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict",
+            "description": "User judgment of the decision: 'good' | 'bad'; null if none."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "candidate_id",
+          "kind",
+          "action",
+          "reason",
+          "ts"
+        ],
+        "title": "SurfacingDecisionView",
+        "description": "One recorded surface-vs-defer decision."
+      },
+      "SurfacingFeedbackRequest": {
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "good",
+              "bad"
+            ],
+            "title": "Verdict",
+            "description": "Was June's decision good (right call) or bad (wrong call)?"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verdict"
+        ],
+        "title": "SurfacingFeedbackRequest",
+        "description": "POST /system/surfacing/{id}/feedback body."
+      },
+      "SurfacingFeedbackResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "verdict": {
+            "type": "string",
+            "title": "Verdict"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome",
+            "description": "The outcome the verdict mapped to (engaged | dismissed)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "verdict"
+        ],
+        "title": "SurfacingFeedbackResponse",
+        "description": "POST /system/surfacing/{id}/feedback result \u2014 the updated decision."
+      },
+      "SurfacingPageResponse": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/SurfacingDecisionView"
+            },
+            "type": "array",
+            "title": "Entries"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "default": 0
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor",
+            "description": "Pass as ?cursor= to fetch the next (older) page; null when no more."
+          }
+        },
+        "type": "object",
+        "title": "SurfacingPageResponse",
+        "description": "GET /system/surfacing payload \u2014 recent decisions, newest-first."
       },
       "SystemStatus": {
         "properties": {
