@@ -14,6 +14,11 @@ dependencies = [
     # from a local Ollama model.
     "sqlite-vec>=0.1.0",
     "keyring>=25.0.0",
+    # Ed25519 signing for the Trust Ledger (ADR 0022). The hash chain gives
+    # tamper-evidence with stdlib hashlib alone; PyNaCl (libsodium) adds optional
+    # authenticity signatures. The no-hand-rolled-crypto invariant mandates a
+    # vetted library here. Imported lazily so the brain still runs if it is absent.
+    "pynacl>=1.5.0",
     "tomli>=2.0.1; python_version < '3.11'",  # python 3.11+ has tomllib built-in
 ]
 
