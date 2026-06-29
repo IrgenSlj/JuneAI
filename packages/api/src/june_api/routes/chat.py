@@ -163,6 +163,24 @@ def _record_approval_request(tool_name: str, action_class: str, reason: str) -> 
         )
     except Exception:  # noqa: BLE001
         logger.debug("approval-request activity log failed", exc_info=True)
+    # Also record the request in the tamper-evident Trust Ledger (ADR 0022):
+    # June asking for approval is itself an auditable, provable event.
+    try:
+        from june_brain.trust import get_writer
+
+        get_writer().append(
+            kind="approval",
+            actor="june",
+            payload={
+                "tool": tool_name,
+                "action_class": action_class,
+                "reason": reason,
+                "surface": "chat",
+                "decision": "requested",
+            },
+        )
+    except Exception:  # noqa: BLE001
+        logger.debug("approval-request ledger append failed", exc_info=True)
 
 
 async def _iter_harness_events(

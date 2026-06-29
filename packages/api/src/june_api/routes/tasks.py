@@ -58,6 +58,24 @@ def _record_promise_approval(task_id: str, goal: str, tool: str) -> None:
         )
     except Exception:  # noqa: BLE001
         logger.debug("promise-approval activity log failed", exc_info=True)
+    # Record the user's grant in the tamper-evident Trust Ledger (ADR 0022):
+    # actor="user" because this entry is the human's decision, not June's.
+    try:
+        from june_brain.trust import get_writer
+
+        get_writer().append(
+            kind="approval",
+            actor="user",
+            payload={
+                "tool": tool,
+                "task_id": task_id,
+                "goal": goal,
+                "surface": "promise",
+                "decision": "approved",
+            },
+        )
+    except Exception:  # noqa: BLE001
+        logger.debug("promise-approval ledger append failed", exc_info=True)
 
 
 def _to_view(task: Task) -> TaskView:

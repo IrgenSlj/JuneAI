@@ -26,6 +26,9 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setattr(memory_sqlite, "_local", type(memory_sqlite._local)())
     monkeypatch.setattr(tasks_route, "execute_task_in_background", lambda *a, **k: None)
     activity_pkg.reset_for_tests()
+    import june_brain.trust as trust_pkg
+
+    trust_pkg.reset_for_tests()
     return TestClient(create_app())
 
 
@@ -210,6 +213,15 @@ def test_post_approve_records_approval_activity(client: TestClient) -> None:
     assert approvals[0]["label"] == "approved · send_telegram_message"
     assert approvals[0]["detail"]["decision"] == "approved"
     assert approvals[0]["detail"]["task_id"] == created["id"]
+    # The grant is also a tamper-evident Trust Ledger entry (ADR 0022), with
+    # actor="user" because it records the human's decision.
+    from june_brain.trust import LedgerReader
+
+    ledger_approvals = [e for e in LedgerReader().page(limit=50) if e.kind == "approval"]
+    assert len(ledger_approvals) == 1
+    assert ledger_approvals[0].actor == "user"
+    assert ledger_approvals[0].payload["tool"] == "send_telegram_message"
+    assert LedgerReader().verify_chain().ok is True
 
 
 def test_post_approve_rejects_empty_tool(client: TestClient) -> None:

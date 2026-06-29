@@ -31,6 +31,11 @@ _SKIP_TABLES = frozenset({
     "_schema_migrations",
 })
 
+# Device-global audit tables have no user_id and are exported in full (not
+# user-filtered): notably ``trust_ledger`` (ADR 0022), so the tamper-evident
+# chain is verifiable offline from the export. They fall through to the
+# unfiltered ``SELECT *`` branch below; do not add them to ``_SKIP_TABLES``.
+
 
 def _export_sqlite(db_path: str, user_id: str) -> dict[str, list[dict[str, Any]]]:
     """Export per-user tables, filtered by user_id where possible."""

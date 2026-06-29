@@ -25,8 +25,53 @@ class CloudCallEvent:
 _recorder: Callable[[CloudCallEvent], None] | None = None
 
 
+def _privacy_dial_value() -> str:
+    """Best-effort read of the active privacy dial, for the ledger payload."""
+    try:
+        from june_brain.config_store import get_privacy_dial
+
+        return get_privacy_dial().value
+    except Exception:  # noqa: BLE001 - never let a dial read break a model call
+        return "unknown"
+
+
+def _record_egress_to_ledger(event: CloudCallEvent) -> None:
+    """Append one tamper-evident egress entry per cloud call (ADR 0022).
+
+    Written here, on the ``start`` phase, because every ``GeminiProvider`` call
+    routes through ``record_cloud_call`` — so a skill cannot perform cloud egress
+    and skip the ledger. The payload is a field summary (never raw content) and is
+    redacted again inside the writer. Best-effort: a ledger failure must never
+    break the model call, and recording only on ``start`` yields exactly one entry
+    per call (not one per start/end pair).
+    """
+    if event.phase != "start":
+        return
+    try:
+        from june_brain.trust import get_writer
+
+        get_writer().append(
+            kind="egress",
+            actor="june",
+            payload={
+                "model_id": event.model_id,
+                "summary": event.payload_summary,
+                "privacy_dial": _privacy_dial_value(),
+                "at": event.at,
+            },
+        )
+    except Exception:  # noqa: BLE001 - the ledger is best-effort at the call site
+        logging.debug("trust-ledger egress append failed", exc_info=True)
+
+
 def record_cloud_call(event: CloudCallEvent) -> None:
-    """Dispatch a cloud-call event to the registered recorder (default: log)."""
+    """Dispatch a cloud-call event to the registered recorder (default: log).
+
+    Always also records a Trust Ledger egress entry (ADR 0022), independent of
+    whether a recorder callback is registered, so egress is provable after the
+    fact and the record cannot be bypassed.
+    """
+    _record_egress_to_ledger(event)
     if _recorder is not None:
         _recorder(event)
     else:

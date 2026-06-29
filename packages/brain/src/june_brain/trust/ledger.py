@@ -349,24 +349,31 @@ def _row_to_entry(row: sqlite3.Row) -> LedgerEntry:
 # ---------------------------------------------------------------------------
 _writer: LedgerWriter | None = None
 _reader: LedgerReader | None = None
-_writer_lock = threading.Lock()
+_handle_lock = threading.Lock()
 
 
 def get_writer() -> LedgerWriter:
-    """Cached unsigned writer for production wiring. Tests construct their own."""
+    """Process-wide unsigned writer for production wiring.
+
+    Cached, but keyed on the active ``db_path()`` so swapping ``MEMORY_DIR``
+    (as tests do) rebuilds against the new path rather than pinning to a stale
+    db. Tests that want a signed writer construct ``LedgerWriter`` directly.
+    """
     global _writer
-    if _writer is None:
-        with _writer_lock:
-            if _writer is None:
+    current = db_path()
+    if _writer is None or _writer._db_path != current:
+        with _handle_lock:
+            if _writer is None or _writer._db_path != current:
                 _writer = LedgerWriter()
     return _writer
 
 
 def get_reader() -> LedgerReader:
     global _reader
-    if _reader is None:
-        with _writer_lock:
-            if _reader is None:
+    current = db_path()
+    if _reader is None or _reader._db_path != current:
+        with _handle_lock:
+            if _reader is None or _reader._db_path != current:
                 _reader = LedgerReader()
     return _reader
 
@@ -374,6 +381,6 @@ def get_reader() -> LedgerReader:
 def reset_for_tests() -> None:
     """Drop cached handles so fixtures that swap MEMORY_DIR get a fresh db path."""
     global _writer, _reader
-    with _writer_lock:
+    with _handle_lock:
         _writer = None
         _reader = None

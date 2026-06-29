@@ -26,6 +26,29 @@ def is_network_tool(name: str) -> bool:
     """True when invoking ``name`` reaches the network (egress)."""
     return name in NETWORK_TOOLS
 
+
+def _record_action_to_ledger(tool_name: str, action_class: str, *, tainted: bool) -> None:
+    """Append a consequential-action entry to the Trust Ledger (ADR 0022).
+
+    Best-effort: a ledger failure must never break tool dispatch.
+    """
+    try:
+        from june_brain.trust import get_writer
+
+        get_writer().append(
+            kind="action",
+            actor="june",
+            payload={
+                "tool": tool_name,
+                "action_class": action_class,
+                "tainted": tainted,
+            },
+        )
+    except Exception:  # noqa: BLE001 - the ledger is best-effort at the call site
+        import logging
+
+        logging.getLogger(__name__).debug("trust-ledger action append failed", exc_info=True)
+
 # ---------------------------------------------------------------------------
 # Recall wiring
 # ---------------------------------------------------------------------------
@@ -257,7 +280,12 @@ def make_dispatch_fn(
             except Exception:
                 pass
 
-            from june_brain.guard import evaluate_call, wrap_untrusted
+            from june_brain.guard import (
+                evaluate_call,
+                is_tainted,
+                requires_approval,
+                wrap_untrusted,
+            )
 
             # Action gate (ADR 0021, S6.2): block consequential actions — network
             # egress, code execution, tainted network reads — unless the user
@@ -268,6 +296,8 @@ def make_dispatch_fn(
             allowed, action_class, block_reason = evaluate_call(
                 tc.name, args, prior_results, allow_list=allow_list
             )
+            tainted = is_tainted(args, prior_results)
+            gated, _gate_reason = requires_approval(action_class, tainted=tainted)
             if not allowed:
                 blocked_names.append(tc.name)
                 if blocked_details is not None:
@@ -298,6 +328,12 @@ def make_dispatch_fn(
                 # skill can bypass the frame.
                 content = wrap_untrusted(str(result)[:4000])
                 dispatched_names.append(tc.name)
+                # A gated action that reached here ran only because the user
+                # already approved it (allow-list). Record it in the tamper-evident
+                # ledger (ADR 0022) — the consequential act, centrally, so a skill
+                # cannot take it and skip the record.
+                if gated:
+                    _record_action_to_ledger(tc.name, action_class, tainted=tainted)
             except Exception as exc:  # noqa: BLE001
                 content = f"Error invoking tool '{tc.name}': {exc}"
             observations.append(Message(role="tool", content=content))
