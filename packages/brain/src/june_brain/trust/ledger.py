@@ -336,7 +336,28 @@ class LedgerReader:
             prev = str(row["entry_hash"])
             expected_seq += 1
 
+        # Tail-truncation check. A plain hash chain cannot, on its own, detect
+        # that the most recent entries were deleted: rows 1..N-k still form a
+        # valid chain. But ``seq`` is AUTOINCREMENT, so sqlite keeps a high-water
+        # mark in ``sqlite_sequence`` that does NOT drop when rows are deleted. If
+        # it exceeds the last seq we verified, entries were truncated from the
+        # tail. (An attacker with full db write access can still evade this by
+        # also rewriting sqlite_sequence — see ADR 0022's verification contract.)
+        hwm = self._high_water_seq()
+        if hwm >= expected_seq:
+            return VerifyResult(ok=False, first_broken_seq=expected_seq, signed=can_check_sig)
+
         return VerifyResult(ok=True, first_broken_seq=None, signed=can_check_sig)
+
+    def _high_water_seq(self) -> int:
+        """Highest seq ever allocated (survives row deletion via AUTOINCREMENT)."""
+        try:
+            row = self._conn.execute(
+                "SELECT seq FROM sqlite_sequence WHERE name='trust_ledger'"
+            ).fetchone()
+            return int(row["seq"]) if row and row["seq"] is not None else 0
+        except sqlite3.OperationalError:
+            return 0
 
 
 def _row_to_entry(row: sqlite3.Row) -> LedgerEntry:

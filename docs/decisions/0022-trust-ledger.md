@@ -72,10 +72,23 @@ mode at the time) — never the raw content that left the device.
 
 **Verification contract.** Tamper-evidence is the promise, not tamper-*proofing*:
 a sufficiently privileged local process can rewrite the whole chain (recompute
-every hash). What it cannot do is alter or remove a single entry and leave the
-rest intact — `verify_chain` will report the break. Signing raises the bar
-further: rewriting the chain without the device private key is detectable because
-the signatures no longer verify.
+every hash). `verify_chain` detects, and reports the first broken `seq` for:
+in-place edits of any entry, reordering, a forged interior entry, and
+**interior deletions** (which leave a gap in the otherwise gap-free `seq`).
+
+**Tail-truncation** — deleting the *most recent* entries — is the one case a bare
+hash chain cannot catch (rows `1..N-k` still chain validly). We close it with the
+`seq` column's `AUTOINCREMENT` high-water mark, which sqlite keeps in
+`sqlite_sequence` and does **not** lower when rows are deleted: if the high-water
+mark exceeds the last verified `seq`, `verify_chain` reports truncation. The
+residual, stated honestly: an attacker with full db write access can still
+truncate the tail *and* rewrite `sqlite_sequence` to match — defeating this check.
+Full truncation-resistance against such an attacker requires an external anchor
+(a periodically exported/notarized head hash), which is out of scope this round
+because it would add egress. Signing raises the bar on the other classes:
+rewriting an entry without the device private key is detectable because the
+signature no longer verifies (though it does not by itself stop truncation —
+the attacker simply drops signed rows).
 
 ## Alternatives Considered
 

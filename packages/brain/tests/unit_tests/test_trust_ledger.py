@@ -161,6 +161,30 @@ def test_empty_ledger_verifies() -> None:
     assert LedgerReader().verify_chain().ok is True
 
 
+def test_tail_truncation_is_detected() -> None:
+    # Deleting the most recent entries leaves a valid-looking chain (1..N-k),
+    # but the AUTOINCREMENT high-water mark betrays the truncation.
+    writer = LedgerWriter()
+    _append_some(writer, 4)
+    reader = LedgerReader()
+    reader._conn.execute("DELETE FROM trust_ledger WHERE seq=4")
+    reader._conn.commit()
+    result = reader.verify_chain()
+    assert result.ok is False
+    assert result.first_broken_seq == 4
+
+
+def test_tail_truncation_of_several_is_detected() -> None:
+    writer = LedgerWriter()
+    _append_some(writer, 5)
+    reader = LedgerReader()
+    reader._conn.execute("DELETE FROM trust_ledger WHERE seq IN (4,5)")
+    reader._conn.commit()
+    result = reader.verify_chain()
+    assert result.ok is False
+    assert result.first_broken_seq == 4  # first missing tail entry
+
+
 # ---------------------------------------------------------------------------
 # Redaction — no secret ever enters the ledger
 # ---------------------------------------------------------------------------
