@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
   import {
     Mascot,
     OfflineNotice,
@@ -21,6 +22,9 @@
   let greeting = $state("");
   let loading = $state(true);
   let loadError = $state<string | null>(null);
+  let drainedItems = $state<SurfacingDecisionView[]>([]);
+  let drainPanelVisible = $state(false);
+  let drainNothingWaiting = $state(false);
 
   async function load() {
     loading = true;
@@ -54,9 +58,10 @@
     waiting.filter((t) => (t.blocked_kind ?? "") === "local_only"),
   );
   const held: SurfacingDecisionView[] = $derived(holdings?.held_digest ?? []);
+  const needsNow: SurfacingDecisionView[] = $derived(holdings?.needs_now ?? []);
   const egress = $derived(holdings?.egress_today ?? 0);
   const openCount = $derived(holdings?.open_promises ?? tasks.length);
-  const clear = $derived(!loading && openCount === 0 && held.length === 0);
+  const clear = $derived(!loading && openCount === 0 && held.length === 0 && needsNow.length === 0);
 
   const summary = $derived.by(() => {
     if (clear) return "You're clear.";
@@ -73,6 +78,45 @@
       s += `. June kept ${held.length} small thing${held.length === 1 ? "" : "s"} back for when you have a minute`;
     return s + ".";
   });
+
+  function openSurfacingItem(d: SurfacingDecisionView): void {
+    // For deadline kind candidate_id is "deadline:{task_id}"; all kinds route to /tasks for now.
+    void d;
+    goto("/tasks").catch(() => {});
+  }
+
+  async function dismissNeedsNow(d: SurfacingDecisionView): Promise<void> {
+    if (holdings?.needs_now) {
+      holdings = { ...holdings, needs_now: holdings.needs_now.filter((x) => x.id !== d.id) };
+    }
+    try {
+      await client.sendSurfacingFeedback(d.id, "bad");
+    } catch {
+      // best-effort
+    }
+    load().catch(() => {});
+  }
+
+  async function dismissDrained(d: SurfacingDecisionView): Promise<void> {
+    drainedItems = drainedItems.filter((x) => x.id !== d.id);
+    try {
+      await client.sendSurfacingFeedback(d.id, "bad");
+    } catch {
+      // best-effort
+    }
+  }
+
+  async function catchMeUp(): Promise<void> {
+    try {
+      const res = await client.drainSurfacing();
+      drainedItems = res.drained ?? [];
+      drainPanelVisible = true;
+      drainNothingWaiting = drainedItems.length === 0;
+      load().catch(() => {});
+    } catch {
+      // best-effort; don't white-screen the page
+    }
+  }
 
   function humanizeKind(kind: string): string {
     const map: Record<string, string> = {
@@ -123,6 +167,29 @@
         </div>
       </section>
     {:else}
+      {#if needsNow.length > 0}
+        <section class="needs-now-section">
+          <div class="needs-now-head">
+            <span class="needs-now-label">Needs you now</span>
+            <span class="block-count">{needsNow.length} item{needsNow.length === 1 ? "" : "s"}</span>
+          </div>
+          <div class="needs-now-rows">
+            {#each needsNow as d (d.id)}
+              <div class="needs-now-row">
+                <div class="needs-now-body">
+                  <span class="needs-now-kind">{humanizeKind(d.kind)}</span>
+                  <p class="needs-now-reason">{d.reason}</p>
+                </div>
+                <div class="needs-now-actions">
+                  <button class="action-btn primary" onclick={() => openSurfacingItem(d)}>Open</button>
+                  <button class="action-btn" onclick={() => dismissNeedsNow(d)}>Dismiss</button>
+                </div>
+              </div>
+            {/each}
+          </div>
+        </section>
+      {/if}
+
       <section class="grid">
         <!-- main column -->
         <div class="col-main">
@@ -163,7 +230,8 @@
             <div class="block">
               <div class="block-head">
                 <span class="block-label">June kept these back</span>
-                <span class="block-count">held for later</span>
+                <span class="block-count">{holdings?.held_count ?? held.length} held for later</span>
+                <button class="catch-up-btn" onclick={catchMeUp}>Catch me up</button>
               </div>
               <div class="rows">
                 {#each held as d (d.id)}
@@ -177,6 +245,31 @@
                 {/each}
               </div>
               <a class="why-link" href="/system/silence">Why these were held, and what I didn't show you →</a>
+            </div>
+          {/if}
+
+          {#if drainPanelVisible}
+            <div class="block drain-panel">
+              <div class="block-head">
+                <span class="block-label">
+                  {drainNothingWaiting ? "Nothing was waiting" : "Caught up — here's what June was holding"}
+                </span>
+              </div>
+              {#if drainNothingWaiting}
+                <p class="hint drain-nothing">Nothing was being held back. You're fully caught up.</p>
+              {:else}
+                <div class="rows">
+                  {#each drainedItems as d (d.id)}
+                    <div class="held-row">
+                      <div class="held-main">
+                        <span class="held-title">{humanizeKind(d.kind)}</span>
+                        <span class="held-line">{d.reason}</span>
+                      </div>
+                      <button class="action-btn" onclick={() => dismissDrained(d)}>Dismiss</button>
+                    </div>
+                  {/each}
+                </div>
+              {/if}
             </div>
           {/if}
         </div>
@@ -583,5 +676,130 @@
     .hero {
       gap: var(--space-4);
     }
+  }
+
+  /* needs-now banner */
+  .needs-now-section {
+    border: 1px solid var(--color-border);
+    border-left: 3px solid var(--color-accent);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-raised);
+    padding: 18px 20px;
+  }
+  .needs-now-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .needs-now-label {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+  }
+  .needs-now-rows {
+    display: flex;
+    flex-direction: column;
+  }
+  .needs-now-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    justify-content: space-between;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .needs-now-row:first-child {
+    padding-top: 0;
+  }
+  .needs-now-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+  .needs-now-body {
+    flex: 1;
+    min-width: 0;
+  }
+  .needs-now-kind {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-fg-muted);
+    margin-bottom: 5px;
+  }
+  .needs-now-reason {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 14.5px;
+    color: var(--color-fg-primary);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+  .needs-now-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    align-items: flex-start;
+    padding-top: 2px;
+  }
+
+  /* shared action buttons (needs-now Open/Dismiss; drain Dismiss) */
+  .action-btn {
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    padding: 6px 12px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    border: 1px solid var(--color-border-strong);
+    background: transparent;
+    color: var(--color-fg-secondary);
+    line-height: 1;
+  }
+  .action-btn:hover {
+    background: color-mix(in srgb, var(--color-fg-muted) 6%, transparent);
+  }
+  .action-btn.primary {
+    border-color: var(--color-accent);
+    color: var(--color-fg-primary);
+    background: var(--color-accent-soft);
+  }
+  .action-btn.primary:hover {
+    background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  }
+
+  /* catch me up inline button in block-head */
+  .catch-up-btn {
+    margin-left: auto;
+    font-family: var(--font-sans);
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    border: 1px solid var(--color-border-strong);
+    background: transparent;
+    color: var(--color-fg-secondary);
+    line-height: 1;
+  }
+  .catch-up-btn:hover {
+    border-color: var(--color-fg-muted);
+    color: var(--color-fg-primary);
+  }
+
+  /* drain panel */
+  .drain-panel {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-raised);
+    padding: 16px 18px;
+  }
+  .drain-nothing {
+    margin: 0;
+    color: var(--color-fg-muted);
   }
 </style>
