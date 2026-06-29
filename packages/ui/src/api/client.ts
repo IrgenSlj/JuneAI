@@ -73,6 +73,15 @@ export type TaskCreateRequest = components["schemas"]["TaskCreateRequest"];
 export type TaskPatchRequest = components["schemas"]["TaskPatchRequest"];
 export type TaskDeleteResponse = components["schemas"]["TaskDeleteResponse"];
 export type ChatHistory = components["schemas"]["ChatHistory"];
+export type LedgerEntryView = components["schemas"]["LedgerEntryView"];
+export type LedgerPageResponse = components["schemas"]["LedgerPageResponse"];
+export type LedgerVerifyResponse = components["schemas"]["LedgerVerifyResponse"];
+export type LedgerSummary = components["schemas"]["LedgerSummary"];
+export type SurfacingDecisionView = components["schemas"]["SurfacingDecisionView"];
+export type SurfacingPageResponse = components["schemas"]["SurfacingPageResponse"];
+export type SurfacingFeedbackResponse = components["schemas"]["SurfacingFeedbackResponse"];
+export type HomeHoldings = components["schemas"]["HomeHoldings"];
+export type NextDeadlineView = components["schemas"]["NextDeadlineView"];
 
 export interface JuneClientOptions {
   /** Base URL for the API, e.g. "http://localhost:8000". No trailing slash. */
@@ -181,6 +190,43 @@ export function createJuneClient(options: JuneClientOptions) {
     /** DELETE /system/traces — clear persisted turn traces. */
     clearTraces(): Promise<TraceListResponse> {
       return requestJson<TraceListResponse>("/system/traces", { method: "DELETE" });
+    },
+
+    /** GET /system/ledger — newest-first page of tamper-evident Trust Ledger receipts. */
+    getLedger(cursor?: number | null, limit = 50): Promise<LedgerPageResponse> {
+      const params = new URLSearchParams();
+      if (cursor != null) params.set("cursor", String(cursor));
+      params.set("limit", String(limit));
+      return getJson<LedgerPageResponse>(`/system/ledger?${params.toString()}`);
+    },
+
+    /** POST /system/ledger/verify — recompute the whole chain and report integrity. */
+    verifyLedger(): Promise<LedgerVerifyResponse> {
+      return requestJson<LedgerVerifyResponse>("/system/ledger/verify", { method: "POST" });
+    },
+
+    /** GET /system/surfacing — recent Silence Model decisions with their reasons. */
+    getSurfacing(cursor?: string | null, limit = 50): Promise<SurfacingPageResponse> {
+      const params = new URLSearchParams();
+      if (cursor) params.set("cursor", cursor);
+      params.set("limit", String(limit));
+      return getJson<SurfacingPageResponse>(`/system/surfacing?${params.toString()}`);
+    },
+
+    /** POST /system/surfacing/{id}/feedback — record the user's judgment of a decision. */
+    sendSurfacingFeedback(
+      decisionId: string,
+      verdict: "good" | "bad",
+    ): Promise<SurfacingFeedbackResponse> {
+      return requestJson<SurfacingFeedbackResponse>(
+        `/system/surfacing/${encodeURIComponent(decisionId)}/feedback`,
+        { method: "POST", body: JSON.stringify({ verdict }) },
+      );
+    },
+
+    /** GET /home/{user_id}/holdings — the control-room aggregation of what June is holding. */
+    getHoldings(userId: string): Promise<HomeHoldings> {
+      return getJson<HomeHoldings>(`/home/${encodeURIComponent(userId)}/holdings`);
     },
 
     /** GET /setup/status — whether the active provider is usable end to end. */
