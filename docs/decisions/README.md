@@ -42,3 +42,5 @@ Status progression:
 | [0019](0019-single-engine-storage-sqlite-vec.md) | Single-engine storage (sqlite-vec) + Ollama-served embeddings | Accepted |
 | [0020](0020-provider-native-tool-calling.md) | Provider-native structured tool calling, prose-JSON fallback | Accepted |
 | [0021](0021-guard-layer.md) | Guard layer: untrusted-content framing, action gates, skill permissions | Accepted; partially implemented |
+| [0022](0022-trust-ledger.md) | Trust Ledger: tamper-evident, hash-chained local provenance | Accepted; implementation in progress |
+| [0023](0023-silence-model.md) | Silence Model: local rules-first surface-vs-defer policy | Accepted; v1 in progress |
