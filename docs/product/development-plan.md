@@ -282,6 +282,36 @@ honesty fixed, graceful degradation shipped in the same change).
 
 ## Progress Log
 
+### 2026-06-29 - Silence/Trust UI (slices 9-10), from Claude Design
+
+Pushed on `main`, in five gated UI slices (A-E). Implements the handoff's
+slices 9-10 against the approved Claude Design project ("JuneAI", file
+`June.html`), imported via the design MCP. The React/Babel prototype was
+re-implemented faithfully in the SvelteKit app (the app's CSS-variable tokens
+mirror the design's palette 1:1).
+
+- Client: getLedger / verifyLedger / getSurfacing / sendSurfacingFeedback /
+  getHoldings added to `@june/ui` with type re-exports.
+- Shared trust primitives in `@june/ui`: ReasonChip, EgressLine,
+  VerifyAffordance (controlled unknown/verified/verifying/tampered).
+- `/system/receipts` — the Trust Ledger made human: VerifyAffordance, kind
+  filter, receipt cards driven by the redacted payload ('left the device' vs
+  'stayed local', legible chain footer), broken-entry highlight, cursor paging.
+- `/system/silence` — the decision inspector: surfaced/batched/suppressed with
+  truthful reasons + feature chips, suppressed-but-visible, "was this the right
+  call?" feedback wired to the API, and a held digest.
+- `/` is now the control-room Home (consuming /home/{user}/holdings): summary,
+  what-you're-holding promises, held digest, right rail (next deadline,
+  blocked-by-local-only, egress card, chain-verified line), and a calm
+  "you're clear" state. Chat moved to `/chat`; nav gains Home + Chat; the Trust
+  page gains Receipts + Silence entry cards.
+
+IA decisions (confirmed with the user): Home at `/` with chat at `/chat`;
+Receipts/Silence as sub-routes under Trust. Out of scope: the design's
+SurfacingScreen (a static intrusiveness-tiers explainer, not data-wired).
+Validation: `./tools/check.sh` green at each slice (763 backend tests; 251 web
+files, 0 svelte-check errors).
+
 ### 2026-06-29 - Silence Model + Trust Ledger (backend, slices 1-8)
 
 Pushed on `main`. Implements the two flagship differentiators from the senior
