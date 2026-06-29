@@ -5,6 +5,7 @@ OpenAPI spec that tools/codegen.sh converts to TypeScript for the UI.
 """
 
 from .chat import ChatEvent, ChatHistory, ChatHistoryMessage, ChatRequest, RecallHit
+from .home import HomeHoldings, NextDeadlineView
 from .memory import (
     ForgottenListResponse,
     ForgottenMemory,
@@ -86,6 +87,8 @@ __all__ = [
     "ChatHistoryMessage",
     "ChatRequest",
     "RecallHit",
+    "HomeHoldings",
+    "NextDeadlineView",
     "ForgottenListResponse",
     "ForgottenMemory",
     "MemoryDeleteResponse",

@@ -88,6 +88,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/home/{user_id}/holdings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Holdings
+         * @description What June is holding for this user: promises, held digest, egress, chain status.
+         */
+        get: operations["get_holdings_home__user_id__holdings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/memory/{user_id}": {
         parameters: {
             query?: never;
@@ -1188,6 +1208,57 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * HomeHoldings
+         * @description Read-only aggregation of what June is holding for the user.
+         *
+         *     Pure aggregation over existing promise state, the Silence digest, and the
+         *     Trust Ledger summary — no new state of its own.
+         */
+        HomeHoldings: {
+            /**
+             * Open Promises
+             * @description Active promises (planning/running/paused/awaiting).
+             * @default 0
+             */
+            open_promises: number;
+            /**
+             * Waiting On User
+             * @description Promises awaiting the user's input.
+             * @default 0
+             */
+            waiting_on_user: number;
+            /**
+             * Blocked By Local Only
+             * @description Promises blocked by local-only mode (a networked tool the dial forbids).
+             * @default 0
+             */
+            blocked_by_local_only: number;
+            /** @description Soonest deadline across open promises, or null. */
+            next_deadline?: components["schemas"]["NextDeadlineView"] | null;
+            /**
+             * Held Digest
+             * @description Batched surfacings June held for the next opening.
+             */
+            held_digest?: components["schemas"]["SurfacingDecisionView"][];
+            /**
+             * Held Count
+             * @description Total held (batched, not yet surfaced) items.
+             * @default 0
+             */
+            held_count: number;
+            /**
+             * Egress Today
+             * @description Cloud-egress ledger entries since midnight UTC.
+             * @default 0
+             */
+            egress_today: number;
+            /**
+             * Chain Verified
+             * @description Result of the last ledger verification this session; null if none.
+             */
+            chain_verified?: boolean | null;
+        };
+        /**
          * LedgerEntryView
          * @description One tamper-evident ledger receipt (ADR 0022).
          */
@@ -1609,6 +1680,21 @@ export interface components {
             ref?: string | null;
             /** Stores */
             stores?: string[];
+        };
+        /**
+         * NextDeadlineView
+         * @description The soonest deadline across open promises, if any.
+         */
+        NextDeadlineView: {
+            /** Task Id */
+            task_id: string;
+            /** Goal */
+            goal: string;
+            /**
+             * Due At
+             * @description ISO-8601 deadline.
+             */
+            due_at: string;
         };
         /**
          * PrivacyDialUpdateRequest
@@ -3026,6 +3112,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GreetingResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_holdings_home__user_id__holdings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeHoldings"];
                 };
             };
             /** @description Validation Error */

@@ -162,6 +162,7 @@ def create_app() -> FastAPI:
         chat,
         demo,
         greeting,
+        home,
         memory,
         notifications,
         schedules,
@@ -239,6 +240,7 @@ def create_app() -> FastAPI:
     app.include_router(chat.router)
     app.include_router(demo.router)
     app.include_router(greeting.router)
+    app.include_router(home.router)
     app.include_router(memory.router)
     app.include_router(notifications.router)
     app.include_router(schedules.router)

@@ -184,6 +184,49 @@
         }
       }
     },
+    "/home/{user_id}/holdings": {
+      "get": {
+        "tags": [
+          "home"
+        ],
+        "summary": "Get Holdings",
+        "description": "What June is holding for this user: promises, held digest, egress, chain status.",
+        "operationId": "get_holdings_home__user_id__holdings_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeHoldings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/memory/{user_id}": {
       "get": {
         "tags": [
@@ -2708,6 +2751,74 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "HomeHoldings": {
+        "properties": {
+          "open_promises": {
+            "type": "integer",
+            "title": "Open Promises",
+            "description": "Active promises (planning/running/paused/awaiting).",
+            "default": 0
+          },
+          "waiting_on_user": {
+            "type": "integer",
+            "title": "Waiting On User",
+            "description": "Promises awaiting the user's input.",
+            "default": 0
+          },
+          "blocked_by_local_only": {
+            "type": "integer",
+            "title": "Blocked By Local Only",
+            "description": "Promises blocked by local-only mode (a networked tool the dial forbids).",
+            "default": 0
+          },
+          "next_deadline": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NextDeadlineView"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Soonest deadline across open promises, or null."
+          },
+          "held_digest": {
+            "items": {
+              "$ref": "#/components/schemas/SurfacingDecisionView"
+            },
+            "type": "array",
+            "title": "Held Digest",
+            "description": "Batched surfacings June held for the next opening."
+          },
+          "held_count": {
+            "type": "integer",
+            "title": "Held Count",
+            "description": "Total held (batched, not yet surfaced) items.",
+            "default": 0
+          },
+          "egress_today": {
+            "type": "integer",
+            "title": "Egress Today",
+            "description": "Cloud-egress ledger entries since midnight UTC.",
+            "default": 0
+          },
+          "chain_verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Verified",
+            "description": "Result of the last ledger verification this session; null if none."
+          }
+        },
+        "type": "object",
+        "title": "HomeHoldings",
+        "description": "Read-only aggregation of what June is holding for the user.\n\nPure aggregation over existing promise state, the Silence digest, and the\nTrust Ledger summary \u2014 no new state of its own."
+      },
       "LedgerEntryView": {
         "properties": {
           "seq": {
@@ -3316,6 +3427,31 @@
         ],
         "title": "MemoryWriteResponse",
         "description": "Result of POST /memory/{user_id}/fact."
+      },
+      "NextDeadlineView": {
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "title": "Task Id"
+          },
+          "goal": {
+            "type": "string",
+            "title": "Goal"
+          },
+          "due_at": {
+            "type": "string",
+            "title": "Due At",
+            "description": "ISO-8601 deadline."
+          }
+        },
+        "type": "object",
+        "required": [
+          "task_id",
+          "goal",
+          "due_at"
+        ],
+        "title": "NextDeadlineView",
+        "description": "The soonest deadline across open promises, if any."
       },
       "PrivacyDialUpdateRequest": {
         "properties": {
