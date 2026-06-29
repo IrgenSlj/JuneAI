@@ -18,6 +18,8 @@ from .policy import (
     SurfacingDecision,
     decide,
 )
+from .presence import derive_presence
+from .producers import build_deadline_candidates, run_silence_producers
 from .store import (
     VALID_OUTCOMES,
     SurfacingRecord,
@@ -43,4 +45,7 @@ __all__ = [
     "SurfacingStore",
     "get_store",
     "reset_for_tests",
+    "derive_presence",
+    "build_deadline_candidates",
+    "run_silence_producers",
 ]

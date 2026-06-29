@@ -88,6 +88,12 @@ def _ledger_rollup() -> tuple[int, bool | None]:
 @router.get("/home/{user_id}/holdings", response_model=HomeHoldings)
 def get_holdings(user_id: str) -> HomeHoldings:
     """What June is holding for this user: promises, held digest, egress, chain status."""
+    try:
+        from june_brain.silence.producers import run_silence_producers
+
+        run_silence_producers(user_id)
+    except Exception:
+        logger.debug("home silence producer failed", exc_info=True)
     open_promises, waiting, blocked_local, next_deadline = _promise_rollup(user_id)
     held_digest, held_count = _held_digest()
     egress_today, chain_verified = _ledger_rollup()

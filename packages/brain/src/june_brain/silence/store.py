@@ -181,6 +181,33 @@ class SurfacingStore:
                 "trust-ledger surfacing append failed", exc_info=True
             )
 
+    def latest_for_candidate(self, candidate_id: str) -> SurfacingRecord | None:
+        """Most recent row (ts DESC) for this candidate_id, or None."""
+        row = self._conn.execute(
+            "SELECT * FROM surfacing_decisions WHERE candidate_id=? ORDER BY ts DESC LIMIT 1",
+            (candidate_id,),
+        ).fetchone()
+        return _row_to_record(row) if row else None
+
+    def record_if_new(
+        self,
+        candidate: SurfacingCandidate,
+        decision: SurfacingDecision,
+        *,
+        ts: str | None = None,
+    ) -> SurfacingRecord | None:
+        """Persist a decision only if the action has changed since the last run.
+
+        Idempotent: if the latest row for this candidate already has the same
+        action, return None (no duplicate). If different (a real state
+        transition, e.g. batch -> now as a deadline nears), record and return
+        the new row. If there is no prior row, record and return it.
+        """
+        latest = self.latest_for_candidate(candidate.candidate_id)
+        if latest is not None and latest.action == decision.action:
+            return None
+        return self.record(candidate, decision, ts=ts)
+
     def set_outcome(self, decision_id: str, outcome: str) -> bool:
         """Record what became of a surfaced decision (engaged | dismissed | expired)."""
         if outcome not in VALID_OUTCOMES:
