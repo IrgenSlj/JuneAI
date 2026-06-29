@@ -33,6 +33,35 @@
     suppressed: { label: "suppressed", blurb: "Not shown to you. Visible here only, never pushed." },
   } as const;
 
+  // The intrusiveness hierarchy — strict order from calm to rare. Realizes the
+  // design's SurfacingScreen: restraint is legible in the design itself.
+  const TIERS = [
+    {
+      key: "batched",
+      name: "Batched digest entry",
+      rank: "The norm · most things",
+      tone: "ok",
+      rule: "Held calmly for the next time you open June. No sound, no badge, no interruption — it waits for you.",
+      when: "Anything without a deadline you set: replies, FYIs, low-salience nudges.",
+    },
+    {
+      key: "inapp",
+      name: "In-app surfacing",
+      rank: "Uncommon · sometimes",
+      tone: "accent",
+      rule: "June brings it up inside the app, in the moment — but only when staying quiet would cost you more than speaking.",
+      when: "A window closing on something you flagged as time-sensitive.",
+    },
+    {
+      key: "os",
+      name: "OS notification",
+      rank: "Rare · almost never",
+      tone: "warn",
+      rule: "Leaves the app to interrupt your device. Reserved for a real, hard deadline you set — once, then never again for the same thing.",
+      when: "A deadline you asked to be reminded of, arriving now.",
+    },
+  ] as const;
+
   function stateOf(action: string): keyof typeof STATE_META {
     if (action === "now") return "surfaced";
     if (action === "suppress") return "suppressed";
@@ -241,6 +270,37 @@
     The suppressed ones are here on purpose. A companion you can't audit is just a louder app —
     you should be able to see what June decided <em>not</em> to show you.
   </p>
+
+  <!-- How loudly June speaks — the intrusiveness hierarchy (SurfacingScreen) -->
+  <section class="loudness">
+    <div class="layer-head">
+      <span class="layer-label">How loudly June speaks</span>
+      <span class="layer-count">quietest option that still does the job wins</span>
+    </div>
+    <div class="scale" aria-hidden="true">
+      <span>calm</span>
+      <div class="scale-bar"></div>
+      <span>rare &amp; loud</span>
+    </div>
+    <div class="tiers">
+      {#each TIERS as t (t.key)}
+        <div class="tier">
+          <div class="tier-head {t.tone}">
+            <span class="dot {t.tone}" aria-hidden="true"></span>
+            <span class="tier-name">{t.name}</span>
+          </div>
+          <span class="tier-rank">{t.rank}</span>
+          <p class="tier-rule">{t.rule}</p>
+          <p class="tier-when"><span>When · </span>{t.when}</p>
+        </div>
+      {/each}
+    </div>
+    <p class="no-fourth">
+      There is no fourth, louder level — no streaks, no "you haven't opened June in a while," no
+      re-engagement pings. The absence of those is a design decision, not an oversight. June
+      competes for nothing, least of all your attention.
+    </p>
+  </section>
 </main>
 
 <style>
@@ -558,6 +618,100 @@
   .footnote em {
     color: var(--color-fg-secondary);
     font-style: italic;
+  }
+
+  /* How loudly June speaks */
+  .loudness {
+    margin-top: var(--space-5);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .scale {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-fg-subtle);
+  }
+  .scale-bar {
+    flex: 1;
+    height: 2px;
+    border-radius: 2px;
+    opacity: 0.6;
+    background: linear-gradient(
+      90deg,
+      var(--color-success),
+      var(--color-accent),
+      var(--color-warn)
+    );
+  }
+  .tiers {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+  }
+  @media (max-width: 640px) {
+    .tiers {
+      grid-template-columns: 1fr;
+    }
+  }
+  .tier {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-raised);
+    padding: 14px 16px;
+  }
+  .tier-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tier-name {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-fg-primary);
+  }
+  .tier-rank {
+    display: block;
+    margin-top: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-fg-muted);
+  }
+  .tier-rule {
+    margin: 10px 0 0;
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    color: var(--color-fg-secondary);
+    line-height: 1.6;
+  }
+  .tier-when {
+    margin: 9px 0 0;
+    font-family: var(--font-sans);
+    font-size: 12px;
+    color: var(--color-fg-muted);
+    line-height: 1.55;
+  }
+  .tier-when span {
+    color: var(--color-fg-subtle);
+  }
+  .no-fourth {
+    margin: var(--space-2) 0 0;
+    padding: 16px 18px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-sunken);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--color-fg-muted);
+    line-height: 1.65;
   }
 
   @media (max-width: 640px) {
