@@ -18,6 +18,13 @@ from .policy import (
     SurfacingDecision,
     decide,
 )
+from .store import (
+    VALID_OUTCOMES,
+    SurfacingRecord,
+    SurfacingStore,
+    get_store,
+    reset_for_tests,
+)
 
 __all__ = [
     "DISMISSAL_SUPPRESS_THRESHOLD",
@@ -31,4 +38,9 @@ __all__ = [
     "SurfacingContext",
     "SurfacingDecision",
     "decide",
+    "VALID_OUTCOMES",
+    "SurfacingRecord",
+    "SurfacingStore",
+    "get_store",
+    "reset_for_tests",
 ]

@@ -35,6 +35,7 @@ def _isolate_data_dir(tmp_path, monkeypatch):
         for module, fn in (
             ("june_brain.activity", "reset_for_tests"),
             ("june_brain.trust", "reset_for_tests"),
+            ("june_brain.silence", "reset_for_tests"),
         ):
             try:
                 mod = __import__(module, fromlist=[fn])
