@@ -88,6 +88,25 @@ def test_holdings_surfaces_held_digest(client: TestClient) -> None:
     assert "away" in body["held_digest"][0]["reason"]
 
 
+def test_holdings_surfaces_needs_now(client: TestClient) -> None:
+    """Holdings response includes needs_now entries for unresolved 'now' decisions."""
+    from june_brain.tasks.store import TasksStore
+
+    store = TasksStore(user_id="alice")
+    task = store.create(goal="overdue report")
+    # Set a past due_at so the silence producer classifies it as 'now'.
+    store.set_due(task.id, "2026-06-01T09:00:00+00:00")
+
+    from june_brain.silence.producers import run_silence_producers
+
+    run_silence_producers("alice", now_iso="2026-06-29T12:00:00+00:00")
+
+    body = client.get("/home/alice/holdings").json()
+    assert "needs_now" in body
+    assert len(body["needs_now"]) >= 1
+    assert body["needs_now"][0]["action"] == "now"
+
+
 def test_holdings_reports_egress_and_chain(client: TestClient) -> None:
     # One cloud egress + a verification; the home reflects both from the ledger.
     from june_brain.providers.provenance import CloudCallEvent, record_cloud_call

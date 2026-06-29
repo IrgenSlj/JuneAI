@@ -34,6 +34,10 @@ class HomeHoldings(BaseModel):
         default_factory=list, description="Batched surfacings June held for the next opening."
     )
     held_count: int = Field(default=0, description="Total held (batched, not yet surfaced) items.")
+    needs_now: list[SurfacingDecisionView] = Field(
+        default_factory=list,
+        description="Unresolved 'now' surfacings June judged need attention immediately.",
+    )
     egress_today: int = Field(default=0, description="Cloud-egress ledger entries since midnight UTC.")
     chain_verified: bool | None = Field(
         default=None, description="Result of the last ledger verification this session; null if none."

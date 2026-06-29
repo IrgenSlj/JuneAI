@@ -71,6 +71,32 @@ def _held_digest() -> tuple[list[SurfacingDecisionView], int]:
         return [], 0
 
 
+def _needs_now() -> list[SurfacingDecisionView]:
+    """Unresolved 'now' surfacings (peek; does not consume or mark as surfaced)."""
+    try:
+        from june_brain.silence import get_store
+
+        recs = get_store().open_now_decisions(limit=20)
+        return [
+            SurfacingDecisionView(
+                id=r.id,
+                candidate_id=r.candidate_id,
+                kind=r.kind,
+                action=r.action,
+                reason=r.reason,
+                features=r.features,
+                ts=r.ts,
+                outcome=r.outcome,
+                surfaced_at=r.surfaced_at,
+                verdict=r.verdict,
+            )
+            for r in recs
+        ]
+    except Exception:  # noqa: BLE001
+        logger.debug("home needs-now read failed", exc_info=True)
+        return []
+
+
 def _ledger_rollup() -> tuple[int, bool | None]:
     """(egress_today, chain_verified) from the Trust Ledger."""
     try:
@@ -96,6 +122,7 @@ def get_holdings(user_id: str) -> HomeHoldings:
         logger.debug("home silence producer failed", exc_info=True)
     open_promises, waiting, blocked_local, next_deadline = _promise_rollup(user_id)
     held_digest, held_count = _held_digest()
+    needs_now = _needs_now()
     egress_today, chain_verified = _ledger_rollup()
     return HomeHoldings(
         open_promises=open_promises,
@@ -104,6 +131,7 @@ def get_holdings(user_id: str) -> HomeHoldings:
         next_deadline=next_deadline,
         held_digest=held_digest,
         held_count=held_count,
+        needs_now=needs_now,
         egress_today=egress_today,
         chain_verified=chain_verified,
     )

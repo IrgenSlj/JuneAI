@@ -19,6 +19,7 @@ from ..schemas import (
     LedgerSummary,
     LedgerVerifyResponse,
     SurfacingDecisionView,
+    SurfacingDrainResponse,
     SurfacingFeedbackRequest,
     SurfacingFeedbackResponse,
     SurfacingPageResponse,
@@ -259,6 +260,25 @@ def get_surfacing(cursor: str | None = None, limit: int = 50) -> SurfacingPageRe
     views = [_surfacing_to_view(r) for r in records]
     next_cursor = views[-1].ts if len(views) == limit and views else None
     return SurfacingPageResponse(entries=views, count=len(views), next_cursor=next_cursor)
+
+
+@router.post("/system/surfacing/drain", response_model=SurfacingDrainResponse)
+def drain_surfacing() -> SurfacingDrainResponse:
+    """Drain the held batch digest — the explicit user-pulled 'catch me up' action.
+
+    Returns all batch decisions that were held since the last drain and marks
+    them surfaced. A second call immediately after returns an empty list.
+    This is the event-boundary drain (ADR 0023): it is wired to a user action,
+    never to a timer or scheduler.
+    """
+    try:
+        from june_brain.silence import get_store
+
+        records = get_store().drain_digest()
+        views = [_surfacing_to_view(r) for r in records]
+        return SurfacingDrainResponse(drained=views, count=len(views))
+    except Exception:  # noqa: BLE001
+        return SurfacingDrainResponse(drained=[], count=0)
 
 
 @router.post("/system/surfacing/{decision_id}/feedback", response_model=SurfacingFeedbackResponse)

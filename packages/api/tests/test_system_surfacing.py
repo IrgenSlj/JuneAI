@@ -86,3 +86,30 @@ def test_feedback_rejects_invalid_verdict(client: TestClient) -> None:
     decision_id = _record_batch("c1")
     res = client.post(f"/system/surfacing/{decision_id}/feedback", json={"verdict": "meh"})
     assert res.status_code == 422  # schema-validated literal
+
+
+def test_drain_surfacing_returns_batch_items_and_empties(client: TestClient) -> None:
+    """POST /system/surfacing/drain returns held items; a second call returns empty."""
+    _record_batch("drain1")
+
+    res = client.post("/system/surfacing/drain")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["count"] == 1
+    assert len(body["drained"]) == 1
+    assert body["drained"][0]["action"] == "batch"
+
+    # Second drain must be empty — everything was marked surfaced.
+    res2 = client.post("/system/surfacing/drain")
+    body2 = res2.json()
+    assert body2["count"] == 0
+    assert body2["drained"] == []
+
+
+def test_drain_surfacing_empty_when_nothing_held(client: TestClient) -> None:
+    """POST /system/surfacing/drain returns empty when there are no held items."""
+    res = client.post("/system/surfacing/drain")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["count"] == 0
+    assert body["drained"] == []

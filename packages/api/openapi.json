@@ -1796,6 +1796,28 @@
         }
       }
     },
+    "/system/surfacing/drain": {
+      "post": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Drain Surfacing",
+        "description": "Drain the held batch digest \u2014 the explicit user-pulled 'catch me up' action.\n\nReturns all batch decisions that were held since the last drain and marks\nthem surfaced. A second call immediately after returns an empty list.\nThis is the event-boundary drain (ADR 0023): it is wired to a user action,\nnever to a timer or scheduler.",
+        "operationId": "drain_surfacing_system_surfacing_drain_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SurfacingDrainResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/system/surfacing/{decision_id}/feedback": {
       "post": {
         "tags": [
@@ -2795,6 +2817,14 @@
             "title": "Held Count",
             "description": "Total held (batched, not yet surfaced) items.",
             "default": 0
+          },
+          "needs_now": {
+            "items": {
+              "$ref": "#/components/schemas/SurfacingDecisionView"
+            },
+            "type": "array",
+            "title": "Needs Now",
+            "description": "Unresolved 'now' surfacings June judged need attention immediately."
           },
           "egress_today": {
             "type": "integer",
@@ -4363,6 +4393,25 @@
         ],
         "title": "SurfacingDecisionView",
         "description": "One recorded surface-vs-defer decision."
+      },
+      "SurfacingDrainResponse": {
+        "properties": {
+          "drained": {
+            "items": {
+              "$ref": "#/components/schemas/SurfacingDecisionView"
+            },
+            "type": "array",
+            "title": "Drained"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "SurfacingDrainResponse",
+        "description": "POST /system/surfacing/drain result \u2014 the batch digest drained at this user action.\n\n``drained`` is the list of batch decisions that were held since the last drain\nand are now marked surfaced. A second call returns an empty list. This is the\nexplicit user-pulled 'catch me up' boundary (ADR 0023: drain is an event-boundary\naction triggered by the user, never by a timer)."
       },
       "SurfacingFeedbackRequest": {
         "properties": {

@@ -79,6 +79,7 @@ export type LedgerVerifyResponse = components["schemas"]["LedgerVerifyResponse"]
 export type LedgerSummary = components["schemas"]["LedgerSummary"];
 export type SurfacingDecisionView = components["schemas"]["SurfacingDecisionView"];
 export type SurfacingPageResponse = components["schemas"]["SurfacingPageResponse"];
+export type SurfacingDrainResponse = components["schemas"]["SurfacingDrainResponse"];
 export type SurfacingFeedbackResponse = components["schemas"]["SurfacingFeedbackResponse"];
 export type HomeHoldings = components["schemas"]["HomeHoldings"];
 export type NextDeadlineView = components["schemas"]["NextDeadlineView"];
@@ -211,6 +212,11 @@ export function createJuneClient(options: JuneClientOptions) {
       if (cursor) params.set("cursor", cursor);
       params.set("limit", String(limit));
       return getJson<SurfacingPageResponse>(`/system/surfacing?${params.toString()}`);
+    },
+
+    /** POST /system/surfacing/drain — drain the held batch digest (user-pulled "catch me up"). */
+    drainSurfacing(): Promise<SurfacingDrainResponse> {
+      return requestJson<SurfacingDrainResponse>("/system/surfacing/drain", { method: "POST" });
     },
 
     /** POST /system/surfacing/{id}/feedback — record the user's judgment of a decision. */

@@ -789,6 +789,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/surfacing/drain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Drain Surfacing
+         * @description Drain the held batch digest — the explicit user-pulled 'catch me up' action.
+         *
+         *     Returns all batch decisions that were held since the last drain and marks
+         *     them surfaced. A second call immediately after returns an empty list.
+         *     This is the event-boundary drain (ADR 0023): it is wired to a user action,
+         *     never to a timer or scheduler.
+         */
+        post: operations["drain_surfacing_system_surfacing_drain_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/surfacing/{decision_id}/feedback": {
         parameters: {
             query?: never;
@@ -1246,6 +1271,11 @@ export interface components {
              * @default 0
              */
             held_count: number;
+            /**
+             * Needs Now
+             * @description Unresolved 'now' surfacings June judged need attention immediately.
+             */
+            needs_now?: components["schemas"]["SurfacingDecisionView"][];
             /**
              * Egress Today
              * @description Cloud-egress ledger entries since midnight UTC.
@@ -2350,6 +2380,24 @@ export interface components {
              * @description User judgment of the decision: 'good' | 'bad'; null if none.
              */
             verdict?: string | null;
+        };
+        /**
+         * SurfacingDrainResponse
+         * @description POST /system/surfacing/drain result — the batch digest drained at this user action.
+         *
+         *     ``drained`` is the list of batch decisions that were held since the last drain
+         *     and are now marked surfaced. A second call returns an empty list. This is the
+         *     explicit user-pulled 'catch me up' boundary (ADR 0023: drain is an event-boundary
+         *     action triggered by the user, never by a timer).
+         */
+        SurfacingDrainResponse: {
+            /** Drained */
+            drained?: components["schemas"]["SurfacingDecisionView"][];
+            /**
+             * Count
+             * @default 0
+             */
+            count: number;
         };
         /**
          * SurfacingFeedbackRequest
@@ -4216,6 +4264,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    drain_surfacing_system_surfacing_drain_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SurfacingDrainResponse"];
                 };
             };
         };

@@ -151,6 +151,56 @@ def test_idempotent_same_action() -> None:
     assert len(rows) == 1
 
 
+def test_open_now_decisions_returns_only_unresolved_now() -> None:
+    """open_now_decisions returns action='now' AND outcome IS NULL, newest-first."""
+    from june_brain.silence import SurfacingCandidate, get_store
+    from june_brain.silence.policy import SurfacingDecision
+
+    store = get_store()
+    ts_older = "2026-06-29T10:00:00+00:00"
+    ts_newer = "2026-06-29T11:00:00+00:00"
+
+    cand1 = SurfacingCandidate(candidate_id="now_older", kind="deadline", salience=0.95)
+    cand2 = SurfacingCandidate(candidate_id="now_newer", kind="deadline", salience=0.95)
+    cand_batch = SurfacingCandidate(candidate_id="batch_one", kind="promise_nudge", salience=0.3)
+
+    store.record(cand1, SurfacingDecision(action="now", reason="overdue", features={}), ts=ts_older)
+    store.record(cand2, SurfacingDecision(action="now", reason="overdue", features={}), ts=ts_newer)
+    store.record(cand_batch, SurfacingDecision(action="batch", reason="not urgent", features={}), ts=ts_older)
+
+    rows = store.open_now_decisions(limit=20)
+    # Only the 'now' rows, no 'batch', newest first.
+    assert len(rows) == 2
+    assert all(r.action == "now" for r in rows)
+    assert all(r.outcome is None for r in rows)
+    assert rows[0].ts > rows[1].ts  # newest first
+
+    # Mark one as engaged — it should disappear from open_now_decisions.
+    store.set_outcome(rows[1].id, "engaged")
+    rows_after = store.open_now_decisions(limit=20)
+    assert len(rows_after) == 1
+    assert rows_after[0].outcome is None
+
+
+def test_drain_digest_marks_surfaced_and_second_call_empty() -> None:
+    """drain_digest marks held batch items surfaced; a second call returns empty."""
+    from june_brain.silence import SurfacingCandidate, get_store
+    from june_brain.silence.policy import SurfacingDecision
+
+    store = get_store()
+    cand = SurfacingCandidate(candidate_id="drain_c1", kind="promise_nudge", salience=0.3)
+    store.record(cand, SurfacingDecision(action="batch", reason="not urgent", features={}))
+
+    # First drain returns the held item and marks it surfaced.
+    drained = store.drain_digest()
+    assert len(drained) == 1
+    assert drained[0].candidate_id == "drain_c1"
+
+    # Second drain returns empty because all items are now marked surfaced.
+    drained_again = store.drain_digest()
+    assert drained_again == []
+
+
 def test_state_transition_adds_new_row() -> None:
     """A batch->now transition (deadline approaching) must record a second row."""
     user_id = "transition_user"

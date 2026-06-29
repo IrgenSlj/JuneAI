@@ -38,6 +38,19 @@ class SurfacingPageResponse(BaseModel):
     )
 
 
+class SurfacingDrainResponse(BaseModel):
+    """POST /system/surfacing/drain result — the batch digest drained at this user action.
+
+    ``drained`` is the list of batch decisions that were held since the last drain
+    and are now marked surfaced. A second call returns an empty list. This is the
+    explicit user-pulled 'catch me up' boundary (ADR 0023: drain is an event-boundary
+    action triggered by the user, never by a timer).
+    """
+
+    drained: list[SurfacingDecisionView] = Field(default_factory=list)
+    count: int = 0
+
+
 class SurfacingFeedbackRequest(BaseModel):
     """POST /system/surfacing/{id}/feedback body."""
 

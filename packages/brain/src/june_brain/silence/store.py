@@ -277,6 +277,21 @@ class SurfacingStore:
         ).fetchone()
         return int(row["n"]) if row else 0
 
+    def open_now_decisions(self, *, limit: int = 20) -> list[SurfacingRecord]:
+        """Unresolved 'now' decisions — items the policy judged need attention immediately.
+
+        Returns rows WHERE action='now' AND outcome IS NULL, newest-first. These
+        are the candidates that have not yet been engaged or dismissed, so the
+        home surface can highlight them as "needs you now".
+        """
+        limit = max(1, min(int(limit), 200))
+        rows = self._conn.execute(
+            "SELECT * FROM surfacing_decisions "
+            "WHERE action='now' AND outcome IS NULL ORDER BY ts DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [_row_to_record(r) for r in rows]
+
     def drain_digest(self, *, ts: str | None = None) -> list[SurfacingRecord]:
         """Return all held batch items and mark them surfaced.
 

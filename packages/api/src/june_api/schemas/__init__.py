@@ -34,6 +34,7 @@ from .settings import (
 from .setup import SetupApplyRequest, SetupApplyResponse, SetupStatus
 from .silence import (
     SurfacingDecisionView,
+    SurfacingDrainResponse,
     SurfacingFeedbackRequest,
     SurfacingFeedbackResponse,
     SurfacingPageResponse,
@@ -142,6 +143,7 @@ __all__ = [
     "TraceSummary",
     "TurnTraceView",
     "SurfacingDecisionView",
+    "SurfacingDrainResponse",
     "SurfacingFeedbackRequest",
     "SurfacingFeedbackResponse",
     "SurfacingPageResponse",
