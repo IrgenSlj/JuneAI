@@ -322,6 +322,52 @@
     <OfflineNotice kind="memory" detail={loadError} onRetry={refresh} retrying={loading} />
   {/if}
 
+  <!-- Records & silence — the two tamper-evident / restraint surfaces -->
+  <section class="layer">
+    <div class="layer-label">Records &amp; silence</div>
+    <div class="row">
+      <a class="card link-card" href="/system/receipts">
+        <div class="card-head">
+          <h2>Receipts</h2>
+          {#if system?.ledger_summary}
+            {@const ls = system.ledger_summary}
+            <span
+              class="badge"
+              class:ok={ls.chain_verified === true}
+              class:danger={ls.chain_verified === false}
+              class:muted={ls.chain_verified === null || ls.chain_verified === undefined}
+            >
+              {ls.chain_verified === true
+                ? "chain verified"
+                : ls.chain_verified === false
+                  ? "tamper found"
+                  : "not verified"}
+            </span>
+          {/if}
+        </div>
+        <p class="card-body">
+          Every cloud egress and consequential action, hash-chained and verifiable on this
+          machine.
+          {#if system?.ledger_summary}
+            {system.ledger_summary.count} entr{system.ledger_summary.count === 1 ? "y" : "ies"} ·
+            {system.ledger_summary.egress_today} left today.
+          {/if}
+        </p>
+        <span class="card-cta">Open receipts →</span>
+      </a>
+      <a class="card link-card" href="/system/silence">
+        <div class="card-head">
+          <h2>Silence</h2>
+        </div>
+        <p class="card-body">
+          Why June surfaced, batched, or stayed quiet — every decision with its truthful reason,
+          including the ones she kept back.
+        </p>
+        <span class="card-cta">Open silence →</span>
+      </a>
+    </div>
+  </section>
+
   <!-- Capability profile — plain-language health verdict -->
   <section class="layer">
     <div class="layer-label">Brain capability</div>
@@ -877,6 +923,20 @@
   }
   .card.wide {
     grid-column: 1 / -1;
+  }
+  .link-card {
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 120ms ease, background 120ms ease;
+  }
+  .link-card:hover {
+    border-color: var(--color-border-strong);
+    background: color-mix(in srgb, var(--color-fg-muted) 4%, var(--color-bg-raised));
+  }
+  .card-cta {
+    color: var(--color-accent);
+    font-size: var(--size-sm);
+    font-family: var(--font-sans);
   }
 
   .card-head {
