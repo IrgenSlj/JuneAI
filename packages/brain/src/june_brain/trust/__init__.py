@@ -13,6 +13,7 @@ from .ledger import (
     compute_entry_hash,
     get_reader,
     get_writer,
+    last_verification,
     reset_for_tests,
 )
 from .signing import (
@@ -37,6 +38,7 @@ __all__ = [
     "compute_entry_hash",
     "get_reader",
     "get_writer",
+    "last_verification",
     "reset_for_tests",
     "Ed25519Signer",
     "Signer",

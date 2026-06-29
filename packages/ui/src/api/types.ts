@@ -709,6 +709,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ledger
+         * @description Newest-first page of Trust Ledger receipts. ``cursor`` pages older entries.
+         */
+        get: operations["get_ledger_system_ledger_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/ledger/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Ledger
+         * @description Recompute the whole chain and report integrity (and signatures, if keyed).
+         */
+        post: operations["verify_ledger_system_ledger_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/traces": {
         parameters: {
             query?: never;
@@ -1106,6 +1146,133 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * LedgerEntryView
+         * @description One tamper-evident ledger receipt (ADR 0022).
+         */
+        LedgerEntryView: {
+            /**
+             * Seq
+             * @description Gap-free monotonic position in the chain.
+             */
+            seq: number;
+            /**
+             * Id
+             * @description Entry uuid.
+             */
+            id: string;
+            /**
+             * Ts
+             * @description ISO-8601 UTC timestamp.
+             */
+            ts: string;
+            /**
+             * Kind
+             * @description 'egress', 'action', 'approval', or 'system'.
+             */
+            kind: string;
+            /**
+             * Actor
+             * @description 'june' or 'user'.
+             */
+            actor: string;
+            /**
+             * Payload
+             * @description Redacted summary of the event (never raw content).
+             */
+            payload?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Prev Hash
+             * @description entry_hash of the previous entry; 64 zeros at genesis.
+             */
+            prev_hash: string;
+            /**
+             * Entry Hash
+             * @description blake2b digest committing to this entry.
+             */
+            entry_hash: string;
+            /**
+             * Sig
+             * @description Hex Ed25519 signature, or null if unsigned.
+             */
+            sig?: string | null;
+        };
+        /**
+         * LedgerPageResponse
+         * @description GET /system/ledger payload — newest-first page of receipts.
+         */
+        LedgerPageResponse: {
+            /** Entries */
+            entries?: components["schemas"]["LedgerEntryView"][];
+            /**
+             * Count
+             * @description Number of entries in this page.
+             * @default 0
+             */
+            count: number;
+            /**
+             * Next Cursor
+             * @description Pass as ?cursor= to fetch the next (older) page; null when no more.
+             */
+            next_cursor?: number | null;
+        };
+        /**
+         * LedgerSummary
+         * @description Trust Ledger summary embedded in GET /system (ADR 0022).
+         */
+        LedgerSummary: {
+            /**
+             * Count
+             * @description Total entries in the chain.
+             * @default 0
+             */
+            count: number;
+            /**
+             * Last Entry Ts
+             * @description ISO timestamp of the most recent entry, if any.
+             */
+            last_entry_ts?: string | null;
+            /**
+             * Egress Today
+             * @description Number of cloud-egress entries recorded since midnight UTC.
+             * @default 0
+             */
+            egress_today: number;
+            /**
+             * Chain Verified
+             * @description Result of the last verify_chain this session; null if not verified yet.
+             */
+            chain_verified?: boolean | null;
+            /**
+             * Chain Verified At
+             * @description ISO timestamp of the last verification this session; null if never verified.
+             */
+            chain_verified_at?: string | null;
+        };
+        /**
+         * LedgerVerifyResponse
+         * @description POST /system/ledger/verify payload — the chain integrity check result.
+         */
+        LedgerVerifyResponse: {
+            /**
+             * Ok
+             * @description True when the whole chain verifies.
+             */
+            ok: boolean;
+            /**
+             * First Broken Seq
+             * @description First seq where the chain breaks, or null when ok.
+             */
+            first_broken_seq?: number | null;
+            /**
+             * Signed
+             * @description True when the chain carries signatures that were verified with a device key.
+             * @default false
+             */
+            signed: boolean;
         };
         /**
          * MemoryDeleteResponse
@@ -2096,6 +2263,8 @@ export interface components {
              * @default unknown
              */
             version: string;
+            /** @description Trust Ledger summary (ADR 0022): entry count, last entry, egress today, last verification. */
+            ledger_summary?: components["schemas"]["LedgerSummary"] | null;
         };
         /** TaskApproveRequest */
         TaskApproveRequest: {
@@ -3709,6 +3878,58 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActivityResponse"];
+                };
+            };
+        };
+    };
+    get_ledger_system_ledger_get: {
+        parameters: {
+            query?: {
+                cursor?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LedgerPageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_ledger_system_ledger_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LedgerVerifyResponse"];
                 };
             };
         };

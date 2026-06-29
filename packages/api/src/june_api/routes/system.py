@@ -14,6 +14,10 @@ from ..schemas import (
     ActivityEntryView,
     ActivityResponse,
     CapabilityProfileView,
+    LedgerEntryView,
+    LedgerPageResponse,
+    LedgerSummary,
+    LedgerVerifyResponse,
     SystemStatus,
     TraceEventView,
     TraceListResponse,
@@ -22,6 +26,27 @@ from ..schemas import (
 )
 
 router = APIRouter(tags=["system"])
+
+
+def _ledger_summary() -> LedgerSummary | None:
+    """Build the Trust Ledger summary for /system. Best-effort; never raises."""
+    from datetime import UTC, datetime
+
+    try:
+        from june_brain.trust import get_reader, last_verification
+
+        reader = get_reader()
+        midnight = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+        verified = last_verification()
+        return LedgerSummary(
+            count=reader.count(),
+            last_entry_ts=reader.last_entry_ts(),
+            egress_today=reader.egress_count_since(midnight.isoformat()),
+            chain_verified=verified[1] if verified else None,
+            chain_verified_at=verified[0] if verified else None,
+        )
+    except Exception:  # noqa: BLE001 - the summary must never break the status badge
+        return None
 
 
 @router.get("/system", response_model=SystemStatus)
@@ -55,6 +80,7 @@ def get_system_status() -> SystemStatus:
             ollama_has_model=False,
             api_key_present=False,
             version=build_version(),
+            ledger_summary=_ledger_summary(),
         )
 
     ollama_reachable = False
@@ -101,6 +127,7 @@ def get_system_status() -> SystemStatus:
         semantic_recall_detail=semantic_recall_detail,
         api_key_present=bool(runtime.api_key) and runtime.api_key != "ollama",
         version=build_version(),
+        ledger_summary=_ledger_summary(),
     )
 
 
@@ -154,6 +181,48 @@ def clear_activity() -> ActivityResponse:
     """Clear the activity log. Returns an empty response shape."""
     ActivityLog().clear()
     return ActivityResponse(entries=[], count=0)
+
+
+# ---------------------------------------------------------------------------
+# Trust Ledger — tamper-evident provenance receipts (ADR 0022)
+# ---------------------------------------------------------------------------
+
+
+def _ledger_entry_to_view(entry) -> LedgerEntryView:
+    return LedgerEntryView(
+        seq=entry.seq,
+        id=entry.id,
+        ts=entry.ts,
+        kind=entry.kind,
+        actor=entry.actor,
+        payload=entry.payload,
+        prev_hash=entry.prev_hash,
+        entry_hash=entry.entry_hash,
+        sig=entry.sig,
+    )
+
+
+@router.get("/system/ledger", response_model=LedgerPageResponse)
+def get_ledger(cursor: int | None = None, limit: int = 50) -> LedgerPageResponse:
+    """Newest-first page of Trust Ledger receipts. ``cursor`` pages older entries."""
+    from june_brain.trust import get_reader
+
+    limit = max(1, min(int(limit), 200))
+    entries = get_reader().page(cursor=cursor, limit=limit)
+    views = [_ledger_entry_to_view(e) for e in entries]
+    next_cursor = views[-1].seq if len(views) == limit and views else None
+    return LedgerPageResponse(entries=views, count=len(views), next_cursor=next_cursor)
+
+
+@router.post("/system/ledger/verify", response_model=LedgerVerifyResponse)
+def verify_ledger() -> LedgerVerifyResponse:
+    """Recompute the whole chain and report integrity (and signatures, if keyed)."""
+    from june_brain.trust import get_reader
+
+    result = get_reader().verify_chain()
+    return LedgerVerifyResponse(
+        ok=result.ok, first_broken_seq=result.first_broken_seq, signed=result.signed
+    )
 
 
 # ---------------------------------------------------------------------------

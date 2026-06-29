@@ -19,6 +19,9 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setattr(memory_pkg, "MEMORY_DIR", str(tmp_path), raising=False)
     monkeypatch.setattr(memory_sqlite, "_local", type(memory_sqlite._local)())
     activity_pkg.reset_for_tests()
+    import june_brain.trust as trust_pkg
+
+    trust_pkg.reset_for_tests()
     return TestClient(create_app())
 
 

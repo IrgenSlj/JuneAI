@@ -1611,6 +1611,88 @@
         }
       }
     },
+    "/system/ledger": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Get Ledger",
+        "description": "Newest-first page of Trust Ledger receipts. ``cursor`` pages older entries.",
+        "operationId": "get_ledger_system_ledger_get",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerPageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/ledger/verify": {
+      "post": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Verify Ledger",
+        "description": "Recompute the whole chain and report integrity (and signatures, if keyed).",
+        "operationId": "verify_ledger_system_ledger_verify_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerVerifyResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/system/traces": {
       "get": {
         "tags": [
@@ -2512,6 +2594,195 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "LedgerEntryView": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "description": "Gap-free monotonic position in the chain."
+          },
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Entry uuid."
+          },
+          "ts": {
+            "type": "string",
+            "title": "Ts",
+            "description": "ISO-8601 UTC timestamp."
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "'egress', 'action', 'approval', or 'system'."
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor",
+            "description": "'june' or 'user'."
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload",
+            "description": "Redacted summary of the event (never raw content)."
+          },
+          "prev_hash": {
+            "type": "string",
+            "title": "Prev Hash",
+            "description": "entry_hash of the previous entry; 64 zeros at genesis."
+          },
+          "entry_hash": {
+            "type": "string",
+            "title": "Entry Hash",
+            "description": "blake2b digest committing to this entry."
+          },
+          "sig": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sig",
+            "description": "Hex Ed25519 signature, or null if unsigned."
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "id",
+          "ts",
+          "kind",
+          "actor",
+          "prev_hash",
+          "entry_hash"
+        ],
+        "title": "LedgerEntryView",
+        "description": "One tamper-evident ledger receipt (ADR 0022)."
+      },
+      "LedgerPageResponse": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/LedgerEntryView"
+            },
+            "type": "array",
+            "title": "Entries"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "description": "Number of entries in this page.",
+            "default": 0
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor",
+            "description": "Pass as ?cursor= to fetch the next (older) page; null when no more."
+          }
+        },
+        "type": "object",
+        "title": "LedgerPageResponse",
+        "description": "GET /system/ledger payload \u2014 newest-first page of receipts."
+      },
+      "LedgerSummary": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "description": "Total entries in the chain.",
+            "default": 0
+          },
+          "last_entry_ts": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Entry Ts",
+            "description": "ISO timestamp of the most recent entry, if any."
+          },
+          "egress_today": {
+            "type": "integer",
+            "title": "Egress Today",
+            "description": "Number of cloud-egress entries recorded since midnight UTC.",
+            "default": 0
+          },
+          "chain_verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Verified",
+            "description": "Result of the last verify_chain this session; null if not verified yet."
+          },
+          "chain_verified_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Verified At",
+            "description": "ISO timestamp of the last verification this session; null if never verified."
+          }
+        },
+        "type": "object",
+        "title": "LedgerSummary",
+        "description": "Trust Ledger summary embedded in GET /system (ADR 0022)."
+      },
+      "LedgerVerifyResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "description": "True when the whole chain verifies."
+          },
+          "first_broken_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Broken Seq",
+            "description": "First seq where the chain breaks, or null when ok."
+          },
+          "signed": {
+            "type": "boolean",
+            "title": "Signed",
+            "description": "True when the chain carries signatures that were verified with a device key.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "title": "LedgerVerifyResponse",
+        "description": "POST /system/ledger/verify payload \u2014 the chain integrity check result."
       },
       "MemoryDeleteResponse": {
         "properties": {
@@ -3845,6 +4116,17 @@
             "title": "Version",
             "description": "Short git SHA (or JUNE_BUILD_SHA) identifying the running build.",
             "default": "unknown"
+          },
+          "ledger_summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LedgerSummary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Trust Ledger summary (ADR 0022): entry count, last entry, egress today, last verification."
           }
         },
         "type": "object",

@@ -7,6 +7,26 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+class LedgerSummary(BaseModel):
+    """Trust Ledger summary embedded in GET /system (ADR 0022)."""
+
+    count: int = Field(default=0, description="Total entries in the chain.")
+    last_entry_ts: str | None = Field(
+        default=None, description="ISO timestamp of the most recent entry, if any."
+    )
+    egress_today: int = Field(
+        default=0, description="Number of cloud-egress entries recorded since midnight UTC."
+    )
+    chain_verified: bool | None = Field(
+        default=None,
+        description="Result of the last verify_chain this session; null if not verified yet.",
+    )
+    chain_verified_at: str | None = Field(
+        default=None,
+        description="ISO timestamp of the last verification this session; null if never verified.",
+    )
+
+
 class SystemStatus(BaseModel):
     """What the shells need to display a honest runtime indicator."""
 
@@ -52,6 +72,10 @@ class SystemStatus(BaseModel):
         default="unknown",
         description="Short git SHA (or JUNE_BUILD_SHA) identifying the running build.",
     )
+    ledger_summary: LedgerSummary | None = Field(
+        default=None,
+        description="Trust Ledger summary (ADR 0022): entry count, last entry, egress today, last verification.",
+    )
 
 
 class ActivityEntryView(BaseModel):
@@ -74,6 +98,51 @@ class ActivityResponse(BaseModel):
 
     entries: list[ActivityEntryView] = Field(default_factory=list)
     count: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Trust Ledger receipts (GET /system/ledger, POST /system/ledger/verify)
+# ---------------------------------------------------------------------------
+
+
+class LedgerEntryView(BaseModel):
+    """One tamper-evident ledger receipt (ADR 0022)."""
+
+    seq: int = Field(..., description="Gap-free monotonic position in the chain.")
+    id: str = Field(..., description="Entry uuid.")
+    ts: str = Field(..., description="ISO-8601 UTC timestamp.")
+    kind: str = Field(..., description="'egress', 'action', 'approval', or 'system'.")
+    actor: str = Field(..., description="'june' or 'user'.")
+    payload: dict[str, Any] = Field(
+        default_factory=dict, description="Redacted summary of the event (never raw content)."
+    )
+    prev_hash: str = Field(..., description="entry_hash of the previous entry; 64 zeros at genesis.")
+    entry_hash: str = Field(..., description="blake2b digest committing to this entry.")
+    sig: str | None = Field(default=None, description="Hex Ed25519 signature, or null if unsigned.")
+
+
+class LedgerPageResponse(BaseModel):
+    """GET /system/ledger payload — newest-first page of receipts."""
+
+    entries: list[LedgerEntryView] = Field(default_factory=list)
+    count: int = Field(default=0, description="Number of entries in this page.")
+    next_cursor: int | None = Field(
+        default=None,
+        description="Pass as ?cursor= to fetch the next (older) page; null when no more.",
+    )
+
+
+class LedgerVerifyResponse(BaseModel):
+    """POST /system/ledger/verify payload — the chain integrity check result."""
+
+    ok: bool = Field(..., description="True when the whole chain verifies.")
+    first_broken_seq: int | None = Field(
+        default=None, description="First seq where the chain breaks, or null when ok."
+    )
+    signed: bool = Field(
+        default=False,
+        description="True when the chain carries signatures that were verified with a device key.",
+    )
 
 
 # ---------------------------------------------------------------------------

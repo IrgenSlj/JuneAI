@@ -292,7 +292,16 @@ class LedgerReader:
         Returns ``ok=True`` with ``first_broken_seq=None`` when intact, otherwise
         the first ``seq`` where the chain breaks (a gap, a bad link, a payload that
         no longer hashes to its stored ``entry_hash``, or a failed signature).
+
+        Records the result + timestamp in a process-local cache so the cheap
+        ``/system`` summary can report when the chain was last verified without
+        re-hashing on every status poll.
         """
+        result = self._verify(verify_key_hex=verify_key_hex)
+        _record_verification(self._db_path, result.ok)
+        return result
+
+    def _verify(self, *, verify_key_hex: str | None = None) -> VerifyResult:
         rows = self._conn.execute(
             "SELECT * FROM trust_ledger ORDER BY seq ASC"
         ).fetchall()
@@ -351,6 +360,20 @@ _writer: LedgerWriter | None = None
 _reader: LedgerReader | None = None
 _handle_lock = threading.Lock()
 
+# Process-local record of the last verification per db, so the /system summary
+# can show "chain verified at <ts>" without re-hashing the whole chain on every
+# poll. Verification stays an explicit act; this only caches its outcome.
+_last_verify: dict[str, tuple[str, bool]] = {}
+
+
+def _record_verification(db: str, ok: bool) -> None:
+    _last_verify[db] = (_now(), ok)
+
+
+def last_verification(db: str | None = None) -> tuple[str, bool] | None:
+    """Return ``(ts, ok)`` of the last verify_chain for ``db`` (default: active), or None."""
+    return _last_verify.get(db if db is not None else db_path())
+
 
 def get_writer() -> LedgerWriter:
     """Process-wide unsigned writer for production wiring.
@@ -384,3 +407,4 @@ def reset_for_tests() -> None:
     with _handle_lock:
         _writer = None
         _reader = None
+        _last_verify.clear()
