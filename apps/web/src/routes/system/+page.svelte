@@ -365,6 +365,17 @@
         </p>
         <span class="card-cta">Open silence →</span>
       </a>
+      <a class="card link-card" href="/system/glass">
+        <div class="card-head">
+          <h2>Glass Box</h2>
+        </div>
+        <p class="card-body">
+          Every step June takes, turn by turn: prompt assembly, recall, tool calls, model
+          iterations, and the cloud/local boundary line. The complete, unfiltered record of
+          what happened inside each conversation turn.
+        </p>
+        <span class="card-cta">Open Glass Box →</span>
+      </a>
     </div>
   </section>
 

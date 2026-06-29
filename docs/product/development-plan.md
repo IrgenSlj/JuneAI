@@ -354,6 +354,38 @@ Each gets a short ADR before code (crypto / external accounts).
    writes per-action, revocable, always visible).
 3. Desktop Python sidecar - the `.app` runs the brain without a separate shell.
 
+### Track 6 - The Glass Box: activity window as a complete view of every process (ELEVATED, user 2026-06-29)
+
+The user is dissatisfied with the current activity popup and wants it reimagined
+as a breathtaking, see-everything view of all agentic + LLM processes. Diagnosis:
+today there are two disconnected surfaces - a live chat "activity terminal" wiped
+every turn, and a separate 5s-polling trace viewer on Trust - and the richest
+captured data (tokens, cloud-call lifecycle, per-memory salience) is dropped
+before render, while sub-LLM calls emit nothing.
+
+Locked decisions (asked + answered): (a) a dedicated full-screen Glass Box route
+under Trust + a slim live strip on Chat; (b) "go big" - capture the hidden
+thinking layers (difficulty classifier, compactor sub-LLM calls) and the full
+turn tree; (c) raw reasoning visible by default (reverses the Phase-0 suppression
+default - update that acceptance test and document the reversal; no new egress:
+local reasoning stays local, cloud reasoning is already surfaced as egress).
+
+Ordered so it is visible early, then gets richer:
+
+1. GB-1: the dedicated Glass Box route under Trust + a `glass` store, rendering
+   the already-persisted turn traces (`/system/traces*`) as an expandable
+   turn-tree timeline (route -> recall -> prompt -> llm -> tool -> provenance).
+   No backend change. Trust page links to it.
+2. GB-2: unify live + history - pipe the chat SSE into the persistent glass store
+   (stop wiping every turn) + the slim live strip on Chat linking in.
+3. GB-3: plumb already-captured data into live events - tokens in/out per call,
+   cloud-call start/end lifecycle, per-recall salience scores.
+4. GB-4: capture the thinking layers - difficulty classifier + compactor sub-LLM
+   calls become nested events (model, prompt, tokens, latency) under the turn.
+5. GB-5: reasoning always visible - stop suppressing raw CoT; emit + persist it;
+   update the Phase-0 "no reasoning by default" test; document the reversal.
+6. GB-6: history parity - replayed turns show the same enriched tree as live.
+
 ## Progress Log
 
 ### 2026-06-29 - Silence/Trust UI (slices 9-10), from Claude Design
