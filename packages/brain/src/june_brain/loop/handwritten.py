@@ -387,6 +387,31 @@ class HandwrittenLoop:
         yield _emit(StreamEvent(type="iteration", content=route_summary, detail=route_detail))
         trace.record("iteration", route_summary, detail=route_detail)
 
+        # Emit a model_call event only when the classifier actually called a model.
+        # Cache hits and heuristic fallbacks made no LLM call, so emitting one
+        # would be dishonest.
+        if difficulty.source == "model" and difficulty.model_id is not None:
+            def _fmt_tok(n: int | None) -> str | None:
+                if n is None:
+                    return None
+                return f"{n // 1000}k" if n >= 1000 else str(n)
+
+            in_part = _fmt_tok(difficulty.input_tokens)
+            out_part = _fmt_tok(difficulty.output_tokens)
+            tok_part = f" · {in_part}/{out_part} tok" if in_part and out_part else ""
+            lat_part = (
+                f" · {difficulty.latency_ms}ms"
+                if difficulty.latency_ms is not None
+                else ""
+            )
+            mc_label = (
+                f'classifier · {difficulty.model_id} · "{difficulty.label}"'
+                f"{tok_part}{lat_part}"
+            )
+            mc_detail = f"difficulty classification → {difficulty.label} (source: model)"
+            yield _emit(StreamEvent(type="model_call", content=mc_label, detail=mc_detail))
+            trace.record("model_call", mc_label, detail=mc_detail)
+
         tokens = TokenAccounting()
         all_tool_calls: list[ToolCall] = []
         first_iteration = True

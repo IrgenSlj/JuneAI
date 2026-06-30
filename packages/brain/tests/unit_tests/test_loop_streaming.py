@@ -341,6 +341,109 @@ def test_stream_turn_provenance_fields() -> None:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Test: model_call event emitted when classifier uses model, not when heuristic
+# ---------------------------------------------------------------------------
+
+
+def test_stream_turn_emits_model_call_when_classifier_uses_model() -> None:
+    """A model_call event is emitted exactly once when the difficulty classifier called a model."""
+    from june_brain.router.difficulty import DifficultyResult
+
+    provider = MultiChunkProvider(chunks=["Hello!"])
+    reg = _registry_with("local-fast", provider)
+
+    async def _classify_model(text: str) -> DifficultyResult:
+        return DifficultyResult(
+            label="standard",
+            source="model",
+            model_id="mock-classifier",
+            input_tokens=5,
+            output_tokens=2,
+            latency_ms=10,
+        )
+
+    loop = HandwrittenLoop(
+        registry=reg,
+        role="local-fast",
+        assemble_context=lambda s, m: [m],
+        extract_tool_calls=lambda r: [],
+        dispatch=None,
+        maybe_compact=_noop_compact,
+        classify=_classify_model,
+    )
+
+    session = SessionState(user_id="mc-user", messages=[])
+    events = _collect_stream(
+        loop.stream_turn(session, Message(role="user", content="hello"))
+    )
+
+    mc_events = [e for e in events if e.type == "model_call"]
+    assert len(mc_events) == 1
+    assert "classifier" in mc_events[0].content
+    assert "mock-classifier" in mc_events[0].content
+    assert "standard" in mc_events[0].content
+    assert mc_events[0].detail == "difficulty classification → standard (source: model)"
+
+
+def test_stream_turn_no_model_call_when_heuristic() -> None:
+    """No model_call event is emitted when the classifier used the heuristic path."""
+    from june_brain.router.difficulty import DifficultyResult
+
+    provider = MultiChunkProvider(chunks=["Hello!"])
+    reg = _registry_with("local-fast", provider)
+
+    async def _classify_heuristic(text: str) -> DifficultyResult:
+        return DifficultyResult(label="trivial", source="heuristic")
+
+    loop = HandwrittenLoop(
+        registry=reg,
+        role="local-fast",
+        assemble_context=lambda s, m: [m],
+        extract_tool_calls=lambda r: [],
+        dispatch=None,
+        maybe_compact=_noop_compact,
+        classify=_classify_heuristic,
+    )
+
+    session = SessionState(user_id="heur-user", messages=[])
+    events = _collect_stream(
+        loop.stream_turn(session, Message(role="user", content="hi"))
+    )
+
+    mc_events = [e for e in events if e.type == "model_call"]
+    assert len(mc_events) == 0
+
+
+def test_stream_turn_no_model_call_when_cache() -> None:
+    """No model_call event is emitted when the classifier returned a cache hit."""
+    from june_brain.router.difficulty import DifficultyResult
+
+    provider = MultiChunkProvider(chunks=["Hello!"])
+    reg = _registry_with("local-fast", provider)
+
+    async def _classify_cache(text: str) -> DifficultyResult:
+        return DifficultyResult(label="standard", source="cache")
+
+    loop = HandwrittenLoop(
+        registry=reg,
+        role="local-fast",
+        assemble_context=lambda s, m: [m],
+        extract_tool_calls=lambda r: [],
+        dispatch=None,
+        maybe_compact=_noop_compact,
+        classify=_classify_cache,
+    )
+
+    session = SessionState(user_id="cache-user", messages=[])
+    events = _collect_stream(
+        loop.stream_turn(session, Message(role="user", content="hello again"))
+    )
+
+    mc_events = [e for e in events if e.type == "model_call"]
+    assert len(mc_events) == 0
+
+
 def test_stream_turn_provenance_carries_token_counts() -> None:
     """provenance event carries input_tokens and output_tokens estimated from the turn."""
     provider = MultiChunkProvider(chunks=["Hello world"])

@@ -15,7 +15,7 @@ import json
 import re
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 Difficulty = Literal["trivial", "standard", "hard", "creative"]
 ClassifierSource = Literal["model", "heuristic", "cache"]
@@ -52,6 +52,12 @@ class DifficultyResult:
 
     label: Difficulty
     source: ClassifierSource
+    # Populated only when source == "model"; None for cache/heuristic paths
+    # (no LLM call happened on those paths so reporting metadata would be dishonest).
+    model_id: str | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    latency_ms: int | None = None
 
 
 # Bounded LRU cache keyed on the normalized message. Only successful model
@@ -124,7 +130,14 @@ def _parse_label(raw: str) -> Difficulty | None:
     return None
 
 
-async def _model_classify(text: str, registry, role: str) -> Difficulty | None:
+async def _model_classify(
+    text: str, registry, role: str
+) -> tuple[Difficulty | None, Any]:
+    """Call the model classifier and return (label, GenerateResult).
+
+    Returns (None, result) when the model responds but the output cannot be
+    parsed as a valid label; the caller degrades to the heuristic in that case.
+    """
     if registry is None:
         from june_brain.providers.registry import get_registry
 
@@ -150,7 +163,7 @@ async def _model_classify(text: str, registry, role: str) -> Difficulty | None:
         response_format="json",
     )
     result = await provider.generate(req)
-    return _parse_label(result.text)
+    return _parse_label(result.text), result
 
 
 async def classify_difficulty_detailed(
@@ -173,13 +186,20 @@ async def classify_difficulty_detailed(
             return DifficultyResult(cached, "cache")
 
     try:
-        label = await asyncio.wait_for(
+        label, gen_result = await asyncio.wait_for(
             _model_classify(text, registry, role), timeout=timeout
         )
         if label is not None:
             if use_cache:
                 _cache_put(key, label)
-            return DifficultyResult(label, "model")
+            return DifficultyResult(
+                label=label,
+                source="model",
+                model_id=gen_result.model_id if gen_result is not None else None,
+                input_tokens=gen_result.input_tokens if gen_result is not None else None,
+                output_tokens=gen_result.output_tokens if gen_result is not None else None,
+                latency_ms=gen_result.latency_ms if gen_result is not None else None,
+            )
     except Exception:  # noqa: BLE001 — timeout or any failure degrades to heuristic
         pass
 

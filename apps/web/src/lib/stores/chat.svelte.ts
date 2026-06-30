@@ -272,6 +272,9 @@ function handleEvent(event: ChatEvent, assistantId: string) {
         detail: event.detail,
       });
       break;
+    case "model_call":
+      pushActivity({ kind: "model_call", label: event.content || "model call", detail: event.detail });
+      break;
     case "tool_blocked":
       if (event.needs_approval) {
         // A consequential action June won't take without explicit approval.

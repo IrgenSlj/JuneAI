@@ -214,7 +214,7 @@ async def _iter_harness_events(
                         turn_id=ev.turn_id,
                     )
                 )
-            elif ev.type in ("prompt", "iteration", "compaction"):
+            elif ev.type in ("prompt", "iteration", "compaction", "model_call"):
                 # Glass-box trace events: collapsed line in content, full body
                 # in detail. Never added to assistant_buffer (not the answer).
                 yield _event_to_sse(

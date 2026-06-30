@@ -198,6 +198,49 @@ def test_heuristic_multilingual_greetings():
 
 
 # ---------------------------------------------------------------------------
+# classify_difficulty_detailed — model_call metadata fields
+# ---------------------------------------------------------------------------
+
+
+def test_detailed_model_path_populates_metadata():
+    """When the model path succeeds, DifficultyResult carries model_id/tokens/latency."""
+    provider = _make_provider("hard")
+    reg = _registry_with(provider)
+    result = asyncio.run(classify_difficulty_detailed("complex multi-step task", registry=reg))
+    assert result.source == "model"
+    assert result.label == "hard"
+    assert result.model_id == "mock"
+    assert result.input_tokens == 5
+    assert result.output_tokens == 2
+    assert result.latency_ms == 10
+
+
+def test_detailed_heuristic_leaves_metadata_none():
+    """When the heuristic path is taken, all metadata fields are None."""
+    provider = _make_raising_provider()
+    reg = _registry_with(provider)
+    result = asyncio.run(classify_difficulty_detailed("hi", registry=reg))
+    assert result.source == "heuristic"
+    assert result.model_id is None
+    assert result.input_tokens is None
+    assert result.output_tokens is None
+    assert result.latency_ms is None
+
+
+def test_detailed_cache_leaves_metadata_none():
+    """A cache hit has source='cache' and all metadata fields are None (honest: no call happened)."""
+    provider = _make_provider("standard")
+    reg = _registry_with(provider)
+    asyncio.run(classify_difficulty_detailed("what time is it", registry=reg))
+    result = asyncio.run(classify_difficulty_detailed("what time is it", registry=reg))
+    assert result.source == "cache"
+    assert result.model_id is None
+    assert result.input_tokens is None
+    assert result.output_tokens is None
+    assert result.latency_ms is None
+
+
+# ---------------------------------------------------------------------------
 # tier_for_difficulty
 # ---------------------------------------------------------------------------
 

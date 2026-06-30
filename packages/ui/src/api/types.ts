@@ -2863,7 +2863,7 @@ export interface components {
              * @description Discriminator that determines the meaning of the payload. reasoning: June's chain-of-thought for this turn; shown selectively, not part of the answer. prompt/iteration/compaction: glass-box trace events; the collapsed line is in content, the full expandable body is in detail.
              * @enum {string}
              */
-            type: "token" | "tool_call" | "tool_result" | "recall" | "provenance" | "done" | "error" | "reasoning" | "prompt" | "iteration" | "compaction" | "tool_blocked";
+            type: "token" | "tool_call" | "tool_result" | "recall" | "provenance" | "done" | "error" | "reasoning" | "prompt" | "iteration" | "compaction" | "tool_blocked" | "model_call";
             /**
              * Content
              * @description Textual content for token and error events; empty otherwise.

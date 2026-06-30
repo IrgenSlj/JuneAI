@@ -104,6 +104,7 @@ class StreamEvent:
         "iteration",
         "compaction",
         "tool_blocked",
+        "model_call",
     ]
     content: str = ""
     tool_name: str = ""

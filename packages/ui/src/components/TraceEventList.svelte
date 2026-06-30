@@ -178,6 +178,10 @@
   .row[data-kind="tool_result"] .label {
     color: var(--color-fg-muted);
   }
+  .row[data-kind="model_call"] .label {
+    color: var(--color-fg-subtle);
+    font-style: italic;
+  }
 
   .detail {
     margin: var(--space-1) 0 var(--space-2);

@@ -94,6 +94,7 @@ class ChatEvent(BaseModel):
         "iteration",
         "compaction",
         "tool_blocked",
+        "model_call",
     ] = Field(
         ...,
         description=(

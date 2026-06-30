@@ -25,7 +25,8 @@ export interface ActivityStep {
     | "prompt"        // the rendered "LLM factory" input for an iteration
     | "iteration"     // a loop pass + its intermediate model output
     | "compaction"    // conversation compacted into the pinned-state anchor
-    | "tool_blocked"; // a tool withheld: Local-only mode, or pending user approval
+    | "tool_blocked"  // a tool withheld: Local-only mode, or pending user approval
+    | "model_call";   // a sub-LLM call surfaced in the Glass Box (e.g. difficulty classifier)
   label: string;         // short, June-voiced, lower-case, no emoji
   detail?: string;       // full expandable body (prompt, args, rationale, output)
   cloud?: boolean;       // set on provenance steps: true=cloud, false=local
