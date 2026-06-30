@@ -111,7 +111,24 @@ def _maybe_warm_local_model() -> None:
 async def _lifespan(app: FastAPI):
     _maybe_warm_local_model()
     _maybe_backfill_vectors()
+    _reconcile_running_tasks()
     yield
+
+
+def _reconcile_running_tasks() -> None:
+    """Mark any RUNNING tasks as AWAITING_USER on restart.
+
+    Task execution is an in-memory asyncio coroutine; a crash loses it
+    silently. This best-effort call surfaces those orphans so the user can
+    resume them. Never fatal.
+    """
+    try:
+        from june_brain.tasks.store import reconcile_running_after_restart
+
+        count = reconcile_running_after_restart()
+        logger.info("reconciled %d task(s) interrupted by restart", count)
+    except Exception:  # noqa: BLE001
+        logger.exception("task restart reconciliation failed")
 
 
 def _maybe_backfill_vectors() -> None:

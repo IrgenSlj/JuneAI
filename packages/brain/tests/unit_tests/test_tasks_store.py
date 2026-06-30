@@ -245,3 +245,106 @@ def test_approve_tool_adds_to_allow_list_and_persists(store: TasksStore) -> None
 
 def test_approve_tool_missing_task_returns_none(store: TasksStore) -> None:
     assert store.approve_tool("does-not-exist", "web_search") is None
+
+
+# ---------------------------------------------------------------------------
+# reconcile_running_after_restart
+# ---------------------------------------------------------------------------
+
+
+def test_reconcile_marks_running_tasks_awaiting_and_preserves_plan(
+    store: TasksStore,
+) -> None:
+    """RUNNING tasks are transitioned to AWAITING_USER with restart metadata."""
+    from june_brain.tasks.store import reconcile_running_after_restart
+
+    # Create a task with a step trace and advance it to RUNNING.
+    t = store.create(goal="Export my data")
+    store.append_step(t.id, TaskStep(description="gather data"))
+    store.set_status(t.id, TaskStatus.RUNNING)
+
+    running = store.get(t.id)
+    assert running is not None
+    assert running.status == TaskStatus.RUNNING
+    original_started_at = running.started_at
+
+    count = reconcile_running_after_restart()
+
+    assert count == 1
+
+    reconciled = store.get(t.id)
+    assert reconciled is not None
+    assert reconciled.status == TaskStatus.AWAITING_USER
+    assert reconciled.blocked_reason == "Interrupted by an app restart"
+    assert reconciled.next_action == "Resume this promise to pick it back up."
+    assert reconciled.blocked_kind is None
+    # Plan/trace must be preserved.
+    assert len(reconciled.plan) == 1
+    assert reconciled.plan[0].description == "gather data"
+    # started_at must be preserved (do not wipe it).
+    assert reconciled.started_at == original_started_at
+
+
+def test_reconcile_leaves_non_running_tasks_untouched(
+    store: TasksStore,
+) -> None:
+    """COMPLETED and AWAITING_USER tasks are not modified by reconciliation."""
+    from june_brain.tasks.store import reconcile_running_after_restart
+
+    t_done = store.create(goal="Already done")
+    store.set_status(t_done.id, TaskStatus.COMPLETED)
+
+    t_waiting = store.create(goal="Waiting on user already")
+    store.set_blocked(t_waiting.id, reason="needs approval", next_action="approve it")
+
+    count = reconcile_running_after_restart()
+
+    assert count == 0
+
+    done = store.get(t_done.id)
+    assert done is not None
+    assert done.status == TaskStatus.COMPLETED
+
+    waiting = store.get(t_waiting.id)
+    assert waiting is not None
+    assert waiting.status == TaskStatus.AWAITING_USER
+    assert waiting.blocked_reason == "needs approval"
+
+
+def test_reconcile_handles_multiple_running_tasks_across_users(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """Cross-user: all RUNNING rows are reconciled in one call."""
+    import june_brain.memory as memory_pkg
+    import june_brain.memory.sqlite as memory_sqlite
+    from june_brain.tasks.store import reconcile_running_after_restart
+
+    monkeypatch.setattr(memory_pkg, "MEMORY_DIR", str(tmp_path), raising=False)
+    monkeypatch.setattr(memory_sqlite, "_local", type(memory_sqlite._local)())
+
+    alice = TasksStore(user_id="alice")
+    bob = TasksStore(user_id="bob")
+
+    ta = alice.create(goal="alice task")
+    alice.set_status(ta.id, TaskStatus.RUNNING)
+
+    tb = bob.create(goal="bob task")
+    bob.set_status(tb.id, TaskStatus.RUNNING)
+
+    # One COMPLETED task that must not be touched.
+    tc = alice.create(goal="alice done")
+    alice.set_status(tc.id, TaskStatus.COMPLETED)
+
+    count = reconcile_running_after_restart()
+
+    assert count == 2
+
+    ra = alice.get(ta.id)
+    rb = bob.get(tb.id)
+    assert ra is not None and ra.status == TaskStatus.AWAITING_USER
+    assert ra.blocked_reason == "Interrupted by an app restart"
+    assert rb is not None and rb.status == TaskStatus.AWAITING_USER
+
+    rc = alice.get(tc.id)
+    assert rc is not None and rc.status == TaskStatus.COMPLETED

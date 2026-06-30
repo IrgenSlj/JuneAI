@@ -461,6 +461,44 @@ class TasksStore:
         self._conn.commit()
 
 
+def reconcile_running_after_restart(*, now: str | None = None) -> int:
+    """Transition all RUNNING tasks to AWAITING_USER after an app restart.
+
+    Execution is an in-memory asyncio coroutine; a crash or restart loses it
+    silently. This function is called at startup to mark those orphans so the
+    user can see them and resume. It operates across all users in the shared db.
+
+    ``blocked_kind`` is left NULL — a restart interrupt is neither an approval
+    block nor a local-only block, and no new kind value is introduced.
+
+    Returns the count of rows reconciled. Never raises.
+    """
+    try:
+        ts = now if now is not None else _now()
+        conn = _get_connection(db_path())
+        cur = conn.execute(
+            """UPDATE tasks
+               SET status        = ?,
+                   blocked_reason = ?,
+                   next_action   = ?,
+                   blocked_kind  = NULL,
+                   updated_at    = ?
+               WHERE status = ?""",
+            (
+                TaskStatus.AWAITING_USER.value,
+                "Interrupted by an app restart",
+                "Resume this promise to pick it back up.",
+                ts,
+                TaskStatus.RUNNING.value,
+            ),
+        )
+        conn.commit()
+        return cur.rowcount
+    except Exception:  # noqa: BLE001
+        logger.exception("reconcile_running_after_restart failed")
+        return 0
+
+
 def _row_to_task(row) -> Task:  # type: ignore[no-untyped-def]
     plan_raw = row["plan"] or "[]"
     try:
