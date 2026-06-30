@@ -242,6 +242,7 @@ class HandwrittenLoop:
         start_time: float,
         tokens: TokenAccounting,
         difficulty: Any = None,
+        compacted: bool = False,
     ) -> TurnProvenance:
         """Build TurnProvenance from accumulated state."""
         difficulty_label = getattr(difficulty, "label", "") or ""
@@ -286,6 +287,9 @@ class HandwrittenLoop:
             egress=egress,
             difficulty=difficulty_label,
             difficulty_source=difficulty_source,
+            input_tokens=tokens.input_tokens,
+            output_tokens=tokens.output_tokens,
+            compacted=compacted,
         )
 
     # ------------------------------------------------------------------
@@ -331,7 +335,8 @@ class HandwrittenLoop:
         compacted = await self._maybe_compact(session)
 
         provenance = self._build_provenance(
-            provider, chosen_role, all_tool_calls, _start, tokens, difficulty
+            provider, chosen_role, all_tool_calls, _start, tokens, difficulty,
+            compacted=compacted,
         )
 
         _, answer_text = split_reasoning(last_result.text)
@@ -682,7 +687,8 @@ class HandwrittenLoop:
             )
 
         provenance = self._build_provenance(
-            provider, chosen_role, all_tool_calls, _start, tokens, difficulty
+            provider, chosen_role, all_tool_calls, _start, tokens, difficulty,
+            compacted=compacted,
         )
         yield _emit(StreamEvent(type="provenance", provenance=provenance))
         trace.record(

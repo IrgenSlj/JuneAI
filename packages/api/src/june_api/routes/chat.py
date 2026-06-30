@@ -121,15 +121,14 @@ def _turn_provenance_dict(prov: TurnProvenance) -> dict[str, Any]:
         "egress": list(getattr(prov, "egress", []) or []),
         "difficulty": getattr(prov, "difficulty", "") or "",
         "difficulty_source": getattr(prov, "difficulty_source", "") or "",
+        "input_tokens": prov.input_tokens,
+        "output_tokens": prov.output_tokens,
+        "compacted": prov.compacted,
     }
 
 
 def _turn_result_provenance(result: TurnResult) -> dict[str, Any]:
-    d = _turn_provenance_dict(result.provenance)
-    d["input_tokens"] = result.tokens.input_tokens
-    d["output_tokens"] = result.tokens.output_tokens
-    d["compacted"] = result.compacted
-    return d
+    return _turn_provenance_dict(result.provenance)
 
 
 def _turn_result_events(result: TurnResult) -> Iterable[ChatEvent]:

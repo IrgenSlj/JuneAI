@@ -408,6 +408,33 @@ def test_chat_emits_provenance_event_with_all_keys(harness_client):
     assert p["rationale"] == "Answered on-device with gemma4:e4b; recalled 2 memories."
 
 
+def test_streamed_provenance_dict_includes_token_keys(harness_client):
+    """_turn_provenance_dict must include input_tokens, output_tokens, compacted."""
+    prov = TurnProvenance(
+        tiers_used=["local-fast"],
+        cloud_call=False,
+        model_ids=["mock-local"],
+        input_tokens=150,
+        output_tokens=30,
+        compacted=False,
+    )
+    loop = _FakeLoop([
+        StreamEvent(type="token", content="hi"),
+        StreamEvent(type="provenance", provenance=prov),
+        StreamEvent(type="done"),
+    ])
+    client = harness_client(loop)
+    response = client.post("/chat", json={"user_id": "u", "message": "hi"})
+    events = _parse_sse(response.text)
+    p = next(e for e in events if e["type"] == "provenance")["provenance"]
+    assert "input_tokens" in p
+    assert "output_tokens" in p
+    assert "compacted" in p
+    assert p["input_tokens"] == 150
+    assert p["output_tokens"] == 30
+    assert p["compacted"] is False
+
+
 def test_chat_provenance_cloud_call_true(harness_client):
     """When cloud_call is True the provenance dict must carry the payload summary."""
     prov = _make_provenance(

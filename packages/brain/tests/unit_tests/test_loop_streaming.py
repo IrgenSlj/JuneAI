@@ -334,3 +334,37 @@ def test_stream_turn_provenance_fields() -> None:
     assert prov is not None
     assert prov.memories_recalled == 1
     assert prov.cloud_call is True
+
+
+# ---------------------------------------------------------------------------
+# Test 5: provenance event carries token counts from the turn accumulator
+# ---------------------------------------------------------------------------
+
+
+def test_stream_turn_provenance_carries_token_counts() -> None:
+    """provenance event carries input_tokens and output_tokens estimated from the turn."""
+    provider = MultiChunkProvider(chunks=["Hello world"])
+    reg = _registry_with("local-fast", provider)
+
+    loop = HandwrittenLoop(
+        registry=reg,
+        role="local-fast",
+        assemble_context=lambda s, m: [m],
+        extract_tool_calls=lambda r: [],
+        dispatch=None,
+        maybe_compact=_noop_compact,
+    )
+
+    session = SessionState(user_id="tok-user", messages=[])
+    events = _collect_stream(loop.stream_turn(session, Message(role="user", content="hi")))
+
+    prov_events = [e for e in events if e.type == "provenance"]
+    assert len(prov_events) == 1
+    prov = prov_events[0].provenance
+    assert prov is not None
+    assert hasattr(prov, "input_tokens")
+    assert hasattr(prov, "output_tokens")
+    assert hasattr(prov, "compacted")
+    assert prov.input_tokens >= 0
+    assert prov.output_tokens >= 0
+    assert prov.compacted is False

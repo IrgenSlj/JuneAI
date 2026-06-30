@@ -204,11 +204,16 @@ function handleEvent(event: ChatEvent, assistantId: string) {
       const latencyPart = p?.latency_ms ? ` · ${p.latency_ms}ms` : "";
       const egress = (p as { egress?: string[] })?.egress ?? [];
       const egressPart = egress.length ? ` · egress: ${egress.join(", ")}` : "";
+      const _fmtTok = (n: number | undefined) =>
+        n != null && n > 0 ? (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)) : "";
+      const _inTok = _fmtTok((p as { input_tokens?: number })?.input_tokens);
+      const _outTok = _fmtTok((p as { output_tokens?: number })?.output_tokens);
+      const tokenPart = _inTok && _outTok ? ` · ${_inTok}/${_outTok} tok` : "";
       pushActivity({
         kind: "provenance",
         cloud: isCloud,
         network: egress.length > 0,
-        label: `${isCloud ? "cloud" : "local"} · ${modelPart}${recalledPart}${latencyPart}${egressPart}`,
+        label: `${isCloud ? "cloud" : "local"} · ${modelPart}${recalledPart}${latencyPart}${tokenPart}${egressPart}`,
         detail: p?.rationale != null ? String(p.rationale) : undefined,
       });
       break;

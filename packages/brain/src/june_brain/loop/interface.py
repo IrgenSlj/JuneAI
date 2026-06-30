@@ -66,6 +66,10 @@ class TurnProvenance:
     # model classifier, its cache, or the heuristic fallback.
     difficulty: str = ""
     difficulty_source: str = ""
+    # Per-turn token counts surfaced in the Glass Box provenance frame.
+    input_tokens: int = 0
+    output_tokens: int = 0
+    compacted: bool = False
 
 
 @dataclass
