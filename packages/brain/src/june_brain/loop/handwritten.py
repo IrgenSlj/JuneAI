@@ -40,6 +40,13 @@ from .wiring import is_network_tool as _is_network_tool
 _MAX_TOKENS = 2048
 
 
+def _fmt_tok(n: int | None) -> str | None:
+    """Format a token count for Glass Box labels: k-suffix for >=1000, else str."""
+    if n is None:
+        return None
+    return f"{n // 1000}k" if n >= 1000 else str(n)
+
+
 class HandwrittenLoop:
     """A plain async while-loop implementing the fixed harness shape.
 
@@ -332,7 +339,8 @@ class HandwrittenLoop:
                 break
 
         assert last_result is not None
-        compacted = await self._maybe_compact(session)
+        _compact_outcome = await self._maybe_compact(session)
+        compacted = bool(_compact_outcome)
 
         provenance = self._build_provenance(
             provider, chosen_role, all_tool_calls, _start, tokens, difficulty,
@@ -391,11 +399,6 @@ class HandwrittenLoop:
         # Cache hits and heuristic fallbacks made no LLM call, so emitting one
         # would be dishonest.
         if difficulty.source == "model" and difficulty.model_id is not None:
-            def _fmt_tok(n: int | None) -> str | None:
-                if n is None:
-                    return None
-                return f"{n // 1000}k" if n >= 1000 else str(n)
-
             in_part = _fmt_tok(difficulty.input_tokens)
             out_part = _fmt_tok(difficulty.output_tokens)
             tok_part = f" · {in_part}/{out_part} tok" if in_part and out_part else ""
@@ -698,7 +701,8 @@ class HandwrittenLoop:
                     yield _emit(StreamEvent(type="token", content=answer_accum))
                 break
 
-        compacted = await self._maybe_compact(session)
+        _compact_outcome = await self._maybe_compact(session)
+        compacted = bool(_compact_outcome)
         if compacted:
             yield _emit(StreamEvent(
                 type="compaction",
@@ -710,6 +714,20 @@ class HandwrittenLoop:
                 "conversation compacted",
                 detail="History compacted into the pinned-state anchor.",
             )
+            # Emit a model_call event only when the compactor actually called a
+            # model. Truncation/fallback compaction made no LLM call, so emitting
+            # one would be dishonest (mirrors GB-4a classifier visibility).
+            mc_model_id = getattr(_compact_outcome, "model_id", None)
+            if mc_model_id is not None:
+                in_part = _fmt_tok(getattr(_compact_outcome, "input_tokens", None))
+                out_part = _fmt_tok(getattr(_compact_outcome, "output_tokens", None))
+                tok_part = f" · {in_part}/{out_part} tok" if in_part and out_part else ""
+                raw_latency = getattr(_compact_outcome, "latency_ms", None)
+                lat_part = f" · {raw_latency}ms" if raw_latency is not None else ""
+                mc_label = f"compactor · {mc_model_id}{tok_part}{lat_part}"
+                mc_detail = "compacted conversation → pinned-state anchor"
+                yield _emit(StreamEvent(type="model_call", content=mc_label, detail=mc_detail))
+                trace.record("model_call", mc_label, detail=mc_detail)
 
         provenance = self._build_provenance(
             provider, chosen_role, all_tool_calls, _start, tokens, difficulty,

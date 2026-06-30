@@ -15,11 +15,31 @@ Fallback (invariant 6 — same PR):
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass, field
 
 from june_brain.context.pinned_state import PinnedState
 from june_brain.context.tokens import estimate_tokens
 from june_brain.providers.base import GenerateRequest, Message
 from june_brain.providers.registry import ProviderRegistry, get_registry
+
+
+@dataclass
+class CompactionOutcome:
+    """Result of a compact() call, carrying metadata about the model call (if any).
+
+    ``compacted`` is True when turns were dropped (either via model summary or fallback).
+    The remaining fields are populated only when the model path ran; they are None on
+    the no-op path (below threshold) and on the truncation fallback (no LLM call made).
+    """
+
+    compacted: bool
+    model_id: str | None = field(default=None)
+    input_tokens: int | None = field(default=None)
+    output_tokens: int | None = field(default=None)
+    latency_ms: int | None = field(default=None)
+
+    def __bool__(self) -> bool:
+        return self.compacted
 
 _SUMMARIZE_PROMPT = (
     "Summarize the following conversation turns for a personal assistant's memory. "
@@ -115,8 +135,13 @@ class Compactor:
     def _get_registry(self) -> ProviderRegistry:
         return self._registry if self._registry is not None else get_registry()
 
-    async def compact(self, session: object) -> bool:
-        """Compact session if above threshold. Returns True if anything was done."""
+    async def compact(self, session: object) -> CompactionOutcome:
+        """Compact session if above threshold. Returns a CompactionOutcome.
+
+        ``outcome.compacted`` is True when anything was done (model summary or fallback).
+        ``outcome.model_id`` / token / latency fields are populated only when the model
+        path ran successfully — they are None on the no-op path and the fallback path.
+        """
         messages: list[Message] = getattr(session, "messages", [])
         pinned: PinnedState = getattr(session, "pinned", PinnedState())
 
@@ -126,7 +151,7 @@ class Compactor:
         threshold = self._context_window * self._threshold_ratio
 
         if total_tokens < threshold:
-            return False
+            return CompactionOutcome(compacted=False)
 
         half = max(1, len(messages) // 2)
         oldest = messages[:half]
@@ -148,11 +173,18 @@ class Compactor:
                 kwargs = _parse_summary(result.text)
                 pinned.merge(**kwargs)  # type: ignore[arg-type]
                 session.messages[:] = rest  # type: ignore[attr-defined]
-                return True
+                return CompactionOutcome(
+                    compacted=True,
+                    model_id=result.model_id,
+                    input_tokens=result.input_tokens,
+                    output_tokens=result.output_tokens,
+                    latency_ms=result.latency_ms,
+                )
             except Exception:  # noqa: BLE001
                 pass
 
-        # Fallback: drop oldest turns by salience ascending (or oldest-first)
+        # Fallback: drop oldest turns by salience ascending (or oldest-first).
+        # No model call was made on this path — metadata fields stay None.
         if self._salience_fn is not None:
             messages_copy = list(messages)
             messages_copy.sort(key=self._salience_fn)
@@ -173,4 +205,4 @@ class Compactor:
                 total -= estimate_tokens(dropped.role + dropped.content)
             session.messages[:] = kept  # type: ignore[attr-defined]
 
-        return True
+        return CompactionOutcome(compacted=True)

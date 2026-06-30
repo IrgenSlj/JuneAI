@@ -471,3 +471,109 @@ def test_stream_turn_provenance_carries_token_counts() -> None:
     assert prov.input_tokens >= 0
     assert prov.output_tokens >= 0
     assert prov.compacted is False
+
+
+# ---------------------------------------------------------------------------
+# Compactor model_call visibility (GB-4b)
+# ---------------------------------------------------------------------------
+
+
+def test_stream_turn_emits_model_call_when_compactor_uses_model() -> None:
+    """When compaction runs via the model path, a model_call event is emitted."""
+    from june_brain.context.compactor import CompactionOutcome
+
+    provider = MultiChunkProvider(chunks=["Hello!"])
+    reg = _registry_with("local-fast", provider)
+
+    async def _compact_model_path(session: SessionState) -> CompactionOutcome:
+        return CompactionOutcome(
+            compacted=True,
+            model_id="mock-compactor",
+            input_tokens=50,
+            output_tokens=20,
+            latency_ms=42,
+        )
+
+    loop = HandwrittenLoop(
+        registry=reg,
+        role="local-fast",
+        assemble_context=lambda s, m: [m],
+        extract_tool_calls=lambda r: [],
+        dispatch=None,
+        maybe_compact=_compact_model_path,
+    )
+
+    session = SessionState(user_id="cmp-user", messages=[])
+    events = _collect_stream(
+        loop.stream_turn(session, Message(role="user", content="compact me"))
+    )
+
+    compaction_events = [e for e in events if e.type == "compaction"]
+    assert len(compaction_events) == 1
+
+    mc_events = [e for e in events if e.type == "model_call"]
+    compactor_mc = [e for e in mc_events if "compactor" in e.content]
+    assert len(compactor_mc) == 1
+    assert "mock-compactor" in compactor_mc[0].content
+    assert "50" in compactor_mc[0].content or "20" in compactor_mc[0].content
+    assert compactor_mc[0].detail == "compacted conversation → pinned-state anchor"
+
+
+def test_stream_turn_no_model_call_when_compactor_fallback() -> None:
+    """When compaction runs via the truncation fallback (no model call), no model_call event."""
+    from june_brain.context.compactor import CompactionOutcome
+
+    provider = MultiChunkProvider(chunks=["Hello!"])
+    reg = _registry_with("local-fast", provider)
+
+    async def _compact_fallback(session: SessionState) -> CompactionOutcome:
+        # Fallback path: compacted=True but model_id is None (no LLM call)
+        return CompactionOutcome(compacted=True)
+
+    loop = HandwrittenLoop(
+        registry=reg,
+        role="local-fast",
+        assemble_context=lambda s, m: [m],
+        extract_tool_calls=lambda r: [],
+        dispatch=None,
+        maybe_compact=_compact_fallback,
+    )
+
+    session = SessionState(user_id="cmp-fallback-user", messages=[])
+    events = _collect_stream(
+        loop.stream_turn(session, Message(role="user", content="compact me"))
+    )
+
+    compaction_events = [e for e in events if e.type == "compaction"]
+    assert len(compaction_events) == 1
+
+    compactor_mc = [e for e in events if e.type == "model_call" and "compactor" in e.content]
+    assert len(compactor_mc) == 0
+
+
+def test_stream_turn_no_model_call_when_no_compaction() -> None:
+    """When compaction does not run (below threshold), no compactor model_call event."""
+    from june_brain.context.compactor import CompactionOutcome
+
+    provider = MultiChunkProvider(chunks=["Hello!"])
+    reg = _registry_with("local-fast", provider)
+
+    async def _compact_noop(session: SessionState) -> CompactionOutcome:
+        return CompactionOutcome(compacted=False)
+
+    loop = HandwrittenLoop(
+        registry=reg,
+        role="local-fast",
+        assemble_context=lambda s, m: [m],
+        extract_tool_calls=lambda r: [],
+        dispatch=None,
+        maybe_compact=_compact_noop,
+    )
+
+    session = SessionState(user_id="cmp-noop-user", messages=[])
+    events = _collect_stream(
+        loop.stream_turn(session, Message(role="user", content="no compact"))
+    )
+
+    compactor_mc = [e for e in events if e.type == "model_call" and "compactor" in e.content]
+    assert len(compactor_mc) == 0

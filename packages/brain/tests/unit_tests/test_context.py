@@ -308,7 +308,8 @@ def test_compactor_below_threshold_returns_false() -> None:
     compactor = Compactor(registry=reg, context_window=8192, threshold_ratio=0.70)
     session = SessionState(user_id="u1", messages=_make_messages(5, chars_each=10))
     result = asyncio.run(compactor.compact(session))
-    assert result is False
+    assert not result
+    assert result.compacted is False
     assert len(session.messages) == 5
 
 
@@ -319,7 +320,7 @@ def test_compactor_above_threshold_returns_true_and_drops_turns() -> None:
     session = SessionState(user_id="u1", messages=_make_messages(20, chars_each=40))
     original_len = len(session.messages)
     result = asyncio.run(compactor.compact(session))
-    assert result is True
+    assert result.compacted is True
     assert len(session.messages) < original_len
 
 
@@ -341,9 +342,11 @@ def test_compactor_fallback_on_provider_raise() -> None:
     compactor = Compactor(registry=reg, context_window=50, threshold_ratio=0.70)
     session = SessionState(user_id="u1", messages=_make_messages(20, chars_each=40))
     session.pinned.merge(user_goal="must survive")
-    # Should NOT raise, should return True (or drop oldest)
+    # Should NOT raise, should return compacted=True (or drop oldest)
     result = asyncio.run(compactor.compact(session))
-    assert result is True
+    assert result.compacted is True
+    # Fallback path: no model call made, so metadata is None
+    assert result.model_id is None
     # PinnedState must be intact
     assert session.pinned.user_goal == "must survive"
 
@@ -360,7 +363,9 @@ def test_compactor_fallback_capability_false() -> None:
     session.pinned.merge(user_goal="intact goal")
     original_len = len(session.messages)
     result = asyncio.run(compactor.compact(session))
-    assert result is True
+    assert result.compacted is True
+    # Fallback path: no model call, metadata is None
+    assert result.model_id is None
     # No summary produced, but turns dropped
     assert len(session.messages) < original_len
     # PinnedState unchanged
@@ -393,6 +398,32 @@ def test_compactor_100_turn_invariant() -> None:
         estimate_tokens(m.role + m.content) for m in session.messages
     )
     assert total_tokens < context_window * 0.70
+
+
+def test_compactor_model_path_outcome_has_metadata() -> None:
+    """Model-path compaction returns CompactionOutcome with populated token/model fields."""
+    reg = _registry_with(MockSummarizer(model_id="mock-local", text="GOAL: g\nCONFIRMED:\n- f"))
+    compactor = Compactor(registry=reg, context_window=50, threshold_ratio=0.70)
+    session = SessionState(user_id="u1", messages=_make_messages(20, chars_each=40))
+    result = asyncio.run(compactor.compact(session))
+    assert result.compacted is True
+    assert result.model_id == "mock-local"
+    assert result.input_tokens == 10
+    assert result.output_tokens == 5
+    assert result.latency_ms == 1
+
+
+def test_compactor_below_threshold_outcome_has_no_metadata() -> None:
+    """Below-threshold no-op: CompactionOutcome has compacted=False and no metadata."""
+    reg = _registry_with(MockSummarizer())
+    compactor = Compactor(registry=reg, context_window=8192, threshold_ratio=0.70)
+    session = SessionState(user_id="u1", messages=_make_messages(5, chars_each=10))
+    result = asyncio.run(compactor.compact(session))
+    assert result.compacted is False
+    assert result.model_id is None
+    assert result.input_tokens is None
+    assert result.output_tokens is None
+    assert result.latency_ms is None
 
 
 def test_estimate_tokens_basic() -> None:
