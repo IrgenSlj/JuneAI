@@ -88,7 +88,10 @@ class GemmaProvider:
         latency_ms = int((time.monotonic() - t0) * 1000)
 
         message = response.choices[0].message
+        reasoning = self._reasoning_of(message)
         text = message.content or ""
+        if reasoning:
+            text = f"<think>{reasoning}</think>{text}"
         tool_calls = parse_openai_tool_calls(message)
         usage = response.usage
         return GenerateResult(
@@ -119,13 +122,25 @@ class GemmaProvider:
             kwargs["tools"] = tool_specs_to_openai(req.tools)
 
         response = await client.chat.completions.create(**kwargs)
+        in_think = False
         async for chunk in response:
             if not chunk.choices:
                 continue
             delta = chunk.choices[0].delta
+            reasoning = self._reasoning_of(delta)
             content = delta.content
+            if reasoning:
+                if not in_think:
+                    yield "<think>"
+                    in_think = True
+                yield reasoning
             if content:
+                if in_think:
+                    yield "</think>"
+                    in_think = False
                 yield content
+        if in_think:
+            yield "</think>"
 
     async def embed(self, texts: list[str], *, model: str) -> list[list[float]]:
         """Embed texts via Ollama's OpenAI-compatible embeddings endpoint.
