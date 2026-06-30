@@ -299,3 +299,109 @@ def test_runtime_caps_steps_at_max(store: TasksStore) -> None:
 
     tool_steps = [s for s in result.plan if s.tool_name == "noop"]
     assert len(tool_steps) <= runtime_module._MAX_STEPS
+
+
+# ---------------------------------------------------------------------------
+# attempts counter and retry cap (gated retry policy)
+# ---------------------------------------------------------------------------
+
+
+def test_failed_loop_increments_attempts(store: TasksStore) -> None:
+    """A loop-stream exception increments attempts by 1."""
+    task = store.create(goal="boom")
+
+    class _BadLoop:
+        async def stream_turn(self, session: Any, user_msg: Any) -> Any:
+            raise RuntimeError("model unreachable")
+            yield  # pragma: no cover
+
+    runtime = TaskRuntime(store, loop_factory=_BadLoop)
+
+    with pytest.raises(RuntimeError):
+        asyncio.run(runtime.execute(task.id))
+
+    refreshed = store.get(task.id)
+    assert refreshed is not None
+    assert refreshed.attempts == 1
+    assert refreshed.status == TaskStatus.FAILED
+
+
+def test_blocked_run_increments_attempts_and_stays_retryable(store: TasksStore) -> None:
+    """A blocked (tool_blocked) run increments attempts and stays AWAITING_USER while below cap."""
+    task = store.create(goal="search")
+    events = [
+        StreamEvent(
+            type="tool_blocked",
+            tool_name="web_search",
+            tool_args={"query": "test"},
+            detail="needs approval",
+            needs_approval=True,
+        ),
+    ]
+    runtime = _runtime_with_events(store, events)
+    result = asyncio.run(runtime.execute(task.id))
+
+    assert result.status == TaskStatus.AWAITING_USER
+    assert result.attempts == 1
+
+
+def test_blocked_run_at_cap_becomes_terminal_failed(store: TasksStore) -> None:
+    """After MAX_TASK_ATTEMPTS blocked runs the promise becomes terminal FAILED."""
+    from june_brain.tasks.models import MAX_TASK_ATTEMPTS
+
+    task = store.create(goal="keep failing")
+    events = [
+        StreamEvent(
+            type="tool_blocked",
+            tool_name="web_search",
+            tool_args={"query": "test"},
+            detail="needs approval",
+            needs_approval=True,
+        ),
+    ]
+
+    # Run until we're one below the cap (still retryable each time).
+    for _ in range(MAX_TASK_ATTEMPTS - 1):
+        # Reset to PLANNING so execute() runs each time.
+        store.set_status(task.id, TaskStatus.PLANNING)
+        runtime = _runtime_with_events(store, events)
+        result = asyncio.run(runtime.execute(task.id))
+        assert result.status == TaskStatus.AWAITING_USER
+
+    # The cap-hitting run.
+    store.set_status(task.id, TaskStatus.PLANNING)
+    runtime = _runtime_with_events(store, events)
+    result = asyncio.run(runtime.execute(task.id))
+
+    assert result.status == TaskStatus.FAILED
+    assert result.attempts == MAX_TASK_ATTEMPTS
+    assert str(MAX_TASK_ATTEMPTS) in (result.error or "")
+    assert "new approach" in (result.error or "")
+    assert result.next_action is not None
+    assert "won't auto-retry" in result.next_action
+
+
+def test_successful_run_does_not_increment_attempts(store: TasksStore) -> None:
+    """A completed run must not touch the attempts counter."""
+    task = store.create(goal="say hello")
+    events = [StreamEvent(type="token", content="hello")]
+    runtime = _runtime_with_events(store, events)
+    result = asyncio.run(runtime.execute(task.id))
+
+    assert result.status == TaskStatus.COMPLETED
+    assert result.attempts == 0
+
+
+def test_reconcile_after_restart_does_not_increment_attempts(store: TasksStore) -> None:
+    """Restart reconciliation (RUNNING->AWAITING_USER) must not count as a failed attempt."""
+    from june_brain.tasks.store import reconcile_running_after_restart
+
+    task = store.create(goal="export data")
+    store.set_status(task.id, TaskStatus.RUNNING)
+
+    reconcile_running_after_restart()
+
+    refreshed = store.get(task.id)
+    assert refreshed is not None
+    assert refreshed.status == TaskStatus.AWAITING_USER
+    assert refreshed.attempts == 0

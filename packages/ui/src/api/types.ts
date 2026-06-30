@@ -2686,6 +2686,12 @@ export interface components {
              * @description Tools the user has approved for this promise. A retry runs these without re-asking; taint-flagged network actions still always ask.
              */
             approved_tools?: string[];
+            /**
+             * Attempts
+             * @description Number of failed or blocked-retryable runs for this promise. Incremented on failure or retryable block; not incremented on success or restart-reconciliation. Capped at MAX_TASK_ATTEMPTS after which the promise is marked terminal FAILED.
+             * @default 0
+             */
+            attempts: number;
             /** Created At */
             created_at: string;
             /** Updated At */

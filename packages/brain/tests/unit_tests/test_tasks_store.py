@@ -311,6 +311,35 @@ def test_reconcile_leaves_non_running_tasks_untouched(
     assert waiting.blocked_reason == "needs approval"
 
 
+def test_increment_attempts_is_atomic_and_returns_new_value(store: TasksStore) -> None:
+    """increment_attempts bumps the counter and returns the post-increment value."""
+    t = store.create(goal="retry me")
+    assert t.attempts == 0
+
+    v1 = store.increment_attempts(t.id)
+    assert v1 == 1
+
+    v2 = store.increment_attempts(t.id)
+    assert v2 == 2
+
+    fetched = store.get(t.id)
+    assert fetched is not None
+    assert fetched.attempts == 2
+
+
+def test_attempts_persists_through_set_status(store: TasksStore) -> None:
+    """set_status does not reset the attempts counter."""
+    t = store.create(goal="x")
+    store.increment_attempts(t.id)
+    store.increment_attempts(t.id)
+
+    # Running clears blocked fields but must not reset attempts.
+    store.set_status(t.id, TaskStatus.RUNNING)
+    fetched = store.get(t.id)
+    assert fetched is not None
+    assert fetched.attempts == 2
+
+
 def test_reconcile_handles_multiple_running_tasks_across_users(
     tmp_path,
     monkeypatch,

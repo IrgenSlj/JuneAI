@@ -17,6 +17,10 @@ def _new_id() -> str:
     return uuid.uuid4().hex
 
 
+MAX_TASK_ATTEMPTS = 5
+"""A single promise is retired as terminal FAILED after this many failed/blocked-retryable runs."""
+
+
 class TaskStatus(StrEnum):
     """Lifecycle states for a task. See ADR 0010."""
 
@@ -125,6 +129,7 @@ class Task:
     is_recurring: bool = False
     recurrence_rule: str = ""
     parent_task_id: str | None = None
+    attempts: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -149,6 +154,7 @@ class Task:
             "is_recurring": self.is_recurring,
             "recurrence_rule": self.recurrence_rule,
             "parent_task_id": self.parent_task_id,
+            "attempts": self.attempts,
         }
 
     @classmethod
@@ -175,6 +181,7 @@ class Task:
             is_recurring=bool(raw.get("is_recurring", False)),
             recurrence_rule=str(raw.get("recurrence_rule", "")),
             parent_task_id=raw.get("parent_task_id"),
+            attempts=int(raw.get("attempts") or 0),
         )
 
 

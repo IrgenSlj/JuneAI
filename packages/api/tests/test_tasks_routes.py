@@ -348,6 +348,18 @@ def test_task_events_yields_initial_status_and_done(client: TestClient, tmp_path
     assert any(f["status"] == "completed" for f in status_frames)
 
 
+def test_task_view_includes_attempts_field(client: TestClient) -> None:
+    """TaskView must expose the attempts counter (starts at 0 for a new promise)."""
+    created = client.post("/tasks/alice", json={"goal": "retry test"}).json()
+    assert "attempts" in created
+    assert created["attempts"] == 0
+
+    # Fetch via GET too.
+    fetched = client.get(f"/tasks/alice/{created['id']}").json()
+    assert "attempts" in fetched
+    assert fetched["attempts"] == 0
+
+
 def test_task_events_emits_step_frame(client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """The poll generator emits a step frame when a step exists at poll time."""
     import asyncio

@@ -22,7 +22,7 @@ from datetime import UTC
 from typing import Any
 
 from ..providers.base import Message
-from .models import Task, TaskStatus, TaskStep, TaskStepStatus
+from .models import MAX_TASK_ATTEMPTS, Task, TaskStatus, TaskStep, TaskStepStatus
 from .store import TasksStore
 
 logger = logging.getLogger(__name__)
@@ -74,6 +74,7 @@ class TaskRuntime:
                 refreshed = self.store.get(task_id)
                 assert refreshed is not None
                 return refreshed
+            self.store.increment_attempts(task_id)
             self.store.set_status(task_id, TaskStatus.FAILED, error=str(exc))
             logger.exception("task %s failed during loop stream", task_id)
             raise
@@ -87,16 +88,37 @@ class TaskRuntime:
             if self._was_cancelled(task_id):
                 logger.info("task %s cancelled mid-run; preserving cancelled state", task_id)
             elif outcome.blocked_reason:
-                self.store.set_blocked(
-                    task_id,
-                    reason=outcome.blocked_reason,
-                    next_action=(
-                        outcome.next_action
-                        or "Change the privacy dial, then retry this promise."
-                    ),
-                    final_deliverable=outcome.final_deliverable,
-                    kind=outcome.blocked_kind,
-                )
+                new_attempts = self.store.increment_attempts(task_id)
+                if new_attempts >= MAX_TASK_ATTEMPTS:
+                    cap_msg = (
+                        f"Stopped after {new_attempts} attempts — this needs a new approach."
+                    )
+                    self.store.set_status(
+                        task_id,
+                        TaskStatus.FAILED,
+                        error=cap_msg,
+                        next_action=(
+                            "This promise won't auto-retry. "
+                            "Start a new one with a different approach."
+                        ),
+                    )
+                    logger.info(
+                        "task %s hit attempt cap (%d/%d); marked terminal FAILED",
+                        task_id,
+                        new_attempts,
+                        MAX_TASK_ATTEMPTS,
+                    )
+                else:
+                    self.store.set_blocked(
+                        task_id,
+                        reason=outcome.blocked_reason,
+                        next_action=(
+                            outcome.next_action
+                            or "Change the privacy dial, then retry this promise."
+                        ),
+                        final_deliverable=outcome.final_deliverable,
+                        kind=outcome.blocked_kind,
+                    )
             else:
                 self.store.set_status(
                     task_id,
@@ -104,6 +126,7 @@ class TaskRuntime:
                     final_deliverable=outcome.final_deliverable,
                 )
         except Exception as exc:  # noqa: BLE001
+            self.store.increment_attempts(task_id)
             self.store.set_status(task_id, TaskStatus.FAILED, error=str(exc))
             logger.exception("task %s failed during trace recording", task_id)
             raise

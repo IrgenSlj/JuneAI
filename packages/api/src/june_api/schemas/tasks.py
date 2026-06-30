@@ -66,6 +66,15 @@ class TaskView(BaseModel):
             "without re-asking; taint-flagged network actions still always ask."
         ),
     )
+    attempts: int = Field(
+        default=0,
+        description=(
+            "Number of failed or blocked-retryable runs for this promise. "
+            "Incremented on failure or retryable block; not incremented on "
+            "success or restart-reconciliation. Capped at MAX_TASK_ATTEMPTS "
+            "after which the promise is marked terminal FAILED."
+        ),
+    )
     created_at: str
     updated_at: str
     started_at: str | None = None

@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     finished_at TEXT,
     is_recurring INTEGER DEFAULT 0,
     recurrence_rule TEXT DEFAULT '',
-    parent_task_id TEXT
+    parent_task_id TEXT,
+    attempts INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_user_status ON tasks(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_tasks_user_updated ON tasks(user_id, updated_at);
@@ -213,6 +214,7 @@ class TasksStore:
         *,
         error: str | None = None,
         final_deliverable: str | None = None,
+        next_action: str | None = None,
     ) -> Task | None:
         task = self.get(task_id)
         if task is None:
@@ -240,6 +242,8 @@ class TasksStore:
             task.error = error
         if final_deliverable is not None:
             task.final_deliverable = final_deliverable
+        if next_action is not None:
+            task.next_action = next_action
         self._update(task)
         # Spawn a child task if this is a recurring task that just completed
         if status == TaskStatus.COMPLETED and task.is_recurring:
@@ -300,6 +304,23 @@ class TasksStore:
         task.updated_at = _now()
         self._update(task)
         return task
+
+    def increment_attempts(self, task_id: str) -> int:
+        """Atomically increment the failure/block attempt counter. Returns the new value.
+
+        Call this only when a run actually fails or hits a retryable block —
+        NOT on a restart-reconciliation or a successful run.
+        """
+        self._conn.execute(
+            "UPDATE tasks SET attempts = attempts + 1, updated_at = ? WHERE id = ? AND user_id = ?",
+            (_now(), task_id, self.user_id),
+        )
+        self._conn.commit()
+        row = self._conn.execute(
+            "SELECT attempts FROM tasks WHERE id = ? AND user_id = ?",
+            (task_id, self.user_id),
+        ).fetchone()
+        return int(row["attempts"]) if row else 0
 
     def delete(self, task_id: str) -> bool:
         cur = self._conn.execute(
@@ -398,8 +419,8 @@ class TasksStore:
                  blocked_reason, next_action, final_deliverable, approved_tools,
                  blocked_kind,
                  created_at, updated_at, started_at, finished_at,
-                 is_recurring, recurrence_rule, parent_task_id)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                 is_recurring, recurrence_rule, parent_task_id, attempts)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 task.id,
                 task.user_id,
@@ -422,6 +443,7 @@ class TasksStore:
                 int(task.is_recurring),
                 task.recurrence_rule,
                 task.parent_task_id,
+                task.attempts,
             ),
         )
         self._conn.commit()
@@ -433,7 +455,7 @@ class TasksStore:
                 blocked_reason=?, next_action=?, final_deliverable=?, approved_tools=?,
                 blocked_kind=?,
                 updated_at=?, started_at=?, finished_at=?,
-                is_recurring=?, recurrence_rule=?, parent_task_id=?
+                is_recurring=?, recurrence_rule=?, parent_task_id=?, attempts=?
                 WHERE id=? AND user_id=?""",
             (
                 task.goal,
@@ -454,6 +476,7 @@ class TasksStore:
                 int(task.is_recurring),
                 task.recurrence_rule,
                 task.parent_task_id,
+                task.attempts,
                 task.id,
                 task.user_id,
             ),
@@ -532,4 +555,5 @@ def _row_to_task(row) -> Task:  # type: ignore[no-untyped-def]
         is_recurring=bool(d.get("is_recurring", False)),
         recurrence_rule=str(d.get("recurrence_rule", "")),
         parent_task_id=d.get("parent_task_id"),
+        attempts=int(d.get("attempts") or 0),
     )

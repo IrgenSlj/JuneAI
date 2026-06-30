@@ -109,6 +109,7 @@ def _to_view(task: Task) -> TaskView:
         blocked_kind=task.blocked_kind,
         final_deliverable=task.final_deliverable,
         approved_tools=list(task.approved_tools),
+        attempts=task.attempts,
         created_at=task.created_at,
         updated_at=task.updated_at,
         started_at=task.started_at,
