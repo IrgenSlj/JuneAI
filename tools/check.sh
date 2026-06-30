@@ -33,6 +33,15 @@ else
   echo "==> Frontend checks skipped via JUNE_CHECK_FRONTEND=0"
 fi
 
+# Playwright e2e smokes are OFF by default so the everyday gate stays fast; they
+# boot a dev server and a headless browser. Opt in with JUNE_E2E=1 (and CI).
+if [ "${JUNE_E2E:-0}" = "1" ]; then
+  echo "==> Playwright e2e smokes"
+  pnpm --filter @june/web test:e2e
+else
+  echo "==> Playwright e2e skipped (set JUNE_E2E=1 to run)"
+fi
+
 if [ "${JUNE_CHECK_CODEGEN:-1}" = "1" ]; then
   echo "==> OpenAPI codegen drift check"
   PYTHON_BIN="$PYTHON_BIN" ./tools/codegen.sh
