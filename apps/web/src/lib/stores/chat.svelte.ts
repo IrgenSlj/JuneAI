@@ -12,6 +12,7 @@ import { type ChatEvent, type ChatMessage, type ActivityStep } from "@june/ui";
 import { client } from "$lib/api.js";
 import { profileName } from "$lib/stores/user.svelte.js";
 import { loadSystem } from "$lib/stores/system.svelte.js";
+import { syncLiveTurn, endLiveTurn } from "$lib/stores/glass.svelte.js";
 
 export const chat = $state({
   messages: [] as ChatMessage[],
@@ -38,6 +39,9 @@ export const chat = $state({
 
 /** Tracks the activity step id used to accumulate reasoning for the current turn. */
 let currentReasoningStepId: string | null = null;
+
+/** Tracks the turn_id of the current in-flight stream for glass-store mirroring. */
+let currentTurnId: string | null = null;
 
 function appendToken(id: string, token: string) {
   chat.messages = chat.messages.map((m) =>
@@ -176,6 +180,7 @@ export async function sendMessage(text: string): Promise<void> {
 }
 
 function handleEvent(event: ChatEvent, assistantId: string) {
+  if (event.turn_id) currentTurnId = event.turn_id;
   switch (event.type) {
     case "token":
       appendToken(assistantId, event.content);
@@ -297,7 +302,22 @@ function handleEvent(event: ChatEvent, assistantId: string) {
       break;
     case "done":
       pushActivity({ kind: "done", label: "done" });
+      if (currentTurnId) endLiveTurn(currentTurnId);
+      currentTurnId = null;
       break;
+  }
+  // Mirror the live turn into the glass store after every event.
+  // Guard so a glass-store error can never break the chat stream path.
+  if (currentTurnId) {
+    try {
+      syncLiveTurn(
+        currentTurnId,
+        chat.activity,
+        Math.floor((chat.streamStartedAt ?? Date.now()) / 1000),
+      );
+    } catch {
+      // Best-effort: glass-store error must not break chat.
+    }
   }
 }
 

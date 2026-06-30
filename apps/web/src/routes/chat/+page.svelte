@@ -361,6 +361,8 @@
             <span class="hint-sep">·</span>
             <span>Esc to stop</span>
           {/if}
+          <span class="hint-sep">·</span>
+          <a class="glass-link" href="/system/glass">Open Glass Box →</a>
         </div>
       </div>
     </div>
@@ -712,6 +714,16 @@
   }
   .hint-sep {
     opacity: 0.5;
+  }
+
+  .glass-link {
+    color: var(--color-fg-subtle);
+    text-decoration: none;
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .glass-link:hover {
+    color: var(--color-fg-muted);
   }
 
   /* ACTIVITY TERMINAL */
