@@ -47,6 +47,26 @@ def _fmt_tok(n: int | None) -> str | None:
     return f"{n // 1000}k" if n >= 1000 else str(n)
 
 
+def _format_recall_detail(recall_hits: list) -> str:
+    # Format mirrors the live recall row in chat.svelte.ts — keep in sync.
+    lines = []
+    for h in recall_hits:
+        if not isinstance(h, dict):
+            lines.append(str(h))
+            continue
+        score = h.get("score")
+        recency = h.get("recency")
+        frequency = h.get("frequency")
+        relevance = h.get("relevance")
+        text = str(h.get("text", ""))[:80]
+        score_part = f"{score:.2f}" if isinstance(score, (int, float)) else "?"
+        rec_part = f" rec {recency:.2f}" if isinstance(recency, (int, float)) else ""
+        freq_part = f" freq {frequency:.2f}" if isinstance(frequency, (int, float)) else ""
+        rel_part = f" rel {relevance:.2f}" if isinstance(relevance, (int, float)) else ""
+        lines.append(f"{score_part}{rec_part}{freq_part}{rel_part} · {text}")
+    return "\n".join(lines)
+
+
 class HandwrittenLoop:
     """A plain async while-loop implementing the fixed harness shape.
 
@@ -445,9 +465,7 @@ class HandwrittenLoop:
                     trace.record(
                         "recall",
                         f"recall · {len(recall_hits)} memories",
-                        detail="\n".join(
-                            str(h.get("text", h)) for h in recall_hits
-                        ),
+                        detail=_format_recall_detail(recall_hits),
                     )
                 first_iteration = False
 

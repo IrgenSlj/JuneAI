@@ -14,7 +14,7 @@ from typing import Any
 import june_brain.config
 import pytest
 from june_brain.datadir import layout
-from june_brain.loop.handwritten import HandwrittenLoop
+from june_brain.loop.handwritten import HandwrittenLoop, _format_recall_detail
 from june_brain.loop.interface import SessionState, StreamEvent
 from june_brain.loop.trace import TraceStore, TurnTrace
 from june_brain.providers.base import (
@@ -250,3 +250,40 @@ def test_stream_turn_trace_records_raw_reasoning(
     assert not any(e.kind == "reasoning" and "suppressed" in (e.summary or "") for e in loaded.events)
     # The answer still appears in the iteration detail.
     assert any(e.kind == "iteration" and e.detail == "final" for e in loaded.events)
+
+
+# ---------------------------------------------------------------------------
+# _format_recall_detail unit tests
+# ---------------------------------------------------------------------------
+
+
+def test_format_recall_detail_vector_hit_all_components() -> None:
+    """A vector hit with all salience components formats score + rec/freq/rel."""
+    hits = [{"score": 0.85, "recency": 0.5, "frequency": 0.3, "relevance": 0.2, "text": "I like coffee"}]
+    line = _format_recall_detail(hits)
+    assert "0.85" in line
+    assert "rec " in line
+    assert "freq " in line
+    assert "rel " in line
+    assert "I like coffee" in line
+
+
+def test_format_recall_detail_score_only_omits_components() -> None:
+    """A hit with only score and text produces no rec/freq/rel group."""
+    hits = [{"score": 0.72, "text": "user prefers dark mode"}]
+    line = _format_recall_detail(hits)
+    assert "0.72" in line
+    assert "rec " not in line
+    assert "freq " not in line
+    assert "rel " not in line
+    assert "user prefers dark mode" in line
+
+
+def test_format_recall_detail_text_truncated_to_80_chars() -> None:
+    """Text longer than 80 characters is truncated."""
+    long_text = "a" * 100
+    hits = [{"score": 0.5, "text": long_text}]
+    line = _format_recall_detail(hits)
+    # The text portion after ' · ' must be at most 80 chars.
+    after_sep = line.split(" · ", 1)[-1]
+    assert len(after_sep) == 80
