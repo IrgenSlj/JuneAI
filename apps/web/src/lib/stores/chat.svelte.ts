@@ -189,9 +189,24 @@ function handleEvent(event: ChatEvent, assistantId: string) {
       attachRecallHits(assistantId, event.recall_hits);
       const hits = event.recall_hits ?? [];
       const n = hits.length;
+      const recallDetail = hits
+        .map((h) => {
+          const score = (h as { score?: number }).score;
+          const recency = (h as { recency?: number }).recency;
+          const frequency = (h as { frequency?: number }).frequency;
+          const relevance = (h as { relevance?: number }).relevance;
+          const snippet = ((h as { text?: string }).text ?? "").slice(0, 80);
+          const scorePart = score != null ? score.toFixed(2) : "?";
+          const recPart = recency != null ? ` rec ${recency.toFixed(2)}` : "";
+          const freqPart = frequency != null ? ` freq ${frequency.toFixed(2)}` : "";
+          const relPart = relevance != null ? ` rel ${relevance.toFixed(2)}` : "";
+          return `${scorePart}${recPart}${freqPart}${relPart} · ${snippet}`;
+        })
+        .join("\n");
       pushActivity({
         kind: "recall",
         label: `recall · ${n} ${n === 1 ? "memory" : "memories"}`,
+        detail: recallDetail || undefined,
       });
       break;
     }

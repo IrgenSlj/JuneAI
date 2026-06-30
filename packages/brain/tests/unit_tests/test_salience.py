@@ -281,3 +281,96 @@ def test_salience_rerank_stores_distance_like_score(memory_dir):
     # And the ascending sort recall() applies puts the most salient first.
     ordered = sorted(result, key=lambda h: h["score"])
     assert ordered[0]["ref"] == r_hi["fact_id"]
+
+
+# ---------------------------------------------------------------------------
+# salience_detailed — components recombine to the same score as salience()
+# ---------------------------------------------------------------------------
+
+def test_salience_detailed_components_recombine_to_score():
+    """salience_detailed's components, when weighted, equal the returned score."""
+    from june_brain.memory.salience import SalienceWeights, salience, salience_detailed
+
+    weights = SalienceWeights(rel=0.6, rec=0.25, freq=0.15)
+    score, components = salience_detailed(0.7, 24.0, 5, weights)
+
+    # Recompute from components using the published formula.
+    recomputed = (
+        weights.rel * components["relevance"]
+        + weights.rec * components["recency"]
+        + weights.freq * components["frequency"]
+    )
+    assert abs(score - recomputed) < 1e-12
+
+    # salience() must return the identical float.
+    assert score == salience(0.7, 24.0, 5, weights)
+
+
+def test_salience_detailed_component_keys():
+    """Components dict must carry exactly recency, frequency, relevance."""
+    from june_brain.memory.salience import SalienceWeights, salience_detailed
+
+    weights = SalienceWeights()
+    _score, components = salience_detailed(0.5, 10.0, 3, weights)
+    assert set(components.keys()) == {"recency", "frequency", "relevance"}
+
+
+def test_salience_detailed_relevance_passthrough():
+    """The relevance component must equal the input relevance argument."""
+    from june_brain.memory.salience import SalienceWeights, salience_detailed
+
+    weights = SalienceWeights()
+    for rel in (0.0, 0.3, 0.75, 1.0):
+        _score, components = salience_detailed(rel, 0.0, 0, weights)
+        assert components["relevance"] == rel
+
+
+# ---------------------------------------------------------------------------
+# _salience_rerank attaches components to vector hits
+# ---------------------------------------------------------------------------
+
+def test_salience_rerank_attaches_components(memory_dir):
+    """Vector hits from _salience_rerank carry recency, frequency, relevance."""
+    from june_brain.memory import Memory, VectorStore
+    from june_brain.memory.recall import _salience_rerank
+
+    Memory("u5")
+    store = VectorStore("u5", embedder=_HashEmbedder())
+    r = store.upsert("Python is a programming language", source="test")
+
+    raw_hits = [
+        {"fact_id": r["fact_id"], "text": "Python is a programming language",
+         "metadata": {"kind": "fact"}, "distance": 0.1},
+    ]
+    result = _salience_rerank("u5", raw_hits, k=5)
+
+    assert result, "No results from _salience_rerank"
+    hit = result[0]
+    assert "recency" in hit, "recency missing from vector hit"
+    assert "frequency" in hit, "frequency missing from vector hit"
+    assert "relevance" in hit, "relevance missing from vector hit"
+    assert hit["recency"] is not None
+    assert hit["frequency"] is not None
+    assert hit["relevance"] is not None
+
+
+def test_salience_rerank_components_are_floats_in_range(memory_dir):
+    """All three salience components on a vector hit must be floats in [0, 1]."""
+    from june_brain.memory import Memory, VectorStore
+    from june_brain.memory.recall import _salience_rerank
+
+    Memory("u6")
+    store = VectorStore("u6", embedder=_HashEmbedder())
+    r = store.upsert("The sky is blue", source="test")
+
+    raw_hits = [
+        {"fact_id": r["fact_id"], "text": "The sky is blue",
+         "metadata": {"kind": "fact"}, "distance": 0.25},
+    ]
+    result = _salience_rerank("u6", raw_hits, k=5)
+    assert result
+    hit = result[0]
+    for field in ("recency", "frequency", "relevance"):
+        val = hit[field]
+        assert isinstance(val, float), f"{field} is not a float: {val!r}"
+        assert 0.0 <= val <= 1.0, f"{field} out of [0,1]: {val}"

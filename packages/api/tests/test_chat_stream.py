@@ -462,3 +462,62 @@ def test_chat_provenance_cloud_call_true(harness_client):
     assert p["cloud_payload_summary"] == "5 messages this turn"
     assert p["skills_called"] == ["log_mood"]
     assert "cloud" in p["rationale"]
+
+
+def test_recall_hit_carries_salience_components(harness_client):
+    """A vector recall hit with recency/frequency/relevance components is forwarded intact."""
+    loop = _FakeLoop([
+        StreamEvent(
+            type="recall",
+            recall_hits=[
+                {
+                    "ref": "semantic:xyz",
+                    "text": "User prefers dark mode",
+                    "source": "vector",
+                    "kind": "fact",
+                    "score": 0.15,
+                    "recency": 0.92,
+                    "frequency": 0.34,
+                    "relevance": 0.85,
+                }
+            ],
+        ),
+        StreamEvent(type="token", content="ok"),
+        StreamEvent(type="done"),
+    ])
+    client = harness_client(loop)
+    response = client.post("/chat", json={"user_id": "u", "message": "hi"})
+    assert response.status_code == 200
+    events = _parse_sse(response.text)
+    recall = next(e for e in events if e["type"] == "recall")
+    hit = recall["recall_hits"][0]
+    assert hit["recency"] == pytest.approx(0.92)
+    assert hit["frequency"] == pytest.approx(0.34)
+    assert hit["relevance"] == pytest.approx(0.85)
+
+
+def test_recall_hit_components_absent_for_non_vector(harness_client):
+    """A non-vector recall hit (graph/sqlite) has null component fields."""
+    loop = _FakeLoop([
+        StreamEvent(
+            type="recall",
+            recall_hits=[
+                {
+                    "ref": "goal:learn Spanish",
+                    "text": "Goal — learn Spanish: enroll in class",
+                    "source": "sqlite",
+                    "kind": "goal",
+                    "score": 0.5,
+                }
+            ],
+        ),
+        StreamEvent(type="done"),
+    ])
+    client = harness_client(loop)
+    response = client.post("/chat", json={"user_id": "u", "message": "hi"})
+    events = _parse_sse(response.text)
+    recall = next(e for e in events if e["type"] == "recall")
+    hit = recall["recall_hits"][0]
+    assert hit["recency"] is None
+    assert hit["frequency"] is None
+    assert hit["relevance"] is None

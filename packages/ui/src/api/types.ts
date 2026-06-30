@@ -2826,6 +2826,24 @@ export interface components {
              */
             score: number | null;
             /**
+             * Recency
+             * @description Recency component: exp(-lambda * hours_since_last_access). Present for vector hits only.
+             * @default null
+             */
+            recency: number | null;
+            /**
+             * Frequency
+             * @description Frequency component: log1p(access_count) / log1p(MAX_ACCESS). Present for vector hits only.
+             * @default null
+             */
+            frequency: number | null;
+            /**
+             * Relevance
+             * @description Relevance component: 1 - cosine_distance, clamped to [0, 1]. Present for vector hits only.
+             * @default null
+             */
+            relevance: number | null;
+            /**
              * Feedback
              * @description Existing vote on this memory: 'up', 'down', or '' when none.
              * @default
@@ -2954,6 +2972,24 @@ export interface components {
                      * @default null
                      */
                     score: number | null;
+                    /**
+                     * Recency
+                     * @description Recency component: exp(-lambda * hours_since_last_access). Present for vector hits only.
+                     * @default null
+                     */
+                    recency: number | null;
+                    /**
+                     * Frequency
+                     * @description Frequency component: log1p(access_count) / log1p(MAX_ACCESS). Present for vector hits only.
+                     * @default null
+                     */
+                    frequency: number | null;
+                    /**
+                     * Relevance
+                     * @description Relevance component: 1 - cosine_distance, clamped to [0, 1]. Present for vector hits only.
+                     * @default null
+                     */
+                    relevance: number | null;
                     /**
                      * Feedback
                      * @description Existing vote on this memory: 'up', 'down', or '' when none.

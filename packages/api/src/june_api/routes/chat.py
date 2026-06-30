@@ -246,7 +246,19 @@ async def _iter_harness_events(
                 for h in ev.recall_hits:
                     if isinstance(h, dict):
                         try:
-                            hits.append(RecallHit(**h))
+                            hits.append(
+                                RecallHit(
+                                    ref=h.get("ref", ""),
+                                    text=h.get("text", ""),
+                                    source=h.get("source", ""),
+                                    kind=h.get("kind", ""),
+                                    score=h.get("score"),
+                                    recency=h.get("recency"),
+                                    frequency=h.get("frequency"),
+                                    relevance=h.get("relevance"),
+                                    feedback=h.get("feedback", ""),
+                                )
+                            )
                         except Exception:
                             pass
                 if hits:

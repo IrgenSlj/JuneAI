@@ -46,6 +46,18 @@ class RecallHit(BaseModel):
         default=None,
         description="Loose relevance score. Lower is more relevant for distance-based sources.",
     )
+    recency: float | None = Field(
+        default=None,
+        description="Recency component: exp(-lambda * hours_since_last_access). Present for vector hits only.",
+    )
+    frequency: float | None = Field(
+        default=None,
+        description="Frequency component: log1p(access_count) / log1p(MAX_ACCESS). Present for vector hits only.",
+    )
+    relevance: float | None = Field(
+        default=None,
+        description="Relevance component: 1 - cosine_distance, clamped to [0, 1]. Present for vector hits only.",
+    )
     feedback: str = Field(
         default="",
         description="Existing vote on this memory: 'up', 'down', or '' when none.",

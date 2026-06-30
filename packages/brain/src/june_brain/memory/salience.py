@@ -76,6 +76,28 @@ def relevance_from_distance(distance: float | None) -> float:
     return max(0.0, min(1.0, 1.0 - distance))
 
 
+def salience_detailed(
+    relevance: float,
+    hours_since_access: float,
+    access_count: int,
+    weights: SalienceWeights,
+) -> tuple[float, dict[str, float]]:
+    """Return (score, components) for one memory candidate.
+
+    Components dict carries the three sub-scores before weighting:
+        recency:   exp(-LAMBDA * hours_since_access)
+        frequency: log1p(access_count) / log1p(MAX_ACCESS)
+        relevance: passed through unchanged (already 0..1)
+
+    The score equals weights.rel*relevance + weights.rec*recency +
+    weights.freq*frequency — exactly the same arithmetic as salience().
+    """
+    recency = math.exp(-LAMBDA * max(0.0, hours_since_access))
+    frequency = math.log1p(access_count) / math.log1p(MAX_ACCESS)
+    score = weights.rel * relevance + weights.rec * recency + weights.freq * frequency
+    return score, {"recency": recency, "frequency": frequency, "relevance": relevance}
+
+
 def salience(
     relevance: float,
     hours_since_access: float,
@@ -91,6 +113,5 @@ def salience(
         access_count:       number of times this memory has been recalled.
         weights:            SalienceWeights controlling the blend.
     """
-    recency = math.exp(-LAMBDA * max(0.0, hours_since_access))
-    frequency = math.log1p(access_count) / math.log1p(MAX_ACCESS)
-    return weights.rel * relevance + weights.rec * recency + weights.freq * frequency
+    score, _ = salience_detailed(relevance, hours_since_access, access_count, weights)
+    return score

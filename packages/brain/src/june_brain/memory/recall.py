@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Any
 
 from .paraphrase import _format_edge, _format_node
-from .salience import SalienceWeights, relevance_from_distance, salience
+from .salience import SalienceWeights, relevance_from_distance, salience_detailed
 from .sqlite import _get_connection
 from .vector import _db_path
 
@@ -244,14 +244,14 @@ def _salience_rerank(
             hours_since = 0.0
 
         rel = relevance_from_distance(v.get("distance"))
-        score = salience(rel, hours_since, access_count, weights)
-        scored.append((score, v))
+        score, components = salience_detailed(rel, hours_since, access_count, weights)
+        scored.append((score, components, v))
 
     scored.sort(key=lambda t: t[0], reverse=True)
     top = scored[:k]
 
     now_iso = now.isoformat()
-    for _score, v in top:
+    for _score, _components, v in top:
         conn.execute(
             "UPDATE semantic_facts SET access_count = access_count + 1, last_accessed = ? "
             "WHERE user_id=? AND fact_id=?",
@@ -260,7 +260,7 @@ def _salience_rerank(
     conn.commit()
 
     result: list[dict[str, Any]] = []
-    for score, v in top:
+    for score, components, v in top:
         result.append(
             {
                 "source": "vector",
@@ -271,6 +271,9 @@ def _salience_rerank(
                 # sort is ascending and the feedback multipliers assume lower=better,
                 # so a raw (higher=better) salience here would invert the ordering.
                 "score": max(0.0, 1.0 - score),
+                "recency": components["recency"],
+                "frequency": components["frequency"],
+                "relevance": components["relevance"],
             }
         )
     return result
