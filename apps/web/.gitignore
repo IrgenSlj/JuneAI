@@ -1,0 +1,5 @@
+# Playwright e2e artifacts (run output — never committed)
+test-results/
+playwright-report/
+blob-report/
+.playwright/
