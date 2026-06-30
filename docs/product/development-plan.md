@@ -87,6 +87,10 @@ Goal: make the shipped spine honest and safe to dogfood.
    - Keep detailed traces useful without storing unnecessary raw thought.
    - Acceptance: a streamed trivial turn emits no raw `<think>` or native
      reasoning frames by default.
+   - NOTE (2026-06-30): this default was intentionally REVERSED for the Glass Box
+     by user direction (Track 6 / GB-5). Raw chain-of-thought is now visible by
+     default. No new egress: reasoning is ingress from the model, rendered
+     locally; local-only mode still blocks outbound calls.
 
 2. Align streaming and non-streaming tool behavior.
    - Pass provider-native tool specs through the streaming path.

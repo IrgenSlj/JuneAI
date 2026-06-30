@@ -455,6 +455,7 @@ class HandwrittenLoop:
 
             # --- stream the provider response ---
             answer_accum = ""
+            reasoning_accum = ""
             suppress_mode = False
             emit_mode = False
             buffered_head = ""
@@ -475,6 +476,8 @@ class HandwrittenLoop:
                         if seg_kind == "reasoning":
                             if seg_text:
                                 reasoning_observed = True
+                                reasoning_accum += seg_text
+                                yield _emit(StreamEvent(type="reasoning", content=seg_text))
                         else:
                             # seg_kind == "answer": pass through the
                             # tool-call-suppression gate exactly as before.
@@ -511,6 +514,8 @@ class HandwrittenLoop:
                     if seg_kind == "reasoning":
                         if seg_text:
                             reasoning_observed = True
+                            reasoning_accum += seg_text
+                            yield _emit(StreamEvent(type="reasoning", content=seg_text))
                     else:
                         answer_delta = seg_text
                         if not answer_delta:
@@ -553,6 +558,9 @@ class HandwrittenLoop:
                     reasoning_observed = reasoning_observed or bool(fallback_reasoning)
                     answer_accum = fallback_answer
                     yield _emit(StreamEvent(type="token", content=fallback_answer))
+                    if fallback_reasoning:
+                        reasoning_accum += fallback_reasoning
+                        yield _emit(StreamEvent(type="reasoning", content=fallback_reasoning))
                 except Exception:
                     answer_accum = ""
 
@@ -576,9 +584,7 @@ class HandwrittenLoop:
             # (including suppressed tool JSON, but excluding raw reasoning) and
             # how many tool calls were parsed out of it.
             iter_summary = f"iteration {iteration_idx} · {len(tool_calls)} tool call(s)"
-            iter_detail = answer_accum or (
-                "(model reasoning suppressed)" if reasoning_observed else "(no output)"
-            )
+            iter_detail = answer_accum or "(no output)"
             yield _emit(StreamEvent(
                 type="iteration",
                 content=iter_summary,
@@ -589,8 +595,8 @@ class HandwrittenLoop:
             if reasoning_observed:
                 trace.record(
                     "reasoning",
-                    "model reasoning suppressed",
-                    detail="Raw model reasoning was suppressed by default.",
+                    "model reasoning",
+                    detail=reasoning_accum,
                 )
 
             if tool_calls and self._dispatch is not None:

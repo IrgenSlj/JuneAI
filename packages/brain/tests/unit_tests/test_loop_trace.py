@@ -215,7 +215,7 @@ def test_stream_turn_persists_trace_file(
     assert kinds[-1] == "done"
 
 
-def test_stream_turn_trace_suppresses_raw_reasoning(
+def test_stream_turn_trace_records_raw_reasoning(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     _point_datadir(monkeypatch, tmp_path)
@@ -239,13 +239,14 @@ def test_stream_turn_trace_suppresses_raw_reasoning(
     loaded = TraceStore().read(recent[0]["turn_id"])
     assert loaded is not None
 
-    trace_text = "\n".join(
-        part
-        for event in loaded.events
-        for part in (event.summary, event.detail)
-        if part
+    # The trace now records reasoning with the actual content (not suppressed).
+    assert any(e.kind == "reasoning" and "private chain" in (e.detail or "") for e in loaded.events)
+    # Tags are stripped by the splitter — the raw <think> tag must not appear in the trace.
+    reasoning_detail = next(
+        (e.detail or "" for e in loaded.events if e.kind == "reasoning"), ""
     )
-    assert "private chain" not in trace_text
-    assert "<think>" not in trace_text
-    assert any(e.kind == "reasoning" and "suppressed" in e.summary for e in loaded.events)
+    assert "<think>" not in reasoning_detail
+    # Reasoning events must NOT say "suppressed".
+    assert not any(e.kind == "reasoning" and "suppressed" in (e.summary or "") for e in loaded.events)
+    # The answer still appears in the iteration detail.
     assert any(e.kind == "iteration" and e.detail == "final" for e in loaded.events)
