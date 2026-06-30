@@ -120,6 +120,9 @@ class StreamEvent:
     # The guard's action class for a blocked call (e.g. "write_network",
     # "execute", "read_network"). Empty unless needs_approval is set.
     action_class: str = ""
+    # Stable id of the turn's persisted trace; lets callers match a live stream
+    # event to the later-written trace file at <datadir>/traces/<turn_id>.json.
+    turn_id: str | None = None
 
 
 @runtime_checkable

@@ -2908,6 +2908,12 @@ export interface components {
              * @default
              */
             action_class: string;
+            /**
+             * Turn Id
+             * @description Stable id of the turn's persisted trace; lets the UI match the live stream to /system/traces/{turn_id}.
+             * @default null
+             */
+            turn_id: string | null;
             $defs: {
                 /**
                  * RecallHit

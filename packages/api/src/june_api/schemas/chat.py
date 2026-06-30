@@ -150,3 +150,7 @@ class ChatEvent(BaseModel):
             "(e.g. 'write_network', 'execute', 'read_network'). Empty otherwise."
         ),
     )
+    turn_id: str | None = Field(
+        default=None,
+        description="Stable id of the turn's persisted trace; lets the UI match the live stream to /system/traces/{turn_id}.",
+    )

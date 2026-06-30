@@ -193,7 +193,7 @@ async def _iter_harness_events(
         async for ev in loop.stream_turn(session, user_msg):
             if ev.type == "token":
                 assistant_buffer.append(ev.content)
-                yield _event_to_sse(ChatEvent(type="token", content=ev.content))
+                yield _event_to_sse(ChatEvent(type="token", content=ev.content, turn_id=ev.turn_id))
             elif ev.type == "tool_call":
                 yield _event_to_sse(
                     ChatEvent(
@@ -202,6 +202,7 @@ async def _iter_harness_events(
                         tool_args=ev.tool_args,
                         detail=ev.detail,
                         network=ev.network,
+                        turn_id=ev.turn_id,
                     )
                 )
             elif ev.type == "tool_result":
@@ -211,13 +212,14 @@ async def _iter_harness_events(
                         tool_name=ev.tool_name,
                         tool_result=ev.tool_result,
                         detail=ev.detail,
+                        turn_id=ev.turn_id,
                     )
                 )
             elif ev.type in ("prompt", "iteration", "compaction"):
                 # Glass-box trace events: collapsed line in content, full body
                 # in detail. Never added to assistant_buffer (not the answer).
                 yield _event_to_sse(
-                    ChatEvent(type=ev.type, content=ev.content, detail=ev.detail)
+                    ChatEvent(type=ev.type, content=ev.content, detail=ev.detail, turn_id=ev.turn_id)
                 )
             elif ev.type == "tool_blocked":
                 # Two distinct blocks share this frame:
@@ -237,6 +239,7 @@ async def _iter_harness_events(
                         network=ev.network,
                         needs_approval=ev.needs_approval,
                         action_class=ev.action_class,
+                        turn_id=ev.turn_id,
                     )
                 )
             elif ev.type == "recall":
@@ -248,20 +251,21 @@ async def _iter_harness_events(
                         except Exception:
                             pass
                 if hits:
-                    yield _event_to_sse(ChatEvent(type="recall", recall_hits=hits))
+                    yield _event_to_sse(ChatEvent(type="recall", recall_hits=hits, turn_id=ev.turn_id))
             elif ev.type == "provenance" and ev.provenance is not None:
                 yield _event_to_sse(
                     ChatEvent(
                         type="provenance",
                         provenance=_turn_provenance_dict(ev.provenance),
+                        turn_id=ev.turn_id,
                     )
                 )
             elif ev.type == "reasoning":
                 # Reasoning is NOT added to assistant_buffer — it is not the answer
                 # and must not be persisted or fed to memory extraction.
-                yield _event_to_sse(ChatEvent(type="reasoning", content=ev.content))
+                yield _event_to_sse(ChatEvent(type="reasoning", content=ev.content, turn_id=ev.turn_id))
             elif ev.type == "done":
-                yield _event_to_sse(ChatEvent(type="done"))
+                yield _event_to_sse(ChatEvent(type="done", turn_id=ev.turn_id))
     except Exception as exc:
         logger.exception("harness chat stream failed for user=%s", request.user_id)
         yield _event_to_sse(ChatEvent(type="error", content=str(exc)))

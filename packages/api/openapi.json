@@ -5363,6 +5363,19 @@
             "description": "The guard's action class for an approval-needed tool_blocked event (e.g. 'write_network', 'execute', 'read_network'). Empty otherwise.",
             "title": "Action Class",
             "type": "string"
+          },
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Stable id of the turn's persisted trace; lets the UI match the live stream to /system/traces/{turn_id}.",
+            "title": "Turn Id"
           }
         },
         "required": [

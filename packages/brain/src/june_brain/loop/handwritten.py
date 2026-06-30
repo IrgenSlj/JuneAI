@@ -355,15 +355,21 @@ class HandwrittenLoop:
 
         self._reset_per_turn()
         trace = TurnTrace(turn_id=uuid.uuid4().hex, user_id=session.user_id)
+
+        def _emit(ev: StreamEvent) -> StreamEvent:
+            """Stamp the current turn's id onto every outbound event."""
+            ev.turn_id = trace.turn_id
+            return ev
+
         block_egress = self._egress_blocked()
         try:
             provider, chosen_role, difficulty = await self._route(user_msg)
         except Exception:
             # Graceful degradation: no provider found
-            yield StreamEvent(type="token", content="error: no provider available")
+            yield _emit(StreamEvent(type="token", content="error: no provider available"))
             trace.record("error", "no provider available")
             self._trace_store.write(trace)
-            yield StreamEvent(type="done")
+            yield _emit(StreamEvent(type="done"))
             return
 
         self._apply_reason(difficulty.label)
@@ -373,7 +379,7 @@ class HandwrittenLoop:
             f"tier: {provider.tier}\nmodel: {provider.model_id}\nrole: {chosen_role}\n"
             f"difficulty: {difficulty.label} ({difficulty.source})"
         )
-        yield StreamEvent(type="iteration", content=route_summary, detail=route_detail)
+        yield _emit(StreamEvent(type="iteration", content=route_summary, detail=route_detail))
         trace.record("iteration", route_summary, detail=route_detail)
 
         tokens = TokenAccounting()
@@ -386,12 +392,12 @@ class HandwrittenLoop:
             # Emit the rendered prompt — the "LLM factory" input — as a trace
             # event. content stays empty; the full prompt rides in detail.
             rendered_prompt = self._render_prompt(ctx)
-            yield StreamEvent(
+            yield _emit(StreamEvent(
                 type="prompt",
                 content=f"prompt assembled ({len(ctx)} messages)",
                 detail=rendered_prompt,
                 iteration=iteration_idx,
-            )
+            ))
             trace.record(
                 "prompt",
                 f"prompt assembled ({len(ctx)} messages)",
@@ -402,7 +408,7 @@ class HandwrittenLoop:
             if first_iteration:
                 recall_hits = self._recall_state.get("recall_hits", [])
                 if recall_hits:
-                    yield StreamEvent(type="recall", recall_hits=list(recall_hits))
+                    yield _emit(StreamEvent(type="recall", recall_hits=list(recall_hits)))
                     trace.record(
                         "recall",
                         f"recall · {len(recall_hits)} memories",
@@ -462,10 +468,10 @@ class HandwrittenLoop:
                                     else:
                                         emit_mode = True
                                         if buffered_head:
-                                            yield StreamEvent(type="token", content=buffered_head)
+                                            yield _emit(StreamEvent(type="token", content=buffered_head))
                                         buffered_head = ""
                             elif emit_mode:
-                                yield StreamEvent(type="token", content=answer_delta)
+                                yield _emit(StreamEvent(type="token", content=answer_delta))
 
                 # Flush any residual reasoning/answer at end-of-stream.
                 for seg_kind, seg_text in splitter.flush():
@@ -491,10 +497,10 @@ class HandwrittenLoop:
                                 else:
                                     emit_mode = True
                                     if buffered_head:
-                                        yield StreamEvent(type="token", content=buffered_head)
+                                        yield _emit(StreamEvent(type="token", content=buffered_head))
                                     buffered_head = ""
                         elif emit_mode:
-                            yield StreamEvent(type="token", content=answer_delta)
+                            yield _emit(StreamEvent(type="token", content=answer_delta))
 
             except Exception:
                 # Stream failed — fall back to a single generate call
@@ -513,7 +519,7 @@ class HandwrittenLoop:
                     fallback_reasoning, fallback_answer = split_reasoning(result.text)
                     reasoning_observed = reasoning_observed or bool(fallback_reasoning)
                     answer_accum = fallback_answer
-                    yield StreamEvent(type="token", content=fallback_answer)
+                    yield _emit(StreamEvent(type="token", content=fallback_answer))
                 except Exception:
                     answer_accum = ""
 
@@ -540,12 +546,12 @@ class HandwrittenLoop:
             iter_detail = answer_accum or (
                 "(model reasoning suppressed)" if reasoning_observed else "(no output)"
             )
-            yield StreamEvent(
+            yield _emit(StreamEvent(
                 type="iteration",
                 content=iter_summary,
                 detail=iter_detail,
                 iteration=iteration_idx,
-            )
+            ))
             trace.record("iteration", iter_summary, detail=iter_detail)
             if reasoning_observed:
                 trace.record(
@@ -566,13 +572,13 @@ class HandwrittenLoop:
                     args_detail = json.dumps(tc.args, ensure_ascii=False, indent=2)
                     networked = _is_network_tool(tc.name)
                     if networked and block_egress:
-                        yield StreamEvent(
+                        yield _emit(StreamEvent(
                             type="tool_blocked",
                             tool_name=tc.name,
                             tool_args=tc.args,
                             detail=args_detail,
                             network=True,
-                        )
+                        ))
                         trace.record(
                             "tool_blocked",
                             f"blocked · {tc.name} (local-only)",
@@ -592,13 +598,13 @@ class HandwrittenLoop:
                         continue
                     if networked:
                         self._network_calls.append(tc.name)
-                    yield StreamEvent(
+                    yield _emit(StreamEvent(
                         type="tool_call",
                         tool_name=tc.name,
                         tool_args=tc.args,
                         detail=args_detail,
                         network=networked,
-                    )
+                    ))
                     egress_note = " [egress: leaves your machine]" if networked else ""
                     trace.record(
                         "tool_call", f"tool · {tc.name}{egress_note}", detail=args_detail
@@ -623,26 +629,26 @@ class HandwrittenLoop:
                             # gets the [ACTION BLOCKED] observation so it relays
                             # the ask to the user in prose.
                             reason = str(blk.get("reason") or "")
-                            yield StreamEvent(
+                            yield _emit(StreamEvent(
                                 type="tool_blocked",
                                 tool_name=tc_name,
                                 tool_args=runnable[i].args if i < len(runnable) else {},
                                 detail=reason,
                                 needs_approval=True,
                                 action_class=str(blk.get("action_class") or ""),
-                            )
+                            ))
                             trace.record(
                                 "tool_blocked",
                                 f"needs approval · {tc_name}",
                                 detail=reason,
                             )
                             continue
-                        yield StreamEvent(
+                        yield _emit(StreamEvent(
                             type="tool_result",
                             tool_name=tc_name,
                             tool_result=obs_msg.content,
                             detail=obs_msg.content,
-                        )
+                        ))
                         trace.record(
                             "tool_result", f"result · {tc_name}", detail=obs_msg.content
                         )
@@ -659,16 +665,16 @@ class HandwrittenLoop:
                 # No tool calls — if we suppressed (looked like JSON but wasn't a real
                 # tool call), emit the accumulated text now so the user sees something
                 if suppress_mode and answer_accum:
-                    yield StreamEvent(type="token", content=answer_accum)
+                    yield _emit(StreamEvent(type="token", content=answer_accum))
                 break
 
         compacted = await self._maybe_compact(session)
         if compacted:
-            yield StreamEvent(
+            yield _emit(StreamEvent(
                 type="compaction",
                 content="conversation compacted",
                 detail="The conversation history was compacted into the pinned-state anchor.",
-            )
+            ))
             trace.record(
                 "compaction",
                 "conversation compacted",
@@ -678,7 +684,7 @@ class HandwrittenLoop:
         provenance = self._build_provenance(
             provider, chosen_role, all_tool_calls, _start, tokens, difficulty
         )
-        yield StreamEvent(type="provenance", provenance=provenance)
+        yield _emit(StreamEvent(type="provenance", provenance=provenance))
         trace.record(
             "provenance",
             provenance.rationale,
@@ -701,7 +707,7 @@ class HandwrittenLoop:
 
         trace.record("done", "done")
         self._trace_store.write(trace)
-        yield StreamEvent(type="done")
+        yield _emit(StreamEvent(type="done"))
 
 
 # Satisfy the Protocol at import time (runtime_checkable check in tests).
