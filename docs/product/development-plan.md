@@ -392,6 +392,67 @@ Ordered so it is visible early, then gets richer:
 
 ## Progress Log
 
+### 2026-07-01 - Overnight autonomous session: deploy path + monetization core
+
+Worked as autonomous technical co-founder toward the north star (deploy + first
+revenue). 13 gated commits on `main`. Every commit passed `./tools/check.sh`
+(or `cargo check` for the Rust); no founder-gated line was crossed.
+
+**Strategy (two new docs).**
+- `docs/product/ship-to-revenue.md` - the deploy + monetization plan (Obsidian
+  model, offline Ed25519 licensing rule, prioritized deployment-gap table).
+- `docs/product/strategic-review-2026-07-01.md` - **NEEDS A FOUNDER DECISION.**
+  A sharpen pass + market research found the ship-to-revenue lead option
+  ($59 generic private assistant via Show HN) is the *weakest* credible wedge;
+  a narrow compliance-driven vertical ICP (e.g. therapists' private session
+  notes) is the most credible. This changes GTM, not the engine, so the build
+  below serves any wedge. Decision framed there as options A/B/C; my read is B or C.
+
+**The deploy blocker is broken (gap 1).** Previously the packaged app couldn't
+start the brain at all. Now, end to end:
+- Spike proved PyInstaller freezes `june-api` into a relocatable ~40MB bundle
+  with `sqlite-vec` working (`docs/product/sidecar-spike-findings.md`, spec at
+  `tools/packaging/june-api.spec`).
+- Rust supervision wired (`apps/desktop/src-tauri/src/sidecar.rs` + `lib.rs`):
+  spawn on setup, 60s health-wait on `/system`, kill on exit; `cargo check` clean.
+- Build pipeline (`tools/packaging/build-sidecar.sh` + `tauri.conf.json`
+  resources) stages the frozen brain to `Resources/june-api/` and bakes the
+  build SHA. Verified: staged binary serves `/system` 200.
+- Remaining: Apple Developer cert + notarization (FOUNDER), a `tauri build` +
+  GUI launch test (human), and frozen-skills launch (Ship-3, task #43).
+
+**First-run honesty.** FR-1: a hard turn no longer hard-errors when the deep
+model (`gemma4:e4b`) isn't pulled - it degrades to the fast tier with visible
+provenance. FR-2: onboarding pulls the *right* tag (derived from live status,
+was a hardcoded mismatch) + the embedder, no terminal.
+
+**Clean-install hardening.** Declared `openai` (a real but undeclared brain dep
+that broke clean installs / the freeze), then `pydantic`/`httpx` (brain) and
+`starlette` (api) after an audit - the dep graph no longer leans on transitive
+closure. Audit's one remaining functional gap: skills don't launch in the frozen
+bundle (Ship-3, #43).
+
+**Monetization primitive.** `docs/product/license-design.md` + Slice 1: the
+offline Ed25519 license verification core (`june_brain/licensing/`). Signature
+verified before any field is read; every failure (missing/tampered/expired/
+unknown key) degrades to FREE; no phone-home. `PUBLIC_KEYS` ships empty, so
+everything is FREE until the founder adds the production key. Slices 2-3 (API
+surface, gate wiring) deferred until distribution exists.
+
+**Product.** Track 3 (durable promises) complete: 3.2b surfaces retry attempts
+and a distinct "needs a new approach" exhausted state in the Promises UI.
+Track 1.3: added the deterministic promise-nudge Silence producer (surfaces
+awaiting-user promises through the existing decide() policy; no nagging).
+Contradiction producer split out as a follow-on (#45).
+
+**Needs the founder (batched, none blocking the above):** the wedge decision
+(strategic-review doc); Apple Developer enrollment ($99/yr) for signing; a
+payment processor + price points + OSS license choice; whether to operate cloud
+sync/relay at all. See ship-to-revenue.md "Human-gated decisions".
+
+**Queued next:** Ship-3 (frozen skills), the contradiction producer (#45),
+loopback API auth token (gap 5), Track 4 (skill permission hardening).
+
 ### 2026-06-29 - Silence/Trust UI (slices 9-10), from Claude Design
 
 Pushed on `main`, in five gated UI slices (A-E). Implements the handoff's
