@@ -12,6 +12,9 @@ dependencies = [
     "fastapi>=0.115.0,<1.0.0",
     "uvicorn[standard]>=0.32.0",
     "pydantic>=2.9.0",
+    # Imported directly (app.py, routes/chat.py) rather than only via FastAPI's
+    # re-exports; declared so the dep graph is honest. Floor defers to FastAPI's pin.
+    "starlette>=0.37.0",
 ]
 
 [project.optional-dependencies]

@@ -25,6 +25,11 @@ dependencies = [
     # it incidentally, and a clean install (CI, a new contributor, the frozen
     # sidecar) hard-failed on `import june_api.app` without it.
     "openai>=1.40.0",
+    # Imported directly by the provider and schema layers (providers/base.py,
+    # gemma.py, gemini.py). Declared explicitly rather than leaned on via
+    # openai's transitive closure — the same class of gap the openai fix closed.
+    "pydantic>=2.9.0",
+    "httpx>=0.27.0",
     "tomli>=2.0.1; python_version < '3.11'",  # python 3.11+ has tomllib built-in
 ]
 
