@@ -19,6 +19,12 @@ dependencies = [
     # authenticity signatures. The no-hand-rolled-crypto invariant mandates a
     # vetted library here. Imported lazily so the brain still runs if it is absent.
     "pynacl>=1.5.0",
+    # The cloud provider (providers/gemini.py) talks to Google's OpenAI-compatible
+    # endpoint through the official AsyncOpenAI client, imported at module load.
+    # A real runtime dependency; it worked locally only because the dev venv had
+    # it incidentally, and a clean install (CI, a new contributor, the frozen
+    # sidecar) hard-failed on `import june_api.app` without it.
+    "openai>=1.40.0",
     "tomli>=2.0.1; python_version < '3.11'",  # python 3.11+ has tomllib built-in
 ]
 
