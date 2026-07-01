@@ -8,6 +8,7 @@ from june_brain.skills.manifest import (
     DEFAULT_MANIFEST,
     SkillManifest,
     SkillManifestEntry,
+    check_scope_drift,
     load_manifest,
     save_manifest,
 )
@@ -73,3 +74,77 @@ def test_load_tolerates_malformed_toml(tmp_path: Path) -> None:
 def test_set_enabled_returns_none_for_unknown_key() -> None:
     manifest = SkillManifest()
     assert manifest.set_enabled("nonexistent", True) is None
+
+
+# ---------------------------------------------------------------------------
+# check_scope_drift — pure drift detection
+# ---------------------------------------------------------------------------
+
+
+def test_drift_no_declared_always_clean() -> None:
+    """When no scopes are declared the function returns has_drift=False regardless of derived."""
+    drift = check_scope_drift(frozenset(), frozenset({"read_network", "write_local"}))
+    assert not drift.has_drift
+    assert drift.undeclared == frozenset()
+    assert drift.unused == frozenset()
+
+
+def test_drift_exact_match_no_drift() -> None:
+    declared = frozenset({"read_local", "write_local"})
+    derived = frozenset({"read_local", "write_local"})
+    drift = check_scope_drift(declared, derived)
+    assert not drift.has_drift
+    assert drift.undeclared == frozenset()
+    assert drift.unused == frozenset()
+
+
+def test_drift_undeclared_detected() -> None:
+    """Skill uses write_network but only declared read_local — violation."""
+    declared = frozenset({"read_local"})
+    derived = frozenset({"read_local", "write_network"})
+    drift = check_scope_drift(declared, derived)
+    assert drift.has_drift
+    assert drift.undeclared == frozenset({"write_network"})
+    assert drift.unused == frozenset()
+
+
+def test_drift_unused_detected() -> None:
+    """Skill declared execute but no tool maps to it — over-declaration."""
+    declared = frozenset({"read_local", "execute"})
+    derived = frozenset({"read_local"})
+    drift = check_scope_drift(declared, derived)
+    assert drift.has_drift
+    assert drift.undeclared == frozenset()
+    assert drift.unused == frozenset({"execute"})
+
+
+def test_drift_both_undeclared_and_unused() -> None:
+    declared = frozenset({"read_local", "execute"})
+    derived = frozenset({"read_local", "write_network"})
+    drift = check_scope_drift(declared, derived)
+    assert drift.has_drift
+    assert drift.undeclared == frozenset({"write_network"})
+    assert drift.unused == frozenset({"execute"})
+
+
+def test_declared_scopes_round_trips_through_toml(tmp_path: Path) -> None:
+    """declared_scopes persists through save/load."""
+    target = tmp_path / "skills.toml"
+    manifest = load_manifest(target)
+    manifest.entries["research"].declared_scopes = ["read_network"]
+    save_manifest(manifest, target)
+
+    reloaded = load_manifest(target)
+    assert reloaded.entries["research"].declared_scopes == ["read_network"]
+
+
+def test_invalid_declared_scopes_dropped_on_load(tmp_path: Path) -> None:
+    """Unknown scope strings are silently dropped during load."""
+    target = tmp_path / "skills.toml"
+    target.write_text(
+        '[skill.research]\nenabled = true\ncommand = "python"\nargs = ["-m", "june_skill_research"]'
+        '\ndeclared_scopes = ["read_network", "fly_to_mars"]\n',
+        encoding="utf-8",
+    )
+    manifest = load_manifest(target)
+    assert manifest.entries["research"].declared_scopes == ["read_network"]

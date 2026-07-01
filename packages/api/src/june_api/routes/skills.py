@@ -31,6 +31,7 @@ from ..schemas import (
     RegistryResponse,
     RegistryUninstallResponse,
     SkillInfo,
+    SkillScopeDrift,
     SkillsResponse,
     SkillToggleRequest,
     SkillToggleResponse,
@@ -77,11 +78,11 @@ _SCOPE_LABELS: dict[str, str] = {
 _SCOPE_ORDER = ["execute", "write_network", "read_network", "write_local", "read_local"]
 
 
-def _scopes_for_tools(tools: list[dict]) -> list[str]:
-    """Derive a skill's capability scopes from its tools' action classes.
+def _action_classes_for_tools(tools: list[dict]) -> frozenset[str]:
+    """Return the set of action class strings derived from tool names.
 
-    Honest by construction: the scope reflects what the tools actually do, not a
-    hand-authored manifest claim. Falls back to no scopes if classification fails.
+    Used for drift comparison against the manifest's declared_scopes. Returns
+    raw action class strings (e.g. 'read_network'), not human-readable labels.
     """
     from june_brain.guard import classify_action
 
@@ -94,11 +95,26 @@ def _scopes_for_tools(tools: list[dict]) -> list[str]:
             seen.add(classify_action(name))
         except Exception:  # noqa: BLE001 — classification is best-effort
             continue
+    return frozenset(seen)
+
+
+def _scopes_for_tools(tools: list[dict]) -> list[str]:
+    """Derive a skill's capability scopes from its tools' action classes.
+
+    Honest by construction: the scope reflects what the tools actually do, not a
+    hand-authored manifest claim. Falls back to no scopes if classification fails.
+    """
+    seen = _action_classes_for_tools(tools)
     return [_SCOPE_LABELS[c] for c in _SCOPE_ORDER if c in seen]
 
 
 def _status_to_info(payload: dict) -> SkillInfo:
+    from june_brain.skills.manifest import check_scope_drift
+
     raw_tools = payload.get("tools", []) or []
+    declared = frozenset(payload.get("declared_scopes") or [])
+    derived = _action_classes_for_tools(raw_tools)
+    drift = check_scope_drift(declared, derived)
     return SkillInfo(
         key=str(payload.get("key", "")),
         description=str(payload.get("description", "")),
@@ -116,6 +132,11 @@ def _status_to_info(payload: dict) -> SkillInfo:
             for tool in raw_tools
         ],
         scopes=_scopes_for_tools(raw_tools),
+        scope_drift=SkillScopeDrift(
+            undeclared=sorted(drift.undeclared),
+            unused=sorted(drift.unused),
+            has_drift=drift.has_drift,
+        ),
     )
 
 

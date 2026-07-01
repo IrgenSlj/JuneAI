@@ -24,6 +24,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+# Valid action classes (mirrors guard.actions.ActionClass without importing it,
+# to keep manifest.py dep-free from the loop layer).
+_VALID_ACTION_CLASSES = frozenset(
+    {"read_local", "read_network", "write_local", "write_network", "execute"}
+)
+
 try:  # Python 3.11+
     import tomllib
 except ModuleNotFoundError:  # pragma: no cover - 3.10 fallback
@@ -55,6 +61,11 @@ class SkillManifestEntry:
     disabled_tools: list[str] = field(default_factory=list)
     model_policy: str = DEFAULT_MODEL_POLICY
     response_timeout_seconds: float = DEFAULT_RESPONSE_TIMEOUT_SECONDS
+    declared_scopes: list[str] = field(default_factory=list)
+    """Action classes this skill is permitted to use (e.g. 'read_local', 'write_network').
+    When empty the skill has no scope contract yet — drift detection is skipped.
+    Valid values: read_local, read_network, write_local, write_network, execute.
+    """
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -67,6 +78,7 @@ class SkillManifestEntry:
             "disabled_tools": list(self.disabled_tools),
             "model_policy": self.model_policy,
             "response_timeout_seconds": self.response_timeout_seconds,
+            "declared_scopes": list(self.declared_scopes),
         }
 
     def policy_enum(self):  # type: ignore[no-untyped-def]
@@ -172,6 +184,50 @@ DEFAULT_MANIFEST: SkillManifest = SkillManifest(
 )
 
 
+@dataclass(frozen=True)
+class ScopeDrift:
+    """Result of comparing declared vs derived scopes for one skill.
+
+    ``undeclared`` is the dangerous set: the skill uses a capability it never
+    declared. ``unused`` is lower-severity over-declaration. When ``declared``
+    is empty (the skill has no scope contract yet) ``has_drift`` is always
+    False — noise-free until an operator opts in to scope governance.
+    """
+
+    undeclared: frozenset[str]
+    unused: frozenset[str]
+    has_drift: bool
+
+
+def check_scope_drift(
+    declared: frozenset[str], derived: frozenset[str]
+) -> ScopeDrift:
+    """Pure set comparison of declared manifest scopes vs derived tool action classes.
+
+    ``declared`` — action class strings from ``SkillManifestEntry.declared_scopes``.
+    ``derived``  — action class strings produced by ``classify_action()`` over every
+                   tool name the skill advertises via MCP ``tools/list``.
+
+    Returns a ``ScopeDrift`` with:
+      - ``undeclared``: derived minus declared — the skill uses something it never
+        claimed. This is the violation that matters most.
+      - ``unused``: declared minus derived — over-declaration; lower severity.
+      - ``has_drift``: True when either set is non-empty.
+
+    When ``declared`` is empty (no scope contract set in the manifest), returns
+    ``has_drift=False`` so skills without governance don't generate noise.
+    """
+    if not declared:
+        return ScopeDrift(undeclared=frozenset(), unused=frozenset(), has_drift=False)
+    undeclared = derived - declared
+    unused = declared - derived
+    return ScopeDrift(
+        undeclared=undeclared,
+        unused=unused,
+        has_drift=bool(undeclared or unused),
+    )
+
+
 def _default_config_root() -> Path:
     """Return the user's June configuration root."""
     env_override = os.environ.get("JUNE_CONFIG_ROOT")
@@ -218,6 +274,9 @@ def _serialize(manifest: SkillManifest) -> str:
             lines.append(f'model_policy = "{entry.model_policy}"')
         if entry.response_timeout_seconds != DEFAULT_RESPONSE_TIMEOUT_SECONDS:
             lines.append(f"response_timeout_seconds = {entry.response_timeout_seconds}")
+        if entry.declared_scopes:
+            scopes_inline = ", ".join(f'"{s}"' for s in entry.declared_scopes)
+            lines.append(f"declared_scopes = [{scopes_inline}]")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
@@ -265,6 +324,10 @@ def load_manifest(path: Path | None = None) -> SkillManifest:
                 if default
                 else DEFAULT_RESPONSE_TIMEOUT_SECONDS
             )
+        raw_declared = raw.get("declared_scopes") or []
+        declared_scopes = [
+            str(s) for s in raw_declared if str(s) in _VALID_ACTION_CLASSES
+        ]
         manifest.entries[key] = SkillManifestEntry(
             key=key,
             enabled=bool(raw.get("enabled", True)),
@@ -276,6 +339,7 @@ def load_manifest(path: Path | None = None) -> SkillManifest:
             disabled_tools=[str(t) for t in (raw.get("disabled_tools") or [])],
             model_policy=raw_policy,
             response_timeout_seconds=timeout,
+            declared_scopes=declared_scopes,
         )
 
     for key, default_entry in DEFAULT_MANIFEST.entries.items():
@@ -304,4 +368,5 @@ def _copy_entry(entry: SkillManifestEntry) -> SkillManifestEntry:
         disabled_tools=list(entry.disabled_tools),
         model_policy=entry.model_policy,
         response_timeout_seconds=entry.response_timeout_seconds,
+        declared_scopes=list(entry.declared_scopes),
     )

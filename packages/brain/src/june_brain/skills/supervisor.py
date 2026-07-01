@@ -216,6 +216,7 @@ class SkillSupervisor:
                     "status": skill.status.value,
                     "error": skill.error,
                     "model_policy": skill.entry.model_policy,
+                    "declared_scopes": list(skill.entry.declared_scopes),
                     "tools": [
                         {
                             "name": t.name,

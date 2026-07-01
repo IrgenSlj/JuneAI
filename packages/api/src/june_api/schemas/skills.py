@@ -13,6 +13,34 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+class SkillScopeDrift(BaseModel):
+    """Scope drift between a skill's declared manifest scopes and its actual action classes.
+
+    ``undeclared`` is the violation that matters: the skill uses a capability
+    it never declared in the manifest. ``unused`` is lower-severity
+    over-declaration. ``has_drift`` is False when no scopes are declared in
+    the manifest (governance not yet opted in for that skill).
+    """
+
+    undeclared: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Action classes the skill uses but did not declare. "
+            "This is the dangerous case: undeclared capability use."
+        ),
+    )
+    unused: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Action classes declared in the manifest but not exercised by any tool."
+        ),
+    )
+    has_drift: bool = Field(
+        default=False,
+        description="True when undeclared or unused is non-empty.",
+    )
+
+
 class SkillToolInfo(BaseModel):
     """A single tool inside a skill — shown under the skill in the UI."""
 
@@ -67,6 +95,13 @@ class SkillInfo(BaseModel):
             "action taxonomy, ADR 0021): e.g. 'reads local data', 'sends data "
             "off device', 'runs code'. Shows what a skill can do before use; "
             "network/execute scopes are the ones to scrutinize."
+        ),
+    )
+    scope_drift: SkillScopeDrift = Field(
+        default_factory=SkillScopeDrift,
+        description=(
+            "Drift between declared (manifest) and derived (actual tool action classes) scopes. "
+            "has_drift is False when no scopes are declared in the manifest."
         ),
     )
 

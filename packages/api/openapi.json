@@ -4043,6 +4043,10 @@
             "type": "array",
             "title": "Scopes",
             "description": "Capability scopes derived from this skill's tools (the guard's action taxonomy, ADR 0021): e.g. 'reads local data', 'sends data off device', 'runs code'. Shows what a skill can do before use; network/execute scopes are the ones to scrutinize."
+          },
+          "scope_drift": {
+            "$ref": "#/components/schemas/SkillScopeDrift",
+            "description": "Drift between declared (manifest) and derived (actual tool action classes) scopes. has_drift is False when no scopes are declared in the manifest."
           }
         },
         "type": "object",
@@ -4051,6 +4055,35 @@
         ],
         "title": "SkillInfo",
         "description": "One MCP skill server with its current lifecycle state."
+      },
+      "SkillScopeDrift": {
+        "properties": {
+          "undeclared": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Undeclared",
+            "description": "Action classes the skill uses but did not declare. This is the dangerous case: undeclared capability use."
+          },
+          "unused": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unused",
+            "description": "Action classes declared in the manifest but not exercised by any tool."
+          },
+          "has_drift": {
+            "type": "boolean",
+            "title": "Has Drift",
+            "description": "True when undeclared or unused is non-empty.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "SkillScopeDrift",
+        "description": "Scope drift between a skill's declared manifest scopes and its actual action classes.\n\n``undeclared`` is the violation that matters: the skill uses a capability\nit never declared in the manifest. ``unused`` is lower-severity\nover-declaration. ``has_drift`` is False when no scopes are declared in\nthe manifest (governance not yet opted in for that skill)."
       },
       "SkillToggleRequest": {
         "properties": {

@@ -2144,6 +2144,35 @@ export interface components {
              * @description Capability scopes derived from this skill's tools (the guard's action taxonomy, ADR 0021): e.g. 'reads local data', 'sends data off device', 'runs code'. Shows what a skill can do before use; network/execute scopes are the ones to scrutinize.
              */
             scopes?: string[];
+            /** @description Drift between declared (manifest) and derived (actual tool action classes) scopes. has_drift is False when no scopes are declared in the manifest. */
+            scope_drift?: components["schemas"]["SkillScopeDrift"];
+        };
+        /**
+         * SkillScopeDrift
+         * @description Scope drift between a skill's declared manifest scopes and its actual action classes.
+         *
+         *     ``undeclared`` is the violation that matters: the skill uses a capability
+         *     it never declared in the manifest. ``unused`` is lower-severity
+         *     over-declaration. ``has_drift`` is False when no scopes are declared in
+         *     the manifest (governance not yet opted in for that skill).
+         */
+        SkillScopeDrift: {
+            /**
+             * Undeclared
+             * @description Action classes the skill uses but did not declare. This is the dangerous case: undeclared capability use.
+             */
+            undeclared?: string[];
+            /**
+             * Unused
+             * @description Action classes declared in the manifest but not exercised by any tool.
+             */
+            unused?: string[];
+            /**
+             * Has Drift
+             * @description True when undeclared or unused is non-empty.
+             * @default false
+             */
+            has_drift: boolean;
         };
         /**
          * SkillToggleRequest
