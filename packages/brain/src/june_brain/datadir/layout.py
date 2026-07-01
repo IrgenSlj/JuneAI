@@ -73,6 +73,11 @@ def config_dir() -> Path:
     return _root() / "config"
 
 
+def license_path() -> Path:
+    """Path to the offline license file."""
+    return _root() / "config" / "license.json"
+
+
 def traces_dir() -> Path:
     """Directory for per-turn harness traces (the glass-box debug record).
 
