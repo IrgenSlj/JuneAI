@@ -33,6 +33,12 @@ apps/web/dev-dist/
 target/
 apps/desktop/src-tauri/target/
 
+# Packaging: frozen june-api sidecar (PyInstaller onedir, ~40MB+) staged for
+# Tauri bundling by tools/packaging/build-sidecar.sh. Build artifact only.
+apps/desktop/src-tauri/binaries/
+# Best-effort build-SHA stamp (written outside the repo by default; guarded here).
+tools/packaging/_build_sha.txt
+
 # iOS / Capacitor
 apps/mobile/ios/App/Pods/
 apps/mobile/ios/DerivedData/

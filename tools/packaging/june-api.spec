@@ -14,6 +14,7 @@ Produces an onedir bundle at <out>/dist/june-api/ whose `june-api` executable
 boots uvicorn and serves the FastAPI app on JUNE_API_HOST:JUNE_API_PORT.
 """
 import importlib.util
+import os
 
 from PyInstaller.utils.hooks import (
     collect_data_files,
@@ -65,10 +66,22 @@ hiddenimports += [
 ]
 
 # openai is a real runtime dependency of june_brain (the Gemini provider uses
-# the OpenAI-compatible client). NOTE: it is currently missing from
-# packages/brain/pyproject.toml; it must be declared there and installed into
-# the build venv, or the freeze silently drops the cloud provider.
+# the OpenAI-compatible client). It is declared in packages/brain/pyproject.toml
+# and installed into the build venv, so its submodules must ship too.
 hiddenimports += collect_submodules("openai")
+
+# Build-SHA injection (best-effort). tools/packaging/build-sidecar.sh writes the
+# short git SHA to a file and points JUNE_BUILD_SHA_FILE at it; we bundle that
+# file at the bundle root as `_build_sha.txt`. The always-registered runtime
+# hook reads it into os.environ *before* june_api imports, so GET /system
+# reports the real build instead of "unknown" (there is no git checkout inside
+# the frozen bundle). All optional: no env/file -> build_info degrades cleanly,
+# and the hook is a no-op, so a plain `pyinstaller june-api.spec` still works.
+_spec_dir = os.path.dirname(os.path.abspath(SPEC))
+runtime_hooks = [os.path.join(_spec_dir, "rthook_build_sha.py")]
+_sha_file = os.environ.get("JUNE_BUILD_SHA_FILE", "").strip()
+if _sha_file and os.path.exists(_sha_file):
+    datas += [(_sha_file, ".")]
 
 a = Analysis(
     [_entry],
@@ -78,7 +91,7 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=runtime_hooks,
     excludes=[],
     noarchive=False,
     optimize=0,
