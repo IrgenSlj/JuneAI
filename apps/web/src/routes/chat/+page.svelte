@@ -28,6 +28,67 @@
   let continuityTasks: TaskView[] = $state([]);
   let continuityError: string | null = $state(null);
 
+  // --- Activity pane resizer ---
+  let activityShare = $state(0.5);
+  let dragging = $state(false);
+  let appEl: HTMLElement | undefined = $state();
+  let composeBandEl: HTMLDivElement | undefined = $state();
+  let _dragStartY = 0;
+  let _dragStartShare = 0.5;
+  let _dragFlexHeight = 0;
+
+  function clampShare(v: number): number {
+    return Math.min(0.85, Math.max(0.15, v));
+  }
+
+  function persistShare(v: number): void {
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("june.chat.activityShare", String(v));
+      }
+    } catch {
+      // storage unavailable
+    }
+  }
+
+  function handleResizerPointerDown(e: PointerEvent): void {
+    if (!appEl || !composeBandEl) return;
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    _dragStartY = e.clientY;
+    _dragStartShare = activityShare;
+    _dragFlexHeight = appEl.clientHeight - composeBandEl.clientHeight;
+    dragging = true;
+  }
+
+  function handleResizerPointerMove(e: PointerEvent): void {
+    if (!dragging || _dragFlexHeight === 0) return;
+    const deltaY = e.clientY - _dragStartY;
+    activityShare = clampShare(_dragStartShare - deltaY / _dragFlexHeight);
+  }
+
+  function handleResizerPointerUp(): void {
+    if (!dragging) return;
+    dragging = false;
+    persistShare(activityShare);
+  }
+
+  function handleResizerLostCapture(): void {
+    dragging = false;
+  }
+
+  function handleResizerKeyDown(e: KeyboardEvent): void {
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      activityShare = clampShare(activityShare + 0.05);
+      persistShare(activityShare);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      activityShare = clampShare(activityShare - 0.05);
+      persistShare(activityShare);
+    }
+  }
+
   const ACTIVE_PROMISE_STATUSES = new Set(["planning", "running", "paused", "awaiting_user"]);
   const hasActivity = $derived(chat.activity.length > 0);
   // Show the platform-correct send-shortcut glyph in the composer hint.
@@ -37,6 +98,18 @@
       : "Ctrl";
 
   onMount(() => {
+    // Read persisted activity share
+    try {
+      if (typeof window !== "undefined") {
+        const raw = localStorage.getItem("june.chat.activityShare");
+        if (raw !== null) {
+          const parsed = parseFloat(raw);
+          if (!isNaN(parsed)) activityShare = clampShare(parsed);
+        }
+      }
+    } catch {
+      // storage unavailable
+    }
     void loadHistory(profileName.value);
     void loadContinuity();
     void client
@@ -193,7 +266,13 @@
 
 <svelte:window onkeydown={handleGlobalKey} />
 
-<main class="app" id="main-content">
+<main
+  class="app"
+  id="main-content"
+  bind:this={appEl}
+  style="--chat-grow: {1 - activityShare}; --activity-grow: {activityShare}"
+  class:is-dragging={dragging}
+>
   <!-- CONVERSATION region (top) -->
   <section
     class="transcript"
@@ -278,7 +357,7 @@
   </section>
 
   <!-- COMPOSER BAND (center fulcrum) -->
-  <div class="compose-band">
+  <div class="compose-band" bind:this={composeBandEl}>
     {#if chat.blockedTool && !chat.streaming}
       <div class="blocked-notice" role="status">
         <span class="blocked-text">
@@ -375,6 +454,27 @@
     class:activity-collapsed={!chat.activityOpen}
   >
     {#if chat.activityOpen}
+      <!-- A focusable separator is a valid ARIA splitter widget (it exposes
+           aria-value* and is keyboard-operable); svelte's a11y linter is
+           conservative about role="separator" + tabindex, so ignore the two
+           false positives for this pattern. -->
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+      <div
+        class="activity-resizer"
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label="Resize activity panel"
+        aria-valuemin={15}
+        aria-valuemax={85}
+        aria-valuenow={Math.round(activityShare * 100)}
+        tabindex="0"
+        onpointerdown={handleResizerPointerDown}
+        onpointermove={handleResizerPointerMove}
+        onpointerup={handleResizerPointerUp}
+        onlostpointercapture={handleResizerLostCapture}
+        onkeydown={handleResizerKeyDown}
+      ></div>
       <ActivityStream steps={chat.activity} open />
     {:else}
       <!-- Slim one-line strip: shows most recent (preferring provenance) step -->
@@ -415,7 +515,7 @@
   }
 
   .transcript.transcript-half {
-    flex: 1 1 50%;
+    flex: var(--chat-grow, 0.5) 1 0;
   }
 
   .home-state {
@@ -732,7 +832,7 @@
   }
 
   .activity-region.activity-open {
-    flex: 1 1 50%;
+    flex: var(--activity-grow, 0.5) 1 0;
     overflow: hidden;
   }
 
@@ -773,6 +873,41 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* RESIZER */
+  .app.is-dragging {
+    user-select: none;
+  }
+
+  .activity-resizer {
+    width: 100%;
+    height: 8px;
+    flex-shrink: 0;
+    cursor: row-resize;
+    background: transparent;
+    touch-action: none;
+    outline: none;
+    position: relative;
+  }
+
+  .activity-resizer::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 32px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--color-border);
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  .activity-resizer:hover::after,
+  .activity-resizer:focus-visible::after {
+    opacity: 1;
   }
 
   @media (max-width: 640px) {
