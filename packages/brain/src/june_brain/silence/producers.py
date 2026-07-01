@@ -34,6 +34,12 @@ _SALIENCE_LE_24H = 0.78
 _SALIENCE_LE_72H = 0.62
 _SALIENCE_DISTANT = 0.45
 
+# Salience for a promise that is explicitly waiting on the user (AWAITING_USER,
+# no deadline).  Set above HIGH_SALIENCE_THRESHOLD (0.7) so the policy CAN
+# surface it when the user is idle and free, while dismissal/presence/mid-task
+# rules still gate it.
+_SALIENCE_AWAITING_USER = 0.8
+
 _SUMMARY_MAX_CHARS = 120
 
 
@@ -102,6 +108,53 @@ def build_deadline_candidates(
     return candidates
 
 
+def build_promise_nudge_candidates(
+    tasks: list,
+    *,
+    now_iso: str,  # kept for API symmetry with build_deadline_candidates
+) -> list[SurfacingCandidate]:
+    """Build SurfacingCandidates for AWAITING_USER tasks that have no deadline.
+
+    Partition rule: tasks that carry a non-empty ``due_at`` are already owned by
+    ``build_deadline_candidates``; surfacing them here too would duplicate the same
+    promise.  So this producer only covers awaiting-user promises with NO deadline.
+    """
+    from june_brain.tasks.models import TaskStatus
+
+    candidates: list[SurfacingCandidate] = []
+    for task in tasks:
+        # Only surface tasks explicitly waiting on the user.
+        if getattr(task, "status", None) != TaskStatus.AWAITING_USER:
+            continue
+        # Partition: tasks with a deadline are handled by build_deadline_candidates.
+        # Avoid double-surfacing the same promise through two producers.
+        due_at = (getattr(task, "due_at", None) or "").strip()
+        if due_at:
+            continue
+        goal = str(getattr(task, "goal", "") or "")
+        summary = goal[:_SUMMARY_MAX_CHARS]
+        # Optionally append next_action or blocked_reason as a short hint,
+        # staying within the char cap.
+        hint = str(getattr(task, "next_action", "") or "") or str(
+            getattr(task, "blocked_reason", "") or ""
+        )
+        if hint:
+            available = _SUMMARY_MAX_CHARS - len(summary)
+            if available > 5:
+                suffix = f" — {hint}"
+                summary = (summary + suffix)[:_SUMMARY_MAX_CHARS]
+        candidates.append(
+            SurfacingCandidate(
+                candidate_id=f"promise_nudge:{task.id}",
+                kind="promise_nudge",
+                summary=summary,
+                salience=_SALIENCE_AWAITING_USER,
+                deadline_at=None,
+            )
+        )
+    return candidates
+
+
 def run_silence_producers(user_id: str, *, now_iso: str | None = None) -> list:
     """Build and persist Silence Model decisions for the given user (best-effort).
 
@@ -124,7 +177,7 @@ def run_silence_producers(user_id: str, *, now_iso: str | None = None) -> list:
             activity_entries, now_iso=now_iso
         )
 
-        candidates = build_deadline_candidates(tasks, now_iso=now_iso)
+        candidates = build_deadline_candidates(tasks, now_iso=now_iso) + build_promise_nudge_candidates(tasks, now_iso=now_iso)
         store = get_store()
 
         for candidate in candidates:

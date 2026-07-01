@@ -12,7 +12,11 @@ from june_brain.silence import (
     get_store,
 )
 from june_brain.silence.presence import derive_presence
-from june_brain.silence.producers import build_deadline_candidates, run_silence_producers
+from june_brain.silence.producers import (
+    build_deadline_candidates,
+    build_promise_nudge_candidates,
+    run_silence_producers,
+)
 from june_brain.tasks.store import TasksStore
 
 # Fixed reference timestamp used across all tests that need a deterministic now.
@@ -127,6 +131,182 @@ def test_task_with_bad_due_at_is_skipped() -> None:
     task = _task_obj("t5", "another promise", "not-a-date")
     candidates = build_deadline_candidates([task], now_iso=_NOW)
     assert candidates == []
+
+
+# ---------------------------------------------------------------------------
+# build_promise_nudge_candidates
+# ---------------------------------------------------------------------------
+
+
+def _promise_task(
+    task_id: str,
+    goal: str,
+    status: str,
+    *,
+    due_at: str | None = None,
+    next_action: str | None = None,
+    blocked_reason: str | None = None,
+):
+    """Minimal duck-type for promise-nudge tests."""
+    from types import SimpleNamespace
+
+    from june_brain.tasks.models import TaskStatus
+
+    return SimpleNamespace(
+        id=task_id,
+        goal=goal,
+        status=TaskStatus(status) if status else status,
+        due_at=due_at,
+        next_action=next_action,
+        blocked_reason=blocked_reason,
+    )
+
+
+def test_awaiting_user_no_due_at_gives_candidate() -> None:
+    task = _promise_task("p1", "waiting on user to approve", "awaiting_user")
+    candidates = build_promise_nudge_candidates([task], now_iso=_NOW)
+    assert len(candidates) == 1
+    cand = candidates[0]
+    assert cand.candidate_id == "promise_nudge:p1"
+    assert cand.kind == "promise_nudge"
+    assert cand.salience == 0.8
+    assert "waiting on user to approve" in cand.summary
+    assert cand.deadline_at is None
+
+
+def test_awaiting_user_with_due_at_is_skipped() -> None:
+    """Partition: tasks with a deadline are owned by build_deadline_candidates."""
+    task = _promise_task(
+        "p2", "has a deadline", "awaiting_user", due_at="2026-07-05T12:00:00+00:00"
+    )
+    candidates = build_promise_nudge_candidates([task], now_iso=_NOW)
+    assert candidates == []
+
+
+def test_non_awaiting_user_status_is_skipped() -> None:
+    running = _promise_task("p3", "still running", "running")
+    paused = _promise_task("p4", "paused", "paused")
+    planning = _promise_task("p5", "planning", "planning")
+    candidates = build_promise_nudge_candidates([running, paused, planning], now_iso=_NOW)
+    assert candidates == []
+
+
+def test_empty_tasks_gives_empty_candidates() -> None:
+    assert build_promise_nudge_candidates([], now_iso=_NOW) == []
+
+
+def test_hint_appended_from_next_action() -> None:
+    task = _promise_task(
+        "p6",
+        "deploy to staging",
+        "awaiting_user",
+        next_action="approve the deploy step",
+    )
+    candidates = build_promise_nudge_candidates([task], now_iso=_NOW)
+    assert len(candidates) == 1
+    assert "approve the deploy step" in candidates[0].summary
+
+
+def test_hint_falls_back_to_blocked_reason_when_no_next_action() -> None:
+    task = _promise_task(
+        "p7",
+        "send the invoice",
+        "awaiting_user",
+        blocked_reason="waiting for bank details",
+    )
+    candidates = build_promise_nudge_candidates([task], now_iso=_NOW)
+    assert len(candidates) == 1
+    assert "waiting for bank details" in candidates[0].summary
+
+
+def test_summary_truncated_to_max_chars() -> None:
+    long_goal = "x" * 200
+    task = _promise_task("p8", long_goal, "awaiting_user")
+    candidates = build_promise_nudge_candidates([task], now_iso=_NOW)
+    assert len(candidates) == 1
+    assert len(candidates[0].summary) <= 120
+
+
+def test_promise_nudge_salience_above_high_threshold() -> None:
+    """_SALIENCE_AWAITING_USER must exceed HIGH_SALIENCE_THRESHOLD (0.7)."""
+    from june_brain.silence.policy import HIGH_SALIENCE_THRESHOLD
+
+    task = _promise_task("p9", "some pending promise", "awaiting_user")
+    candidates = build_promise_nudge_candidates([task], now_iso=_NOW)
+    assert candidates[0].salience > HIGH_SALIENCE_THRESHOLD
+
+
+def test_promise_nudge_surfaces_when_idle() -> None:
+    """High-salience nudge surfaces 'now' when user is idle and free."""
+    task = _promise_task("p10", "idle nudge test", "awaiting_user")
+    candidates = build_promise_nudge_candidates([task], now_iso=_NOW)
+    cand = candidates[0]
+    ctx = SurfacingContext(
+        now=_NOW,
+        presence_state=PRESENCE_IDLE,
+        active_thread_open=False,
+        dismissals_for_similar=0,
+    )
+    d = decide(cand, ctx)
+    assert d.action == "now"
+
+
+def test_promise_nudge_batched_mid_task() -> None:
+    """Promise-nudge is held when the user is mid-task (active_thread_open)."""
+    task = _promise_task("p11", "mid-task nudge test", "awaiting_user")
+    candidates = build_promise_nudge_candidates([task], now_iso=_NOW)
+    cand = candidates[0]
+    ctx = SurfacingContext(
+        now=_NOW,
+        presence_state=PRESENCE_ACTIVE,
+        active_thread_open=True,
+        dismissals_for_similar=0,
+    )
+    d = decide(cand, ctx)
+    assert d.action == "batch"
+
+
+# ---------------------------------------------------------------------------
+# run_silence_producers — promise-nudge integration
+# ---------------------------------------------------------------------------
+
+
+def test_run_silence_producers_records_promise_nudge() -> None:
+    """run_silence_producers processes promise-nudge candidates from TasksStore."""
+    user_id = "nudge_integration_user"
+
+    ts = TasksStore(user_id=user_id)
+    task = ts.create(goal="approve my PR")
+    ts.set_blocked(task.id, reason="waiting on you", next_action="approve the action")
+
+    store = get_store()
+    run_silence_producers(user_id, now_iso=_NOW)
+
+    rows = store.page(limit=200)
+    nudge_rows = [r for r in rows if r.candidate_id == f"promise_nudge:{task.id}"]
+    assert len(nudge_rows) == 1
+    assert nudge_rows[0].kind == "promise_nudge"
+
+
+def test_run_silence_producers_deadline_and_nudge_coexist() -> None:
+    """Deadline producer and promise-nudge producer run in the same pass."""
+    user_id = "coexist_user"
+    DUE_AT = "2026-07-04T12:00:00+00:00"
+
+    ts = TasksStore(user_id=user_id)
+    # One task with a deadline (deadline producer).
+    ts.create(goal="deadline promise", due_at=DUE_AT)
+    # One awaiting-user task without a deadline (nudge producer).
+    blocker = ts.create(goal="waiting promise")
+    ts.set_blocked(blocker.id, reason="need your input", next_action="reply to me")
+
+    store = get_store()
+    run_silence_producers(user_id, now_iso=_NOW)
+
+    rows = store.page(limit=200)
+    kinds = {r.kind for r in rows}
+    assert "deadline" in kinds
+    assert "promise_nudge" in kinds
 
 
 # ---------------------------------------------------------------------------
