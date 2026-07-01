@@ -259,6 +259,16 @@
     return ["planning", "running", "paused", "awaiting_user"].includes(status);
   }
 
+  const MAX_TASK_ATTEMPTS = 5;
+
+  function isExhausted(task: TaskView): boolean {
+    return (
+      task.status === "failed" &&
+      task.attempts >= MAX_TASK_ATTEMPTS &&
+      (task.error ?? "").startsWith("Stopped after ")
+    );
+  }
+
   const activeTasks = $derived(tasks.filter((t) => isActive(t.status)));
   const finishedTasks = $derived(tasks.filter((t) => !isActive(t.status)));
 </script>
@@ -373,6 +383,11 @@
           {#if streamingTaskIds.has(task.id)}
             <span class="live-dot" title="Live"></span>
           {/if}
+          {#if task.attempts > 1 && isActive(task.status)}
+            <span class="attempt-chip" aria-label="Attempt {task.attempts} of {MAX_TASK_ATTEMPTS}">
+              attempt {task.attempts} of {MAX_TASK_ATTEMPTS}
+            </span>
+          {/if}
           {#if task.owner_skill}
             <a class="meta-chip skill-link" href="/skills#skill-{task.owner_skill}">
               via {task.owner_skill}
@@ -484,7 +499,18 @@
       </div>
     {/if}
 
-    {#if task.error}
+    {#if isExhausted(task)}
+      <div class="task-exhausted" role="status" aria-label="Promise exhausted after {task.attempts} attempts">
+        <div class="exhausted-title">Needs a new approach</div>
+        <p>{task.error}</p>
+        {#if task.next_action}
+          <p class="exhausted-action">{task.next_action}</p>
+        {/if}
+        {#if task.blocked_reason}
+          <p class="exhausted-reason">{task.blocked_reason}</p>
+        {/if}
+      </div>
+    {:else if task.error}
       <div class="task-error" role="alert">{task.error}</div>
     {/if}
 
@@ -928,6 +954,42 @@
     color: var(--color-danger);
     font-size: var(--size-sm);
     font-family: var(--font-mono);
+  }
+
+  .attempt-chip {
+    font-family: var(--font-mono);
+    font-size: var(--size-xs);
+    color: var(--color-fg-muted);
+    background: color-mix(in srgb, var(--color-fg-muted) 10%, transparent);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 1px var(--space-2);
+  }
+
+  .task-exhausted {
+    background: color-mix(in srgb, var(--color-warn) 8%, var(--color-bg));
+    border: 1px solid color-mix(in srgb, var(--color-warn) 40%, var(--color-border));
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .task-exhausted p {
+    margin: 0;
+    font-size: var(--size-sm);
+    color: var(--color-fg-muted);
+    line-height: var(--leading-normal);
+  }
+  .exhausted-title {
+    font-size: var(--size-xs);
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    color: var(--color-warn);
+  }
+  .exhausted-action {
+    font-style: italic;
   }
 
   .task-waiting {

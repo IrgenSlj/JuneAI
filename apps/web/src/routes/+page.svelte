@@ -219,6 +219,9 @@
                       <span class="holding-state"><span class="dot moving" aria-hidden="true"></span>moving on its own</span>
                     </div>
                     <p class="holding-body">{movingBody(t)}</p>
+                    {#if t.attempts > 1}
+                      <span class="holding-attempt" aria-label="Attempt {t.attempts} of 5">attempt {t.attempts} of 5</span>
+                    {/if}
                     <span class="holding-meta">{formatRelative(t.updated_at)}</span>
                   </a>
                 {/each}
@@ -521,6 +524,13 @@
   .holding-meta {
     display: block;
     margin-top: 9px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-fg-subtle);
+  }
+  .holding-attempt {
+    display: block;
+    margin-top: 5px;
     font-family: var(--font-mono);
     font-size: 11px;
     color: var(--color-fg-subtle);
