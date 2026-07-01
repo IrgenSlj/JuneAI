@@ -40,6 +40,23 @@ from .wiring import is_network_tool as _is_network_tool
 _MAX_TOKENS = 2048
 
 
+def _local_model_ready(model_id: str, base_url: str) -> bool:
+    """True when Ollama is up AND the given tag is pulled.
+
+    Only returns False for a *specifically missing* model on a *reachable*
+    Ollama. When Ollama is unreachable we return True so we do NOT spuriously
+    'degrade' (the fast tier would be just as unreachable) — that failure is a
+    different concern handled elsewhere.
+    """
+    from june_brain.ollama_manager import is_model_available, is_ollama_running
+    try:
+        if not is_ollama_running(base_url):
+            return True
+        return is_model_available(model_id, base_url)
+    except Exception:
+        return True
+
+
 def _fmt_tok(n: int | None) -> str | None:
     """Format a token count for Glass Box labels: k-suffix for >=1000, else str."""
     if n is None:
@@ -84,10 +101,13 @@ class HandwrittenLoop:
         ) = None,
         maybe_compact: Callable[[SessionState], Awaitable[bool]] | None = None,
         classify: Callable[[str], Awaitable[Any]] | None = None,
+        model_available: Callable[[str, str], bool] | None = None,
         max_iterations: int = 6,
     ) -> None:
         self._registry = registry if registry is not None else get_registry()
         self._role = role
+        self._model_available = model_available or _local_model_ready
+        self._degrade_note = ""
         # Difficulty classifier seam: defaults to the registry-backed model
         # classifier; injectable so tests with scripted provider responses are
         # not perturbed by the routing classification call.
@@ -199,6 +219,7 @@ class HandwrittenLoop:
         self._blocked_details.clear()
         self._recall_state["memories_recalled"] = 0
         self._recall_state["recall_hits"] = []
+        self._degrade_note = ""
 
     async def _route(self, user_msg: Message) -> tuple[Any, str, Any]:
         """Difficulty-based role/tier routing with registry fallback.
@@ -237,6 +258,30 @@ class HandwrittenLoop:
         except Exception:
             provider = self._registry.get(self._role)
             chosen_role = self._role
+
+        # Graceful degradation: if we routed to a LOCAL tier other than the
+        # baseline role and that tier's model isn't pulled, fall back to the
+        # baseline provider so the turn still completes (invariant: graceful
+        # degradation ships with model-judgment features).
+        if (
+            chosen_role != self._role
+            and str(getattr(provider, "tier", "")).startswith("local")
+            and not self._model_available(
+                provider.model_id, getattr(provider, "base_url", "")
+            )
+        ):
+            try:
+                fallback = self._registry.get(self._role)
+            except Exception:
+                fallback = None
+            if fallback is not None:
+                self._degrade_note = (
+                    f" Deep tier {provider.model_id} is not pulled; handled on "
+                    f"{fallback.model_id} ({self._role}) — pull {provider.model_id} "
+                    f"for deeper reasoning."
+                )
+                provider = fallback
+                chosen_role = self._role
 
         return provider, chosen_role, difficulty
 
@@ -301,6 +346,10 @@ class HandwrittenLoop:
         if difficulty_label:
             src = f" via {difficulty_source}" if difficulty_source else ""
             rationale = f"{rationale} Difficulty: {difficulty_label}{src}."
+
+        degrade_note = getattr(self, "_degrade_note", "")
+        if degrade_note:
+            rationale = f"{rationale}{degrade_note}"
 
         return TurnProvenance(
             tiers_used=[chosen_role],
