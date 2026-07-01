@@ -40,6 +40,13 @@ _SALIENCE_DISTANT = 0.45
 # rules still gate it.
 _SALIENCE_AWAITING_USER = 0.8
 
+# Fixed salience for a scheduling contradiction. Above HIGH_SALIENCE_THRESHOLD
+# (0.7) so the policy CAN surface it when the user is idle+free, but below the
+# promise-nudge (0.8): a conflict June found is worth raising when there's an
+# opening, but a promise the user must act on — and an imminent deadline — rank higher.
+_SALIENCE_CONTRADICTION = 0.72
+_CALENDAR_TERMINAL_STATUS = frozenset({"done", "completed", "cancelled", "canceled", "archived"})
+
 _SUMMARY_MAX_CHARS = 120
 
 
@@ -155,6 +162,53 @@ def build_promise_nudge_candidates(
     return candidates
 
 
+def build_contradiction_candidates(calendar_items: list, *, now_iso: str) -> list[SurfacingCandidate]:
+    """Build SurfacingCandidates for calendar double-bookings.
+
+    Deterministic scheduling-conflict detection: two or more *active* calendar
+    items sharing the same concrete (date, time) slot cannot both hold, so the
+    slot is surfaced as a contradiction June found on her own. Pure rules, no
+    model, no egress; now_iso only drops clashes already in the past.
+
+    Behavioral-safety (ADR / invariant): the summary names only the *slot*, never
+    the item titles, so a sensitive commitment is never volunteered in a proactive
+    surfacing. The user opens their calendar to see which items clash. The
+    semantic/belief flavor of contradiction remains future work.
+    """
+    today = _parse_iso(now_iso)
+    today_date = today.date().isoformat() if today else ""
+
+    slots: dict[tuple[str, str], int] = {}
+    for item in calendar_items:
+        date = str(item.get("date", "") or "").strip()
+        time = str(item.get("time", "") or "").strip()
+        status = str(item.get("status", "") or "").lower()
+        if not date or not time:
+            continue
+        if status in _CALENDAR_TERMINAL_STATUS:
+            continue
+        if today_date and date < today_date:  # ISO date strings compare correctly
+            continue
+        key = (date, time.lower())
+        slots[key] = slots.get(key, 0) + 1
+
+    candidates: list[SurfacingCandidate] = []
+    for (date, time), count in slots.items():
+        if count < 2:
+            continue
+        summary = f"{count} commitments overlap at {time} on {date}"[:_SUMMARY_MAX_CHARS]
+        candidates.append(
+            SurfacingCandidate(
+                candidate_id=f"contradiction:calendar:{date}T{time}",
+                kind="contradiction",
+                summary=summary,
+                salience=_SALIENCE_CONTRADICTION,
+                deadline_at=None,
+            )
+        )
+    return candidates
+
+
 def run_silence_producers(user_id: str, *, now_iso: str | None = None) -> list:
     """Build and persist Silence Model decisions for the given user (best-effort).
 
@@ -177,7 +231,17 @@ def run_silence_producers(user_id: str, *, now_iso: str | None = None) -> list:
             activity_entries, now_iso=now_iso
         )
 
-        candidates = build_deadline_candidates(tasks, now_iso=now_iso) + build_promise_nudge_candidates(tasks, now_iso=now_iso)
+        try:
+            from june_brain.memory.sqlite import Memory  # noqa: PLC0415
+            calendar_items = Memory(user_id).get_calendar_items(limit=200)
+        except Exception:  # noqa: BLE001
+            calendar_items = []
+
+        candidates = (
+            build_deadline_candidates(tasks, now_iso=now_iso)
+            + build_promise_nudge_candidates(tasks, now_iso=now_iso)
+            + build_contradiction_candidates(calendar_items, now_iso=now_iso)
+        )
         store = get_store()
 
         for candidate in candidates:

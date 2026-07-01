@@ -381,6 +381,255 @@ def test_drain_digest_marks_surfaced_and_second_call_empty() -> None:
     assert drained_again == []
 
 
+# ---------------------------------------------------------------------------
+# build_contradiction_candidates — unit tests
+# ---------------------------------------------------------------------------
+
+
+def _cal_item(date: str, time: str, status: str = "planned") -> dict:
+    """Minimal calendar item dict matching Memory.get_calendar_items return type."""
+    return {
+        "title": "test event",
+        "date": date,
+        "time": time,
+        "details": "",
+        "status": status,
+        "source": "conversation",
+        "updated_at": "2026-06-29T12:00:00+00:00",
+    }
+
+
+def test_contradiction_two_items_same_slot_gives_one_candidate() -> None:
+    from june_brain.silence.producers import build_contradiction_candidates
+
+    items = [
+        _cal_item("2026-07-01", "10:00"),
+        _cal_item("2026-07-01", "10:00"),
+    ]
+    candidates = build_contradiction_candidates(items, now_iso=_NOW)
+    assert len(candidates) == 1
+    cand = candidates[0]
+    assert cand.kind == "contradiction"
+    assert cand.candidate_id == "contradiction:calendar:2026-07-01T10:00"
+    assert cand.salience == 0.72
+    assert cand.deadline_at is None
+
+
+def test_contradiction_single_item_gives_no_candidate() -> None:
+    from june_brain.silence.producers import build_contradiction_candidates
+
+    items = [_cal_item("2026-07-01", "10:00")]
+    candidates = build_contradiction_candidates(items, now_iso=_NOW)
+    assert candidates == []
+
+
+def test_contradiction_different_times_gives_no_candidate() -> None:
+    from june_brain.silence.producers import build_contradiction_candidates
+
+    items = [
+        _cal_item("2026-07-01", "10:00"),
+        _cal_item("2026-07-01", "11:00"),
+    ]
+    candidates = build_contradiction_candidates(items, now_iso=_NOW)
+    assert candidates == []
+
+
+def test_contradiction_same_time_different_day_gives_no_candidate() -> None:
+    from june_brain.silence.producers import build_contradiction_candidates
+
+    items = [
+        _cal_item("2026-07-01", "10:00"),
+        _cal_item("2026-07-02", "10:00"),
+    ]
+    candidates = build_contradiction_candidates(items, now_iso=_NOW)
+    assert candidates == []
+
+
+def test_contradiction_terminal_status_excluded() -> None:
+    from june_brain.silence.producers import build_contradiction_candidates
+
+    items = [
+        _cal_item("2026-07-01", "10:00", status="done"),
+        _cal_item("2026-07-01", "10:00", status="cancelled"),
+    ]
+    candidates = build_contradiction_candidates(items, now_iso=_NOW)
+    assert candidates == []
+
+
+def test_contradiction_missing_date_or_time_skipped() -> None:
+    from june_brain.silence.producers import build_contradiction_candidates
+
+    items = [
+        {**_cal_item("2026-07-01", "10:00"), "time": ""},
+        {**_cal_item("2026-07-01", "10:00"), "date": ""},
+        _cal_item("2026-07-01", "10:00"),
+    ]
+    candidates = build_contradiction_candidates(items, now_iso=_NOW)
+    assert candidates == []
+
+
+def test_contradiction_past_date_skipped() -> None:
+    from june_brain.silence.producers import build_contradiction_candidates
+
+    # _NOW = "2026-06-29T12:00:00+00:00", so 2026-06-28 is in the past
+    items = [
+        _cal_item("2026-06-28", "10:00"),
+        _cal_item("2026-06-28", "10:00"),
+    ]
+    candidates = build_contradiction_candidates(items, now_iso=_NOW)
+    assert candidates == []
+
+
+def test_contradiction_triple_booking_gives_one_candidate() -> None:
+    from june_brain.silence.producers import build_contradiction_candidates
+
+    items = [
+        _cal_item("2026-07-01", "10:00"),
+        _cal_item("2026-07-01", "10:00"),
+        _cal_item("2026-07-01", "10:00"),
+    ]
+    candidates = build_contradiction_candidates(items, now_iso=_NOW)
+    assert len(candidates) == 1
+    assert "3 commitments" in candidates[0].summary
+
+
+def test_contradiction_summary_has_no_titles() -> None:
+    from june_brain.silence.producers import build_contradiction_candidates
+
+    items = [
+        {**_cal_item("2026-07-01", "10:00"), "title": "Secret meeting"},
+        {**_cal_item("2026-07-01", "10:00"), "title": "Private appointment"},
+    ]
+    candidates = build_contradiction_candidates(items, now_iso=_NOW)
+    assert len(candidates) == 1
+    assert "Secret meeting" not in candidates[0].summary
+    assert "Private appointment" not in candidates[0].summary
+
+
+def test_contradiction_salience_strictly_between_0_7_and_0_8() -> None:
+    from june_brain.silence.policy import HIGH_SALIENCE_THRESHOLD
+    from june_brain.silence.producers import build_contradiction_candidates
+
+    items = [
+        _cal_item("2026-07-01", "10:00"),
+        _cal_item("2026-07-01", "10:00"),
+    ]
+    candidates = build_contradiction_candidates(items, now_iso=_NOW)
+    assert len(candidates) == 1
+    sal = candidates[0].salience
+    assert sal > HIGH_SALIENCE_THRESHOLD  # > 0.7
+    assert sal < 0.8
+
+
+def test_contradiction_surfaces_now_when_idle_and_free() -> None:
+    from june_brain.silence.producers import build_contradiction_candidates
+
+    items = [
+        _cal_item("2026-07-01", "10:00"),
+        _cal_item("2026-07-01", "10:00"),
+    ]
+    candidates = build_contradiction_candidates(items, now_iso=_NOW)
+    cand = candidates[0]
+    ctx = SurfacingContext(
+        now=_NOW,
+        presence_state=PRESENCE_IDLE,
+        active_thread_open=False,
+        dismissals_for_similar=0,
+    )
+    d = decide(cand, ctx)
+    assert d.action == "now"
+
+
+def test_contradiction_batched_mid_task() -> None:
+    from june_brain.silence.producers import build_contradiction_candidates
+
+    items = [
+        _cal_item("2026-07-01", "10:00"),
+        _cal_item("2026-07-01", "10:00"),
+    ]
+    candidates = build_contradiction_candidates(items, now_iso=_NOW)
+    cand = candidates[0]
+    ctx = SurfacingContext(
+        now=_NOW,
+        presence_state=PRESENCE_ACTIVE,
+        active_thread_open=True,
+        dismissals_for_similar=0,
+    )
+    d = decide(cand, ctx)
+    assert d.action == "batch"
+
+
+def test_contradiction_empty_calendar_gives_empty() -> None:
+    from june_brain.silence.producers import build_contradiction_candidates
+
+    candidates = build_contradiction_candidates([], now_iso=_NOW)
+    assert candidates == []
+
+
+# ---------------------------------------------------------------------------
+# run_silence_producers — contradiction integration
+# ---------------------------------------------------------------------------
+
+
+def test_run_silence_producers_records_contradiction() -> None:
+    from june_brain.memory.sqlite import Memory
+
+    user_id = "contradiction_integration_user"
+    mem = Memory(user_id)
+    mem.save_calendar_item(title="Meeting A", date="2026-07-01", time="10:00")
+    mem.save_calendar_item(title="Meeting B", date="2026-07-01", time="10:00")
+
+    store = get_store()
+    run_silence_producers(user_id, now_iso=_NOW)
+
+    rows = store.page(limit=200)
+    contradiction_rows = [r for r in rows if r.kind == "contradiction"]
+    assert len(contradiction_rows) == 1
+    assert contradiction_rows[0].candidate_id == "contradiction:calendar:2026-07-01T10:00"
+
+
+def test_run_silence_producers_all_three_kinds_coexist() -> None:
+    from june_brain.memory.sqlite import Memory
+
+    user_id = "three_kinds_user"
+    DUE_AT = "2026-07-04T12:00:00+00:00"
+
+    ts = TasksStore(user_id=user_id)
+    ts.create(goal="deadline promise", due_at=DUE_AT)
+    blocker = ts.create(goal="waiting promise")
+    ts.set_blocked(blocker.id, reason="need your input", next_action="reply to me")
+
+    mem = Memory(user_id)
+    mem.save_calendar_item(title="Meeting A", date="2026-07-01", time="10:00")
+    mem.save_calendar_item(title="Meeting B", date="2026-07-01", time="10:00")
+
+    store = get_store()
+    run_silence_producers(user_id, now_iso=_NOW)
+
+    rows = store.page(limit=200)
+    kinds = {r.kind for r in rows}
+    assert "deadline" in kinds
+    assert "promise_nudge" in kinds
+    assert "contradiction" in kinds
+
+
+def test_run_silence_producers_contradiction_idempotent() -> None:
+    from june_brain.memory.sqlite import Memory
+
+    user_id = "contradiction_idempotent_user"
+    mem = Memory(user_id)
+    mem.save_calendar_item(title="Meeting A", date="2026-07-01", time="10:00")
+    mem.save_calendar_item(title="Meeting B", date="2026-07-01", time="10:00")
+
+    run_silence_producers(user_id, now_iso=_NOW)
+    run_silence_producers(user_id, now_iso=_NOW)
+
+    store = get_store()
+    rows = store.page(limit=200)
+    contradiction_rows = [r for r in rows if r.kind == "contradiction"]
+    assert len(contradiction_rows) == 1
+
+
 def test_state_transition_adds_new_row() -> None:
     """A batch->now transition (deadline approaching) must record a second row."""
     user_id = "transition_user"

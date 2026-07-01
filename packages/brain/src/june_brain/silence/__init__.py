@@ -19,7 +19,11 @@ from .policy import (
     decide,
 )
 from .presence import derive_presence
-from .producers import build_deadline_candidates, run_silence_producers
+from .producers import (
+    build_contradiction_candidates,
+    build_deadline_candidates,
+    run_silence_producers,
+)
 from .store import (
     VALID_OUTCOMES,
     SurfacingRecord,
@@ -46,6 +50,7 @@ __all__ = [
     "get_store",
     "reset_for_tests",
     "derive_presence",
+    "build_contradiction_candidates",
     "build_deadline_candidates",
     "run_silence_producers",
 ]
