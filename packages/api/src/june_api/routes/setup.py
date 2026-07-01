@@ -136,7 +136,7 @@ def apply_setup(request: SetupApplyRequest) -> SetupApplyResponse:
                 model=runtime.model,
                 verified=False,
                 message="Ollama is not reachable.",
-                hint="Install Ollama, then run `ollama serve` in a terminal.",
+                hint="Ollama isn't reachable yet. Open the Ollama setup screen for one-click steps, or start Ollama and re-check.",
             )
         if not is_model_available(runtime.model, runtime.base_url):
             return SetupApplyResponse(
@@ -224,8 +224,8 @@ _ERROR_HINTS: dict[str, list[tuple[str, str]]] = {
         ("rate limit", "Gemini rate-limited this key. Wait a minute and retry."),
     ],
     "gemma": [
-        ("connection", "Ollama isn't accepting connections. Is `ollama serve` running?"),
-        ("refused", "Ollama isn't accepting connections. Is `ollama serve` running?"),
+        ("connection", "Ollama isn't accepting connections. Is Ollama running? See the Ollama setup screen."),
+        ("refused", "Ollama isn't accepting connections. Is Ollama running? See the Ollama setup screen."),
         ("not found", "The model tag isn't pulled. Run `ollama pull <model>` and retry."),
         ("timeout", "Ollama took too long to respond. The model may still be loading — retry in a moment."),
     ],

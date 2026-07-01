@@ -92,7 +92,7 @@
             {#if status}
               <span class="status-line">
                 {#if status.ollama_reachable && status.ollama_has_model}
-                  <span class="ok">Ollama is ready with {status.model || "gemma4:e4b"}.</span>
+                  <span class="ok">Ollama is ready with {status.model || "gemma4:e2b"}.</span>
                   {#if status.semantic_recall_status === "degraded"}
                     <span class="warn">{status.semantic_recall_detail}</span>
                   {/if}

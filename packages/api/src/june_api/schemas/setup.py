@@ -73,7 +73,7 @@ class SetupApplyRequest(BaseModel):
     )
     gemma_model: str | None = Field(
         default=None,
-        description="Ollama tag override. Defaults to the preset's default (gemma4:e4b).",
+        description="Ollama tag override. Defaults to the preset's default (gemma4:e2b).",
     )
     gemini_model: str | None = Field(
         default=None,

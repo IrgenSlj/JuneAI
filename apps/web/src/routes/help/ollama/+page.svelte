@@ -5,14 +5,17 @@
   import { getPlatform, UnsupportedError } from "@june/ui/platform";
   const platform = getPlatform();
   const isDesktop = platform.runtime === "tauri";
-  const MODEL_TAG = "gemma4:e4b";
 
   type OS = "mac" | "linux" | "windows";
   let status = $state<SystemStatus | null>(null);
   let detectedOS: OS = $state("mac");
   let checking = $state(false);
 
-  type Step = "install" | "start" | "pull";
+  const modelTag = $derived(status?.model || "gemma4:e2b");
+  const embedTag = $derived(status?.embedding_model || "nomic-embed-text");
+  const embedReady = $derived(status?.embedding_available ?? false);
+
+  type Step = "install" | "start" | "pull" | "embed";
   let busyStep: Step | null = $state(null);
   let progress = $state<{ fraction: number | null; status: string } | null>(null);
   let stepError: string | null = $state(null);
@@ -62,7 +65,10 @@
   const startOllama = () => runStep("start", () => platform.startOllama());
 
   const pullModel = () =>
-    runStep("pull", () => platform.pullModel(MODEL_TAG, (p) => (progress = p)));
+    runStep("pull", () => platform.pullModel(modelTag, (p) => (progress = p)));
+
+  const pullEmbed = () =>
+    runStep("embed", () => platform.pullModel(embedTag, (p) => (progress = p)));
 
   const reachable = $derived(status ? status.ollama_reachable : false);
   const hasModel = $derived(status ? status.ollama_has_model : false);
@@ -77,7 +83,7 @@
   <header>
     <h1>Get Ollama running</h1>
     <p class="lede">
-      June uses Ollama to run Gemma 4 locally. Three short commands and you're
+      June uses Ollama to run Gemma 4 locally. A few short steps and you're
       done. Pick your OS below.
     </p>
   </header>
@@ -97,11 +103,23 @@
       <span class="dot" class:ok={reachable && hasModel} class:warn={!(reachable && hasModel)}></span>
       <span>
         {#if reachable && hasModel}
-          {status?.model || "gemma4:e4b"} is pulled.
+          {modelTag} is pulled.
         {:else if reachable}
-          The model tag isn't pulled yet. Run <code>ollama pull gemma4:e4b</code>.
+          The model tag isn't pulled yet. Run <code>ollama pull {modelTag}</code>.
         {:else}
           Model check waits for Ollama to come online.
+        {/if}
+      </span>
+    </div>
+    <div class="status-row">
+      <span class="dot" class:ok={reachable && embedReady} class:warn={!(reachable && embedReady)}></span>
+      <span>
+        {#if reachable && embedReady}
+          Embedding model {embedTag} is pulled — semantic recall is on.
+        {:else if reachable}
+          Embedding model {embedTag} isn't pulled; recall falls back to keyword search. Run <code>ollama pull {embedTag}</code>.
+        {:else}
+          Embedding model check waits for Ollama to come online.
         {/if}
       </span>
     </div>
@@ -157,7 +175,7 @@
         <li class:done={hasModel}>
           <div class="fix-row">
             <span class="dot" class:ok={hasModel} class:warn={!hasModel}></span>
-            <span class="fix-label">Pull {MODEL_TAG}</span>
+            <span class="fix-label">Pull {modelTag}</span>
             <button
               type="button"
               class="primary"
@@ -182,6 +200,36 @@
             </div>
           {:else}
             <p class="hint">A few gigabytes — this takes a while on first install.</p>
+          {/if}
+        </li>
+        <li class:done={embedReady}>
+          <div class="fix-row">
+            <span class="dot" class:ok={embedReady} class:warn={!embedReady}></span>
+            <span class="fix-label">Pull {embedTag}</span>
+            <button
+              type="button"
+              class="primary"
+              onclick={pullEmbed}
+              disabled={busyStep !== null || !reachable || embedReady}
+            >
+              {busyStep === "embed" ? "Pulling…" : embedReady ? "Pulled" : "Pull embedder"}
+            </button>
+          </div>
+          {#if busyStep === "embed" && progress}
+            <div class="progress" aria-live="polite">
+              {#if progress.fraction !== null}
+                <div class="bar">
+                  <div class="fill" style="width: {Math.round(progress.fraction * 100)}%"></div>
+                </div>
+                <span class="hint">
+                  {progress.status} — {Math.round(progress.fraction * 100)}%
+                </span>
+              {:else}
+                <span class="hint">{progress.status}</span>
+              {/if}
+            </div>
+          {:else}
+            <p class="hint">Small — powers semantic memory search.</p>
           {/if}
         </li>
       </ol>
@@ -233,7 +281,7 @@
       </article>
       <article class="step">
         <h2>3. Pull Gemma 4</h2>
-        <pre><code>ollama pull gemma4:e4b</code></pre>
+        <pre><code>ollama pull {modelTag}</code></pre>
         <p class="hint">One-time download — a few gigabytes.</p>
       </article>
     {:else if detectedOS === "linux"}
@@ -253,7 +301,7 @@ ollama serve</code></pre>
       </article>
       <article class="step">
         <h2>3. Pull Gemma 4</h2>
-        <pre><code>ollama pull gemma4:e4b</code></pre>
+        <pre><code>ollama pull {modelTag}</code></pre>
       </article>
     {:else}
       <article class="step">
@@ -272,10 +320,11 @@ ollama serve</code></pre>
       </article>
       <article class="step">
         <h2>3. Pull Gemma 4</h2>
-        <pre><code>ollama pull gemma4:e4b</code></pre>
+        <pre><code>ollama pull {modelTag}</code></pre>
         <p class="hint">Run this from PowerShell or the Ollama app.</p>
       </article>
     {/if}
+    <p class="hint">June also uses an embedding model for memory search. Pull it too: <code>ollama pull {embedTag}</code>.</p>
   </section>
 
   <section class="card">

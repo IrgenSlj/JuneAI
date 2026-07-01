@@ -290,7 +290,7 @@
             id="gemma-model"
             type="text"
             bind:value={gemmaModel}
-            placeholder="gemma4:e4b"
+            placeholder="gemma4:e2b"
           />
         </div>
         <div class="field">

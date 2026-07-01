@@ -1976,7 +1976,7 @@ export interface components {
             gemini_api_key?: string | null;
             /**
              * Gemma Model
-             * @description Ollama tag override. Defaults to the preset's default (gemma4:e4b).
+             * @description Ollama tag override. Defaults to the preset's default (gemma4:e2b).
              */
             gemma_model?: string | null;
             /**
