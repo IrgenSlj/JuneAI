@@ -146,6 +146,26 @@ def _parse_registry(text: str) -> Registry:
     )
 
 
+def resolve_secret(name: str) -> str:
+    """Resolve one secret name to its value.
+
+    Precedence:
+    1. OS keychain via ``secret_store.load_secret`` — value stored by the user
+       through June's settings UI (or any prior ``save_secret`` call).
+    2. Plain environment variable ``os.environ.get(name, "")``.
+
+    This keeps existing setups that rely on env vars working without change
+    (backward compatible). When the keyring is unavailable, ``load_secret``
+    returns ``None`` and the env-var fallback is used automatically.
+    """
+    from .. import secret_store  # lazy — avoids any import-cycle risk at package init
+
+    value = secret_store.load_secret(name)
+    if value is not None:
+        return value
+    return os.environ.get(name, "")
+
+
 def install_from_registry(
     key: str,
     *,
@@ -172,7 +192,7 @@ def install_from_registry(
         command=entry.install.command,
         args=list(entry.install.args),
         description=entry.description,
-        env={var: os.environ.get(var, "") for var in entry.install.env_required},
+        env={var: resolve_secret(var) for var in entry.install.env_required},
         model_policy=entry.model_policy,
     )
     manifest.entries[key] = new_entry
