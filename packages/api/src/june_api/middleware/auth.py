@@ -10,10 +10,19 @@ When enabled, these paths remain exempt (no auth required):
 - ``/healthz``
 - ``/openapi.json``, ``/docs``, ``/redoc``
 - ``/setup/status``, ``/setup/apply``
+
+A second, independent middleware (``loopback_token_middleware``) enforces a
+shared-secret token for the shipped desktop app. It is also **opt-in**: it
+activates only when ``JUNE_API_TOKEN`` is set and non-empty. When active,
+every request must carry ``X-June-Token`` equal to the token value.
+``/healthz`` is always exempt so liveness probes work regardless of token
+state. When ``JUNE_API_TOKEN`` is unset the middleware is a complete
+pass-through — zero behaviour change for dev and all current builds.
 """
 
 from __future__ import annotations
 
+import hmac
 import logging
 import os
 
@@ -62,6 +71,41 @@ async def api_key_middleware(request: Request, call_next):  # type: ignore[no-un
         return Response(
             status_code=401,
             content=b'{"detail":"Invalid API key."}',
+            media_type="application/json",
+            headers={"Access-Control-Allow-Origin": "*"},
+        )
+
+    return await call_next(request)
+
+
+# ---------------------------------------------------------------------------
+# Loopback token middleware (desktop-app shared-secret, opt-in via env)
+# ---------------------------------------------------------------------------
+
+_LOOPBACK_EXEMPT = ("/healthz",)
+
+
+async def loopback_token_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
+    """Enforce ``X-June-Token`` when ``JUNE_API_TOKEN`` is set and non-empty.
+
+    Completely inert (pass-through) when the env var is absent or empty, so
+    dev environments and existing builds are unaffected. ``/healthz`` is
+    always exempt regardless of token state.
+    """
+    token = os.environ.get("JUNE_API_TOKEN", "")
+    if not token:
+        return await call_next(request)
+
+    path = request.url.path
+    if any(path.startswith(prefix) for prefix in _LOOPBACK_EXEMPT):
+        return await call_next(request)
+
+    provided = request.headers.get("X-June-Token", "")
+    if not hmac.compare_digest(provided, token):
+        logger.warning("Loopback token check failed: %s %s", request.method, path)
+        return Response(
+            status_code=401,
+            content=b'{"detail":"Missing or invalid loopback token. Provide X-June-Token header."}',
             media_type="application/json",
             headers={"Access-Control-Allow-Origin": "*"},
         )

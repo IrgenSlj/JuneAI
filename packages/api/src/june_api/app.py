@@ -19,7 +19,7 @@ from june_brain.activity import ActivityLog
 from june_brain.config_store import apply_stored_config_to_env
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from .middleware.auth import api_key_middleware
+from .middleware.auth import api_key_middleware, loopback_token_middleware
 from .schemas import ChatEvent, RecallHit, TaskEventFrame, TaskStepView
 
 logger = logging.getLogger(__name__)
@@ -215,6 +215,10 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def _api_key_check(request: Request, call_next):
         return await api_key_middleware(request, call_next)
+
+    @app.middleware("http")
+    async def _loopback_token_check(request: Request, call_next):
+        return await loopback_token_middleware(request, call_next)
 
     @app.middleware("http")
     async def _record_activity(request: Request, call_next):
