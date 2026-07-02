@@ -21,6 +21,8 @@ use ollama::{
     bootstrap_ollama, is_model_pulled, is_ollama_installed, pull_model, start_ollama, OllamaState,
 };
 use sidecar::{get_api_token, start_api, stop_api, SidecarState, TokenState};
+use std::sync::atomic::Ordering;
+use std::time::Duration;
 use tauri::Manager;
 use tauri_plugin_autostart::MacosLauncher;
 
@@ -65,6 +67,74 @@ pub fn run() {
                 }
             });
 
+            // Watchdog: polls every 5 s and restarts the sidecar if /healthz is
+            // unreachable AFTER it was healthy at least once (a genuine crash).
+            // Reaps the dead child handle first (no zombie). Backs off
+            // exponentially on repeated failures (5s * 2^n, capped at 60 s) but
+            // never gives up permanently — self-heals when the cause clears.
+            // Terminates cleanly when shutting_down is set so app quit is clean.
+            let watchdog_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let mut interval = Duration::from_secs(5);
+                let mut failures: u32 = 0;
+                // Only restart once the sidecar has been reachable at least once.
+                // During the initial cold start the first start_api is still
+                // health-waiting, and we must not reap/restart the child it just
+                // spawned — that would kill and respawn the sidecar on every launch.
+                let mut ever_healthy = false;
+                loop {
+                    tokio::time::sleep(interval).await;
+                    // Check before doing any I/O.
+                    if watchdog_handle
+                        .state::<SidecarState>()
+                        .shutting_down
+                        .load(Ordering::SeqCst)
+                    {
+                        break;
+                    }
+                    if sidecar::api_reachable(sidecar::API_PORT).await {
+                        ever_healthy = true;
+                        failures = 0;
+                        interval = Duration::from_secs(5);
+                        continue;
+                    }
+                    // Sidecar is down — re-check the flag before restarting to
+                    // avoid racing a quit that happened while we probed.
+                    if watchdog_handle
+                        .state::<SidecarState>()
+                        .shutting_down
+                        .load(Ordering::SeqCst)
+                    {
+                        break;
+                    }
+                    // Don't fight the initial cold start: only restart a sidecar
+                    // that was reachable at least once (a genuine crash), never
+                    // one that simply hasn't finished starting yet.
+                    if !ever_healthy {
+                        continue;
+                    }
+                    sidecar::reap_dead_child(&watchdog_handle).await;
+                    match start_api(watchdog_handle.clone()).await {
+                        Ok(()) => {
+                            failures = 0;
+                            interval = Duration::from_secs(5);
+                            eprintln!("[june-desktop] watchdog: june-api restarted successfully");
+                        }
+                        Err(e) => {
+                            failures += 1;
+                            // 5s * 2^failures, capped at 60 s.
+                            let exp = failures.min(10) as u64;
+                            let secs = (5u64 * (1u64 << exp)).min(60);
+                            interval = Duration::from_secs(secs);
+                            eprintln!(
+                                "[june-desktop] watchdog: restart failed ({e}); \
+                                 retrying in {secs}s (failure #{failures})"
+                            );
+                        }
+                    }
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -88,6 +158,10 @@ pub fn run() {
     app.run(|app_handle, event| {
         if let tauri::RunEvent::Exit = event {
             let state = app_handle.state::<SidecarState>();
+            // Signal the watchdog to stop BEFORE killing the child so it can
+            // never respawn during quit. SeqCst ensures the store is visible to
+            // the watchdog task on all platforms.
+            state.shutting_down.store(true, Ordering::SeqCst);
             // Semicolon makes this a statement so the Result<MutexGuard, _>
             // temporary is dropped before `state` goes out of scope.
             if let Ok(mut guard) = state.child.lock() {

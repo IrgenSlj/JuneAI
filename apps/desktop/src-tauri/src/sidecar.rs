@@ -20,7 +20,7 @@
 
 use std::env;
 use std::process::Stdio;
-use std::sync::Mutex;
+use std::sync::{atomic::AtomicBool, Mutex};
 use std::time::Duration;
 use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Manager};
@@ -40,6 +40,9 @@ const HEALTH_POLL_MS: u64 = 500;
 #[derive(Default)]
 pub struct SidecarState {
     pub child: Mutex<Option<Child>>,
+    /// Set to true in the RunEvent::Exit handler before killing the child so
+    /// the watchdog never respawns during quit.
+    pub shutting_down: AtomicBool,
 }
 
 /// Per-launch loopback shared-secret. Generated once at startup (lib.rs setup),
@@ -129,6 +132,23 @@ pub async fn start_api(app: AppHandle) -> Result<(), String> {
         "june-api started but did not become reachable on port {API_PORT} within {}s.",
         (HEALTH_POLL_ITERS as u64 * HEALTH_POLL_MS) / 1000
     ))
+}
+
+/// Take and reap the dead child handle before a watchdog respawn.
+///
+/// The std MutexGuard is dropped inside the scoped block; `child.wait().await`
+/// is called after the guard is gone so we never hold a !Send guard across an
+/// await point (same pattern as `stop_api`).
+pub async fn reap_dead_child(app: &AppHandle) {
+    let old = {
+        let state = app.state::<SidecarState>();
+        let mut guard = state.child.lock().unwrap();
+        guard.take()
+    }; // guard dropped here — safe to await below
+    if let Some(mut child) = old {
+        let _ = child.start_kill(); // no-op if already dead
+        let _ = child.wait().await; // reap so no zombie lingers
+    }
 }
 
 /// Kill the supervised june-api child, if one was spawned.
