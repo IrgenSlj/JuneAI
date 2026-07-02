@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "pnpm --filter @june/web dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "pnpm --filter @june/web build && bash ../../../tools/packaging/build-sidecar.sh",
+    "beforeBuildCommand": "pnpm --filter @june/web build && bash \"$(git rev-parse --show-toplevel)/tools/packaging/build-sidecar.sh\"",
     "frontendDist": "../../web/build"
   },
   "app": {
