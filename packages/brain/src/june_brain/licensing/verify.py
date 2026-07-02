@@ -49,8 +49,37 @@ def _canonical_json(obj: Any) -> str:
 
     Local copy of the house convention (trust/ledger.py) so this module
     stays independent of ledger internals.
+
+    LOAD-BEARING CONVENTION: the license signing tool MUST serialize the body
+    with these exact options — ``sort_keys=True``, ``separators=(",", ":")``,
+    and ``ensure_ascii=False`` — or the signature will not verify byte-for-byte
+    and a legitimately paid holder is locked out.  ``ensure_ascii=False`` means
+    non-ASCII holder names (e.g. accented characters) are emitted as raw UTF-8,
+    not ``\\uXXXX`` escapes; the signer must match.  This convention is the
+    single source of truth; keep it and license-design.md in lockstep.
     """
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def _parse_iso_utc(value: Any) -> datetime | None:
+    """Parse an ISO-8601 timestamp to a timezone-aware UTC datetime.
+
+    Returns None on any malformed input (never raises).  A *naive* timestamp
+    (no offset, e.g. ``"2027-01-01T00:00:00"``) is interpreted as UTC rather
+    than rejected: our signing tool always emits a ``Z`` suffix, but a license
+    that omits it must still grant the tier the holder paid for, not silently
+    lock them out.  This normalization is load-bearing — comparing a naive
+    datetime against an aware one raises ``TypeError`` (not ``ValueError``),
+    which would otherwise escape the narrow except below and degrade a paid
+    holder to FREE.
+    """
+    if not isinstance(value, str):
+        return None
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return None
+    return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt
 
 
 def _free(status: str) -> Entitlement:
@@ -147,9 +176,8 @@ def _verify(
     # Step 7: check expiry.
     utc_now = now if now is not None else datetime.now(UTC)
     if body.expires_at is not None:
-        try:
-            expires = datetime.fromisoformat(body.expires_at.replace("Z", "+00:00"))
-        except (ValueError, AttributeError):
+        expires = _parse_iso_utc(body.expires_at)
+        if expires is None:
             return _free("free — license has an invalid expires_at value")
         if utc_now >= expires:
             exp_date = expires.strftime("%Y-%m-%d")
@@ -164,11 +192,8 @@ def _verify(
 
     # Step 9: build status string and return.
     if valid_until is not None:
-        try:
-            exp_dt = datetime.fromisoformat(valid_until.replace("Z", "+00:00"))
-            exp_str = exp_dt.strftime("%Y-%m-%d")
-        except (ValueError, AttributeError):
-            exp_str = valid_until
+        exp_dt = _parse_iso_utc(valid_until)
+        exp_str = exp_dt.strftime("%Y-%m-%d") if exp_dt is not None else valid_until
         status = f"{body.tier} — licensed to {body.holder}, valid until {exp_str}"
     else:
         status = f"{body.tier} — lifetime, licensed to {body.holder}"

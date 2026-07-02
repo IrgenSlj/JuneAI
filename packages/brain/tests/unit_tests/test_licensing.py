@@ -246,6 +246,53 @@ def test_expired_license_returns_free(keypair: tuple[str, str]) -> None:
     assert "expired" in ent.status
 
 
+def test_naive_expires_at_still_grants_paid(keypair: tuple[str, str]) -> None:
+    """A license whose expires_at omits the timezone (naive ISO) must still
+    grant the paid tier, not silently crash into FREE.
+
+    Comparing a naive datetime against an aware UTC now raises TypeError (not
+    ValueError); if that escaped the parse guard it would lock out a paying
+    holder. Regression for the verify.py naive-datetime bug.
+    """
+    pytest.importorskip("nacl")
+    sk_hex, pk_hex = keypair
+    naive_future = (datetime.now(UTC) + timedelta(days=365)).strftime("%Y-%m-%dT%H:%M:%S")
+    assert "Z" not in naive_future and "+" not in naive_future
+    body = _make_body(tier=TIER_PRO, expires_at=naive_future)
+    envelope = _make_envelope(body, sk_hex)
+    ent = entitlement_from_raw(envelope, public_keys={"dev-1": pk_hex})
+    assert ent.tier == TIER_PRO
+    assert ent.has(FEATURE_BACKUP_SYNC) is True
+
+
+def test_naive_expired_license_returns_free(keypair: tuple[str, str]) -> None:
+    """A naive (tz-less) expiry in the past is still correctly treated as expired."""
+    pytest.importorskip("nacl")
+    sk_hex, pk_hex = keypair
+    naive_past = (datetime.now(UTC) - timedelta(days=10)).strftime("%Y-%m-%dT%H:%M:%S")
+    body = _make_body(tier=TIER_PRO, expires_at=naive_past)
+    envelope = _make_envelope(body, sk_hex)
+    ent = entitlement_from_raw(envelope, public_keys={"dev-1": pk_hex})
+    assert ent.tier == TIER_FREE
+    assert "expired" in ent.status
+
+
+def test_non_ascii_holder_verifies(keypair: tuple[str, str]) -> None:
+    """A holder name with non-ASCII characters must verify.
+
+    Locks in the canonical-JSON convention (ensure_ascii=False) end to end: the
+    signer (_make_envelope) and the verifier must serialize the body to the same
+    UTF-8 bytes, or a legitimately paid holder with an accented name is rejected.
+    """
+    pytest.importorskip("nacl")
+    sk_hex, pk_hex = keypair
+    body = _make_body(tier=TIER_PRO, holder="José Söderström <jose@example.com>")
+    envelope = _make_envelope(body, sk_hex)
+    ent = entitlement_from_raw(envelope, public_keys={"dev-1": pk_hex})
+    assert ent.tier == TIER_PRO
+    assert "José" in ent.status
+
+
 def test_lifetime_founder_valid(keypair: tuple[str, str]) -> None:
     """A founder license with expires_at=null is valid indefinitely."""
     pytest.importorskip("nacl")
