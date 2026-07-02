@@ -101,11 +101,19 @@ export const tauriPlatform: Platform = {
 
   // Fetch the loopback token the Rust shell generated and set on the sidecar
   // env. Return undefined on any error so a token-fetch failure degrades to the
-  // no-header path rather than breaking the app.
+  // no-header path rather than breaking the app — but log loudly: this runs
+  // only in the Tauri platform, so a failure here means the webview cannot
+  // authenticate to the sidecar and every request will 401. Silent degradation
+  // would make that undiagnosable.
   getApiToken: async () => {
     try {
       return await tauriInvoke<string>("get_api_token");
-    } catch {
+    } catch (err) {
+      console.error(
+        "June: failed to fetch the loopback API token from the desktop shell; " +
+          "requests to the local API will be unauthenticated and may be rejected.",
+        err,
+      );
       return undefined;
     }
   },

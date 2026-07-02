@@ -16,9 +16,9 @@ export const client = createClient();
  * Fetch the loopback token from the host shell (Tauri only) and install it on
  * the client so every request carries `X-June-Token`. In a browser / dev build
  * `getApiToken()` resolves to undefined and this is a no-op — no header, and
- * the server middleware stays a pass-through. Fire-and-forget: a small race
- * where the very first request predates the token is acceptable because the
- * health/readiness gating already covers startup. Guarded so it never throws.
+ * the server middleware stays a pass-through. The root `load()` awaits this
+ * promise before its first request, so the token is installed before any call
+ * that the desktop sidecar would enforce. Guarded so it never throws.
  */
 export const apiTokenReady: Promise<void> = (async () => {
   try {

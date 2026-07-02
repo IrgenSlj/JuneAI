@@ -1,5 +1,5 @@
 import { redirect } from "@sveltejs/kit";
-import { client } from "$lib/api.js";
+import { client, apiTokenReady } from "$lib/api.js";
 
 // The entire app is a streaming chat surface. SSE against the local
 // API won't work under SSR (no fetch body ReadableStream on the server
@@ -11,6 +11,12 @@ export const prerender = false;
 
 export const load = async ({ url }) => {
   if (url.pathname.startsWith("/setup")) return {};
+
+  // Install the loopback token on the client before the first request. In the
+  // desktop build the sidecar enforces X-June-Token, so a call that predates
+  // the token would 401. apiTokenReady never rejects and resolves immediately
+  // in browser/dev (no token), so awaiting it is always safe.
+  await apiTokenReady;
 
   try {
     const status = await client.getSetupStatus();
