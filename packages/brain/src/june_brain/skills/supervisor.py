@@ -31,6 +31,7 @@ import os
 import select
 import shlex
 import subprocess
+import sys
 import threading
 import time
 from dataclasses import dataclass, field
@@ -52,6 +53,43 @@ logger = logging.getLogger(__name__)
 # can override per-entry in skills.toml via ``response_timeout_seconds`` — the
 # research skill, for example, needs more headroom for network fetches.
 _RESPONSE_TIMEOUT_SECONDS = DEFAULT_RESPONSE_TIMEOUT_SECONDS
+
+
+def _first_party_skill_key(args: list[str]) -> str | None:
+    """Return the skill key if ``args`` are the first-party ``-m june_skill_<key>`` form.
+
+    First-party skills ship in the manifest as ``command = sys.executable`` +
+    ``args = ["-m", "june_skill_<key>"]``. Anything else (third-party skills,
+    bare script paths, extra flags) returns ``None``.
+    """
+    if len(args) == 2 and args[0] == "-m" and args[1].startswith("june_skill_"):
+        key = args[1][len("june_skill_") :]
+        return key or None
+    return None
+
+
+def resolve_spawn_argv(entry: SkillManifestEntry) -> list[str]:
+    """Return the runtime-correct argv to spawn a skill subprocess.
+
+    In a normal (dev/editable) install the first-party form
+    ``[sys.executable, "-m", "june_skill_<key>"]`` works: the skill package is
+    importable in the same interpreter. In the *frozen* PyInstaller sidecar,
+    ``sys.executable`` is the bootloader (not a Python that understands ``-m``)
+    and the skill module can't be launched that way, so we translate the ``-m``
+    form into the ``--run-skill <key>`` subcommand handled by
+    ``june_api.__main__`` — where, in a frozen build, ``sys.executable`` is the
+    frozen ``june-api`` binary re-invoking itself.
+
+    Any command/args that don't match the first-party ``-m june_skill_<key>``
+    pattern (third-party skills, script paths) are returned unchanged, in both
+    dev and frozen builds. The key is taken from the module name in ``args`` so
+    the translated ``--run-skill`` always targets the module ``-m`` would have.
+    """
+    if getattr(sys, "frozen", False):
+        key = _first_party_skill_key(entry.args)
+        if key is not None:
+            return [sys.executable, "--run-skill", key]
+    return [entry.command, *entry.args]
 
 
 class SkillStatus(StrEnum):
@@ -270,7 +308,7 @@ class SkillSupervisor:
             env["JUNE_IS_SKILL_SUBPROCESS"] = "1"
             env["JUNE_SKILLS_DISABLED"] = "1"
             skill.proc = subprocess.Popen(  # noqa: S603 - command comes from user-owned manifest
-                [skill.entry.command, *skill.entry.args],
+                resolve_spawn_argv(skill.entry),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -309,7 +347,7 @@ class SkillSupervisor:
                 env["JUNE_IS_SKILL_SUBPROCESS"] = "1"
                 env["JUNE_SKILLS_DISABLED"] = "1"
                 skill.proc = subprocess.Popen(
-                    [skill.entry.command, *skill.entry.args],
+                    resolve_spawn_argv(skill.entry),
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,

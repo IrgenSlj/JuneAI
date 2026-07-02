@@ -37,6 +37,24 @@ for pkg in ("june_brain", "june_api"):
     datas += collect_data_files(pkg)
     hiddenimports += collect_submodules(pkg)
 
+# First-party skill packages. In the frozen sidecar, `june-api --run-skill <key>`
+# (june_api.__main__) runpy-launches june_skill_<key> as its MCP stdio server —
+# but the entry point (june_api.__main__ -> uvicorn) never imports these modules,
+# so PyInstaller's dependency analysis can't reach them. Collect their submodules
+# (so the module + its third-party deps like httpx/pypdf/trafilatura are pulled
+# in) and package-data files. Each imports june_brain, already collected above.
+# Mirrors the enabled set installed by tools/packaging/build-sidecar.sh; telegram
+# is excluded (disabled by default, needs an optional extra).
+for pkg in (
+    "june_skill_calendar",
+    "june_skill_health",
+    "june_skill_research",
+    "june_skill_files",
+    "june_skill_daily",
+):
+    datas += collect_data_files(pkg)
+    hiddenimports += collect_submodules(pkg)
+
 # sqlite-vec ships vec0.dylib as a loadable SQLite extension. It is NOT linked
 # to the Python package (it is loaded at runtime via conn.load_extension), so
 # PyInstaller's dependency analysis misses it. Collect it as data so it lands

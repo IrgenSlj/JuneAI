@@ -14,7 +14,11 @@ from pathlib import Path
 
 import pytest
 from june_brain.skills.manifest import SkillManifest, SkillManifestEntry
-from june_brain.skills.supervisor import SkillStatus, SkillSupervisor
+from june_brain.skills.supervisor import (
+    SkillStatus,
+    SkillSupervisor,
+    resolve_spawn_argv,
+)
 
 
 def _write_fake_skill(tmp_path: Path, *, crash_after: int = 0) -> Path:
@@ -163,3 +167,59 @@ def test_set_enabled_flips_state_and_persists(tmp_path, no_autostart, monkeypatc
 def test_set_enabled_unknown_key_returns_none(no_autostart):
     supervisor = SkillSupervisor(SkillManifest())
     assert supervisor.set_enabled("nope", True) is None
+
+
+# --------------------------------------------------------------- frozen spawn argv
+
+
+def _first_party_entry() -> SkillManifestEntry:
+    return SkillManifestEntry(
+        key="calendar",
+        command=sys.executable,
+        args=["-m", "june_skill_calendar"],
+    )
+
+
+def test_resolve_spawn_argv_dev_mode_leaves_first_party_unchanged(monkeypatch):
+    # Not a frozen build: the portable `-m june_skill_<key>` form is used as-is.
+    monkeypatch.setattr(sys, "frozen", False, raising=False)
+    entry = _first_party_entry()
+    assert resolve_spawn_argv(entry) == [sys.executable, "-m", "june_skill_calendar"]
+
+
+def test_resolve_spawn_argv_frozen_translates_first_party(monkeypatch):
+    # Simulate the frozen sidecar: sys.frozen True and sys.executable is the
+    # frozen june-api binary. First-party `-m` form becomes `--run-skill <key>`,
+    # with the key taken from the module name (not entry.command).
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", "/Frozen/june-api", raising=False)
+    entry = SkillManifestEntry(
+        key="calendar",
+        command="/some/original/python",
+        args=["-m", "june_skill_calendar"],
+    )
+    assert resolve_spawn_argv(entry) == ["/Frozen/june-api", "--run-skill", "calendar"]
+
+
+def test_resolve_spawn_argv_frozen_leaves_third_party_unchanged(monkeypatch):
+    # A third-party skill (or any non `-m june_skill_*` form) is never rewritten,
+    # even in a frozen build.
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", "/Frozen/june-api", raising=False)
+    entry = SkillManifestEntry(
+        key="weather",
+        command="/usr/local/bin/weather-mcp",
+        args=["--stdio", "--port", "0"],
+    )
+    assert resolve_spawn_argv(entry) == ["/usr/local/bin/weather-mcp", "--stdio", "--port", "0"]
+
+
+def test_resolve_spawn_argv_frozen_leaves_bare_script_unchanged(monkeypatch):
+    # A `python script.py` style entry (no `-m`) is not a first-party module launch.
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    entry = SkillManifestEntry(
+        key="custom",
+        command=sys.executable,
+        args=["/opt/custom_skill.py"],
+    )
+    assert resolve_spawn_argv(entry) == [sys.executable, "/opt/custom_skill.py"]

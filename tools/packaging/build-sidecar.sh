@@ -71,14 +71,28 @@ if [[ ! -x "${BUILD_VENV}/bin/python" ]]; then
 fi
 VENV_PY="${BUILD_VENV}/bin/python"
 
-log "installing brain + api + pyinstaller into build venv"
+log "installing brain + api + first-party skills + pyinstaller into build venv"
 "${VENV_PY}" -m pip install --quiet --upgrade pip
-# One install command so pip resolves the api's `june-brain` dependency against
-# the local brain package. `openai` is a declared brain dependency, so it (and
-# pydantic/httpx/etc.) comes along automatically.
+# First-party skills to bundle: the enabled set in DEFAULT_MANIFEST. Each lives
+# at skills/<name>/ with a pyproject naming june_skill_<name> and depends on
+# june-brain. telegram is intentionally excluded — it is disabled by default and
+# needs an optional extra (python-telegram-bot).
+FIRST_PARTY_SKILLS=(calendar health research files daily)
+SKILL_PATHS=()
+for _skill in "${FIRST_PARTY_SKILLS[@]}"; do
+  _skill_dir="${REPO_ROOT}/skills/${_skill}"
+  [[ -f "${_skill_dir}/pyproject.toml" ]] || die "first-party skill not found: ${_skill_dir}"
+  SKILL_PATHS+=("${_skill_dir}")
+done
+# One install command so pip resolves each skill's and the api's `june-brain`
+# dependency against the local brain package installed in the same resolution.
+# `openai` is a declared brain dependency, so it (and pydantic/httpx/etc.) comes
+# along automatically; the research/files skills pull their own extras (httpx,
+# pypdf, trafilatura) from PyPI.
 "${VENV_PY}" -m pip install --quiet \
   "${REPO_ROOT}/packages/brain" \
   "${REPO_ROOT}/packages/api" \
+  "${SKILL_PATHS[@]}" \
   pyinstaller
 
 # --- 2. Build-SHA stamp (best-effort; see rthook_build_sha.py) -------------
