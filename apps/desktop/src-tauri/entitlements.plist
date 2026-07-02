@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- PyInstaller maps code pages that are simultaneously writable and
+         executable. The Hardened Runtime kills any process that does this
+         at launch unless this entitlement is present. Trim it if a future
+         PyInstaller release no longer requires writable/executable memory. -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+
+    <!-- Required alongside allow-unsigned-executable-memory; also needed if
+         any bundled C extension uses JIT compilation. Trim to the minimum
+         set that still passes notarization once signing is validated. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+
+    <!-- The PyInstaller onedir bundles sqlite_vec/vec0.dylib and libsodium.
+         These are not signed with the app's Team ID, so library validation
+         would reject them at dlopen() time. Trim this once all bundled dylibs
+         carry a Developer ID or hardened signature compatible with the app. -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>

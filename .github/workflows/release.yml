@@ -1,0 +1,192 @@
+name: Release
+
+# Trigger on version tags (e.g. v0.1.0) or manually via workflow_dispatch.
+# A real signed+notarized release requires the signing secrets listed below.
+# Without them the workflow degrades to an unsigned build (useful for testing
+# the pipeline on forks or before the Developer ID cert is in place).
+"on":
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release-macos:
+    name: macOS release build
+    # macos-14 = Apple Silicon (M1) runner — matches the aarch64-apple-darwin target.
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout (full history for git SHA stamp)
+        uses: actions/checkout@v4
+        with:
+          # build-sidecar.sh shells out to `git rev-parse --short HEAD` to stamp
+          # the build SHA into the frozen bundle (_build_sha.txt). fetch-depth: 0
+          # ensures a real SHA is available even on shallow clones.
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Set up Rust stable (aarch64-apple-darwin)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Set up Python 3.13 (sidecar freeze venv)
+        uses: actions/setup-python@v5
+        with:
+          # build-sidecar.sh creates its own scratch venv via python3 -m venv.
+          # This step just puts python3 on PATH; the venv is created in $TMPDIR.
+          python-version: '3.13'
+
+      - name: Cache Rust build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/desktop/src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Resolve secret presence into step outputs. The `secrets` context is NOT
+      # available in step `if:` conditions, but reading secrets via step-level
+      # `env:` is — so we check them here and gate later steps on these outputs.
+      - name: Check for signing secrets
+        id: check
+        env:
+          SIGNING_ID: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          CERT: ${{ secrets.APPLE_CERTIFICATE }}
+        run: |
+          if [ -n "$SIGNING_ID" ]; then echo "signing=true" >> "$GITHUB_OUTPUT"; else echo "signing=false" >> "$GITHUB_OUTPUT"; fi
+          if [ -n "$CERT" ]; then echo "cert=true" >> "$GITHUB_OUTPUT"; else echo "cert=false" >> "$GITHUB_OUTPUT"; fi
+
+      # ── Signing setup (skipped when secrets are absent) ───────────────────
+      #
+      # Required secrets for a signed + notarized build:
+      #   APPLE_CERTIFICATE          base64-encoded Developer ID Application .p12
+      #   APPLE_CERTIFICATE_PASSWORD passphrase for the .p12
+      #   APPLE_SIGNING_IDENTITY     "Developer ID Application: Name (TEAMID)"
+      #   APPLE_TEAM_ID              10-character Apple Team ID
+      #
+      # For notarization (one of):
+      #   (a) Apple ID route:
+      #       APPLE_ID               Apple ID email
+      #       APPLE_PASSWORD         app-specific password (not the Apple ID password)
+      #   (b) App Store Connect API key route (preferred for CI):
+      #       APPLE_API_ISSUER       Issuer ID from App Store Connect
+      #       APPLE_API_KEY          Key ID
+      #       APPLE_API_KEY_PATH     path to the .p8 file (must be written to disk
+      #                              before the build step if using this route)
+      #
+      # When any of these secrets are absent the workflow runs the unsigned
+      # build step instead and skips certificate import + notarization.
+
+      - name: Import signing certificate into temporary keychain
+        id: import-cert
+        if: ${{ steps.check.outputs.cert == 'true' }}
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain"
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 24)
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+          rm "$RUNNER_TEMP/cert.p12"
+
+          # Add the temp keychain to the user search list without losing the
+          # existing keychains (login.keychain-db etc.).
+          security list-keychains -d user -s \
+            "$KEYCHAIN_PATH" \
+            $(security list-keychains -d user | tr -d '"')
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s -k "$KEYCHAIN_PASSWORD" \
+            "$KEYCHAIN_PATH"
+
+      # ── Build ─────────────────────────────────────────────────────────────
+      #
+      # Approach: explicit `pnpm exec tauri build` steps (not tauri-apps/tauri-action).
+      # Reason: we need (a) Python 3.13 on PATH before beforeBuildCommand runs
+      # the sidecar freeze, and (b) a --config override to inject the macOS signing
+      # block without modifying tauri.conf.json. tauri-action abstracts both of
+      # these in ways that are harder to control; explicit steps mirror the proven
+      # local invocation exactly.
+      #
+      # The --config override deep-merges into tauri.conf.json at build time,
+      # adding bundle.macOS.{hardenedRuntime,entitlements} only for signed builds.
+      # tauri.conf.json itself is never modified (the unsigned local build stays
+      # working).  The signing identity is supplied via APPLE_SIGNING_IDENTITY env
+      # which Tauri 2.x reads directly from the environment.
+
+      - name: Build — signed and notarized
+        if: ${{ steps.check.outputs.signing == 'true' }}
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Apple ID notarization route (APPLE_API_* vars take precedence if set):
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          # App Store Connect API key notarization route (uncomment if preferred):
+          # APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          # APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          # APPLE_API_KEY_PATH: ${{ secrets.APPLE_API_KEY_PATH }}
+        run: |
+          cd apps/desktop
+          pnpm exec tauri build \
+            --config '{"bundle":{"macOS":{"hardenedRuntime":true,"entitlements":"entitlements.plist"}}}'
+
+      - name: Build — unsigned (signing secrets absent)
+        if: ${{ steps.check.outputs.signing != 'true' }}
+        run: |
+          cd apps/desktop
+          pnpm exec tauri build
+
+      # ── Artifacts ─────────────────────────────────────────────────────────
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: June-macOS-${{ github.ref_name }}
+          path: apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+          generate_release_notes: true
+
+      # ── Cleanup ───────────────────────────────────────────────────────────
+
+      - name: Delete temporary keychain
+        if: always() && steps.import-cert.outcome != 'skipped'
+        run: security delete-keychain "$RUNNER_TEMP/build.keychain" || true
