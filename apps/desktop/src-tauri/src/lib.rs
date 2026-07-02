@@ -50,11 +50,14 @@ pub fn run() {
             native::install_tray(handle)?;
             native::register_hotkey(handle)?;
 
-            // Generate the per-launch loopback token once, before spawning the
+            // Load the persistent loopback token once, before spawning the
             // sidecar, and register it in Tauri state. start_api sets it on the
             // sidecar's JUNE_API_TOKEN env and the get_api_token command hands
-            // the same value to the webview (uuid v4 = 122 bits of OS-random).
-            app.manage(TokenState(uuid::Uuid::new_v4().to_string()));
+            // the same value to the webview. The token is stored 0600 in the
+            // app-config dir and reused across launches so that if a june-api
+            // from a previous launch is still listening, the webview's token
+            // still matches it (see load_or_create_token).
+            app.manage(TokenState(sidecar::load_or_create_token(handle)));
 
             // Start the june-api sidecar in the background so the window opens
             // immediately without blocking. The UI runtime badge reflects
@@ -164,6 +167,14 @@ pub fn run() {
             state.shutting_down.store(true, Ordering::SeqCst);
             // Semicolon makes this a statement so the Result<MutexGuard, _>
             // temporary is dropped before `state` goes out of scope.
+            //
+            // SIGKILL (start_kill) rather than a graceful SIGTERM is acceptable
+            // here: june-api runs SQLite in WAL mode, which is crash-safe — a
+            // hard kill mid-write leaves at most an uncheckpointed WAL that is
+            // replayed on next open, never a corrupt DB. The startup corrupt-DB
+            // recovery is a further backstop. A graceful shutdown from this sync
+            // exit handler would require awaiting the child, which we cannot do
+            // here without blocking quit.
             if let Ok(mut guard) = state.child.lock() {
                 if let Some(ref mut child) = *guard {
                     let _ = child.start_kill();

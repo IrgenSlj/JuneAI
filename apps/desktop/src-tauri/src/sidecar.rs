@@ -20,7 +20,10 @@
 
 use std::env;
 use std::process::Stdio;
-use std::sync::{atomic::AtomicBool, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Mutex,
+};
 use std::time::Duration;
 use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Manager};
@@ -45,10 +48,49 @@ pub struct SidecarState {
     pub shutting_down: AtomicBool,
 }
 
-/// Per-launch loopback shared-secret. Generated once at startup (lib.rs setup),
-/// set on the sidecar's `JUNE_API_TOKEN` env, and handed to the webview through
-/// the `get_api_token` command so it can send `X-June-Token` on every request.
+/// Loopback shared-secret. Loaded once at startup (lib.rs setup), set on the
+/// sidecar's `JUNE_API_TOKEN` env, and handed to the webview through the
+/// `get_api_token` command so it can send `X-June-Token` on every request.
 pub struct TokenState(pub String);
+
+/// Load the persistent per-install loopback token, or create it on first run.
+///
+/// Stored 0600 in the Tauri app-config dir so it is STABLE across launches.
+/// A per-launch random token would break the adopt-existing-server path in
+/// `start_api`: if a june-api from a previous launch is still listening on
+/// `API_PORT`, this instance early-returns without re-spawning, but a fresh
+/// per-launch token would be one the surviving server never saw, so every
+/// webview request would 401. A stable token means an adopted server shares
+/// the same secret.
+///
+/// Degrades to a fresh random token (this launch only) if the config dir can't
+/// be read or written, so startup never fails on a filesystem hiccup.
+pub fn load_or_create_token(app: &AppHandle) -> String {
+    let fresh = || uuid::Uuid::new_v4().to_string();
+    let Ok(dir) = app.path().app_config_dir() else {
+        return fresh();
+    };
+    let token_path = dir.join("api-token");
+    if let Ok(existing) = std::fs::read_to_string(&token_path) {
+        let trimmed = existing.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+    let token = fresh();
+    if std::fs::create_dir_all(&dir).is_ok() && std::fs::write(&token_path, &token).is_ok() {
+        // Best-effort: tighten to owner-only so other users can't read the
+        // shared secret. The process env still exposes it to same-user
+        // processes (accepted for a single-user local app).
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ =
+                std::fs::set_permissions(&token_path, std::fs::Permissions::from_mode(0o600));
+        }
+    }
+    token
+}
 
 /// Returns true if the june-api is already answering on `port`.
 /// Probes /healthz — the one path the loopback-token middleware always exempts,
@@ -107,7 +149,7 @@ pub async fn start_api(app: AppHandle) -> Result<(), String> {
         cmd.env("JUNE_DATA_DIR", data_dir);
     }
 
-    let child = cmd.spawn().map_err(|e| {
+    let mut child = cmd.spawn().map_err(|e| {
         format!(
             "Failed to spawn june-api at {}: {e}",
             binary_path.display()
@@ -117,6 +159,16 @@ pub async fn start_api(app: AppHandle) -> Result<(), String> {
     {
         let state = app.state::<SidecarState>();
         let mut guard = state.child.lock().unwrap();
+        // A quit may have begun between the watchdog's pre-spawn shutting_down
+        // check and this spawn. Re-check under the child lock: if we're shutting
+        // down, the RunEvent::Exit handler has already run (it found child=None)
+        // or is blocked on this very lock. Either way, do NOT store the child —
+        // kill it now so it cannot be orphaned past app quit. start_kill() is
+        // synchronous (SIGKILL, no await), so it is safe under the lock.
+        if state.shutting_down.load(Ordering::SeqCst) {
+            let _ = child.start_kill();
+            return Err("shutdown in progress; killed just-spawned june-api".to_string());
+        }
         *guard = Some(child);
     }
 
