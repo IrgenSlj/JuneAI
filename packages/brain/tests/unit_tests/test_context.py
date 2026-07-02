@@ -199,6 +199,69 @@ def test_assembler_tools_block_appears_as_system_message() -> None:
     assert any("web_search" in c for c in system_contents)
 
 
+# ---------------------------------------------------------------------------
+# Temporal context (D.1)
+# ---------------------------------------------------------------------------
+
+
+def test_temporal_block_pure_builder_formats_and_buckets() -> None:
+    from datetime import datetime
+
+    from june_brain.context.temporal import build_temporal_block
+
+    block = build_temporal_block(datetime(2026, 7, 2, 20, 47))
+    assert block.startswith("[Temporal context]")
+    assert "Thursday" in block
+    assert "2 July 2026" in block
+    assert "8:47 PM" in block
+    assert "evening" in block
+
+
+def test_temporal_block_time_of_day_buckets() -> None:
+    from datetime import datetime
+
+    from june_brain.context.temporal import build_temporal_block
+
+    assert "morning" in build_temporal_block(datetime(2026, 7, 2, 8, 0))
+    assert "afternoon" in build_temporal_block(datetime(2026, 7, 2, 13, 0))
+    assert "evening" in build_temporal_block(datetime(2026, 7, 2, 19, 0))
+    assert "night" in build_temporal_block(datetime(2026, 7, 2, 23, 0))
+    assert "night" in build_temporal_block(datetime(2026, 7, 2, 3, 0))
+    # Midnight/noon 12-hour rendering is correct.
+    assert "12:00 AM" in build_temporal_block(datetime(2026, 7, 2, 0, 0))
+    assert "12:00 PM" in build_temporal_block(datetime(2026, 7, 2, 12, 0))
+
+
+def test_assembler_temporal_block_present_when_clock_injected() -> None:
+    from datetime import datetime
+
+    fixed = datetime(2026, 7, 2, 9, 15)
+    assembler = ContextAssembler(clock=lambda: fixed)
+    session = SessionState(user_id="u1", messages=[])
+    ctx = assembler.assemble(session, Message(role="user", content="hi"))
+    system_contents = [m.content for m in ctx if m.role == "system"]
+    assert any("[Temporal context]" in c and "morning" in c for c in system_contents)
+
+
+def test_assembler_no_temporal_block_when_no_clock() -> None:
+    assembler = ContextAssembler()
+    session = SessionState(user_id="u1", messages=[])
+    ctx = assembler.assemble(session, Message(role="user", content="hi"))
+    assert not any("[Temporal context]" in m.content for m in ctx)
+
+
+def test_assembler_temporal_clock_raising_degrades_gracefully() -> None:
+    def _boom():  # type: ignore[no-untyped-def]
+        raise RuntimeError("no clock")
+
+    assembler = ContextAssembler(clock=_boom)
+    session = SessionState(user_id="u1", messages=[])
+    # The turn still assembles; the temporal block is simply omitted.
+    ctx = assembler.assemble(session, Message(role="user", content="hi"))
+    assert ctx[-1].content == "hi"
+    assert not any("[Temporal context]" in m.content for m in ctx)
+
+
 def test_assembler_no_tools_block_when_none() -> None:
     assembler = ContextAssembler()
     session = SessionState(user_id="u1", messages=[])

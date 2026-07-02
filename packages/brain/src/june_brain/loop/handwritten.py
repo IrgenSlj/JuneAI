@@ -141,11 +141,16 @@ class HandwrittenLoop:
 
             recall_fn, self._recall_state = make_recall_fn()
             self._tool_specs = make_tool_specs()
+            from datetime import datetime
+
             _assembler = ContextAssembler(
                 character_block=character_block,
                 recall=recall_fn,
                 tools_block=make_tools_block(),
                 reason=False,  # gated per turn by difficulty (S4.3)
+                # Read-time local clock so June knows the actual wall-clock time
+                # each turn (D.1). No timer/process — evaluated only at assembly.
+                clock=datetime.now,
             )
             self._assembler = _assembler
             self._assemble_context = _assembler.assemble

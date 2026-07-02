@@ -11,9 +11,11 @@ Assembly order (stable prefix first, volatile last):
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import datetime
 
 from june_brain.providers.base import Message
 
+from .temporal import build_temporal_block
 from .tokens import estimate_tokens
 
 _DEFAULT_SYSTEM_PROMPT = (
@@ -49,6 +51,7 @@ class ContextAssembler:
         token_budget: int = 6000,
         tools_block: str | None = None,
         reason: bool = False,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._system_prompt = system_prompt
         self._character_block = character_block
@@ -56,6 +59,11 @@ class ContextAssembler:
         self._token_budget = token_budget
         self._tools_block = tools_block
         self._reason = reason
+        # Injected read-time clock returning *local* time. When None, no temporal
+        # block is added (kept out of tests that assert an exact context shape);
+        # the live loop passes datetime.now. A clock that raises degrades to no
+        # block rather than failing the turn (graceful-degradation invariant).
+        self._clock = clock
 
     def set_reason(self, reason: bool) -> None:
         """Per-turn override of the reasoning instruction (difficulty-gated)."""
@@ -91,6 +99,18 @@ class ContextAssembler:
             block_text = pinned.to_block()
             if block_text:
                 fixed.append(Message(role="system", content=block_text))
+
+        # Section 3.5 — temporal context (optional, read-time; D.1). Placed after
+        # the stable prefix so it never busts the cache of the system/character/
+        # tools blocks, only when a clock is injected. Best-effort: a clock that
+        # raises degrades to no block rather than failing the turn.
+        if self._clock is not None:
+            try:
+                fixed.append(
+                    Message(role="system", content=build_temporal_block(self._clock()))
+                )
+            except Exception:
+                pass
 
         # Section 4 — recalled memory (optional)
         if self._recall is not None:
