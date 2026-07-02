@@ -392,6 +392,53 @@ Ordered so it is visible early, then gets richer:
 
 ## Progress Log
 
+### 2026-07-02 - Deploy path PROVEN + prepped + hardened; loopback auth; recovery
+
+Continuation of the autonomous drive. The deploy path is no longer just built —
+it is proven with a real artifact and prepped to the founder's signature.
+
+**The app builds and runs (capstone).** A full unsigned `tauri build` produces
+`June.app` (103 MB) + `June_0.1.0_aarch64.dmg` (43 MB). Verified headlessly from
+inside the `.app`: the bundled brain serves `/system` 200 (with the git SHA
+baked in) and `june-api --run-skill calendar` answers an MCP handshake as
+`june-calendar` with zero stray processes. Fixed one latent build bug
+(`beforeBuildCommand` path resolved outside the repo). Report:
+`docs/product/tauri-build-report.md`. This closes gap 1 end-to-end; only the
+founder's Developer ID signing remains. NOTE: this means Track 5 item 3
+(desktop sidecar) and Phase 5 items 1-3 are DONE — the plan above is stale there.
+
+**Signing/notarization infrastructure (gap 4).** `entitlements.plist` for the
+frozen sidecar under hardened runtime, a GitHub Actions release workflow that
+signs+notarizes only when the Apple secrets are present (degrades to unsigned
+otherwise; injects signing via a `--config` override so the unsigned build stays
+intact), and `apps/desktop/RELEASING.md`. The founder adds a cert + secrets and
+pushes a `vX.Y.Z` tag.
+
+**Loopback API auth (end to end).** Opt-in middleware enforces `X-June-Token`
+only when `JUNE_API_TOKEN` is set; the Tauri shell generates a per-launch uuid,
+sets it on the sidecar env, and hands it to the fetch-based web client via a
+`get_api_token` command. Dev/browser stay unauthenticated (no token ->
+pass-through). No other local process or page can read June's data through the
+API. Verified: cargo check, check.sh, live token flow (401/200/200).
+
+**Recovery flows (gap 7).** (a) A corrupt `june.db` is detected on first open
+(PRAGMA quick_check), moved aside to `june.db.corrupt-<ts>`, and replaced with a
+fresh DB — transient locks are never mistaken for corruption. (b) A Tauri
+watchdog restarts a crashed sidecar once it has been healthy at least once
+(never fights the cold start), with capped backoff and clean shutdown.
+Remaining recovery item: failed-migration handling (assess whether a runtime
+migration path exists).
+
+**Also:** Track 4 completed (scope-drift detection, keychain secrets, ledger
+scope-review); License Slice 2 (entitlement surfaced in `/system`); the
+Silence contradiction producer (calendar double-booking) completing Track 1.3;
+the draggable chat/activity splitter; and dependency-honesty fixes.
+
+**Still genuinely founder-gated:** the wedge decision
+(`strategic-review-2026-07-01.md`), Apple Developer enrollment, pricing +
+payment processor + OSS license, and Track 5 items 1-2 (encrypted backup,
+Google skills — crypto + external accounts, an ADR each).
+
 ### 2026-07-01 - Overnight autonomous session: deploy path + monetization core
 
 Worked as autonomous technical co-founder toward the north star (deploy + first
