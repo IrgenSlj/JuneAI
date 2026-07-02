@@ -141,6 +141,16 @@ differentiators below — this is keeping the spine honest, not adding scope.
    single-user loopback case. CORS blocks cross-origin reads; Host validation
    blocks DNS-rebinding. A rebinding request carries the attacker domain in Host
    and is rejected 400.
+   - UPDATE (2026-07-02, packaged app): a loopback shared-secret token
+     (`X-June-Token` / `JUNE_API_TOKEN`, `loopback_token_middleware`) was
+     subsequently added for the packaged desktop build. This does not reverse
+     the reasoning above — it is opt-in and completely inert when the env var is
+     unset (so dev and browser builds are unaffected). It closes the one gap
+     Host-validation and CORS do not: another *local* process or user hitting
+     `127.0.0.1:8000` directly (neither is a cross-origin browser request nor a
+     rebinding attempt). The Tauri shell generates the token, persists it 0600
+     per install, sets it on the sidecar env, and hands it to the webview; only
+     `/healthz` is exempt.
 5. **[SHIPPED] PWA-in-dev verification.** Verified safe by inspecting the
    generated dev service worker (`dev-dist/sw.js`): it precaches only the
    navigation shell (`"/"`), not the client JS/CSS bundles, so Vite serves

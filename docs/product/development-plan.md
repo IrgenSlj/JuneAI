@@ -439,6 +439,37 @@ the draggable chat/activity splitter; and dependency-honesty fixes.
 payment processor + OSS license, and Track 5 items 1-2 (encrypted backup,
 Google skills — crypto + external accounts, an ADR each).
 
+**Cold-start profiled (bounded spike).** Frozen sidecar startup is dominated by
+OS cost (macOS verifying the unsigned ~85 MB onedir on first launch, ~7-8 s),
+not our Python — not cheaply reducible with lazy imports; the highest-ROI lever
+is code-signing the sidecar (a packaging change for the founder's cert). One
+safe win landed: deferred the `openai` import off the boot path (~0.18-0.47 s).
+Full profile: `docs/product/cold-start-notes.md`.
+
+**Adversarial-review hardening pass.** Ran a 4-agent read-only review of the
+deploy-critical code that runs unattended on users' Macs (Rust sidecar
+lifecycle, offline license verifier, loopback auth, corrupt-DB recovery) and
+fixed every real finding, gate-green:
+- License verifier: a naive (tz-less) `expires_at` raised TypeError and locked
+  out a paying holder — fixed with a never-raising UTC-normalizing parse;
+  documented the load-bearing canonical-JSON convention; added regression tests.
+- Auth: exemptions were prefix-matched (`startswith`), which would silently
+  exempt a future `/healthz_admin`-style route — made exact-match.
+- Corrupt-DB recovery: serialized under a lock with a collision-safe,
+  microsecond-stamped backup name so concurrent startup workers can't overwrite
+  each other's backup; documented the load-bearing except ordering. Narrowed
+  migration 5's blanket `except` so a genuine ALTER failure retries instead of
+  being marked applied.
+- Sidecar: closed an orphan-on-quit race (re-check `shutting_down` under the
+  child lock after spawn) and made the loopback token **persistent per install**
+  (0600 in the app-config dir) so an adopted, already-running sidecar shares the
+  secret — the earlier per-launch uuid would 401 the webview against a survivor.
+- Frontend: root `load()` now awaits the token before its first request
+  (closing a desktop 401 race); `get_api_token` failures log loudly instead of
+  degrading silently.
+Verified false positive: `stop_api`'s tokio `kill().await` already reaps (unlike
+std), so no zombie.
+
 ### 2026-07-01 - Overnight autonomous session: deploy path + monetization core
 
 Worked as autonomous technical co-founder toward the north star (deploy + first
