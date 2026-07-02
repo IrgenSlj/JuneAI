@@ -10,8 +10,7 @@ from __future__ import annotations
 import os
 import time
 from collections.abc import AsyncIterator
-
-from openai import AsyncOpenAI
+from typing import TYPE_CHECKING
 
 from .base import (
     GenerateRequest,
@@ -22,6 +21,9 @@ from .base import (
     tool_specs_to_openai,
 )
 from .provenance import CloudCallEvent, record_cloud_call
+
+if TYPE_CHECKING:
+    from openai import AsyncOpenAI
 
 
 def _resolve_api_key() -> str | None:
@@ -60,7 +62,12 @@ class GeminiProvider:
         # Build once and reuse: a fresh AsyncOpenAI per call leaks an httpx
         # connection (a file descriptor) every turn. Rebuild only if the key
         # changes (e.g. the user rotates their API key in settings).
+        # Import openai lazily here (not at module load) so merely importing the
+        # provider layer — which happens on every API boot — doesn't drag in the
+        # large openai SDK tree. It's only needed once an actual cloud call runs.
         if self._cached_client is None or self._cached_key != api_key:
+            from openai import AsyncOpenAI
+
             self._cached_client = AsyncOpenAI(base_url=self.base_url, api_key=api_key)
             self._cached_key = api_key
         return self._cached_client

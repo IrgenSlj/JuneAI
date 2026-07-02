@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import AsyncIterator
-
-from openai import AsyncOpenAI
+from typing import TYPE_CHECKING
 
 from .base import (
     GenerateRequest,
@@ -20,6 +19,9 @@ from .base import (
     parse_openai_tool_calls,
     tool_specs_to_openai,
 )
+
+if TYPE_CHECKING:
+    from openai import AsyncOpenAI
 
 
 class GemmaProvider:
@@ -40,7 +42,11 @@ class GemmaProvider:
 
     def _client(self) -> AsyncOpenAI:
         # Build once and reuse: a new client per call would drop connection pooling.
+        # Import openai lazily (not at module load): the provider layer is imported
+        # on every API boot, but the openai SDK is only needed once inference runs.
         if self._cached_client is None:
+            from openai import AsyncOpenAI
+
             self._cached_client = AsyncOpenAI(base_url=self.base_url, api_key=self._api_key)
         return self._cached_client
 
