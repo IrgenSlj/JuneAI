@@ -15,6 +15,7 @@ Usage::
 from __future__ import annotations
 
 import logging
+import sqlite3
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -138,8 +139,12 @@ def _migration_004(conn: Any) -> None:
 def _migration_005(conn: Any) -> None:
     """Add access_count and last_accessed to semantic_facts.
 
-    Idempotent: each ALTER is wrapped in a try/except so running this
-    migration a second time (e.g. on an already-migrated db) is safe.
+    Idempotent for the already-applied case only: a "duplicate column name"
+    error means the column exists (this migration ran before), which is safe to
+    swallow. Any OTHER error (missing table, disk full, ...) is a genuine
+    failure and MUST propagate — otherwise the migration is marked applied,
+    skipped forever, and callers hit an unhelpful missing-column error at query
+    time instead of a clean retry on the next startup.
     """
     for stmt in (
         "ALTER TABLE semantic_facts ADD COLUMN access_count INTEGER NOT NULL DEFAULT 0",
@@ -147,8 +152,9 @@ def _migration_005(conn: Any) -> None:
     ):
         try:
             conn.execute(stmt)
-        except Exception:
-            pass
+        except sqlite3.OperationalError as exc:
+            if "duplicate column" not in str(exc).lower():
+                raise
     conn.commit()
 
 

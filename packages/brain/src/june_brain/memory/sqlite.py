@@ -141,14 +141,38 @@ _log = logging.getLogger(__name__)
 # Consumers (e.g. /system) may read this to surface the recovery event.
 _last_recovery_backup: str | None = None
 
+# Serializes corruption recovery so two thread-pool workers that miss the
+# connection cache in the same instant cannot both move the same file aside
+# (shutil.move overwrites its destination, which would silently destroy the
+# first thread's backup). Recovery is a rare startup event, so contention here
+# is effectively nil. Also guards the _last_recovery_backup write.
+_recovery_lock = threading.Lock()
+
 
 def _utc_stamp() -> str:
-    return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    # Microsecond precision so two recoveries that land in the same wall-clock
+    # second (e.g. two processes, or the sub-second gap between siblings) still
+    # get distinct backup names.
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%S_%fZ")
+
+
+def _unique_dest(path: Path, stamp: str) -> Path:
+    """A .corrupt-<stamp> destination that does not already exist.
+
+    Appends a counter on the astronomically-unlikely stamp collision so a
+    prior backup is never overwritten (shutil.move would otherwise clobber it).
+    """
+    dest = path.with_name(path.name + f".corrupt-{stamp}")
+    n = 1
+    while dest.exists():
+        dest = path.with_name(path.name + f".corrupt-{stamp}.{n}")
+        n += 1
+    return dest
 
 
 def _move_aside(path: Path, stamp: str) -> None:
     """Move *path* to *path*.corrupt-<stamp>; fall back to deletion so startup always succeeds."""
-    dest = path.with_name(path.name + f".corrupt-{stamp}")
+    dest = _unique_dest(path, stamp)
     try:
         shutil.move(str(path), str(dest))
         _log.warning("june.db recovery: moved %s -> %s", path.name, dest.name)
@@ -196,6 +220,10 @@ def _check_and_recover_if_corrupt(path_str: str) -> None:
             is_corrupt = True
     except sqlite3.OperationalError:
         # Transient: lock, busy, permission — not corruption.  Let it propagate.
+        # ORDERING IS LOAD-BEARING: OperationalError IS-A DatabaseError in the
+        # sqlite3 exception hierarchy, so this clause MUST stay above the
+        # DatabaseError clause below. Swapping them would misclassify a locked
+        # database as corrupt and destroy a healthy DB that is merely in use.
         raise
     except sqlite3.DatabaseError:
         # Genuine malformation: "database disk image is malformed",
@@ -230,8 +258,13 @@ def _get_connection(db_path: str) -> sqlite3.Connection:
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         # Probe existing files for corruption before opening the real connection.
         # An absent file (first run) is fine; :memory: is always fine.
+        # Serialize under the recovery lock and re-check existence inside it: a
+        # concurrent worker may have already moved a corrupt file aside while we
+        # waited, in which case there is nothing left to probe.
         if db_path != ":memory:" and Path(db_path).exists():
-            _check_and_recover_if_corrupt(db_path)
+            with _recovery_lock:
+                if Path(db_path).exists():
+                    _check_and_recover_if_corrupt(db_path)
         conn = sqlite3.connect(db_path, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
