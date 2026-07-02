@@ -31,13 +31,19 @@ from june_brain.auth import validate_api_key
 
 logger = logging.getLogger(__name__)
 
-_EXEMPT_PREFIXES = (
-    "/healthz",
-    "/openapi.json",
-    "/docs",
-    "/redoc",
-    "/setup/status",
-    "/setup/apply",
+# Exact paths (not prefixes): a startswith() match would silently exempt any
+# future route that merely shares the prefix (e.g. "/healthz_admin",
+# "/setup/status_internal"), opening it to unauthenticated access. Every exempt
+# path here is a single concrete endpoint, so match exactly.
+_EXEMPT_PATHS = frozenset(
+    {
+        "/healthz",
+        "/openapi.json",
+        "/docs",
+        "/redoc",
+        "/setup/status",
+        "/setup/apply",
+    }
 )
 
 
@@ -49,7 +55,7 @@ async def api_key_middleware(request: Request, call_next):  # type: ignore[no-un
         return await call_next(request)
 
     path = request.url.path
-    if any(path.startswith(prefix) for prefix in _EXEMPT_PREFIXES):
+    if path in _EXEMPT_PATHS:
         return await call_next(request)
 
     # OPTIONS preflight — no auth needed
@@ -82,9 +88,6 @@ async def api_key_middleware(request: Request, call_next):  # type: ignore[no-un
 # Loopback token middleware (desktop-app shared-secret, opt-in via env)
 # ---------------------------------------------------------------------------
 
-_LOOPBACK_EXEMPT = ("/healthz",)
-
-
 async def loopback_token_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
     """Enforce ``X-June-Token`` when ``JUNE_API_TOKEN`` is set and non-empty.
 
@@ -96,9 +99,12 @@ async def loopback_token_middleware(request: Request, call_next):  # type: ignor
     if not token:
         return await call_next(request)
 
-    path = request.url.path
-    if any(path.startswith(prefix) for prefix in _LOOPBACK_EXEMPT):
+    # Exact match, not startswith: a prefix match would exempt a future
+    # "/healthz_admin"-style route from the token check entirely.
+    if request.url.path == "/healthz":
         return await call_next(request)
+
+    path = request.url.path
 
     provided = request.headers.get("X-June-Token", "")
     if not hmac.compare_digest(provided, token):
