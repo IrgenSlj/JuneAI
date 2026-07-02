@@ -14,6 +14,7 @@ from ..schemas import (
     ActivityEntryView,
     ActivityResponse,
     CapabilityProfileView,
+    EntitlementView,
     LedgerEntryView,
     LedgerPageResponse,
     LedgerSummary,
@@ -54,6 +55,30 @@ def _ledger_summary() -> LedgerSummary | None:
         return None
 
 
+def _entitlement_view() -> EntitlementView | None:
+    """Build the EntitlementView for /system. Best-effort; never raises."""
+    try:
+        from june_brain.licensing import get_entitlement
+
+        ent = get_entitlement()
+        return EntitlementView(
+            tier=ent.tier,
+            status=ent.status,
+            holder=ent.holder if ent.holder else None,
+            valid_until=ent.valid_until,
+            features=sorted(list(ent.features)),
+        )
+    except Exception:  # noqa: BLE001 - the view must never break the status badge
+        return None
+
+
+@router.get("/system/entitlement", response_model=EntitlementView)
+def get_entitlement_view() -> EntitlementView:
+    """Report the current license entitlement (free by default, no phone-home)."""
+    view = _entitlement_view()
+    return view if view is not None else EntitlementView(tier="free", status="free — no license installed")
+
+
 @router.get("/system", response_model=SystemStatus)
 def get_system_status() -> SystemStatus:
     """Report which runtime is active and whether it's actually usable.
@@ -86,6 +111,7 @@ def get_system_status() -> SystemStatus:
             api_key_present=False,
             version=build_version(),
             ledger_summary=_ledger_summary(),
+            entitlement=_entitlement_view(),
         )
 
     ollama_reachable = False
@@ -133,6 +159,7 @@ def get_system_status() -> SystemStatus:
         api_key_present=bool(runtime.api_key) and runtime.api_key != "ollama",
         version=build_version(),
         ledger_summary=_ledger_summary(),
+        entitlement=_entitlement_view(),
     )
 
 

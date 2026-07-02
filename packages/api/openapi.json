@@ -1530,6 +1530,28 @@
         }
       }
     },
+    "/system/entitlement": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Get Entitlement View",
+        "description": "Report the current license entitlement (free by default, no phone-home).",
+        "operationId": "get_entitlement_view_system_entitlement_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntitlementView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/system": {
       "get": {
         "tags": [
@@ -2655,6 +2677,59 @@
         },
         "type": "object",
         "title": "DemoSeedRequest"
+      },
+      "EntitlementView": {
+        "properties": {
+          "tier": {
+            "type": "string",
+            "title": "Tier",
+            "description": "'free', 'pro', or 'founder'."
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Human-readable, non-alarming status line."
+          },
+          "holder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Holder",
+            "description": "Licensee display name, if licensed."
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until",
+            "description": "ISO expiry, or null for lifetime/free."
+          },
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Features",
+            "description": "Enabled pro feature keys."
+          }
+        },
+        "type": "object",
+        "required": [
+          "tier",
+          "status"
+        ],
+        "title": "EntitlementView",
+        "description": "Honest current entitlement for the shells (GET /system + /system/entitlement)."
       },
       "ForgetKeyResponse": {
         "properties": {
@@ -4624,6 +4699,17 @@
               }
             ],
             "description": "Trust Ledger summary (ADR 0022): entry count, last entry, egress today, last verification."
+          },
+          "entitlement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntitlementView"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Current license entitlement (free by default, no phone-home)."
           }
         },
         "type": "object",

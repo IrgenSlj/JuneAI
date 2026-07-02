@@ -7,6 +7,16 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+class EntitlementView(BaseModel):
+    """Honest current entitlement for the shells (GET /system + /system/entitlement)."""
+
+    tier: str = Field(..., description="'free', 'pro', or 'founder'.")
+    status: str = Field(..., description="Human-readable, non-alarming status line.")
+    holder: str | None = Field(default=None, description="Licensee display name, if licensed.")
+    valid_until: str | None = Field(default=None, description="ISO expiry, or null for lifetime/free.")
+    features: list[str] = Field(default_factory=list, description="Enabled pro feature keys.")
+
+
 class LedgerSummary(BaseModel):
     """Trust Ledger summary embedded in GET /system (ADR 0022)."""
 
@@ -75,6 +85,10 @@ class SystemStatus(BaseModel):
     ledger_summary: LedgerSummary | None = Field(
         default=None,
         description="Trust Ledger summary (ADR 0022): entry count, last entry, egress today, last verification.",
+    )
+    entitlement: EntitlementView | None = Field(
+        default=None,
+        description="Current license entitlement (free by default, no phone-home).",
     )
 
 

@@ -656,6 +656,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/entitlement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Entitlement View
+         * @description Report the current license entitlement (free by default, no phone-home).
+         */
+        get: operations["get_entitlement_view_system_entitlement_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system": {
         parameters: {
             query?: never;
@@ -1150,6 +1170,37 @@ export interface components {
              * @default demo
              */
             user_id: string;
+        };
+        /**
+         * EntitlementView
+         * @description Honest current entitlement for the shells (GET /system + /system/entitlement).
+         */
+        EntitlementView: {
+            /**
+             * Tier
+             * @description 'free', 'pro', or 'founder'.
+             */
+            tier: string;
+            /**
+             * Status
+             * @description Human-readable, non-alarming status line.
+             */
+            status: string;
+            /**
+             * Holder
+             * @description Licensee display name, if licensed.
+             */
+            holder?: string | null;
+            /**
+             * Valid Until
+             * @description ISO expiry, or null for lifetime/free.
+             */
+            valid_until?: string | null;
+            /**
+             * Features
+             * @description Enabled pro feature keys.
+             */
+            features?: string[];
         };
         /**
          * ForgetKeyResponse
@@ -2565,6 +2616,8 @@ export interface components {
             version: string;
             /** @description Trust Ledger summary (ADR 0022): entry count, last entry, egress today, last verification. */
             ledger_summary?: components["schemas"]["LedgerSummary"] | null;
+            /** @description Current license entitlement (free by default, no phone-home). */
+            entitlement?: components["schemas"]["EntitlementView"] | null;
         };
         /** TaskApproveRequest */
         TaskApproveRequest: {
@@ -4165,6 +4218,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_entitlement_view_system_entitlement_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitlementView"];
                 };
             };
         };
