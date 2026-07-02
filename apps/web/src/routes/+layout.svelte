@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { page } from "$app/stores";
   import "@june/design/tokens.css";
   import "./app.css";
@@ -7,6 +7,7 @@
   import { theme, toggleTheme } from "$lib/stores/theme.svelte.js";
   import { chat } from "$lib/stores/chat.svelte.js";
   import { Mascot } from "@june/ui";
+  import { apiUrl } from "$lib/api.js";
 
   const { children } = $props();
 
@@ -43,8 +44,75 @@
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Readiness gate
+  // ---------------------------------------------------------------------------
+  // States:
+  //   checking  — first probe in-flight; nothing rendered (imperceptible when API is up)
+  //   ready     — probe succeeded; render app normally
+  //   warming   — probe failed; show warming screen, poll /healthz every 1s
+  //   timeout   — 60s elapsed without success; show "taking longer" state with Retry
+  type GateState = "checking" | "ready" | "warming" | "timeout";
+  let gateState = $state<GateState>("checking");
+
+  let pollTimer: ReturnType<typeof setInterval> | null = null;
+  let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const POLL_INTERVAL_MS = 1000;
+  const GATE_TIMEOUT_MS = 60_000;
+  const PROBE_TIMEOUT_MS = 2000;
+
+  async function probeHealthz(): Promise<boolean> {
+    try {
+      const res = await fetch(`${apiUrl}/healthz`, {
+        signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  function stopPolling(): void {
+    if (pollTimer !== null) { clearInterval(pollTimer); pollTimer = null; }
+    if (timeoutTimer !== null) { clearTimeout(timeoutTimer); timeoutTimer = null; }
+  }
+
+  function startPolling(): void {
+    stopPolling();
+
+    timeoutTimer = setTimeout(() => {
+      stopPolling();
+      gateState = "timeout";
+    }, GATE_TIMEOUT_MS);
+
+    pollTimer = setInterval(async () => {
+      const ok = await probeHealthz();
+      if (ok) {
+        stopPolling();
+        gateState = "ready";
+      }
+    }, POLL_INTERVAL_MS);
+  }
+
+  function retryProbe(): void {
+    gateState = "warming";
+    startPolling();
+  }
+
+  onDestroy(() => stopPolling());
+
   onMount(async () => {
-    void loadSystem();
+    // Probe /healthz once before rendering any children.
+    // This is a raw fetch — /healthz is not in the OpenAPI client and needs no auth token.
+    // On a healthy API (dev/browser) this resolves in <50ms so no visible blank.
+    const ok = await probeHealthz();
+    if (ok) {
+      gateState = "ready";
+    } else {
+      gateState = "warming";
+      startPolling();
+    }
 
     try {
       const { registerSW } = await import("virtual:pwa-register");
@@ -53,108 +121,142 @@
       // SW module only exists in prod builds; ignore in dev.
     }
   });
+
+  // Load system info once the API is confirmed reachable.
+  $effect(() => {
+    if (gateState === "ready") {
+      void loadSystem();
+    }
+  });
 </script>
 
-<a class="skip-link" href="#main-content">Skip to main content</a>
+{#if gateState === "ready"}
+  <a class="skip-link" href="#main-content">Skip to main content</a>
 
-{#if showHeader}
-  <header class="site-header">
-    <div class="site-header-inner">
-      <div class="left">
-        <a class="brand" href="/" aria-label="June — home">
-          <Mascot busy={chat.streaming} />
-        </a>
-        <nav class="nav-links" aria-label="Primary">
-          <a href="/" class:active={pathname === "/"}>Home</a>
-          <a href="/chat" class:active={pathname.startsWith("/chat")}>Chat</a>
-          <a href="/tasks" class:active={pathname.startsWith("/tasks")}>Promises</a>
-          <a href="/memory" class:active={pathname.startsWith("/memory")}>Memory</a>
-          <a href="/skills" class:active={pathname.startsWith("/skills")}>Skills</a>
-          <a href="/system" class:active={pathname.startsWith("/system")}>Trust</a>
-        </nav>
-      </div>
+  {#if showHeader}
+    <header class="site-header">
+      <div class="site-header-inner">
+        <div class="left">
+          <a class="brand" href="/" aria-label="June — home">
+            <Mascot busy={chat.streaming} />
+          </a>
+          <nav class="nav-links" aria-label="Primary">
+            <a href="/" class:active={pathname === "/"}>Home</a>
+            <a href="/chat" class:active={pathname.startsWith("/chat")}>Chat</a>
+            <a href="/tasks" class:active={pathname.startsWith("/tasks")}>Promises</a>
+            <a href="/memory" class:active={pathname.startsWith("/memory")}>Memory</a>
+            <a href="/skills" class:active={pathname.startsWith("/skills")}>Skills</a>
+            <a href="/system" class:active={pathname.startsWith("/system")}>Trust</a>
+          </nav>
+        </div>
 
-      <div class="right">
-        {#if system.data}
-          {@const s = system.data}
-          <span
-            class="runtime"
-            title="Endpoint: {s.base_url || 'none'}"
-          >
-            <span class="dot" data-mode={s.mode}></span>
+        <div class="right">
+          {#if system.data}
+            {@const s = system.data}
             <span
-              class="runtime-text"
-              title={s.mode === "local"
-                ? "Model — runs on your device"
-                : "Model — runs in the cloud"}>{s.label} · {s.model}</span>
-            <span class="runtime-sep" aria-hidden="true">·</span>
-            <span class="privacy" data-dial={s.privacy_dial} title={dialTooltip(s.privacy_dial)}>privacy: {dialLabel(s.privacy_dial)}</span>
-            {#if s.provider === "gemma"}
-              {#if s.ollama_reachable && s.ollama_has_model}
-                <span class="runtime-note">· ready</span>
-              {:else}
-                <a class="warn-link" href="/help/ollama">
-                  · {s.ollama_reachable ? "model missing" : "Ollama offline"}
-                </a>
+              class="runtime"
+              title="Endpoint: {s.base_url || 'none'}"
+            >
+              <span class="dot" data-mode={s.mode}></span>
+              <span
+                class="runtime-text"
+                title={s.mode === "local"
+                  ? "Model — runs on your device"
+                  : "Model — runs in the cloud"}>{s.label} · {s.model}</span>
+              <span class="runtime-sep" aria-hidden="true">·</span>
+              <span class="privacy" data-dial={s.privacy_dial} title={dialTooltip(s.privacy_dial)}>privacy: {dialLabel(s.privacy_dial)}</span>
+              {#if s.provider === "gemma"}
+                {#if s.ollama_reachable && s.ollama_has_model}
+                  <span class="runtime-note">· ready</span>
+                {:else}
+                  <a class="warn-link" href="/help/ollama">
+                    · {s.ollama_reachable ? "model missing" : "Ollama offline"}
+                  </a>
+                {/if}
+              {:else if !s.api_key_present}
+                <a class="warn-link" href="/settings">· key missing</a>
               {/if}
-            {:else if !s.api_key_present}
-              <a class="warn-link" href="/settings">· key missing</a>
-            {/if}
-            {#if s.version && s.version !== "unknown"}
-              <span class="runtime-build" title="Build (git SHA)">· build {s.version}</span>
-            {/if}
-          </span>
-        {:else if system.error}
-          <span class="runtime offline">
-            <span class="dot" data-mode="api"></span>
-            <span class="runtime-text">API unreachable</span>
-          </span>
-        {/if}
-
-        <button
-          type="button"
-          class="icon-btn"
-          onclick={toggleTheme}
-          aria-label={theme.value === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-          title={theme.value === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-        >
-          {#if theme.value === "light"}
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="4" />
-              <line x1="12" y1="2" x2="12" y2="4" />
-              <line x1="12" y1="20" x2="12" y2="22" />
-              <line x1="4.93" y1="4.93" x2="6.34" y2="6.34" />
-              <line x1="17.66" y1="17.66" x2="19.07" y2="19.07" />
-              <line x1="2" y1="12" x2="4" y2="12" />
-              <line x1="20" y1="12" x2="22" y2="12" />
-              <line x1="4.93" y1="19.07" x2="6.34" y2="17.66" />
-              <line x1="17.66" y1="6.34" x2="19.07" y2="4.93" />
-            </svg>
-          {:else}
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-            </svg>
+              {#if s.version && s.version !== "unknown"}
+                <span class="runtime-build" title="Build (git SHA)">· build {s.version}</span>
+              {/if}
+            </span>
+          {:else if system.error}
+            <span class="runtime offline">
+              <span class="dot" data-mode="api"></span>
+              <span class="runtime-text">API unreachable</span>
+            </span>
           {/if}
-        </button>
 
-        <a
-          href="/settings"
-          class="icon-btn"
-          class:active={pathname.startsWith("/settings")}
-          aria-label="Settings"
-          title="Settings"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-          </svg>
-        </a>
+          <button
+            type="button"
+            class="icon-btn"
+            onclick={toggleTheme}
+            aria-label={theme.value === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            title={theme.value === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {#if theme.value === "light"}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="4" />
+                <line x1="12" y1="2" x2="12" y2="4" />
+                <line x1="12" y1="20" x2="12" y2="22" />
+                <line x1="4.93" y1="4.93" x2="6.34" y2="6.34" />
+                <line x1="17.66" y1="17.66" x2="19.07" y2="19.07" />
+                <line x1="2" y1="12" x2="4" y2="12" />
+                <line x1="20" y1="12" x2="22" y2="12" />
+                <line x1="4.93" y1="19.07" x2="6.34" y2="17.66" />
+                <line x1="17.66" y1="6.34" x2="19.07" y2="4.93" />
+              </svg>
+            {:else}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            {/if}
+          </button>
+
+          <a
+            href="/settings"
+            class="icon-btn"
+            class:active={pathname.startsWith("/settings")}
+            aria-label="Settings"
+            title="Settings"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </a>
+        </div>
       </div>
-    </div>
-  </header>
-{/if}
+    </header>
+  {/if}
 
-{@render children()}
+  {@render children()}
+{:else if gateState === "warming" || gateState === "timeout"}
+  <div
+    class="warming-gate"
+    role="status"
+    aria-live="polite"
+    aria-label={gateState === "timeout" ? "June is taking longer than expected to start" : "June is starting up"}
+  >
+    <div class="warming-inner">
+      <Mascot busy={gateState === "warming"} size={56} />
+      {#if gateState === "warming"}
+        <h1 class="warming-heading">June is starting up</h1>
+        <p class="warming-sub">Waking the local brain — this takes a few seconds on launch.</p>
+      {:else}
+        <h1 class="warming-heading">Taking longer than expected</h1>
+        <p class="warming-sub">
+          The local brain has not responded after 60 seconds.
+          Check that the sidecar process started, or
+          <a href="/help/ollama" class="warming-link">view troubleshooting guidance</a>.
+        </p>
+        <button type="button" class="warming-retry" onclick={retryProbe}>
+          Retry
+        </button>
+      {/if}
+    </div>
+  </div>
+{/if}
 
 <style>
   .site-header {
@@ -321,5 +423,70 @@
     .warn-link {
       font-size: var(--size-xs);
     }
+  }
+
+  /* ---------------------------------------------------------------------------
+   * Warming gate — full-viewport startup screen shown while the sidecar wakes.
+   * Hidden entirely on a healthy API (gateState goes straight to "ready").
+   * --------------------------------------------------------------------------- */
+  .warming-gate {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-base);
+    z-index: 100;
+  }
+
+  .warming-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-4);
+    max-width: 420px;
+    padding: var(--space-6) var(--space-5);
+    text-align: center;
+  }
+
+  .warming-heading {
+    font-family: var(--font-sans);
+    font-size: var(--size-xl);
+    font-weight: 500;
+    color: var(--color-fg-primary);
+    margin: 0;
+    line-height: var(--leading-tight);
+  }
+
+  .warming-sub {
+    font-size: var(--size-sm);
+    color: var(--color-fg-muted);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  .warming-link {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+  .warming-link:hover {
+    text-decoration: underline;
+  }
+
+  .warming-retry {
+    margin-top: var(--space-2);
+    padding: var(--space-2) var(--space-5);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-raised);
+    color: var(--color-fg-secondary);
+    font-family: var(--font-sans);
+    font-size: var(--size-sm);
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease;
+  }
+  .warming-retry:hover {
+    background: var(--color-bg-sunken);
+    color: var(--color-fg-primary);
   }
 </style>
