@@ -95,6 +95,15 @@ export interface JuneClientOptions {
    * (`streamChat`) is intentionally exempt.
    */
   requestTimeoutMs?: number;
+  /**
+   * Optional loopback shared-secret token. When set and non-empty, every
+   * request carries it as `X-June-Token` so the packaged desktop app can
+   * authenticate against the sidecar's `JUNE_API_TOKEN` enforcement. In a
+   * browser / dev build the token is unset, no header is sent, and the
+   * server-side middleware is a pass-through. The token is fetched
+   * asynchronously after construction, so `setApiToken` also exists.
+   */
+  apiToken?: string;
 }
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
@@ -128,6 +137,15 @@ export function createJuneClient(options: JuneClientOptions) {
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
+  // Mutable so the async token fetch (Tauri) can install it after construction.
+  // Undefined/empty in the browser and dev → no header, server middleware inert.
+  let apiToken = options.apiToken;
+
+  /** Add the loopback token header when one is set (no-op otherwise). */
+  function applyAuth(headers: Headers): void {
+    if (apiToken) headers.set("X-June-Token", apiToken);
+  }
+
   /** Issue a JSON request with a default timeout; throw ApiError on non-2xx. */
   async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     const headers = new Headers(init?.headers);
@@ -135,6 +153,7 @@ export function createJuneClient(options: JuneClientOptions) {
     if (init?.body !== undefined && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json");
     }
+    applyAuth(headers);
     const response = await fetchImpl(`${baseUrl}${path}`, {
       ...init,
       headers,
@@ -152,6 +171,15 @@ export function createJuneClient(options: JuneClientOptions) {
 
   return {
     baseUrl,
+
+    /**
+     * Set (or clear) the loopback token used for `X-June-Token`. Called after
+     * construction once the Tauri shell hands the token to the webview. Passing
+     * undefined/empty reverts to no-header (browser/dev) behaviour.
+     */
+    setApiToken(token: string | undefined): void {
+      apiToken = token || undefined;
+    },
 
     /** GET /system — runtime indicator (provider, model, mode). */
     getSystem(): Promise<SystemStatus> {
@@ -478,10 +506,12 @@ export function createJuneClient(options: JuneClientOptions) {
       taskId: string,
       signal?: AbortSignal,
     ): AsyncGenerator<TaskEventFrame, void, void> {
+      const headers = new Headers({ Accept: "text/event-stream" });
+      applyAuth(headers);
       const response = await fetchImpl(
         `${baseUrl}/tasks/${encodeURIComponent(userId)}/${encodeURIComponent(taskId)}/events`,
         {
-          headers: { Accept: "text/event-stream" },
+          headers,
           signal,
         },
       );
@@ -591,12 +621,14 @@ export function createJuneClient(options: JuneClientOptions) {
       options: StreamChatOptions,
     ): AsyncGenerator<ChatEvent, void, void> {
       const { signal, ...body } = options;
+      const headers = new Headers({
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      });
+      applyAuth(headers);
       const response = await fetchImpl(`${baseUrl}/chat`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "text/event-stream",
-        },
+        headers,
         body: JSON.stringify(body),
         signal,
       });

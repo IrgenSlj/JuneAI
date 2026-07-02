@@ -79,6 +79,15 @@ export interface Platform {
   isModelPulled(tag: string): Promise<boolean>;
   pullModel(tag: string, onProgress?: (p: OllamaProgress) => void): Promise<void>;
 
+  /**
+   * Loopback shared-secret for the packaged sidecar. The desktop shell
+   * generates it at startup and enforces it via `JUNE_API_TOKEN`; the webview
+   * fetches it here and sends it as `X-June-Token`. Returns undefined off the
+   * desktop (browser / mobile), where "no token" is the valid, expected state
+   * — so implementations return undefined rather than throwing.
+   */
+  getApiToken(): Promise<string | undefined>;
+
   // Native-only: Phase 4 (native affordances).
   registerHotkey(combo: string, handler: () => void): Promise<HotkeyId>;
   unregisterHotkey(id: HotkeyId): Promise<void>;
@@ -117,6 +126,7 @@ export type TauriCommand =
   | "start_ollama"
   | "is_model_pulled"
   | "pull_model"
+  | "get_api_token"
   | "register_hotkey"
   | "unregister_hotkey"
   | "set_tray_menu"

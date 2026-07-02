@@ -42,16 +42,30 @@ pub struct SidecarState {
     pub child: Mutex<Option<Child>>,
 }
 
+/// Per-launch loopback shared-secret. Generated once at startup (lib.rs setup),
+/// set on the sidecar's `JUNE_API_TOKEN` env, and handed to the webview through
+/// the `get_api_token` command so it can send `X-June-Token` on every request.
+pub struct TokenState(pub String);
+
 /// Returns true if the june-api is already answering on `port`.
-/// Uses the /system endpoint (confirmed HTTP 200 in the PyInstaller spike).
+/// Probes /healthz — the one path the loopback-token middleware always exempts,
+/// so the health-wait still succeeds once JUNE_API_TOKEN enforcement is active
+/// (a token-less probe of /system would 401 and the wait would never resolve).
 pub async fn api_reachable(port: u16) -> bool {
     reqwest::Client::new()
-        .get(format!("http://127.0.0.1:{port}/system"))
+        .get(format!("http://127.0.0.1:{port}/healthz"))
         .timeout(Duration::from_secs(1))
         .send()
         .await
         .map(|r| r.status().is_success())
         .unwrap_or(false)
+}
+
+/// Return the per-launch loopback token so the webview can send it as
+/// `X-June-Token`. Registered in lib.rs `generate_handler!`.
+#[tauri::command]
+pub fn get_api_token(state: tauri::State<'_, TokenState>) -> String {
+    state.0.clone()
 }
 
 /// Start the bundled june-api sidecar. If the API is already reachable (e.g.
@@ -73,9 +87,15 @@ pub async fn start_api(app: AppHandle) -> Result<(), String> {
         .resolve("june-api/june-api", BaseDirectory::Resource)
         .map_err(|e| format!("Could not resolve june-api resource path: {e}"))?;
 
+    // The per-launch loopback token registered in lib.rs setup. Setting it here
+    // turns on the sidecar's X-June-Token enforcement; the webview reads the
+    // same value via get_api_token and sends it on every request.
+    let token = app.state::<TokenState>().0.clone();
+
     let mut cmd = Command::new(&binary_path);
     cmd.env("JUNE_API_HOST", "127.0.0.1")
         .env("JUNE_API_PORT", API_PORT.to_string())
+        .env("JUNE_API_TOKEN", &token)
         .stdout(Stdio::null())
         .stderr(Stdio::null());
 

@@ -99,6 +99,17 @@ export const tauriPlatform: Platform = {
   pullModel: (tag, onProgress) =>
     withProgress("ollama-pull-progress", tauriInvoke<void>("pull_model", { tag }), onProgress),
 
+  // Fetch the loopback token the Rust shell generated and set on the sidecar
+  // env. Return undefined on any error so a token-fetch failure degrades to the
+  // no-header path rather than breaking the app.
+  getApiToken: async () => {
+    try {
+      return await tauriInvoke<string>("get_api_token");
+    } catch {
+      return undefined;
+    }
+  },
+
   registerHotkey: async (combo, handler) => {
     const { listen } = await eventImport();
     const id = await tauriInvoke<HotkeyId>("register_hotkey", { combo });

@@ -20,7 +20,7 @@ use native::{get_autostart, set_autostart};
 use ollama::{
     bootstrap_ollama, is_model_pulled, is_ollama_installed, pull_model, start_ollama, OllamaState,
 };
-use sidecar::{start_api, stop_api, SidecarState};
+use sidecar::{get_api_token, start_api, stop_api, SidecarState, TokenState};
 use tauri::Manager;
 use tauri_plugin_autostart::MacosLauncher;
 
@@ -48,6 +48,12 @@ pub fn run() {
             native::install_tray(handle)?;
             native::register_hotkey(handle)?;
 
+            // Generate the per-launch loopback token once, before spawning the
+            // sidecar, and register it in Tauri state. start_api sets it on the
+            // sidecar's JUNE_API_TOKEN env and the get_api_token command hands
+            // the same value to the webview (uuid v4 = 122 bits of OS-random).
+            app.manage(TokenState(uuid::Uuid::new_v4().to_string()));
+
             // Start the june-api sidecar in the background so the window opens
             // immediately without blocking. The UI runtime badge reflects
             // readiness; the sidecar logs outcome to stderr.
@@ -70,6 +76,7 @@ pub fn run() {
             get_autostart,
             set_autostart,
             stop_api,
+            get_api_token,
         ])
         .build(tauri::generate_context!())
         .expect("error building June desktop application");

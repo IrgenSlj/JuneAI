@@ -22,6 +22,8 @@ serde_json = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
 which = "6"
 futures-util = "0.3"
+# Loopback token generation (already in the lock graph transitively; v4 = random).
+uuid = { version = "1", features = ["v4"] }
 tokio = { version = "1", features = ["process", "sync", "time", "io-util", "macros"] }
 # Phase 4: native affordances
 tauri-plugin-window-state = "2"

@@ -31,6 +31,9 @@ export const capacitorPlatform: Platform = {
   isModelPulled: (_t: string) => Promise.resolve(false),
   pullModel: (_t: string, _o?: (p: OllamaProgress) => void) => reject("pullModel"),
 
+  // No loopback token off the desktop; undefined is the valid "no token" state.
+  getApiToken: () => Promise.resolve(undefined),
+
   registerHotkey: (_c: string, _h: () => void) =>
     reject("registerHotkey") as Promise<HotkeyId>,
   unregisterHotkey: (_id: HotkeyId) => reject("unregisterHotkey"),

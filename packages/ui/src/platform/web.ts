@@ -81,6 +81,10 @@ export const webPlatform: Platform = {
   pullModel: (_tag: string, _onProgress?: (p: OllamaProgress) => void) =>
     Promise.reject(new UnsupportedError("pullModel", RUNTIME)),
 
+  // No loopback token in the browser — the server middleware is a pass-through
+  // there, so undefined (not an error) is the correct, non-throwing answer.
+  getApiToken: () => Promise.resolve(undefined),
+
   // Phase 4 — native affordances absent in the browser.
   registerHotkey: (_combo: string, _handler: () => void): Promise<HotkeyId> =>
     Promise.reject(new UnsupportedError("registerHotkey", RUNTIME)),
