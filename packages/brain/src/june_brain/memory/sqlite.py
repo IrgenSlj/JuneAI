@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 import sqlite3
 import threading
 from collections.abc import Mapping
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -132,6 +133,86 @@ def db_path() -> str:
 APP_STATE_SCHEMA_VERSION = 1
 
 # ---------------------------------------------------------------------------
+# Corrupt-database startup recovery
+# ---------------------------------------------------------------------------
+_log = logging.getLogger(__name__)
+
+# Populated when a corrupt DB is moved aside on startup; None otherwise.
+# Consumers (e.g. /system) may read this to surface the recovery event.
+_last_recovery_backup: str | None = None
+
+
+def _utc_stamp() -> str:
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _move_aside(path: Path, stamp: str) -> None:
+    """Move *path* to *path*.corrupt-<stamp>; fall back to deletion so startup always succeeds."""
+    dest = path.with_name(path.name + f".corrupt-{stamp}")
+    try:
+        shutil.move(str(path), str(dest))
+        _log.warning("june.db recovery: moved %s -> %s", path.name, dest.name)
+    except Exception as exc:  # noqa: BLE001
+        _log.warning(
+            "june.db recovery: could not move %s (%s); deleting to allow fresh start", path.name, exc
+        )
+        try:
+            path.unlink(missing_ok=True)
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def _recover_corrupt_db(path_str: str) -> None:
+    """Move the corrupt DB file and its WAL/SHM siblings aside; set the module flag."""
+    global _last_recovery_backup
+    path = Path(path_str)
+    stamp = _utc_stamp()
+    backup_name = path.name + f".corrupt-{stamp}"
+    _log.warning(
+        "june.db at %s failed integrity check — starting fresh. "
+        "Corrupt file backed up as %s",
+        path,
+        path.parent / backup_name,
+    )
+    for sibling in (path, Path(path_str + "-wal"), Path(path_str + "-shm")):
+        if sibling.exists():
+            _move_aside(sibling, stamp)
+    _last_recovery_backup = str(path.parent / backup_name)
+
+
+def _check_and_recover_if_corrupt(path_str: str) -> None:
+    """Probe an existing DB file with PRAGMA quick_check; recover if corrupt.
+
+    Only called for files that already exist (not first-run, not :memory:).
+    Raises sqlite3.OperationalError for transient errors (e.g. database is locked)
+    so those propagate normally without triggering recovery.
+    """
+    probe: sqlite3.Connection | None = None
+    is_corrupt = False
+    try:
+        probe = sqlite3.connect(path_str)
+        row = probe.execute("PRAGMA quick_check").fetchone()
+        if row is None or row[0] != "ok":
+            is_corrupt = True
+    except sqlite3.OperationalError:
+        # Transient: lock, busy, permission — not corruption.  Let it propagate.
+        raise
+    except sqlite3.DatabaseError:
+        # Genuine malformation: "database disk image is malformed",
+        # "file is not a database", etc.
+        is_corrupt = True
+    finally:
+        if probe is not None:
+            try:
+                probe.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+    if is_corrupt:
+        _recover_corrupt_db(path_str)
+
+
+# ---------------------------------------------------------------------------
 # Connection pool — one SQLite connection per (thread, db_path)
 # ---------------------------------------------------------------------------
 _local = threading.local()
@@ -147,6 +228,10 @@ def _get_connection(db_path: str) -> sqlite3.Connection:
         # have been created yet, and sqlite won't make the parent dir.
         if db_path != ":memory:":
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        # Probe existing files for corruption before opening the real connection.
+        # An absent file (first run) is fine; :memory: is always fine.
+        if db_path != ":memory:" and Path(db_path).exists():
+            _check_and_recover_if_corrupt(db_path)
         conn = sqlite3.connect(db_path, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
