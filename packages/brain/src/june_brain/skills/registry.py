@@ -166,6 +166,51 @@ def resolve_secret(name: str) -> str:
     return os.environ.get(name, "")
 
 
+def _record_install_to_ledger(
+    *,
+    skill_key: str,
+    declared_scopes: list[str],
+    publisher: str,
+    verified: bool,
+    model_policy: str,
+    tools_preview: list[str],
+) -> None:
+    """Append a scope-review entry to the Trust Ledger on skill install (best-effort).
+
+    Uses kind='system' (the nearest VALID_KINDS value for a lifecycle event) and
+    encodes the specific event type in the payload as 'event': 'skill_scope_review'.
+
+    Derived scopes (from classify_action over the skill's tool list) are NOT
+    recorded here — tools are not discovered until first spawn. Only what is
+    honestly available at install time is recorded: the manifest-level
+    declared_scopes (always empty for a fresh registry install since RegistryEntry
+    carries none), the registry-stated publisher, verified flag, model_policy, and
+    the tools_preview list.
+    """
+    try:
+        from ..trust import get_writer
+
+        get_writer().append(
+            kind="system",
+            actor="june",
+            payload={
+                "event": "skill_scope_review",
+                "skill_key": skill_key,
+                "declared_scopes": declared_scopes,
+                "publisher": publisher,
+                "verified": verified,
+                "model_policy": model_policy,
+                "tools_preview": tools_preview,
+            },
+        )
+    except Exception:  # noqa: BLE001 - ledger is best-effort; never break skill install
+        import logging
+
+        logging.getLogger(__name__).debug(
+            "trust-ledger skill_scope_review append failed", exc_info=True
+        )
+
+
 def install_from_registry(
     key: str,
     *,
@@ -197,6 +242,14 @@ def install_from_registry(
     )
     manifest.entries[key] = new_entry
     save_manifest(manifest, manifest_path)
+    _record_install_to_ledger(
+        skill_key=key,
+        declared_scopes=list(new_entry.declared_scopes),
+        publisher=entry.publisher,
+        verified=entry.verified,
+        model_policy=entry.model_policy,
+        tools_preview=list(entry.tools_preview),
+    )
     return new_entry
 
 
