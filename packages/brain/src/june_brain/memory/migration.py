@@ -177,6 +177,94 @@ def _migration_006(conn: Any) -> None:
     """)
 
 
+@MIGRATIONS.register(7, "Retrieval v2: bi-temporal columns + FTS5 over fact text")
+def _migration_007(conn: Any) -> None:
+    """Add bi-temporal validity columns to semantic_facts + a synced FTS5 index.
+
+    ADR 0024. Columns follow the migration-5 idempotent pattern: a "duplicate
+    column" OperationalError means the column already exists (this migration
+    ran before) and is safe to swallow; any other error is a genuine failure
+    and MUST propagate. ``observed_at`` is added plain (no DEFAULT) because
+    SQLite forbids a non-constant default such as ``datetime('now')`` in
+    ``ALTER TABLE ... ADD COLUMN``, then backfilled from ``created_at``.
+
+    The FTS5 lexical channel is best-effort: if the SQLite build lacks the
+    fts5 module, we log a warning and return without creating the FTS table
+    or triggers — the columns and index above are still committed. This is
+    the graceful degradation ADR 0024 requires (never a hard failure).
+    """
+    for stmt in (
+        "ALTER TABLE semantic_facts ADD COLUMN valid_from TEXT",
+        "ALTER TABLE semantic_facts ADD COLUMN valid_to TEXT",
+        "ALTER TABLE semantic_facts ADD COLUMN observed_at TEXT",
+        "ALTER TABLE semantic_facts ADD COLUMN superseded_by TEXT",
+    ):
+        try:
+            conn.execute(stmt)
+        except sqlite3.OperationalError as exc:
+            if "duplicate column" not in str(exc).lower():
+                raise
+
+    conn.execute(
+        "UPDATE semantic_facts SET observed_at = created_at WHERE observed_at IS NULL"
+    )
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_semantic_facts_validity "
+        "ON semantic_facts(user_id, valid_to, valid_from)"
+    )
+
+    try:
+        conn.execute(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS semantic_facts_fts USING fts5("
+            "fact_id UNINDEXED, user_id UNINDEXED, text, "
+            "tokenize='unicode61 remove_diacritics 2')"
+        )
+    except sqlite3.OperationalError as exc:
+        msg = str(exc).lower()
+        if "no such module" in msg or "fts5" in msg:
+            logger.warning(
+                "Schema migration 7: FTS5 module unavailable (%s) — lexical "
+                "recall channel disabled; retrieval falls back to "
+                "vec+graph+structured signals only.",
+                exc,
+            )
+            return
+        raise
+
+    (fts_count,) = conn.execute("SELECT count(*) FROM semantic_facts_fts").fetchone()
+    if fts_count == 0:
+        conn.execute(
+            "INSERT INTO semantic_facts_fts(fact_id, user_id, text) "
+            "SELECT fact_id, user_id, text FROM semantic_facts"
+        )
+
+    conn.executescript("""
+        CREATE TRIGGER IF NOT EXISTS trg_semantic_facts_fts_insert
+        AFTER INSERT ON semantic_facts
+        BEGIN
+            INSERT INTO semantic_facts_fts(fact_id, user_id, text)
+            VALUES (new.fact_id, new.user_id, new.text);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS trg_semantic_facts_fts_delete
+        AFTER DELETE ON semantic_facts
+        BEGIN
+            DELETE FROM semantic_facts_fts
+            WHERE fact_id = old.fact_id AND user_id = old.user_id;
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS trg_semantic_facts_fts_update
+        AFTER UPDATE ON semantic_facts
+        BEGIN
+            DELETE FROM semantic_facts_fts
+            WHERE fact_id = old.fact_id AND user_id = old.user_id;
+            INSERT INTO semantic_facts_fts(fact_id, user_id, text)
+            VALUES (new.fact_id, new.user_id, new.text);
+        END;
+    """)
+
+
 def ensure_schema(conn: Any) -> None:
     """Idempotent: create tables + apply pending migrations."""
     MIGRATIONS.ensure(conn)
