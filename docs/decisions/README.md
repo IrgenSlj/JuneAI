@@ -46,6 +46,7 @@ Status progression:
 | [0021](0021-guard-layer.md) | Guard layer: untrusted-content framing, action gates, skill permissions | Accepted; partially implemented |
 | [0022](0022-trust-ledger.md) | Trust Ledger: tamper-evident, hash-chained local provenance | Accepted; implementation in progress |
 | [0023](0023-silence-model.md) | Silence Model: local rules-first surface-vs-defer policy | Accepted; v1 in progress |
+| [0024](0024-retrieval-v2-fusion-bitemporal.md) | Retrieval v2: multi-signal fusion and bi-temporal facts | Accepted; implementation in progress |
 
 ## Planned for v0.2
 
@@ -53,7 +54,6 @@ These ADRs are called for by [`JUNE_V02_BRIEF.md`](../../JUNE_V02_BRIEF.md) §9 
 
 | ID | Title | Workstream | Status |
 |---|---|---|---|
-| 0024 | Retrieval v2: multi-signal fusion & bi-temporal facts | W2 | Not yet drafted |
 | 0025 | Provenance-gated memory writes | W3 | Not yet drafted |
 | 0026 | Night Shift: ledgered offline consolidation (must reconcile with ADR 0016) | W4 | Not yet drafted |
 | 0027 | Apple FM instant tier & the "no third provider" interpretation | W5 | Not yet drafted (FOUNDER sign-off) |
