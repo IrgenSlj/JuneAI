@@ -1,5 +1,11 @@
 # June AI — Rebuild & Repo Reshape Plan
 
+> **SUPERSEDED (2026-07-06).** The rebuild described here shipped; its open items
+> are now carried by [`JUNE_V02_BRIEF.md`](../../JUNE_V02_BRIEF.md) (the lead
+> plan). Current project state is [`docs/CURRENT.md`](../CURRENT.md). The
+> "single authoritative working plan" claim below is superseded by those two.
+> Retained for history only. (Not physically archived because append-only ADRs link it.)
+
 > **Authority:** This document is the single authoritative working plan. It
 > supersedes the earlier `build-spec.md` (retired during repo consolidation;
 > recoverable from git history). The durable product worldview lives in

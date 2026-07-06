@@ -1,5 +1,9 @@
 # June — Master Design Brief
 
+> **SUPERSEDED (2026-07-06).** The design described here is realized in the shipped
+> UI. The active plan is [`JUNE_V02_BRIEF.md`](../../JUNE_V02_BRIEF.md); current
+> state is [`docs/CURRENT.md`](../CURRENT.md). Retained for history only.
+
 > **For:** Claude (on claude.ai, Artifacts enabled, latest Opus/Sonnet) — or any
 > chat-with-rendered-UI tool. **Two deliverables in one brief:** (Track A) the full
 > product UI/UX system, and (Track B) a depth presentation with architectural

@@ -2,6 +2,8 @@
 
 This directory records the architectural decisions that shape June. Each ADR captures a single decision, the context that produced it, the alternatives considered, and the consequences accepted.
 
+> For the current state of the whole project (per-subsystem summary, active plan, release status), see [`../CURRENT.md`](../CURRENT.md).
+
 ## Why ADRs
 
 Code tells you what is true today. ADRs tell you why it is true. When a future contributor (or you, six months from now) asks "why did we pick Svelte instead of React?" or "why Tauri instead of Electron?", the ADR is the answer. Without these, every old decision becomes a re-debate.
@@ -44,3 +46,16 @@ Status progression:
 | [0021](0021-guard-layer.md) | Guard layer: untrusted-content framing, action gates, skill permissions | Accepted; partially implemented |
 | [0022](0022-trust-ledger.md) | Trust Ledger: tamper-evident, hash-chained local provenance | Accepted; implementation in progress |
 | [0023](0023-silence-model.md) | Silence Model: local rules-first surface-vs-defer policy | Accepted; v1 in progress |
+
+## Planned for v0.2
+
+These ADRs are called for by [`JUNE_V02_BRIEF.md`](../../JUNE_V02_BRIEF.md) §9 and must be drafted *before* their workstream's implementation. Numbers are reserved in sequence; none is written yet.
+
+| ID | Title | Workstream | Status |
+|---|---|---|---|
+| 0024 | Retrieval v2: multi-signal fusion & bi-temporal facts | W2 | Not yet drafted |
+| 0025 | Provenance-gated memory writes | W3 | Not yet drafted |
+| 0026 | Night Shift: ledgered offline consolidation (must reconcile with ADR 0016) | W4 | Not yet drafted |
+| 0027 | Apple FM instant tier & the "no third provider" interpretation | W5 | Not yet drafted (FOUNDER sign-off) |
+| 0028 | Opt-in telemetry design | W6 | Not yet drafted |
+| 0029 | Update-check network call | W1.4 | Not yet drafted |

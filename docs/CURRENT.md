@@ -1,0 +1,139 @@
+# CURRENT.md — state of June
+
+**The single authoritative "what is true right now" page.** When any other
+planning doc disagrees with this one, this one wins (and that doc should be
+archived). Updated as workstreams land.
+
+- **Last updated:** 2026-07-06 (start of the v0.2 phase).
+- **Release status:** `v0.1.0` shipped (web app + ad-hoc-signed macOS DMG). Active
+  target: **`v0.2.0`** per [`JUNE_V02_BRIEF.md`](../JUNE_V02_BRIEF.md).
+- **Active plan:** [`JUNE_V02_BRIEF.md`](../JUNE_V02_BRIEF.md) (workstreams W0–W8).
+- **Reconciliation (brief vs. reality):** [`RECONCILIATION.md`](RECONCILIATION.md) — read before any v0.2 workstream.
+- **Durable worldview:** [`vision.md`](vision.md) (the four inversions; non-negotiable).
+- **Decision log:** [`decisions/`](decisions/) — ADRs 0001–0023 accepted; index in [`decisions/README.md`](decisions/README.md).
+
+---
+
+## What June is (one line)
+
+*A personal AI you can audit. June remembers you, forgets gracefully, explains
+every action, and never phones home.*
+
+June's center of gravity is the user, not the task. She inverts a coding agent's
+four operations: **defers** instead of verifying, **continues** standing
+intentions instead of completing and exiting, **forgets** gracefully instead of
+accumulating, and **stays quiet** instead of acting fast (the four inversions,
+ADR 0015).
+
+---
+
+## Architecture — one paragraph per subsystem
+
+Layering: **Shell → API → Brain → Providers**, with the Brain usable standalone.
+Everything lives under one versioned data directory (ADR 0019).
+
+- **Shell (`apps/desktop`).** A Tauri (macOS Apple Silicon) shell supervises a
+  PyInstaller-frozen Python sidecar staged at `Contents/Resources/june-api/`.
+  Watchdog + corrupt-DB recovery are in place. The web PWA (`apps/web`) is the
+  primary shipped surface and the same build every shell wraps.
+
+- **API (`packages/api`).** A thin FastAPI REST + SSE boundary. Pydantic schemas
+  are the single source of truth; the TypeScript client is generated from the
+  OpenAPI spec (drift is gated in `check.sh`). On startup it reconciles any
+  `running` promises orphaned by a restart.
+
+- **Brain (`packages/brain`).** One hand-written harness loop (`loop/handwritten.py`,
+  ADR 0018 — no agent framework), model-specific providers, layered context with
+  anchored compaction, and June's self-authored character with a fixed honesty +
+  safety floor. Loop shape is fixed and never self-modified.
+
+- **Memory (`packages/brain/.../memory`).** One `june.db` behind one
+  `MemoryManager` facade over three stores: structured SQLite rows, a sqlite-vec
+  `vec0` semantic index, and an entity graph (`graph_nodes`/`graph_edges`). Facts
+  live in **`semantic_facts`** (composite PK `user_id`+`fact_id`). Recall
+  (`recall.py::gather_hits`) fuses all three stores and reranks by *salience*
+  (recency × frequency × relevance), not similarity alone. Embeddings are served
+  locally by Ollama (`nomic-embed-text`). Forgetting is first-class and tombstones
+  content into `forgotten_*` tables. Schema is versioned (`memory/migration.py`,
+  latest v6).
+
+- **Providers / routing (`packages/brain/.../providers`, `router`).** Three roles:
+  `local-fast` (`gemma4:e2b`), `local-deep` (`gemma4:e4b`), `cloud-capable`
+  (`gemini-2.0-flash`). The live loop routes by difficulty
+  (`router/difficulty.py`) and **never auto-escalates to cloud**; cloud is reached
+  only on explicit agentic/skill paths. Every cloud call is bracketed by a single
+  chokepoint (`providers/provenance.py::record_cloud_call`) that writes an
+  `egress` entry to the Trust Ledger — a skill cannot egress and skip the ledger.
+
+- **Trust Ledger (`packages/brain/.../trust`, ADR 0022).** Append-only,
+  blake2b-hash-chained local event log (`trust_ledger`), with tail-truncation-aware
+  chain verification and optional Ed25519 signing. Kinds today:
+  `egress`/`action`/`approval`/`system`. Renders in the UI as **Receipts** under
+  the **Trust** screen (`/system`), with a verify affordance.
+
+- **Guard layer (`packages/brain/.../guard`, ADR 0021).** A single seam
+  (`guard/actions.py::evaluate_call`) classifies each tool call, tracks taint
+  (content flowing from untrusted results back into new actions), gates
+  `execute`/`write_network`/tainted-network behind approval, frames every tool
+  result as untrusted content, and redacts secrets before they hit the ledger.
+  Defense is **structural** — there is (as of v0.1) no content-based
+  injection-phrase detector.
+
+- **Silence Model (`packages/brain/.../silence`, ADR 0023).** Governs
+  June-*initiated* surfacing only (never the reply path). A pure, clockless,
+  model-free rules policy (`decide()` → `now`/`batch`/`suppress`) turns candidates
+  into decisions, gated by salience and presence; interruptions must be *earned*.
+  Every decision — including staying quiet — is mirrored to the ledger. Presence is
+  derived from recency-of-activity (`silence/presence.py`); there is no OS
+  idle/power signal.
+
+- **Promises / tasks (`packages/brain/.../tasks`).** Standing intentions (not
+  terminating TODOs) persisted in `tasks` with per-step trace, blocked-reason /
+  next-action / final-deliverable, retries (cap 5), recurrence, and restart
+  reconciliation. Resuming re-runs the goal; there is no mid-plan checkpoint resume
+  yet. Exposed at `/tasks`, rendered as **Promises**.
+
+- **Skills (`skills/`, ADR 0005).** Capabilities are standalone MCP servers over
+  stdio, one supervised subprocess each, independently toggled, guard-fronted.
+
+- **Scheduler (`packages/brain/.../scheduler`, ADR 0016).** Deterministic,
+  *user-requested* jobs only (cron/interval/at). No heartbeat, no timer-driven
+  proactivity. A separate event poller drains real-world skill events — the
+  sanctioned "world changed" wake.
+
+- **Licensing (`packages/brain/.../licensing`).** A complete offline Ed25519
+  entitlement core that is **dormant** (empty `PUBLIC_KEYS`) — everything resolves
+  to the `free` tier. No payments, no network.
+
+- **Telemetry.** 100% local. The `telemetry` table records local analytics only;
+  nothing phones home. Opt-in health pings are a v0.2 workstream (W6), not yet built.
+
+---
+
+## Privacy posture (enforced in code, not promised)
+
+- No account, no signup, no cloud sync by default.
+- No silent cloud calls — every cloud-routed model call is surfaced in the UI and
+  written to the ledger. A privacy dial can lock June to local-only (provably
+  blocks egress).
+- No telemetry without explicit opt-in.
+- Honesty is a fixed core; personalization shapes tone, never candor.
+
+---
+
+## v0.2 status board
+
+| WS | Name | State |
+|----|------|-------|
+| W0 | Reconciliation, doc consolidation, README | **In progress** (this change) |
+| W1 | Release engineering: signing, versioning, update check | Not started (W1.1 blocked: Apple enrollment `[FOUNDER]`) |
+| W2 | Retrieval v2: FTS5 + RRF fusion + temporal validity + benchmarks | Not started (needs ADR) |
+| W3 | Memory provenance & quarantine | Not started (needs ADR; injection filter is net-new) |
+| W4 | Night Shift: auditable consolidation | Not started (needs ADR + ADR-0016 reconciliation `[FOUNDER]`) |
+| W5 | Apple Foundation Models instant tier | Not started (spike-gated, `[FOUNDER]`) |
+| W6 | Opt-in health telemetry | Not started (endpoint choice `[FOUNDER]`) |
+| W7 | Playwright UI regression | Partly present (7 specs exist; extend to v0.2 flows) |
+| W8 | Local voice capture (stretch) | Not started |
+
+See [`RECONCILIATION.md`](RECONCILIATION.md) §3 for the binding spec adaptations
+each workstream must follow.

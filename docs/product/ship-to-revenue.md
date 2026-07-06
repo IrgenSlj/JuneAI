@@ -1,5 +1,8 @@
 # June AI - Ship-to-Revenue Plan
 
+> **SUPERSEDED (2026-07-06).** Superseded by the milestones in
+> [`JUNE_V02_BRIEF.md`](../../JUNE_V02_BRIEF.md) §11. Retained for history only.
+
 Prepared 2026-06-30. Synthesizes a deployment-readiness audit and a monetization/
 GTM study into one plan: get June from "runs in a dev terminal" to "a stranger
 pays for it." This sits beside `development-plan.md` (the engineering checklist)

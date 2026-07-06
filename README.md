@@ -5,8 +5,8 @@
 <h1 align="center">June</h1>
 
 <p align="center">
-  <strong>The open personal agent that remembers you.</strong><br />
-  Private by default. Local-first. Yours to run, read, and extend.
+  <strong>A personal AI you can audit.</strong><br />
+  June remembers you, forgets gracefully, explains every action, and never phones home.
 </p>
 
 <p align="center">
@@ -85,30 +85,54 @@ On `main` today:
   toggled; `/system` is the Trust surface with waiting work, runtime health,
   traces, and the activity log.
 
+## What makes it different
+
+Most local AI projects stop at "it runs on your machine." June's bet is that a
+personal agent with memory needs a *trust layer* you can see:
+
+- **Trust Ledger.** Every consequential action and every cloud egress is written
+  to an append-only, hash-chained local log you can inspect and cryptographically
+  verify from the Trust screen. Nothing June does is off the record.
+- **Silence Model.** June speaks only when it's worth interrupting you. Every
+  decision to surface — or to stay quiet — is itself recorded, so restraint is
+  auditable too.
+- **Graceful forgetting.** Forgetting is a first-class, conservative, reversible
+  operation, with you as the source of truth. Auditable sleep-time consolidation
+  (Night Shift) arrives in v0.2.
+- **Provably local.** Loopback-only, no account, no telemetry by default. Every
+  cloud call is surfaced before and after; a privacy dial can block egress entirely.
+
 ## Architecture
 
 June is layered. Each layer calls only into the one below it.
 
+```mermaid
+flowchart TD
+    Shell["Tauri desktop shell / PWA / (mobile, planned)"]
+    API["FastAPI · REST + SSE"]
+    Brain["Brain — hand-written loop · context · character · guard · silence"]
+    Facade["MemoryManager (single facade)"]
+    Skills["Skills (MCP servers): calendar · health · research · files"]
+    DB[("june.db — one SQLite file")]
+    Vec["sqlite-vec (vec0) semantic index"]
+    Graph["entity graph (nodes + edges)"]
+    Ledger["Trust Ledger (hash-chained)"]
+    Local["Ollama · Gemma 4 (local, default)"]
+    Cloud["Gemini (cloud, opt-in only)"]
+
+    Shell --> API --> Brain
+    Brain --> Facade
+    Brain --> Skills
+    Brain -->|difficulty routing| Local
+    Brain -.->|surfaced + ledgered egress| Cloud
+    Facade --> DB
+    DB --- Vec
+    DB --- Graph
+    Brain --> Ledger --> DB
 ```
-┌───────────────────────────────────────────────────────────────┐
-│  SHELLS     Tauri (desktop)   Capacitor (mobile)   PWA (web)   │
-├───────────────────────────────────────────────────────────────┤
-│  UI         SvelteKit app + shared TypeScript components        │
-├───────────────────────────────────────────────────────────────┤
-│  API        FastAPI · REST + SSE streaming                      │
-├───────────────────────────────────────────────────────────────┤
-│  BRAIN      agent loop · context · memory · character · skills  │
-├───────────────────────────────────────────────────────────────┤
-│  PROVIDERS  Ollama / Gemma 4 (local)      Gemini (cloud)        │
-└───────────────────────────────────────────────────────────────┘
-                              ↑
-                    ┌─────────┴──────────┐
-                    │  SKILLS (MCP)      │
-                    │  calendar, health, │
-                    │  research, files,  │
-                    │  daily             │
-                    └────────────────────┘
-```
+
+Every cloud call (dashed edge) is surfaced in the UI and written to the Trust
+Ledger before and after it happens; local-only mode blocks that edge entirely.
 
 The **brain** is the intelligence and is usable on its own — a Python developer
 can depend on `june-brain` and embed June without the HTTP layer. The **API** is
@@ -166,6 +190,26 @@ verifying it with a single round-trip. From there:
 | `/system`   | Trust: waiting work, runtime status, traces, activity, degraded modes |
 | `/settings` | Privacy dial, provider switch, Gemini key, theme                    |
 
+## Model roster and hardware
+
+June is tuned for a specific roster, not abstracted to be model-agnostic (ADR 0017):
+
+| Role | Model | Runs on |
+| --- | --- | --- |
+| `local-fast` | `gemma4:e2b` (Ollama) | everyday chat, classification, recall synthesis |
+| `local-deep` | `gemma4:e4b` (Ollama) | harder reasoning and creative work |
+| `cloud-capable` | `gemini-2.0-flash` | opt-in only, for agentic work you explicitly allow |
+
+Embeddings are served locally by Ollama (`nomic-embed-text`). The live chat path
+routes between the two local tiers by difficulty and **never escalates to the
+cloud on its own** — cloud is reached only on paths you opt into.
+
+Rough guidance (Apple Silicon):
+
+- **8 GB** — `local-fast` only. Fully usable for chat and memory; skip `local-deep`.
+- **16 GB** — both local tiers comfortably. The recommended target.
+- **32 GB+** — both tiers with headroom for larger local models and agentic work.
+
 ## Repository layout
 
 ```
@@ -218,12 +262,26 @@ When you change a Pydantic schema or an API route, regenerate the client:
 
 ## Roadmap
 
-The **Tier 1 spine** is built. The active product direction is the
-**Trusted Continuity Engine**: make June visibly hold promises, memory, trust
-state, skill permissions, and explicit time boundaries before adding broader
-autonomy. See [ROADMAP.md](ROADMAP.md), the
-[product overview](docs/product/overview.md), and the
-[development plan](docs/product/development-plan.md).
+The **Tier 1 spine** is built. The active phase is **v0.2** — turning June's
+trust primitives into demonstrable product: retrieval v2 (multi-signal +
+temporal), memory provenance and quarantine, auditable Night Shift consolidation,
+and signed/notarized distribution. See the current state in
+[docs/CURRENT.md](docs/CURRENT.md), the plan in
+[JUNE_V02_BRIEF.md](JUNE_V02_BRIEF.md), and [ROADMAP.md](ROADMAP.md).
+
+## Security posture
+
+June's threat model takes seriously that a personal agent with memory is a target
+— including web-content prompt injection that tries to poison what June remembers.
+
+- **What June never does:** no account, no cloud sync, no telemetry without
+  explicit opt-in, no silent network calls, no timer-driven proactivity, and no
+  self-modification of its own harness core.
+- **Structural defenses:** untrusted fetched content is always framed as data;
+  consequential and network actions are gated; secrets are redacted before they
+  reach the ledger; the cloud tier never receives what you keep local.
+- **Responsible disclosure:** see [SECURITY.md](SECURITY.md). Please report
+  vulnerabilities privately before public disclosure.
 
 ## Contributing
 
@@ -245,7 +303,8 @@ Discussion happens in [GitHub issues](https://github.com/IrgenSlj/JuneAI/issues)
 
 ## Documentation
 
-- [Rebuild plan](docs/product/rebuild-plan.md) — the authoritative, decision-by-decision working plan
+- [Current state](docs/CURRENT.md) — the authoritative state-of-the-project page
+- [v0.2 brief](JUNE_V02_BRIEF.md) — the active plan; [execution plan](docs/product/v0.2-execution-plan.md), [reconciliation](docs/RECONCILIATION.md)
 - [Vision](docs/vision.md) — what June is and the non-negotiables
 - [Product overview](docs/product/overview.md) — the surfaces and the boundary
 - [Architecture overview](docs/architecture/overview.md) — the layered model

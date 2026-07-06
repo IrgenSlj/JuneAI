@@ -53,6 +53,9 @@ fi
 echo "==> Ruff lint"
 "$PYTHON_BIN" -m ruff check .
 
+echo "==> Doc hygiene (banned stale tokens in README.md, docs/CURRENT.md)"
+"$PYTHON_BIN" tools/check_doc_hygiene.py
+
 if [ "${JUNE_CHECK_MYPY:-1}" = "1" ]; then
   # Narrow mypy gate: the codebase is not fully annotated, so a full strict run
   # is noisy (~270 errors, mostly missing generics). These two codes, however,

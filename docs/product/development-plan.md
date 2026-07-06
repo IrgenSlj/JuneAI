@@ -1,5 +1,10 @@
 # June AI - Development Plan
 
+> **SUPERSEDED (2026-07-06).** This pre-v0.2 plan is retained for history only.
+> The active plan is [`JUNE_V02_BRIEF.md`](../../JUNE_V02_BRIEF.md); current
+> project state is [`docs/CURRENT.md`](../CURRENT.md). Do not follow this document
+> for new work. (Not physically archived because append-only ADRs link it.)
+
 Prepared: 2026-06-28
 
 This plan consolidates the external product, architecture, agentic AI, and design
