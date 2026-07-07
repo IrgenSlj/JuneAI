@@ -4,10 +4,13 @@
 planning doc disagrees with this one, this one wins (and that doc should be
 archived). Updated as workstreams land.
 
-- **Last updated:** 2026-07-06 (start of the v0.2 phase).
+- **Last updated:** 2026-07-07.
 - **Release status:** `v0.1.0` shipped (web app + ad-hoc-signed macOS DMG). Active
   target: **`v0.2.0`** per [`JUNE_V02_BRIEF.md`](../JUNE_V02_BRIEF.md).
 - **Active plan:** [`JUNE_V02_BRIEF.md`](../JUNE_V02_BRIEF.md) (workstreams W0–W8).
+- **Resume here next session:** see "Current position" in
+  [`product/v0.2-execution-plan.md`](product/v0.2-execution-plan.md#current-position-resume-here)
+  — W0 done; W2 in progress (migration v7 landed, RRF fusion S2.3 is the next slice).
 - **Reconciliation (brief vs. reality):** [`RECONCILIATION.md`](RECONCILIATION.md) — read before any v0.2 workstream.
 - **Durable worldview:** [`vision.md`](vision.md) (the four inversions; non-negotiable).
 - **Decision log:** [`decisions/`](decisions/) — ADRs 0001–0023 accepted; index in [`decisions/README.md`](decisions/README.md).
@@ -125,9 +128,9 @@ Everything lives under one versioned data directory (ADR 0019).
 
 | WS | Name | State |
 |----|------|-------|
-| W0 | Reconciliation, doc consolidation, README | **In progress** (this change) |
+| W0 | Reconciliation, doc consolidation, README | **Done** — pushed (`1acec73d`); doc-hygiene gate live |
 | W1 | Release engineering: signing, versioning, update check | Not started (W1.1 blocked: Apple enrollment `[FOUNDER]`) |
-| W2 | Retrieval v2: FTS5 + RRF fusion + temporal validity + benchmarks | Not started (needs ADR) |
+| W2 | Retrieval v2: FTS5 + RRF fusion + temporal validity + benchmarks | **In progress** — ADR 0024 accepted (`3702ae33`); S2.1 migration v7 landed (`c0cb1cc9`); S2.3 RRF fusion is the next slice |
 | W3 | Memory provenance & quarantine | Not started (needs ADR; injection filter is net-new) |
 | W4 | Night Shift: auditable consolidation | Not started (needs ADR + ADR-0016 reconciliation `[FOUNDER]`) |
 | W5 | Apple Foundation Models instant tier | Not started (spike-gated, `[FOUNDER]`) |

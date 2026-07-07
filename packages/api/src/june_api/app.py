@@ -192,7 +192,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="June API",
-        version="0.2.0",
+        version="0.1.0",
         description=(
             "HTTP boundary for the June brain. The canonical client is "
             "apps/web (SvelteKit) but any shell speaking JSON/SSE can use it."

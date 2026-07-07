@@ -2,9 +2,9 @@
 
 Read this first, then the development plan. This file is the short, durable
 orientation for any agent working in this repo. Where it conflicts with
-`docs/product/development-plan.md` (the active implementation plan),
-`docs/product/overview.md` (what June is), or `docs/vision.md` (the durable
-worldview), those win (and fix this file).
+`JUNE_V02_BRIEF.md` (the active v0.2 lead plan), `docs/CURRENT.md` (the
+authoritative state page), `docs/product/overview.md` (what June is), or
+`docs/vision.md` (the durable worldview), those win (and fix this file).
 
 ## What June is
 
