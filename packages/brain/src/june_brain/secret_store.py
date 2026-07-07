@@ -21,6 +21,7 @@ backend returns ``None`` rather than raising, which lets callers treat
 
 from __future__ import annotations
 
+import os
 from typing import Literal
 
 SERVICE_NAME = "JuneAI"
@@ -81,6 +82,8 @@ def keyring_available() -> bool:
 
 def _load_keyring():
     """Import ``keyring`` lazily so the brain starts even if it's uninstalled."""
+    if os.getenv("JUNE_DISABLE_KEYRING", "").lower() in ("1", "true", "yes"):
+        return None
     try:
         import keyring
         from keyring.backends import fail

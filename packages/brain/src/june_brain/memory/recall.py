@@ -1,18 +1,21 @@
 """Recall read-path: candidate gathering across the three stores + salience rerank.
 
-``gather_hits`` fans out to the vector, graph, and SQLite stores, dedupes,
-applies feedback multipliers, and ranks. ``_salience_rerank`` re-scores the
-vector candidates by ``recency x frequency x relevance`` and updates access
-bookkeeping. Extracted from ``manager.py`` (S3 decomposition) so the recall
-logic lives in one focused module; ``MemoryManager.recall`` is a thin facade
-over ``gather_hits``.
+``gather_hits`` fans out to the vector, FTS5 lexical, graph, and SQLite stores,
+dedupes, applies feedback multipliers, and ranks. ``_salience_rerank`` re-scores
+the vector candidates by ``recency x frequency x relevance``. Extracted from
+``manager.py`` (S3 decomposition) so the recall logic lives in one focused
+module; ``MemoryManager.recall`` is a thin facade over ``gather_hits``.
 """
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 import re
-from datetime import datetime
+import sqlite3
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 from .paraphrase import _format_edge, _format_node
@@ -21,6 +24,36 @@ from .sqlite import _get_connection
 from .vector import _db_path
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class RetrievalConfig:
+    """Runtime knobs for Retrieval v2 fusion.
+
+    Candidate pools are deliberately capped before fusion so recall latency stays
+    bounded even as the memory table grows. Env vars are developer/operator
+    overrides; the defaults match ADR 0024.
+    """
+
+    candidate_pool: int = 50
+    rrf_k: int = 60
+    entity_weight: float = 0.15
+    temporal_half_life_days: float = 90.0
+
+    @classmethod
+    def load(cls) -> RetrievalConfig:
+        return cls(
+            candidate_pool=max(1, _env_int("JUNE_RETRIEVAL_CANDIDATE_POOL", 50)),
+            rrf_k=max(1, _env_int("JUNE_RETRIEVAL_RRF_K", 60)),
+            entity_weight=max(0.0, _env_float("JUNE_RETRIEVAL_ENTITY_WEIGHT", 0.15)),
+            temporal_half_life_days=max(
+                1.0,
+                _env_float("JUNE_RETRIEVAL_TEMPORAL_HALF_LIFE_DAYS", 90.0),
+            ),
+        )
+
+
+_LOGGED_CONFIG: RetrievalConfig | None = None
 
 
 def gather_hits(
@@ -40,20 +73,21 @@ def gather_hits(
     if not query:
         return []
 
+    config = _load_retrieval_config()
+    candidate_pool = max(k, config.candidate_pool)
     hits: list[dict[str, Any]] = []
+    graph_hits: list[dict[str, Any]] = []
+    query_entity_labels: list[str] = []
 
-    # 1) Semantic (vector) — re-ranked by salience (recency × frequency × relevance).
-    try:
-        raw_vector = vector.search(query, k=k)
-        if raw_vector:
-            hits.extend(_salience_rerank(user_id, raw_vector, k))
-    except Exception:  # noqa: BLE001
-        logger.exception("recall: vector search failed")
-
-    # 2) Graph — entities the query mentions, plus their neighbors.
+    # 1) Graph — entities the query mentions, plus their neighbors. We collect
+    # entity labels before semantic fusion so fact text that overlaps a mentioned
+    # entity gets the ADR 0024 entity boost.
     try:
         for node in graph.mentions_near(query, limit=k):
-            hits.append(
+            label = str(node.get("label", "")).strip()
+            if label:
+                query_entity_labels.append(label)
+            graph_hits.append(
                 {
                     "source": "graph",
                     "text": _format_node(node),
@@ -63,7 +97,7 @@ def gather_hits(
                 }
             )
             for edge in graph.neighbors(node["node_id"], limit=3):
-                hits.append(
+                graph_hits.append(
                     {
                         "source": "graph",
                         "text": _format_edge(node, edge),
@@ -74,6 +108,30 @@ def gather_hits(
                 )
     except Exception:  # noqa: BLE001
         logger.exception("recall: graph lookup failed")
+
+    # 2) Semantic facts — vector salience + FTS5/BM25 fused with RRF.
+    vector_hits: list[dict[str, Any]] = []
+    try:
+        raw_vector = vector.search(query, k=candidate_pool)
+        if raw_vector:
+            vector_hits = _salience_rerank(
+                user_id,
+                raw_vector,
+                candidate_pool,
+                config=config,
+                update_access=False,
+            )
+    except Exception:  # noqa: BLE001
+        logger.exception("recall: vector search failed")
+
+    bm25_hits: list[dict[str, Any]] = []
+    try:
+        bm25_hits = semantic_bm25_hits(user_id, query, k=candidate_pool, config=config)
+    except Exception:  # noqa: BLE001
+        logger.exception("recall: semantic FTS lookup failed")
+
+    hits.extend(_fuse_semantic_hits(vector_hits, bm25_hits, query_entity_labels, config))
+    hits.extend(graph_hits)
 
     # 3) Structured (SQLite) — look for query terms across goals, open loops,
     # preferences, relationships, journal. Cheap keyword scan; the LLM gets
@@ -126,7 +184,97 @@ def gather_hits(
         return (source_rank, score if isinstance(score, (int, float)) else 1.0)
 
     deduped.sort(key=_rank_key)
-    return deduped[: max(1, k * 2)]
+    final_hits = deduped[: max(1, k * 2)]
+    _mark_semantic_accessed(
+        user_id,
+        [str(h.get("ref", "")) for h in final_hits if h.get("source") == "vector"],
+    )
+    return final_hits
+
+
+def semantic_bm25_hits(
+    user_id: str,
+    query: str,
+    k: int,
+    config: RetrievalConfig | None = None,
+) -> list[dict[str, Any]]:
+    """Return lexical semantic-fact hits from the migration-7 FTS5 table.
+
+    The table is standalone rather than external-content because
+    ``semantic_facts`` has a composite text primary key. Missing FTS5 support or
+    malformed user query syntax degrades to no lexical hits.
+    """
+    config = config or _load_retrieval_config()
+    terms = _query_terms(query)
+    if not terms:
+        return []
+
+    fts_query = " OR ".join(f'"{term}"' for term in terms)
+    conn = _get_connection(_db_path())
+    now = datetime.now(UTC)
+
+    try:
+        rows = conn.execute(
+            """
+            SELECT
+                sf.fact_id,
+                sf.text,
+                sf.metadata,
+                sf.valid_to,
+                bm25(semantic_facts_fts) AS bm25_score
+            FROM semantic_facts_fts
+            JOIN semantic_facts AS sf
+              ON sf.user_id = semantic_facts_fts.user_id
+             AND sf.fact_id = semantic_facts_fts.fact_id
+            WHERE semantic_facts_fts.user_id = ?
+              AND semantic_facts_fts MATCH ?
+            ORDER BY bm25_score ASC
+            LIMIT ?
+            """,
+            (user_id, fts_query, max(1, k)),
+        ).fetchall()
+    except sqlite3.OperationalError as exc:
+        message = str(exc).lower()
+        if (
+            "no such table" in message
+            or "no such module" in message
+            or "fts5" in message
+            or "syntax error" in message
+        ):
+            logger.debug("recall: FTS5 unavailable for semantic BM25 (%s)", exc)
+            return []
+        raise
+
+    current_rows = [row for row in rows if _is_currently_valid(row["valid_to"], now)]
+    if not current_rows:
+        return []
+
+    scores = [float(row["bm25_score"]) for row in current_rows]
+    lo = min(scores)
+    hi = max(scores)
+
+    hits: list[dict[str, Any]] = []
+    for row in current_rows:
+        bm25_score = float(row["bm25_score"])
+        if hi == lo:
+            bm25_relevance = 1.0
+        else:
+            # SQLite bm25() is lower-is-better, so invert to higher-is-better.
+            bm25_relevance = (hi - bm25_score) / (hi - lo)
+        hits.append(
+            {
+                "source": "vector",
+                "text": row["text"],
+                "kind": str(_loads_metadata(row["metadata"]).get("kind", "fact")),
+                "ref": row["fact_id"],
+                "score": 1.0 - bm25_relevance,
+                "bm25": bm25_score,
+                "bm25_relevance": bm25_relevance,
+                "time_score": _temporal_prior(row["valid_to"], now, config),
+                "retrieval": "bm25",
+            }
+        )
+    return hits
 
 
 def sqlite_keyword_hits(sqlite: Any, query: str, k: int) -> list[dict[str, Any]]:
@@ -204,10 +352,159 @@ def sqlite_keyword_hits(sqlite: Any, query: str, k: int) -> list[dict[str, Any]]
     return results[: k * 2]
 
 
+def _fuse_semantic_hits(
+    vector_hits: list[dict[str, Any]],
+    bm25_hits: list[dict[str, Any]],
+    query_entity_labels: list[str],
+    config: RetrievalConfig,
+) -> list[dict[str, Any]]:
+    """Fuse vector and BM25 semantic facts with reciprocal rank fusion."""
+    by_ref: dict[str, dict[str, Any]] = {}
+    rrf_scores: dict[str, float] = {}
+
+    for channel, ranked in (("vector", vector_hits), ("bm25", bm25_hits)):
+        for rank, hit in enumerate(ranked, start=1):
+            ref = str(hit.get("ref", ""))
+            if not ref:
+                continue
+            by_ref.setdefault(ref, dict(hit))
+            rrf_scores[ref] = rrf_scores.get(ref, 0.0) + 1.0 / (config.rrf_k + rank)
+            by_ref[ref][f"{channel}_rank"] = rank
+            if channel == "bm25":
+                by_ref[ref]["bm25"] = hit.get("bm25")
+                by_ref[ref]["bm25_relevance"] = hit.get("bm25_relevance")
+
+    fused: list[tuple[float, dict[str, Any]]] = []
+    for ref, hit in by_ref.items():
+        entity_score = _entity_overlap_score(str(hit.get("text", "")), query_entity_labels)
+        time_score = float(hit.get("time_score") or 1.0)
+        fused_score = rrf_scores[ref] * (1.0 + config.entity_weight * entity_score) * time_score
+        hit["rrf"] = fused_score
+        hit["entity_score"] = entity_score
+        hit["time_score"] = time_score
+        # Keep the public score distance-like because feedback and final sorting
+        # expect lower-is-better.
+        hit["score"] = 1.0 / max(fused_score, 1e-12)
+        fused.append((fused_score, hit))
+
+    fused.sort(key=lambda item: item[0], reverse=True)
+    return [hit for _score, hit in fused]
+
+
+def _entity_overlap_score(text: str, labels: list[str]) -> float:
+    low = text.lower()
+    return float(sum(1 for label in labels if label and label.lower() in low))
+
+
+def _mark_semantic_accessed(user_id: str, fact_ids: list[str]) -> None:
+    ids = sorted({fact_id for fact_id in fact_ids if fact_id})
+    if not ids:
+        return
+    conn = _get_connection(_db_path())
+    now_iso = datetime.now().isoformat()
+    conn.executemany(
+        "UPDATE semantic_facts SET access_count = access_count + 1, last_accessed = ? "
+        "WHERE user_id=? AND fact_id=?",
+        [(now_iso, user_id, fact_id) for fact_id in ids],
+    )
+    conn.commit()
+
+
+def _load_retrieval_config() -> RetrievalConfig:
+    global _LOGGED_CONFIG
+    config = RetrievalConfig.load()
+    if _LOGGED_CONFIG != config:
+        logger.info(
+            "retrieval config: candidate_pool=%d rrf_k=%d entity_weight=%.3f "
+            "temporal_half_life_days=%.1f",
+            config.candidate_pool,
+            config.rrf_k,
+            config.entity_weight,
+            config.temporal_half_life_days,
+        )
+        _LOGGED_CONFIG = config
+    return config
+
+
+def _query_terms(query: str) -> list[str]:
+    # Keep the FTS query simple and safe: quoted OR terms avoid user-provided
+    # operators and still work for short keyword-style lookups.
+    seen: set[str] = set()
+    terms: list[str] = []
+    for term in re.findall(r"[\w][\w'-]{1,}", query.lower(), flags=re.UNICODE):
+        term = term.strip("'-")
+        if len(term) < 2 or term in seen:
+            continue
+        seen.add(term)
+        terms.append(term)
+    return terms[:12]
+
+
+def _loads_metadata(raw: object) -> dict[str, Any]:
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(str(raw))
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _is_currently_valid(valid_to: object, now: datetime) -> bool:
+    value = str(valid_to or "").strip()
+    if not value:
+        return True
+    parsed = _parse_temporal(value)
+    if parsed is None:
+        return True
+    return parsed > now
+
+
+def _temporal_prior(
+    valid_to: object,
+    now: datetime,
+    config: RetrievalConfig,
+) -> float:
+    value = str(valid_to or "").strip()
+    if not value:
+        return 1.0
+    parsed = _parse_temporal(value)
+    if parsed is None or parsed > now:
+        return 1.0
+    age_days = max(0.0, (now - parsed).total_seconds() / 86_400.0)
+    return max(0.1, 0.5 ** (age_days / config.temporal_half_life_days))
+
+
+def _parse_temporal(value: str) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
 def _salience_rerank(
     user_id: str,
     raw_hits: list[dict[str, Any]],
     k: int,
+    config: RetrievalConfig | None = None,
+    update_access: bool = True,
 ) -> list[dict[str, Any]]:
     """Re-rank vector hits by salience; update access bookkeeping for returned hits.
 
@@ -215,24 +512,30 @@ def _salience_rerank(
     semantic_facts shadow row, compute the salience score, sort DESC, take
     top-k, then UPDATE each returned row's access counters.
     """
+    config = config or _load_retrieval_config()
     weights = SalienceWeights.load()
     conn = _get_connection(_db_path())
     now = datetime.now()
+    validity_now = datetime.now(UTC)
 
-    scored: list[tuple[float, dict[str, Any]]] = []
+    scored: list[tuple[float, dict[str, float], dict[str, Any], float]] = []
     for v in raw_hits:
         fact_id = v["fact_id"]
         row = conn.execute(
-            "SELECT access_count, last_accessed FROM semantic_facts "
+            "SELECT access_count, last_accessed, valid_to FROM semantic_facts "
             "WHERE user_id=? AND fact_id=?",
             (user_id, fact_id),
         ).fetchone()
         if row:
+            if not _is_currently_valid(row["valid_to"], validity_now):
+                continue
             access_count: int = int(row["access_count"] or 0)
             last_accessed_str: str = str(row["last_accessed"] or "")
+            time_score = _temporal_prior(row["valid_to"], validity_now, config)
         else:
             access_count = 0
             last_accessed_str = ""
+            time_score = 1.0
 
         if last_accessed_str:
             try:
@@ -245,22 +548,16 @@ def _salience_rerank(
 
         rel = relevance_from_distance(v.get("distance"))
         score, components = salience_detailed(rel, hours_since, access_count, weights)
-        scored.append((score, components, v))
+        scored.append((score, components, v, time_score))
 
     scored.sort(key=lambda t: t[0], reverse=True)
     top = scored[:k]
 
-    now_iso = now.isoformat()
-    for _score, _components, v in top:
-        conn.execute(
-            "UPDATE semantic_facts SET access_count = access_count + 1, last_accessed = ? "
-            "WHERE user_id=? AND fact_id=?",
-            (now_iso, user_id, v["fact_id"]),
-        )
-    conn.commit()
+    if update_access:
+        _mark_semantic_accessed(user_id, [str(v["fact_id"]) for _s, _c, v, _t in top])
 
     result: list[dict[str, Any]] = []
-    for score, components, v in top:
+    for score, components, v, time_score in top:
         result.append(
             {
                 "source": "vector",
@@ -274,6 +571,8 @@ def _salience_rerank(
                 "recency": components["recency"],
                 "frequency": components["frequency"],
                 "relevance": components["relevance"],
+                "time_score": time_score,
+                "retrieval": "vector",
             }
         )
     return result

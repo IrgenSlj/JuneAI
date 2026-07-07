@@ -53,6 +53,11 @@ export const SETUP_STATUS_FIXTURE = {
   user_name: "",
 };
 
+/** GET /healthz — startup gate can render the app shell. */
+export const HEALTHZ_FIXTURE = {
+  ok: true,
+};
+
 /** GET /home/{user_id}/holdings — zero open promises, clear state. */
 export const HOLDINGS_FIXTURE = {
   open_promises: 0,
@@ -76,6 +81,11 @@ export const TASKS_FIXTURE = {
 export const GREETING_FIXTURE = {
   greeting: "Good to see you.",
   has_context: false,
+};
+
+/** GET /chat/history/{user_id} — empty persisted transcript. */
+export const CHAT_HISTORY_FIXTURE = {
+  messages: [],
 };
 
 /** GET /system/traces — empty trace list. */
@@ -154,11 +164,13 @@ export const SKILLS_FIXTURE = {
 // ---------------------------------------------------------------------------
 
 export interface MockApiOverrides {
+  healthz?: Partial<typeof HEALTHZ_FIXTURE>;
   system?: Partial<typeof SYSTEM_FIXTURE>;
   setupStatus?: Partial<typeof SETUP_STATUS_FIXTURE>;
   holdings?: Partial<typeof HOLDINGS_FIXTURE>;
   tasks?: Partial<typeof TASKS_FIXTURE>;
   greeting?: Partial<typeof GREETING_FIXTURE>;
+  chatHistory?: Partial<typeof CHAT_HISTORY_FIXTURE>;
   traces?: Partial<typeof TRACES_FIXTURE>;
   ledger?: Partial<typeof LEDGER_FIXTURE>;
   surfacing?: Partial<typeof SURFACING_FIXTURE>;
@@ -202,6 +214,11 @@ export async function mockApi(page: Page, overrides: MockApiOverrides = {}): Pro
   const base = MOCK_API_BASE;
   const esc = base.replace(/\./g, "\\.");
 
+  // /healthz — layout startup gate; false/missing keeps every route on warming UI.
+  await page.route(`${base}/healthz`, (route) =>
+    route.fulfill(jsonReply({ ...HEALTHZ_FIXTURE, ...overrides.healthz })),
+  );
+
   // /setup/status — layout load() checks is_configured; false → redirect to /setup.
   await page.route(`${base}/setup/status`, (route) =>
     route.fulfill(jsonReply({ ...SETUP_STATUS_FIXTURE, ...overrides.setupStatus })),
@@ -226,6 +243,11 @@ export async function mockApi(page: Page, overrides: MockApiOverrides = {}): Pro
   // /greeting/{user_id}?... — Home page best-effort after initial load.
   await page.route(new RegExp(`${esc}/greeting/`), (route) =>
     route.fulfill(jsonReply({ ...GREETING_FIXTURE, ...overrides.greeting })),
+  );
+
+  // /chat/history/{user_id} — Chat page best-effort transcript restore.
+  await page.route(new RegExp(`${esc}/chat/history/`), (route) =>
+    route.fulfill(jsonReply({ ...CHAT_HISTORY_FIXTURE, ...overrides.chatHistory })),
   );
 
   // /system/traces — Glass Box page + Trust page.

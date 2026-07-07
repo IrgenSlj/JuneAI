@@ -105,7 +105,17 @@ def load_stored_config() -> StoredConfig:
         if k not in known and isinstance(v, (str, int, float, bool))
     }
 
-    gemini_key = load_secret(GEMINI_KEY_NAME) or _as_str(raw.get("gemini_api_key"))
+    file_gemini_key = _as_str(raw.get("gemini_api_key"))
+    env_gemini_key = _as_str(os.getenv("GEMINI_API_KEY") or os.getenv("LLM_API_KEY"))
+    provider = _active_provider(raw)
+    gemini_key = env_gemini_key
+    if gemini_key is None and provider == "gemini":
+        gemini_key = load_secret(GEMINI_KEY_NAME) or file_gemini_key
+    elif file_gemini_key is not None:
+        # Local Gemma startup must not unlock/probe the OS keychain just to find
+        # an optional cloud key. A file-backed key is already available without
+        # prompting and can still be shown as present in settings.
+        gemini_key = file_gemini_key
 
     return StoredConfig(
         provider=_as_str(raw.get("provider")),
@@ -189,8 +199,6 @@ def forget_gemini_key() -> SecretLocation:
 
 def gemini_key_location() -> SecretLocation:
     """Report where the active Gemini key lives, without returning its value."""
-    if load_secret(GEMINI_KEY_NAME):
-        return "keyring"
     path = config_path()
     if path.exists():
         try:
@@ -199,6 +207,11 @@ def gemini_key_location() -> SecretLocation:
             parsed = None
         if isinstance(parsed, dict) and parsed.get("gemini_api_key"):
             return "file"
+        raw = parsed if isinstance(parsed, dict) else {}
+    else:
+        raw = {}
+    if _active_provider(raw) == "gemini" and load_secret(GEMINI_KEY_NAME):
+        return "keyring"
     return "none"
 
 
@@ -226,6 +239,14 @@ def _as_str(value: object) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _active_provider(raw: dict[str, object]) -> str:
+    return (
+        _as_str(os.getenv("MODEL_PROVIDER"))
+        or _as_str(raw.get("provider"))
+        or ""
+    ).lower()
 
 
 def get_privacy_dial():  # type: ignore[no-untyped-def]

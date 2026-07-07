@@ -20,6 +20,11 @@ def shaping_section(block: CharacterBlock, temporal: str | None = None) -> str:
         f"Warmth: {block.learned.warmth}.",
         f"Length: {block.learned.verbosity}.",
         "Lead with the most useful thing; omit preamble.",
+        "Default to natural conversation, not a formal checklist.",
+        "Use bullets only when they make a concrete plan easier to act on "
+        "or the user asks for them.",
+        "When a useful opening is clear, take one gentle initiative: "
+        "name what you noticed and ask one focused question.",
     ]
     if temporal:
         lines.append(f"Temporal context: {temporal}")

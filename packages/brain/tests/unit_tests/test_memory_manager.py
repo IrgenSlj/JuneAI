@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -23,6 +24,27 @@ from june_brain.providers.registry import ProviderRegistry
 # Reuse the stub embedder from test_vector_store so both test files
 # exercise the same deterministic behavior.
 from .test_vector_store import _HashEmbedder
+
+
+def _fts5_available() -> bool:
+    try:
+        conn = sqlite3.connect(":memory:")
+        conn.execute("CREATE VIRTUAL TABLE t USING fts5(x)")
+        conn.close()
+        return True
+    except sqlite3.OperationalError:
+        return False
+
+
+_FTS5_AVAILABLE = _fts5_available()
+
+
+class _NoEmbedder:
+    def embed(self, texts):
+        return [None for _text in texts]
+
+    def embed_one(self, text):
+        return None
 
 
 @pytest.fixture
@@ -102,6 +124,46 @@ def test_recall_includes_sqlite_keyword_hits(manager):
     )
     hits = manager.recall("how's my marathon training")
     assert any(h["source"] == "sqlite" and "marathon" in h["text"].lower() for h in hits)
+
+
+@pytest.mark.skipif(not _FTS5_AVAILABLE, reason="fts5 module unavailable in this sqlite build")
+def test_recall_uses_semantic_bm25_when_vector_unavailable(memory_dir):
+    user_id = "test_user"
+    Memory(user_id)
+    manager = MemoryManager(
+        user_id,
+        vector=VectorStore(user_id, embedder=_NoEmbedder()),
+        graph=KnowledgeGraph(user_id),
+        sqlite=Memory(user_id),
+    )
+
+    manager.vector.upsert("User keeps the Delft blue notebook for tax notes")
+
+    hits = manager.recall("Delft notebook", k=5)
+
+    assert any(
+        h["source"] == "vector"
+        and h.get("retrieval") == "bm25"
+        and "delft blue notebook" in h["text"].lower()
+        for h in hits
+    )
+
+
+@pytest.mark.skipif(not _FTS5_AVAILABLE, reason="fts5 module unavailable in this sqlite build")
+def test_recall_excludes_superseded_semantic_fact(manager):
+    from june_brain.memory.sqlite import _get_connection, db_path
+
+    record = manager.vector.upsert("User stores receipts in the Delft blue notebook")
+    conn = _get_connection(db_path())
+    conn.execute(
+        "UPDATE semantic_facts SET valid_to = ? WHERE user_id = ? AND fact_id = ?",
+        ("2026-01-01T00:00:00+00:00", manager.user_id, record["fact_id"]),
+    )
+    conn.commit()
+
+    hits = manager.recall("Delft blue notebook", k=5)
+
+    assert not any(h.get("ref") == record["fact_id"] for h in hits)
 
 
 def test_recall_dedupes_across_stores(manager):

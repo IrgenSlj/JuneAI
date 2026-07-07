@@ -23,16 +23,18 @@ address; all requests are intercepted in-test before they leave the browser.
 ## Mocked API approach
 
 `e2e/_mocks.ts` exports `mockApi(page, overrides?)`. It registers
-`page.route()` interceptors for every endpoint the Home page fetches on
-mount:
+`page.route()` interceptors for endpoints the shared shell and smoke-tested
+pages fetch on mount:
 
 | Endpoint | What it guards |
 |---|---|
+| `GET /healthz` | Startup gate — lets the app shell render |
 | `GET /setup/status` | `is_configured: true` — prevents redirect to `/setup` |
 | `GET /system` | Runtime badge (local provider, ready) |
 | `GET /home/{user}/holdings` | Zero open promises — renders the "clear" state |
 | `GET /tasks/{user}` | Empty task list |
 | `GET /greeting/{user}` | Static greeting text |
+| `GET /chat/history/{user}` | Empty transcript restore for Chat |
 
 Call `mockApi(page)` before `page.goto()` in every test.
 

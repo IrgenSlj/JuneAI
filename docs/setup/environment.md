@@ -17,6 +17,7 @@ This file is the canonical reference for June's runtime configuration. Per [ADR 
 | `MODEL_TEMPERATURE` | No | `0.4` | Applied to both providers |
 | `MODEL_MAX_TOKENS` | No | `4096` | Applied to both providers |
 | `JUNE_SKIP_MODEL_CHECK` | No | — | Set to `1` when running developer tests without Ollama/Gemini configured |
+| `JUNE_DISABLE_KEYRING` | No | — | Set to `1` to bypass the OS keychain/credential store and use the mode-0600 config file fallback for secrets |
 | `PYTHON_BIN` | No | `python3` for bootstrap, venv Python for checks | Python executable used by developer scripts |
 | `JUNE_VENV` | No | `packages/brain/.venv` | Virtualenv path used by developer scripts |
 | `JUNE_SKIP_PNPM_INSTALL` | No | — | Set to `1` to skip `pnpm install` in `tools/bootstrap.sh` |

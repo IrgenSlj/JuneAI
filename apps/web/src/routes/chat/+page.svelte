@@ -4,6 +4,8 @@
     MessageList,
     OfflineNotice,
     ActivityStream,
+    type HomeHoldings,
+    type SurfacingDecisionView,
     type TaskView,
   } from "@june/ui";
   import {
@@ -26,7 +28,17 @@
   let focusComposer: (() => void) | undefined = $state();
   let greeting = $state("");
   let continuityTasks: TaskView[] = $state([]);
+  let holdings = $state<HomeHoldings | null>(null);
   let continuityError: string | null = $state(null);
+
+  type InitiativeTone = "action" | "care" | "memory" | "trust";
+  type InitiativeOpportunity = {
+    id: string;
+    tone: InitiativeTone;
+    label: string;
+    detail: string;
+    prompt: string;
+  };
 
   // --- Activity pane resizer ---
   let activityShare = $state(0.5);
@@ -124,11 +136,20 @@
 
   async function loadContinuity(): Promise<void> {
     continuityError = null;
-    try {
-      const res = await client.getTasks(profileName.value, undefined, 20);
-      continuityTasks = res.tasks ?? [];
-    } catch (err) {
-      continuityError = err instanceof Error ? err.message : String(err);
+    const [tasksResult, holdingsResult] = await Promise.allSettled([
+      client.getTasks(profileName.value, undefined, 20),
+      client.getHoldings(profileName.value),
+    ]);
+    if (tasksResult.status === "fulfilled") {
+      continuityTasks = tasksResult.value.tasks ?? [];
+    } else {
+      continuityError =
+        tasksResult.reason instanceof Error
+          ? tasksResult.reason.message
+          : String(tasksResult.reason);
+    }
+    if (holdingsResult.status === "fulfilled") {
+      holdings = holdingsResult.value;
     }
   }
 
@@ -173,6 +194,31 @@
     );
   }
 
+  function humanizeKind(kind: string): string {
+    const map: Record<string, string> = {
+      deadline: "Deadline",
+      contradiction: "Contradiction",
+      promise_nudge: "Promise nudge",
+    };
+    return map[kind] ?? kind.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+  }
+
+  function clipped(text: string | undefined | null, max = 78): string {
+    const clean = String(text ?? "").replace(/\s+/g, " ").trim();
+    if (clean.length <= max) return clean;
+    return `${clean.slice(0, Math.max(0, max - 1)).trim()}…`;
+  }
+
+  function addOpportunity(
+    items: InitiativeOpportunity[],
+    seen: Set<string>,
+    opportunity: InitiativeOpportunity,
+  ): void {
+    if (seen.has(opportunity.id)) return;
+    seen.add(opportunity.id);
+    items.push(opportunity);
+  }
+
   const openPromises = $derived(
     continuityTasks.filter((task) => ACTIVE_PROMISE_STATUSES.has(task.status)),
   );
@@ -180,6 +226,10 @@
     continuityTasks.filter((task) => task.status === "awaiting_user"),
   );
   const blockedPromises = $derived(waitingPromises.filter(isLocalOnlyBlocked));
+  const heldDigest: SurfacingDecisionView[] = $derived(holdings?.held_digest ?? []);
+  const needsNow: SurfacingDecisionView[] = $derived(holdings?.needs_now ?? []);
+  const egressToday = $derived(holdings?.egress_today ?? 0);
+  const chainVerified = $derived(holdings?.chain_verified ?? null);
   const openPromiseCount = $derived(openPromises.length);
   const waitingCount = $derived(waitingPromises.length);
   const blockedCount = $derived(blockedPromises.length);
@@ -208,6 +258,123 @@
       chat.messages[chat.messages.length - 1]?.role === "assistant" &&
       chat.messages.some((m) => m.role === "user"),
   );
+
+  const initiativeOpportunities: InitiativeOpportunity[] = $derived.by(() => {
+    const items: InitiativeOpportunity[] = [];
+    const seen = new Set<string>();
+
+    if (needsNow.length > 0) {
+      const item = needsNow[0];
+      addOpportunity(items, seen, {
+        id: "needs-now",
+        tone: "action",
+        label: "This needs you.",
+        detail: clipped(`${humanizeKind(item.kind)} — ${item.reason}`),
+        prompt: "What are you noticing that needs me right now?",
+      });
+    }
+
+    if (blockedPromises.length > 0) {
+      const task = blockedPromises[0];
+      addOpportunity(items, seen, {
+        id: "blocked-local",
+        tone: "trust",
+        label: "This is blocked.",
+        detail: clipped(task.goal),
+        prompt: `What's blocked on "${task.goal}", and what would leave my machine if I unblock it?`,
+      });
+    }
+
+    if (waitingPromises.length > 0) {
+      const task = waitingPromises[0];
+      addOpportunity(items, seen, {
+        id: "waiting-promise",
+        tone: "action",
+        label: "Want to unblock this?",
+        detail: clipped(task.goal),
+        prompt: `Help me unblock this: "${task.goal}".`,
+      });
+    }
+
+    if (heldDigest.length > 0) {
+      addOpportunity(items, seen, {
+        id: "catch-up",
+        tone: "care",
+        label: "I kept a few things back.",
+        detail: `${heldDigest.length} held ${heldDigest.length === 1 ? "item" : "items"}`,
+        prompt: "Catch me up on the things you held back.",
+      });
+    }
+
+    if (recallDegraded) {
+      addOpportunity(items, seen, {
+        id: "repair-recall",
+        tone: "memory",
+        label: "Recall needs a tune-up.",
+        detail: "Semantic memory is degraded",
+        prompt: "What's wrong with recall, and what's the quickest safe fix?",
+      });
+    }
+
+    if (egressToday > 0 || chainVerified === false) {
+      addOpportunity(items, seen, {
+        id: "trust-check",
+        tone: "trust",
+        label: "Want a trust check?",
+        detail:
+          chainVerified === false
+            ? "Records need attention"
+            : `${egressToday} network ${egressToday === 1 ? "call" : "calls"} today`,
+        prompt: "Can you give me a quick trust check?",
+      });
+    }
+
+    if (openPromiseCount === 0) {
+      addOpportunity(items, seen, {
+        id: "find-next-move",
+        tone: "action",
+        label: "Want me to spot the next move?",
+        detail: "Use goals, memory, and current constraints",
+        prompt: "What should I do next?",
+      });
+    }
+
+    addOpportunity(items, seen, {
+      id: "plan-hour",
+      tone: "action",
+      label: "Want to shape the next hour?",
+      detail: "Pick a realistic sequence",
+      prompt: "Help me plan the next hour.",
+    });
+    addOpportunity(items, seen, {
+      id: "light-check-in",
+      tone: "care",
+      label: "Can I check in?",
+      detail: "Energy, focus, and friction",
+      prompt: "Check in with me for a minute.",
+    });
+    addOpportunity(items, seen, {
+      id: "memory-tune",
+      tone: "memory",
+      label: "Want to teach me what matters?",
+      detail: "Make June more useful",
+      prompt: "Ask me what you'd need to know to become more useful.",
+    });
+    addOpportunity(items, seen, {
+      id: "capability-boundary",
+      tone: "trust",
+      label: "Want the honest boundary?",
+      detail: "Capabilities, limits, and privacy",
+      prompt: "Tell me the honest boundary of what you can do right now.",
+    });
+
+    return items.slice(0, 6);
+  });
+
+  function takeOpportunity(opportunity: InitiativeOpportunity): void {
+    if (chat.streaming) return;
+    void sendMessage(opportunity.prompt);
+  }
 
   // Show an elapsed-time hint once a stream has been running for a few
   // seconds with nothing to show. Gemma cold-starts from Ollama can take
@@ -386,6 +553,27 @@
           &#8635; Regenerate
         </button>
       </div>
+    {/if}
+    {#if !chat.streaming && initiativeOpportunities.length > 0}
+      <section class="initiative-panel" aria-label="Ways June can help now">
+        <div class="initiative-head">
+          <span class="initiative-title">I could start here</span>
+          <span class="initiative-note">No pressure.</span>
+        </div>
+        <div class="initiative-grid">
+          {#each initiativeOpportunities as opportunity (opportunity.id)}
+            <button
+              type="button"
+              class="initiative-card"
+              data-tone={opportunity.tone}
+              onclick={() => takeOpportunity(opportunity)}
+            >
+              <span class="initiative-card-title">{opportunity.label}</span>
+              <span class="initiative-card-detail">{opportunity.detail}</span>
+            </button>
+          {/each}
+        </div>
+      </section>
     {/if}
     <div class="composer-row">
       <button
@@ -736,6 +924,110 @@
     border-color: var(--color-border-strong);
   }
 
+  .initiative-panel {
+    max-width: 820px;
+    width: 100%;
+    margin: 0 auto var(--space-2);
+    padding: 0 var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .initiative-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+    min-width: 0;
+  }
+
+  .initiative-title {
+    color: var(--color-fg-secondary);
+    font-size: var(--size-sm);
+    font-weight: 600;
+  }
+
+  .initiative-note {
+    color: var(--color-fg-subtle);
+    font-size: var(--size-xs);
+    white-space: nowrap;
+  }
+
+  .initiative-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  .initiative-card {
+    min-width: 0;
+    min-height: 66px;
+    padding: var(--space-2) var(--space-3);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 3px;
+    text-align: left;
+    background: color-mix(in srgb, var(--color-bg-raised) 84%, transparent);
+    border: 1px solid var(--color-border);
+    border-left-width: 3px;
+    border-radius: var(--radius-sm);
+    color: var(--color-fg-primary);
+    cursor: pointer;
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--color-border) 55%, transparent);
+    transition:
+      background 120ms ease,
+      border-color 120ms ease,
+      transform 120ms ease;
+  }
+
+  .initiative-card:hover,
+  .initiative-card:focus-visible {
+    background: var(--color-bg-raised);
+    border-color: var(--color-border-strong);
+    transform: translateY(-1px);
+    outline: none;
+  }
+
+  .initiative-card[data-tone="action"] {
+    border-left-color: var(--color-accent);
+  }
+
+  .initiative-card[data-tone="care"] {
+    border-left-color: var(--color-success);
+  }
+
+  .initiative-card[data-tone="memory"] {
+    border-left-color: var(--color-warn);
+  }
+
+  .initiative-card[data-tone="trust"] {
+    border-left-color: var(--color-fg-muted);
+  }
+
+  .initiative-card-title,
+  .initiative-card-detail {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .initiative-card-title {
+    color: var(--color-fg-primary);
+    font-size: var(--size-sm);
+    font-weight: 600;
+    line-height: var(--leading-tight);
+  }
+
+  .initiative-card-detail {
+    color: var(--color-fg-subtle);
+    font-size: var(--size-xs);
+    line-height: var(--leading-normal);
+  }
+
   .composer-row {
     display: flex;
     align-items: flex-start;
@@ -920,6 +1212,27 @@
     }
     .continuity-metric {
       min-height: 64px;
+    }
+    .initiative-panel {
+      padding: 0 var(--space-3);
+    }
+    .initiative-head {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: var(--space-1);
+    }
+    .initiative-note {
+      white-space: normal;
+    }
+    .initiative-grid {
+      display: flex;
+      overflow-x: auto;
+      padding-bottom: var(--space-1);
+      scroll-snap-type: x mandatory;
+    }
+    .initiative-card {
+      flex: 0 0 min(260px, 82vw);
+      scroll-snap-align: start;
     }
   }
 </style>
