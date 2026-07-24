@@ -1,8 +1,14 @@
-"""Minimal provenance hook for cloud model calls (C.1-scoped).
+"""Cloud call provenance and enforcement gate (ADR 0022 + egress gate).
 
-Full SSE TurnProvenance is C.6. This module provides the invariant:
-"no cloud call without a provenance event" — every GeminiProvider call
-records start/end events through a registered callback.
+Full SSE TurnProvenance is C.6. This module provides two invariants:
+
+1. "No cloud call without a provenance event" — every GeminiProvider call
+   records start/end events through a registered callback.
+
+2. "No cloud call when local-only" — when the privacy dial is LOCAL_ONLY,
+   cloud calls are blocked before they leave the process. The block is
+   enforced here, at the single chokepoint every cloud-routed call passes
+   through, so a skill cannot perform cloud egress and skip the gate.
 """
 
 from __future__ import annotations
@@ -25,6 +31,10 @@ class CloudCallEvent:
 _recorder: Callable[[CloudCallEvent], None] | None = None
 
 
+class CloudEgressBlockedError(Exception):
+    """Raised when a cloud call is blocked by the LOCAL_ONLY privacy dial."""
+
+
 def _privacy_dial_value() -> str:
     """Best-effort read of the active privacy dial, for the ledger payload."""
     try:
@@ -33,6 +43,17 @@ def _privacy_dial_value() -> str:
         return get_privacy_dial().value
     except Exception:  # noqa: BLE001 - never let a dial read break a model call
         return "unknown"
+
+
+def _is_local_only() -> bool:
+    """Return True if the privacy dial is set to LOCAL_ONLY."""
+    try:
+        from june_brain.config_store import get_privacy_dial
+        from june_brain.routing import UserPrivacyDial
+
+        return get_privacy_dial() == UserPrivacyDial.LOCAL_ONLY
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def _record_egress_to_ledger(event: CloudCallEvent) -> None:
@@ -67,10 +88,26 @@ def _record_egress_to_ledger(event: CloudCallEvent) -> None:
 def record_cloud_call(event: CloudCallEvent) -> None:
     """Dispatch a cloud-call event to the registered recorder (default: log).
 
-    Always also records a Trust Ledger egress entry (ADR 0022), independent of
-    whether a recorder callback is registered, so egress is provable after the
-    fact and the record cannot be bypassed.
+    Enforces the LOCAL_ONLY privacy dial: when active, cloud calls on the
+    ``start`` phase are blocked with CloudEgressBlockedError before they
+    leave the process. The block is here, at the single chokepoint every
+    cloud-routed call passes through, so a skill cannot perform cloud
+    egress and skip the gate.
+
+    Always records a Trust Ledger egress entry (ADR 0022) for permitted
+    calls, so egress is provable after the fact.
     """
+    if event.phase == "start" and _is_local_only():
+        logging.warning(
+            "cloud egress blocked (LOCAL_ONLY dial): model=%s summary=%s",
+            event.model_id,
+            event.payload_summary,
+        )
+        raise CloudEgressBlockedError(
+            f"Cloud call to {event.model_id} blocked: privacy dial is LOCAL_ONLY. "
+            "Switch to private_by_default or cloud_first to allow cloud calls."
+        )
+
     _record_egress_to_ledger(event)
     if _recorder is not None:
         _recorder(event)

@@ -11,6 +11,7 @@ from .gemini import GeminiProvider
 from .gemma import GemmaProvider
 from .provenance import (
     CloudCallEvent,
+    CloudEgressBlockedError,
     record_cloud_call,
     reset_cloud_call_recorder,
     set_cloud_call_recorder,
@@ -29,6 +30,7 @@ __all__ = [
     "get_registry",
     "reset_registry",
     "CloudCallEvent",
+    "CloudEgressBlockedError",
     "record_cloud_call",
     "set_cloud_call_recorder",
     "reset_cloud_call_recorder",
