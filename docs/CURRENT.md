@@ -4,16 +4,16 @@
 planning doc disagrees with this one, this one wins (and that doc should be
 archived). Updated as workstreams land.
 
-- **Last updated:** 2026-07-07.
+- **Last updated:** 2026-07-24.
 - **Release status:** `v0.1.0` shipped (web app + ad-hoc-signed macOS DMG). Active
-  target: **`v0.2.0`** per [`JUNE_V02_BRIEF.md`](../JUNE_V02_BRIEF.md).
-- **Active plan:** [`JUNE_V02_BRIEF.md`](../JUNE_V02_BRIEF.md) (workstreams W0–W8).
-- **Resume here next session:** see "Current position" in
-  [`product/v0.2-execution-plan.md`](product/v0.2-execution-plan.md#current-position-resume-here)
-  — W0 done; W2 in progress (migration v7 landed, RRF fusion S2.3 is the next slice).
-- **Reconciliation (brief vs. reality):** [`RECONCILIATION.md`](RECONCILIATION.md) — read before any v0.2 workstream.
+  target: **`v0.3.0`** per [`v0.3-development-plan.md`](product/v0.3-development-plan.md).
+- **Active plan:** [`v0.3-development-plan.md`](product/v0.3-development-plan.md) (phases 1-5).
+  Previous plans (`JUNE_V02_BRIEF.md`, `v0.2-execution-plan.md`) are superseded.
+- **Resume here next session:** Phase 1, task 1 — ship S2.3 (RRF fusion scoring).
+  Migration v7 landed; fusion scoring is the next commit.
+- **Reconciliation (brief vs. reality):** [`RECONCILIATION.md`](RECONCILIATION.md) — historical reference for v0.2.
 - **Durable worldview:** [`vision.md`](vision.md) (the four inversions; non-negotiable).
-- **Decision log:** [`decisions/`](decisions/) — ADRs 0001–0023 accepted; index in [`decisions/README.md`](decisions/README.md).
+- **Decision log:** [`decisions/`](decisions/) — ADRs 0001–0024 accepted; index in [`decisions/README.md`](decisions/README.md).
 
 ---
 
@@ -124,7 +124,7 @@ Everything lives under one versioned data directory (ADR 0019).
 
 ---
 
-## v0.2 status board
+## v0.2 status board (historical — see v0.3 plan for current direction)
 
 | WS | Name | State |
 |----|------|-------|

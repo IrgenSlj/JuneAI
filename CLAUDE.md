@@ -20,10 +20,11 @@ The four inversions of a coding agent (ADR 0015) define her:
 
 ## Canonical direction
 
-- `JUNE_V02_BRIEF.md` — the active v0.2 lead plan (workstreams W0–W8), with
-  `docs/product/v0.2-execution-plan.md` (sequencing) and `docs/RECONCILIATION.md`
-  (brief-vs-reality). `docs/CURRENT.md` is the authoritative state page. (The old
-  `docs/product/development-plan.md` and `rebuild-plan.md` are superseded — history only.)
+- `docs/product/v0.3-development-plan.md` — the active lead plan (phases 1-5:
+  foundation fixes, memory intelligence, voice/proactive, integrations, distribution).
+  `docs/CURRENT.md` is the authoritative state page. Previous plans
+  (`JUNE_V02_BRIEF.md`, `v0.2-execution-plan.md`) are superseded — see
+  `docs/archive/README.md`.
 - `docs/product/overview.md` — the product truth: June is a trusted continuity
   engine, not primarily a chat app.
 - `docs/vision.md` — the durable product worldview (the four inversions, the non-negotiables).
