@@ -142,7 +142,7 @@ def test_recall_uses_semantic_bm25_when_vector_unavailable(memory_dir):
     hits = manager.recall("Delft notebook", k=5)
 
     assert any(
-        h["source"] == "vector"
+        h["source"] == "bm25"
         and h.get("retrieval") == "bm25"
         and "delft blue notebook" in h["text"].lower()
         for h in hits

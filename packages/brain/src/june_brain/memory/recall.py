@@ -179,7 +179,7 @@ def gather_hits(
     # strong semantic matches but above weak ones. Feedback multipliers
     # nudge a hit up or down within its tier without crossing tiers.
     def _rank_key(h: dict[str, Any]) -> tuple[int, float]:
-        source_rank = {"vector": 0, "graph": 1, "sqlite": 2}.get(h["source"], 3)
+        source_rank = {"vector": 0, "bm25": 0, "graph": 1, "sqlite": 2}.get(h["source"], 3)
         score = h.get("score")
         return (source_rank, score if isinstance(score, (int, float)) else 1.0)
 
@@ -263,7 +263,7 @@ def semantic_bm25_hits(
             bm25_relevance = (hi - bm25_score) / (hi - lo)
         hits.append(
             {
-                "source": "vector",
+                "source": "bm25",
                 "text": row["text"],
                 "kind": str(_loads_metadata(row["metadata"]).get("kind", "fact")),
                 "ref": row["fact_id"],
