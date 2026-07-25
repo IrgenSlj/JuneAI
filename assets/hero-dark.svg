@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 420" width="1600" height="420" role="img" aria-label="June — a personal AI you can audit. She remembers you, forgets gracefully, explains every action, and never phones home.">
+  <title>June — a personal AI you can audit</title>
+  <desc>The June sun mark above the wordmark, a tagline, and four proof points: runs on your machine, every cloud call on the record, no account, and graceful forgetting.</desc>
+
+  <defs>
+    <linearGradient id="heroGlowDark" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0%" stop-color="#F2AC6E" stop-opacity="0.12"/>
+      <stop offset="55%" stop-color="#F2AC6E" stop-opacity="0.03"/>
+      <stop offset="100%" stop-color="#F2AC6E" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="420" fill="#13110E"/>
+  <rect width="1600" height="420" fill="url(#heroGlowDark)"/>
+
+  <!-- Sun mark, geometry copied verbatim from the shipped Mascot.svelte so the
+       README and the running app show the same thing. -->
+  <g transform="translate(752, 48) scale(1.0)">
+    <g stroke="#F2AC6E" stroke-width="3.2" stroke-linecap="round">
+      <line x1="34.50" y1="24.00" x2="41.00" y2="24.00" />
+      <line x1="33.09" y1="29.25" x2="38.72" y2="32.50" />
+      <line x1="29.25" y1="33.09" x2="32.50" y2="38.72" />
+      <line x1="24.00" y1="34.50" x2="24.00" y2="41.00" />
+      <line x1="18.75" y1="33.09" x2="15.50" y2="38.72" />
+      <line x1="14.91" y1="29.25" x2="9.28" y2="32.50" />
+      <line x1="13.50" y1="24.00" x2="7.00" y2="24.00" />
+      <line x1="14.91" y1="18.75" x2="9.28" y2="15.50" />
+      <line x1="18.75" y1="14.91" x2="15.50" y2="9.28" />
+      <line x1="24.00" y1="13.50" x2="24.00" y2="7.00" />
+      <line x1="29.25" y1="14.91" x2="32.50" y2="9.28" />
+      <line x1="33.09" y1="18.75" x2="38.72" y2="15.50" />
+    </g>
+    <circle cx="24" cy="24" r="7.4" fill="#F2AC6E"/>
+  </g>
+
+  <text x="800" y="230" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="104" font-weight="600" fill="#F1EEE7" letter-spacing="-2.5">June</text>
+
+  <text x="800" y="284" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="30" font-weight="500" fill="#F2AC6E">A personal AI you can audit.</text>
+
+  <text x="800" y="322" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="21" font-weight="400" fill="#8E8778">She remembers you, forgets gracefully, explains every action, and never phones home.</text>
+
+  <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" font-weight="500" fill="#D8D3C9">
+    <g transform="translate(340, 374)">
+      <circle cx="0" cy="-5" r="3.5" fill="#8AA884"/>
+      <text x="16" y="0">Runs on your machine</text>
+    </g>
+    <g transform="translate(590, 374)">
+      <circle cx="0" cy="-5" r="3.5" fill="#8AA884"/>
+      <text x="16" y="0">Every cloud call on the record</text>
+    </g>
+    <g transform="translate(910, 374)">
+      <circle cx="0" cy="-5" r="3.5" fill="#8AA884"/>
+      <text x="16" y="0">No account, ever</text>
+    </g>
+    <g transform="translate(1110, 374)">
+      <circle cx="0" cy="-5" r="3.5" fill="#8AA884"/>
+      <text x="16" y="0">Forgetting is first-class</text>
+    </g>
+  </g>
+</svg>

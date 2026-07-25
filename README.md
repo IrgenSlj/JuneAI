@@ -1,21 +1,15 @@
 <p align="center">
-  <img src="assets/logo.png" alt="June" width="96" />
-</p>
-
-<h1 align="center">June</h1>
-
-<p align="center">
-  <strong>A personal AI you can audit.</strong><br />
-  June remembers you, forgets gracefully, explains every action, and never phones home.
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/hero-dark.svg">
+    <img alt="June — a personal AI you can audit. She remembers you, forgets gracefully, explains every action, and never phones home." src="assets/hero-light.svg">
+  </picture>
 </p>
 
 <p align="center">
+  <a href="https://github.com/IrgenSlj/JuneAI/releases/latest"><img src="https://img.shields.io/badge/download-macOS%20Apple%20Silicon-F2AC6E.svg" alt="Download for macOS" /></a>
   <a href="https://github.com/IrgenSlj/JuneAI/actions/workflows/checks.yml"><img src="https://github.com/IrgenSlj/JuneAI/actions/workflows/checks.yml/badge.svg" alt="CI status" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license" /></a>
-  <img src="https://img.shields.io/badge/python-3.13-3776AB.svg" alt="Python 3.13" />
-  <img src="https://img.shields.io/badge/node-20%2B-339933.svg" alt="Node 20+" />
   <img src="https://img.shields.io/badge/status-alpha-orange.svg" alt="Alpha" />
-  <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs welcome" />
 </p>
 
 ---

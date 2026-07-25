@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-label="June — a personal AI you can audit. Local-first, with every cloud call on the record.">
+  <title>June — a personal AI you can audit</title>
+  <desc>June's wordmark and tagline beside a diagram showing that only one edge crosses the device boundary, and that it is logged and blockable.</desc>
+
+  <!-- Palette is the shipped app's (packages/design/src/tokens.css), not a
+       separate marketing look: bg-base #13110E, accent #F2AC6E, fg #F1EEE7. -->
+  <defs>
+    <linearGradient id="glow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F2AC6E" stop-opacity="0.10"/>
+      <stop offset="60%" stop-color="#F2AC6E" stop-opacity="0.02"/>
+      <stop offset="100%" stop-color="#F2AC6E" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="640" fill="#13110E"/>
+  <rect width="1280" height="640" fill="url(#glow)"/>
+
+  <!-- ============ Left: identity ============ -->
+  <!-- Mascot: the shipped sun mark, geometry copied from Mascot.svelte. -->
+  <g transform="translate(96, 92) scale(1.55)">
+    <g stroke="#F2AC6E" stroke-width="3.2" stroke-linecap="round">
+      <line x1="34.50" y1="24.00" x2="41.00" y2="24.00" />
+      <line x1="33.09" y1="29.25" x2="38.72" y2="32.50" />
+      <line x1="29.25" y1="33.09" x2="32.50" y2="38.72" />
+      <line x1="24.00" y1="34.50" x2="24.00" y2="41.00" />
+      <line x1="18.75" y1="33.09" x2="15.50" y2="38.72" />
+      <line x1="14.91" y1="29.25" x2="9.28" y2="32.50" />
+      <line x1="13.50" y1="24.00" x2="7.00" y2="24.00" />
+      <line x1="14.91" y1="18.75" x2="9.28" y2="15.50" />
+      <line x1="18.75" y1="14.91" x2="15.50" y2="9.28" />
+      <line x1="24.00" y1="13.50" x2="24.00" y2="7.00" />
+      <line x1="29.25" y1="14.91" x2="32.50" y2="9.28" />
+      <line x1="33.09" y1="18.75" x2="38.72" y2="15.50" />
+    </g>
+    <circle cx="24" cy="24" r="7.4" fill="#F2AC6E"/>
+  </g>
+
+  <text x="96" y="270" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="132" font-weight="600" fill="#F1EEE7" letter-spacing="-3">June</text>
+
+  <text x="99" y="330" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="34" font-weight="500" fill="#F2AC6E">A personal AI you can audit.</text>
+
+  <text x="99" y="386" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="24" font-weight="400" fill="#D8D3C9">She remembers you, forgets gracefully,</text>
+  <text x="99" y="420" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="24" font-weight="400" fill="#D8D3C9">explains every action, and never phones home.</text>
+
+  <!-- Proof chips, not adjectives: each maps to something enforced in code. -->
+  <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="19" font-weight="500">
+    <g transform="translate(96, 480)">
+      <rect width="243" height="46" rx="23" fill="rgba(242,172,110,0.16)" stroke="rgba(255,250,240,0.16)"/>
+      <text x="24" y="30" fill="#F1EEE7">Runs on your machine</text>
+    </g>
+    <g transform="translate(355, 480)">
+      <rect width="285" height="46" rx="23" fill="rgba(242,172,110,0.16)" stroke="rgba(255,250,240,0.16)"/>
+      <text x="24" y="30" fill="#F1EEE7">Hash-chained receipts</text>
+    </g>
+    <g transform="translate(96, 542)">
+      <rect width="222" height="46" rx="23" fill="rgba(242,172,110,0.16)" stroke="rgba(255,250,240,0.16)"/>
+      <text x="24" y="30" fill="#F1EEE7">No account, ever</text>
+    </g>
+    <g transform="translate(334, 542)">
+      <rect width="196" height="46" rx="23" fill="rgba(242,172,110,0.16)" stroke="rgba(255,250,240,0.16)"/>
+      <text x="24" y="30" fill="#F1EEE7">MIT licensed</text>
+    </g>
+  </g>
+
+  <!-- ============ Right: the one claim worth a picture ============ -->
+  <g transform="translate(700, 122)">
+    <text x="0" y="0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+          font-size="17" font-weight="500" fill="#8E8778" letter-spacing="1.6">ONE DOOR. ALWAYS LOGGED.</text>
+
+    <!-- device boundary. Kept inside a ~44px safe margin: GitHub crops the
+         social card on several surfaces, so nothing load-bearing goes near the
+         edge. -->
+    <rect x="0" y="26" width="316" height="330" rx="14"
+          fill="#1A1814" stroke="rgba(255,250,240,0.16)" stroke-width="1.5"/>
+    <text x="20" y="58" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+          font-size="15" font-weight="500" fill="#8E8778">YOUR MACHINE</text>
+
+    <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" font-weight="500">
+      <g transform="translate(24, 76)">
+        <rect width="268" height="52" rx="10" fill="#22201B" stroke="rgba(255,250,240,0.16)"/>
+        <text x="18" y="32" fill="#F1EEE7">Chat and recall</text>
+      </g>
+      <g transform="translate(24, 144)">
+        <rect width="268" height="52" rx="10" fill="#22201B" stroke="rgba(255,250,240,0.16)"/>
+        <text x="18" y="32" fill="#F1EEE7">Memory (one SQLite file)</text>
+      </g>
+      <!-- the chokepoint: a bar the flow must pass through, never a bypassable box -->
+      <g transform="translate(24, 212)">
+        <rect width="268" height="52" rx="10" fill="rgba(242,172,110,0.16)" stroke="#F2AC6E" stroke-width="2"/>
+        <text x="18" y="32" fill="#F2AC6E">One egress chokepoint</text>
+      </g>
+      <g transform="translate(24, 280)">
+        <rect width="268" height="52" rx="10" fill="#0E0C09" stroke="rgba(255,250,240,0.16)"/>
+        <text x="18" y="32" fill="#D8D3C9">Trust Ledger</text>
+        <!-- chain-link motif marks the append-only surface -->
+        <g stroke="#8E8778" stroke-width="1.6" fill="none">
+          <rect x="228" y="20" width="15" height="11" rx="5.5"/>
+          <rect x="236" y="20" width="15" height="11" rx="5.5"/>
+        </g>
+      </g>
+    </g>
+
+    <!-- vertical flow through the chokepoint -->
+    <g stroke="#5F5A50" stroke-width="1.5">
+      <line x1="158" y1="128" x2="158" y2="144"/>
+      <line x1="158" y1="196" x2="158" y2="212"/>
+      <line x1="158" y1="264" x2="158" y2="280"/>
+    </g>
+
+    <!-- the single crossing: dashed, labelled, stoppable -->
+    <line x1="292" y1="238" x2="404" y2="238" stroke="#C8A260" stroke-width="2" stroke-dasharray="7 6"/>
+    <path d="M404 238 l-9 -5 v10 z" fill="#C8A260"/>
+    <text x="300" y="224" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+          font-size="14" font-weight="500" fill="#C8A260">opt-in</text>
+
+    <!-- stop glyph at the boundary: local-only mode blocks this edge -->
+    <g transform="translate(316, 238)">
+      <circle r="11" fill="#13110E" stroke="#C88080" stroke-width="2"/>
+      <line x1="-5.5" y1="0" x2="5.5" y2="0" stroke="#C88080" stroke-width="2" stroke-linecap="round"/>
+    </g>
+
+    <g transform="translate(404, 212)">
+      <rect width="132" height="52" rx="10" fill="none" stroke="#5F5A50" stroke-dasharray="5 5"/>
+      <text x="20" y="32" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+            font-size="17" font-weight="500" fill="#8E8778">Cloud</text>
+    </g>
+
+    <text x="0" y="392" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+          font-size="15" font-weight="400" fill="#8E8778">Local-only mode blocks that edge before it leaves.</text>
+  </g>
+</svg>
