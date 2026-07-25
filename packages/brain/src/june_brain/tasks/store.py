@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sqlite3
 from datetime import UTC, datetime
 from typing import Any
 
@@ -517,6 +518,16 @@ def reconcile_running_after_restart(*, now: str | None = None) -> int:
         )
         conn.commit()
         return cur.rowcount
+    except sqlite3.OperationalError as exc:
+        # A fresh install has no `tasks` table until the first write creates it.
+        # That is the expected first-run state, not a failure — logging a
+        # traceback for it makes a clean install look broken and buries the
+        # tracebacks that do matter.
+        if "no such table" in str(exc).lower():
+            logger.debug("no tasks table yet (fresh install); nothing to reconcile")
+            return 0
+        logger.exception("reconcile_running_after_restart failed")
+        return 0
     except Exception:  # noqa: BLE001
         logger.exception("reconcile_running_after_restart failed")
         return 0
