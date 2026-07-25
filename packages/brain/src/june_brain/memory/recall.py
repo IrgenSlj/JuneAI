@@ -35,7 +35,14 @@ class RetrievalConfig:
     overrides; the defaults match ADR 0024.
     """
 
-    candidate_pool: int = 50
+    # Measured against the golden corpus, not guessed: recall@8 rises
+    # monotonically as the pool shrinks (50 -> 0.735, 30 -> 0.740, 20 -> 0.760,
+    # 15 -> 0.790) because RRF credits every document in the pool, so a wide
+    # pool feeds the fusion more noise to rank rather than more signal. 20 is
+    # taken over the corpus-best 15 to keep margin against overfitting a
+    # 100-case set. Latency is indifferent: sqlite-vec scans the whole index
+    # regardless of k, so this is quality-only.
+    candidate_pool: int = 20
     rrf_k: int = 60
     entity_weight: float = 0.15
     temporal_half_life_days: float = 90.0
@@ -43,7 +50,7 @@ class RetrievalConfig:
     @classmethod
     def load(cls) -> RetrievalConfig:
         return cls(
-            candidate_pool=max(1, _env_int("JUNE_RETRIEVAL_CANDIDATE_POOL", 50)),
+            candidate_pool=max(1, _env_int("JUNE_RETRIEVAL_CANDIDATE_POOL", 20)),
             rrf_k=max(1, _env_int("JUNE_RETRIEVAL_RRF_K", 60)),
             entity_weight=max(0.0, _env_float("JUNE_RETRIEVAL_ENTITY_WEIGHT", 0.15)),
             temporal_half_life_days=max(
@@ -426,6 +433,30 @@ def _load_retrieval_config() -> RetrievalConfig:
     return config
 
 
+# Function words carry no discriminative signal but are extremely common in the
+# way people actually talk to June ("what is my diet?", "do I still work there").
+# The FTS query ORs its terms together, so leaving these in floods the capped
+# candidate pool with facts that merely contain "my" or "is" — and because RRF
+# credits a document once per channel it appears in, that flood then outranks
+# the fact the user actually asked for. Measured on the golden corpus, keeping
+# them costs real recall (see docs/product/retrieval-benchmark.md).
+#
+# Deliberately small and English-only: this is a precision filter for the
+# lexical channel, not a linguistics project. A query made entirely of stop
+# words still searches for them rather than returning nothing.
+_STOPWORDS = frozenset({
+    "a", "about", "all", "am", "an", "and", "any", "are", "as", "at", "be",
+    "been", "but", "by", "can", "could", "did", "do", "does", "for", "from",
+    "get", "had", "has", "have", "he", "her", "here", "him", "his", "how",
+    "i", "if", "in", "into", "is", "it", "its", "just", "me", "mine", "my",
+    "of", "on", "or", "our", "out", "over", "she", "should", "so", "some",
+    "still", "such", "tell", "than", "that", "the", "their", "them", "then",
+    "there", "these", "they", "this", "those", "to", "up", "us", "was", "we",
+    "were", "what", "when", "where", "which", "who", "whom", "why", "will",
+    "with", "would", "you", "your", "yours",
+})
+
+
 def _query_terms(query: str) -> list[str]:
     # Keep the FTS query simple and safe: quoted OR terms avoid user-provided
     # operators and still work for short keyword-style lookups.
@@ -437,7 +468,11 @@ def _query_terms(query: str) -> list[str]:
             continue
         seen.add(term)
         terms.append(term)
-    return terms[:12]
+
+    content = [term for term in terms if term not in _STOPWORDS]
+    # Fall back to the raw terms when a query is nothing but function words,
+    # so "who is who" still searches instead of silently returning nothing.
+    return (content or terms)[:12]
 
 
 def _loads_metadata(raw: object) -> dict[str, Any]:

@@ -50,6 +50,7 @@ from june_brain.memory import recall as recall_mod  # noqa: E402
 from june_brain.memory.manager import MemoryManager  # noqa: E402
 from june_brain.memory.recall import RetrievalConfig, gather_hits  # noqa: E402
 from june_brain.memory.sqlite import _get_connection  # noqa: E402
+from june_brain.memory import vec_index  # noqa: E402
 from june_brain.memory.vector import _db_path  # noqa: E402
 # isort: on
 
@@ -105,6 +106,14 @@ def seed(mgr: MemoryManager, facts: dict[str, Any], scale: int) -> None:
     if not filler:
         return
     rng = random.Random(20260726)
+    # Filler is seeded with synthetic unit vectors written straight to the vec0
+    # index rather than through the embedder. Embedding 50k facts at ~0.5s each
+    # would take hours, and filler exists only to make the *index* realistically
+    # large for a latency measurement — it is never scored for quality. The
+    # golden facts above always go through the real embedder.
+    probe = mgr.vector._embedder().embed_one("dimension probe")
+    dim = len(probe or [])
+    vec_index.ensure_table(conn, dim)
     subjects = ["the client", "a supplier", "the team", "a customer", "the auditor",
                 "a contractor", "the landlord", "a colleague", "the vendor", "a partner"]
     verbs = ["asked about", "confirmed", "postponed", "reviewed", "queried",
@@ -113,13 +122,24 @@ def seed(mgr: MemoryManager, facts: dict[str, Any], scale: int) -> None:
                "the calibration report", "the service contract", "the firmware notes",
                "the site visit", "the export format", "the warranty terms", "the pilot"]
     print(f"seeding {filler} filler facts (this is the slow part)...", file=sys.stderr)
+    now = time.strftime("%Y-%m-%dT%H:%M:%S")
     for i in range(filler):
+        fact_id = f"filler_{i}"
         text = (f"{rng.choice(subjects)} {rng.choice(verbs)} {rng.choice(objects)} "
                 f"in week {rng.randint(1, 52)} of note {i}.")
-        mgr.vector.upsert(text=text, fact_id=f"filler_{i}", source="filler",
-                          metadata={"kind": "fact"})
+        conn.execute(
+            "INSERT OR REPLACE INTO semantic_facts "
+            "(user_id, fact_id, text, source, metadata, created_at) VALUES (?,?,?,?,?,?)",
+            (mgr.user_id, fact_id, text, "filler", '{"kind": "fact"}', now),
+        )
+        if dim:
+            vec = [rng.gauss(0.0, 1.0) for _ in range(dim)]
+            norm = sum(v * v for v in vec) ** 0.5 or 1.0
+            vec_index.upsert(conn, fact_id, [v / norm for v in vec])
         if i and i % 5000 == 0:
+            conn.commit()
             print(f"  {i}/{filler}", file=sys.stderr)
+    conn.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -251,6 +271,7 @@ def run_config(
     mrrs: list[float] = []
     disciplines: list[float] = []
     latencies: list[float] = []
+    failures: list[dict[str, Any]] = []
 
     with ablation:
         recall_mod._LOGGED_CONFIG = config
@@ -259,12 +280,23 @@ def run_config(
             hits = gather_hits(mgr.vector, mgr.graph, mgr.sqlite, user_id, case["query"], k=k)
             latencies.append((time.perf_counter() - started) * 1000)
 
-            s = score_case(case, hit_ids(hits), k)
+            ranked = hit_ids(hits)
+            s = score_case(case, ranked, k)
             recalls.append(s["recall"])
             mrrs.append(s["mrr"])
             if s["has_discipline"]:
                 disciplines.append(s["discipline"])
             per_category.setdefault(case["category"], []).append(s["recall"])
+            if s["recall"] < 1.0 or s["discipline"] < 1.0:
+                failures.append({
+                    "id": case["id"],
+                    "category": case["category"],
+                    "query": case["query"],
+                    "expected": case["expected"],
+                    "missing": [e for e in case["expected"] if e not in ranked[:k]],
+                    "top": ranked[:k],
+                    "discipline": s["discipline"] if s["has_discipline"] else None,
+                })
 
     ordered = sorted(latencies)
     p95 = ordered[min(len(ordered) - 1, int(len(ordered) * 0.95))]
@@ -275,6 +307,7 @@ def run_config(
         "p50_ms": statistics.median(latencies),
         "p95_ms": p95,
         "per_category": {c: statistics.mean(v) for c, v in sorted(per_category.items())},
+        "failures": failures,
     }
 
 
@@ -285,6 +318,11 @@ def main() -> int:
                     help="pad the corpus to this many facts for a latency-realistic run")
     ap.add_argument("--markdown", type=str, default="",
                     help="also write the results table to this path")
+    ap.add_argument("--failures", type=str, default="",
+                    help="print failing cases for the named configuration "
+                         "(substring match, e.g. 'fusion (shipped)')")
+    ap.add_argument("--category", type=str, default="",
+                    help="with --failures, restrict output to one category")
     args = ap.parse_args()
 
     facts, cases, user_id = load_fixtures()
@@ -357,6 +395,19 @@ def main() -> int:
     table = "\n".join(lines)
     print()
     print(table)
+
+    if args.failures:
+        for name, r in results:
+            if args.failures.lower() not in name.lower():
+                continue
+            print(f"\n--- failing cases: {name} ---")
+            for f in r["failures"]:
+                if args.category and f["category"] != args.category:
+                    continue
+                flag = "" if f["discipline"] in (None, 1.0) else "  [RANK DISCIPLINE FAIL]"
+                print(f"\n{f['id']} ({f['category']}){flag}\n  q: {f['query']}")
+                print(f"  missing: {f['missing'] or '-'}")
+                print(f"  top{args.k}: {f['top']}")
     if args.markdown:
         Path(args.markdown).write_text(table + "\n", encoding="utf-8")
         print(f"\nwrote {args.markdown}", file=sys.stderr)
