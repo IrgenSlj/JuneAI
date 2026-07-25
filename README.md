@@ -30,16 +30,17 @@ visible in the UI before and after it happens. Your conversations, memories, and
 embeddings live in a local SQLite database and an on-disk vector store. There is
 no signup, no telemetry without consent, and one button to export everything.
 
-> **Status:** June is alpha software under active development. It is usable as a
-> web app and has a v0.1.0 Apple Silicon macOS DMG on GitHub Releases (ad-hoc
-> signed, not notarized, so macOS may show a first-launch warning). The **Tier 1
-> spine** of June's [vision](docs/vision.md) is
+> **Status:** June is alpha software under active development. She runs as a web
+> app and as an Apple Silicon macOS app ([install below](#install-macos-apple-silicon)),
+> ad-hoc signed rather than notarized, so macOS shows a first-launch warning. The
+> **Tier 1 spine** of June's [vision](docs/vision.md) is
 > built — portable data directory, model-specific provider layer, measured harness
 > loop, layered context with anchored compaction, salience recall, an honest
 > character, and a visible cloud boundary. Current focus: building June into a
 > **trusted continuity engine**: home continuity, Promises, Memory governance,
 > Trust, Skills permissions, and event-driven Time. See the
-> [development plan](docs/product/development-plan.md).
+> [v0.3 development plan](docs/product/v0.3-development-plan.md) and
+> [what is true right now](docs/CURRENT.md).
 
 June's center of gravity is the user, not the task. She borrows a coding agent's
 skeleton but inverts its four operations: she **defers** to the user instead of
@@ -141,7 +142,44 @@ is a single SvelteKit build that every shell wraps. See
 [docs/architecture/overview.md](docs/architecture/overview.md) for the full
 picture and [docs/decisions/](docs/decisions/) for the ADRs behind each choice.
 
+## Install (macOS, Apple Silicon)
+
+Download `June_0.1.0_aarch64.dmg` from the
+[latest release](https://github.com/IrgenSlj/JuneAI/releases/latest), open it,
+and drag June to Applications.
+
+**First launch shows a security warning.** June is ad-hoc signed, not notarized
+(Apple Developer enrollment is pending), so macOS refuses the first double-click.
+Right-click June in Applications, choose **Open**, then **Open** again in the
+dialog. You only do this once. If you would rather not, build from source with
+the [quickstart](#quickstart) below — the DMG is the same code.
+
+**June needs a local model runtime.** She does not bundle one, and there is no
+cloud account to fall back on:
+
+| What | Size | How |
+| --- | --- | --- |
+| [Ollama](https://ollama.com) | ~200 MB | Install it, or let June's setup screen open the download for you |
+| `gemma4:e2b` (chat, local) | ~7.2 GB | June's three-step guide pulls it, or `ollama pull gemma4:e2b` |
+| `nomic-embed-text` (memory) | ~275 MB | `ollama pull nomic-embed-text` |
+
+Budget roughly **8 GB of disk** and a first-run download that takes as long as
+your connection takes. The embedding model is small but not optional in
+practice: without it June still chats and still remembers, but recall falls back
+from semantic search to a keyword scan, and memory is the whole point. June's
+setup screen tells you which of the three are missing and links to a guide that
+installs each one.
+
+A [Gemini API key](https://aistudio.google.com) is an alternative to Ollama for
+chat, but it is a cloud provider — every call leaves your machine, is shown in
+the UI before and after, and is written to the Trust Ledger.
+
+The first launch after install takes 15-30 seconds while the frozen Python
+sidecar warms up. Later launches take about two seconds.
+
 ## Quickstart
+
+Running from source, for development or if you would rather not use the DMG.
 
 **Prerequisites**
 
@@ -262,12 +300,15 @@ When you change a Pydantic schema or an API route, regenerate the client:
 
 ## Roadmap
 
-The **Tier 1 spine** is built. The active phase is **v0.2** — turning June's
-trust primitives into demonstrable product: retrieval v2 (multi-signal +
-temporal), memory provenance and quarantine, auditable Night Shift consolidation,
-and signed/notarized distribution. See the current state in
-[docs/CURRENT.md](docs/CURRENT.md), the plan in
-[JUNE_V02_BRIEF.md](JUNE_V02_BRIEF.md), and [ROADMAP.md](ROADMAP.md).
+The **Tier 1 spine** is built, and so are the trust primitives on top of it: the
+Trust Ledger, the guard layer, the Silence Model, and multi-signal retrieval
+(vector + BM25 + entity + temporal, fused with RRF). The active phase is
+**v0.3** — proving retrieval quality against a golden corpus, memory provenance
+and quarantine, promise checkpointing, voice, and signed distribution. See the
+current state in [docs/CURRENT.md](docs/CURRENT.md), the plan in
+[docs/product/v0.3-development-plan.md](docs/product/v0.3-development-plan.md)
+and its [execution order](docs/product/v0.3-execution-plan.md), and
+[ROADMAP.md](ROADMAP.md).
 
 ## Security posture
 
@@ -304,7 +345,7 @@ Discussion happens in [GitHub issues](https://github.com/IrgenSlj/JuneAI/issues)
 ## Documentation
 
 - [Current state](docs/CURRENT.md) — the authoritative state-of-the-project page
-- [v0.2 brief](JUNE_V02_BRIEF.md) — the active plan; [execution plan](docs/product/v0.2-execution-plan.md), [reconciliation](docs/RECONCILIATION.md)
+- [v0.3 development plan](docs/product/v0.3-development-plan.md) — the active plan; [execution order](docs/product/v0.3-execution-plan.md)
 - [Vision](docs/vision.md) — what June is and the non-negotiables
 - [Product overview](docs/product/overview.md) — the surfaces and the boundary
 - [Architecture overview](docs/architecture/overview.md) — the layered model
