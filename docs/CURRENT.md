@@ -4,13 +4,21 @@
 planning doc disagrees with this one, this one wins (and that doc should be
 archived). Updated as workstreams land.
 
-- **Last updated:** 2026-07-24.
-- **Release status:** `v0.1.0` shipped (web app + ad-hoc-signed macOS DMG). Active
-  target: **`v0.3.0`** per [`v0.3-development-plan.md`](product/v0.3-development-plan.md).
-- **Active plan:** [`v0.3-development-plan.md`](product/v0.3-development-plan.md) (phases 1-5).
-  Previous plans (`JUNE_V02_BRIEF.md`, `v0.2-execution-plan.md`) are superseded.
-- **Resume here next session:** Phase 1, task 1 — ship S2.3 (RRF fusion scoring).
-  Migration v7 landed; fusion scoring is the next commit.
+- **Last updated:** 2026-07-25.
+- **Release status:** the web app is the working surface. The published `v0.1.0`
+  DMG is **known-broken** — it was cut 2026-05-25, before the sidecar pipeline
+  landed (2026-07-01), so its `June.app` carries no `june-api/` under `Resources/`
+  and has no brain. Local builds from `main` are correct (~43MB, sidecar staged).
+  Re-cutting `v0.1.0` from `main` is Phase 1 of the execution plan. Active target:
+  **`v0.3.0`**.
+- **Active plans:** [`v0.3-development-plan.md`](product/v0.3-development-plan.md)
+  (what and why) + [`v0.3-execution-plan.md`](product/v0.3-execution-plan.md)
+  (order, slices, acceptance). Previous plans (`JUNE_V02_BRIEF.md`,
+  `v0.2-execution-plan.md`) are superseded.
+- **Resume here next session:** execution plan Phase 1 — build a release DMG from
+  `main`, cold-install verify it, re-cut `v0.1.0`. Phase 0 (doc reconciliation) is
+  done; Phase 1 of the *development* plan (foundation fixes) is complete except the
+  DuckDuckGo fallback.
 - **Reconciliation (brief vs. reality):** [`RECONCILIATION.md`](RECONCILIATION.md) — historical reference for v0.2.
 - **Durable worldview:** [`vision.md`](vision.md) (the four inversions; non-negotiable).
 - **Decision log:** [`decisions/`](decisions/) — ADRs 0001–0024 accepted; index in [`decisions/README.md`](decisions/README.md).
@@ -53,12 +61,17 @@ Everything lives under one versioned data directory (ADR 0019).
 - **Memory (`packages/brain/.../memory`).** One `june.db` behind one
   `MemoryManager` facade over three stores: structured SQLite rows, a sqlite-vec
   `vec0` semantic index, and an entity graph (`graph_nodes`/`graph_edges`). Facts
-  live in **`semantic_facts`** (composite PK `user_id`+`fact_id`). Recall
-  (`recall.py::gather_hits`) fuses all three stores and reranks by *salience*
-  (recency × frequency × relevance), not similarity alone. Embeddings are served
+  live in **`semantic_facts`** (composite PK `user_id`+`fact_id`, with bi-temporal
+  validity columns). Recall (`recall.py::gather_hits`) fuses **four signals** —
+  vector similarity, BM25 over the FTS5 mirror `semantic_facts_fts` (kept current
+  by insert/update/delete triggers), entity overlap, and temporal validity — via
+  Reciprocal Rank Fusion (`rrf_k=60`, tunable through `RetrievalConfig`), then
+  reranks by *salience* (recency × frequency × relevance), not similarity alone.
+  Missing FTS5 degrades gracefully to the vector channel. Embeddings are served
   locally by Ollama (`nomic-embed-text`). Forgetting is first-class and tombstones
   content into `forgotten_*` tables. Schema is versioned (`memory/migration.py`,
-  latest v6).
+  latest v7). **Not yet measured:** there is no golden-corpus benchmark proving
+  fusion beats vector-only recall — that gate is Phase 2 of the execution plan.
 
 - **Providers / routing (`packages/brain/.../providers`, `router`).** Three roles:
   `local-fast` (`gemma4:e2b`), `local-deep` (`gemma4:e4b`), `cloud-capable`
@@ -67,6 +80,8 @@ Everything lives under one versioned data directory (ADR 0019).
   only on explicit agentic/skill paths. Every cloud call is bracketed by a single
   chokepoint (`providers/provenance.py::record_cloud_call`) that writes an
   `egress` entry to the Trust Ledger — a skill cannot egress and skip the ledger.
+  The chokepoint is no longer passive: in local-only mode the `start` phase raises
+  `CloudEgressBlockedError` **before** the request leaves the machine.
 
 - **Trust Ledger (`packages/brain/.../trust`, ADR 0022).** Append-only,
   blake2b-hash-chained local event log (`trust_ledger`), with tail-truncation-aware
