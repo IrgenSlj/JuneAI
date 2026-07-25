@@ -5,19 +5,18 @@ planning doc disagrees with this one, this one wins (and that doc should be
 archived). Updated as workstreams land.
 
 - **Last updated:** 2026-07-25.
-- **Release status:** the web app is the working surface. The published `v0.1.0`
-  DMG is **known-broken** — it was cut 2026-05-25, before the sidecar pipeline
-  landed (2026-07-01), so its `June.app` carries no `june-api/` under `Resources/`
-  and has no brain. Local builds from `main` are correct (~43MB, sidecar staged).
-  Re-cutting `v0.1.0` from `main` is Phase 1 of the execution plan. Active target:
-  **`v0.3.0`**.
+- **Release status:** `v0.1.0` re-cut on 2026-07-25 and **verified working** — a
+  45MB Apple Silicon DMG built by CI from the tag, with the frozen sidecar inside
+  it, ad-hoc signed. The tag points at the code the artifact was built from. The
+  previously published asset (2.7MB, no sidecar, cut before the packaging pipeline
+  existed) has been deleted. Active target: **`v0.3.0`**.
 - **Active plans:** [`v0.3-development-plan.md`](product/v0.3-development-plan.md)
   (what and why) + [`v0.3-execution-plan.md`](product/v0.3-execution-plan.md)
   (order, slices, acceptance). Previous plans (`JUNE_V02_BRIEF.md`,
   `v0.2-execution-plan.md`) are superseded.
-- **Resume here next session:** execution plan Phase 1 — build a release DMG from
-  `main`, cold-install verify it, re-cut `v0.1.0`. Phase 0 (doc reconciliation) is
-  done; Phase 1 of the *development* plan (foundation fixes) is complete except the
+- **Resume here next session:** execution plan Phase 2 — the golden retrieval
+  corpus and benchmark. Phases 0 and 1 are done (docs reconciled; working release
+  shipped). Development-plan Phase 1 (foundation fixes) is complete except the
   DuckDuckGo fallback.
 - **Reconciliation (brief vs. reality):** [`RECONCILIATION.md`](RECONCILIATION.md) — historical reference for v0.2.
 - **Durable worldview:** [`vision.md`](vision.md) (the four inversions; non-negotiable).
