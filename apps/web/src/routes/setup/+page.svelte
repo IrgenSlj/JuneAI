@@ -92,9 +92,19 @@
             {#if status}
               <span class="status-line">
                 {#if status.ollama_reachable && status.ollama_has_model}
-                  <span class="ok">Ollama is ready with {status.model || "gemma4:e2b"}.</span>
                   {#if status.semantic_recall_status === "degraded"}
-                    <span class="warn">{status.semantic_recall_detail}</span>
+                    <!-- The embedding model is a second, separate Ollama pull.
+                         Claiming a flat "ready" here would let someone finish
+                         setup with June's memory silently degraded to a keyword
+                         scan — the one thing she is meant to be good at. -->
+                    <span class="warn">
+                      Chat is ready with {status.model || "gemma4:e2b"}, but
+                      memory is running degraded.
+                      {status.semantic_recall_detail}
+                      <a href="/help/ollama">Pull the embedding model.</a>
+                    </span>
+                  {:else}
+                    <span class="ok">Ollama is ready with {status.model || "gemma4:e2b"}.</span>
                   {/if}
                 {:else if status.ollama_reachable}
                   <span class="warn">

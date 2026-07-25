@@ -40,7 +40,32 @@ extension).
 > dependencies. It is imported at module load by the Gemini provider but is not
 > declared, so a clean install (and this freeze) needs it added explicitly.
 
+## Building the whole app locally (`tauri build`)
+
+Use `CI=true`:
+
+```sh
+cd apps/desktop && CI=true pnpm exec tauri build
+```
+
+Without it, `bundle_dmg.sh` fails with exit 64 at "Running AppleScript to make
+Finder stuff pretty" whenever the shell cannot send Apple Events (any non-GUI
+session, including an agent or CI-like terminal). `CI=true` skips that purely
+cosmetic Finder-window styling step and the DMG builds normally. GitHub Actions
+sets `CI` itself, so `.github/workflows/release.yml` never hits this.
+
+If a build did fail there, detach the leftover volume before retrying —
+`hdiutil detach /Volumes/dmg.*` — and delete the stray
+`target/release/bundle/macos/rw.*.dmg` intermediate.
+
 ## Smoke test
+
+The frozen sidecar must be smoke-tested by running **the packaged binary**, not
+the dev entry point. They do not behave identically: the frozen bundle is
+ad-hoc signed, so it has a different code identity from the dev interpreter, and
+anything identity-scoped (macOS Keychain ACLs above all) takes a different path.
+That difference hid a total chat hang through an entire green test gate — see
+[`../../docs/product/cold-install-log-2026-07-25.md`](../../docs/product/cold-install-log-2026-07-25.md).
 
 ```sh
 JUNE_DATA_DIR=/tmp/june-testdata \
