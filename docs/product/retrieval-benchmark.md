@@ -42,18 +42,23 @@ Both numbers are reported because the second one is the interesting one.
 Latency is retrieval only, with the query embedding cache warm. A query June has
 never embedded before pays a further **~510 ms p50** in the local embedding call.
 
-### recall@8 by category (133-fact corpus)
+### recall@8 by category (133-fact corpus, shipped defaults)
 
 | Category | vector only | BM25 only | fusion |
 | --- | ---: | ---: | ---: |
-| direct | 0.80 | 0.70 | 0.80 |
-| paraphrase | 0.42 | 0.28 | 0.56 |
+| direct | 0.90 | 0.70 | 0.85 |
+| paraphrase | 0.56 | 0.28 | 0.56 |
 | lexical_rare | 0.43 | 1.00 | 1.00 |
-| entity_linked | 0.30 | 0.96 | 0.92 |
-| temporal_supersession | 0.75 | 0.42 | 0.75 |
-| negation_contrast | 0.12 | 0.69 | 0.69 |
-| multi_hop | 0.19 | 0.75 | 0.75 |
-| distractor_heavy | 0.19 | 0.25 | 0.25 |
+| entity_linked | 0.36 | 0.96 | 0.96 |
+| temporal_supersession | 0.67 | 0.42 | 0.67 |
+| negation_contrast | 0.62 | 0.69 | 0.81 |
+| multi_hop | 0.62 | 0.75 | 0.81 |
+| distractor_heavy | 0.31 | 0.25 | 0.31 |
+
+Fusion wins or ties every category except `direct`, where it trades a point
+against vector-only for large gains elsewhere. `temporal_supersession` is the
+one category where fusion adds nothing over the vector channel, and
+`distractor_heavy` is weak across the board — both are named as open work below.
 
 ---
 
@@ -68,12 +73,18 @@ contain "my" — and because RRF credits a document once per channel it appears
 in, those flooded facts then outranked the fact the user asked for. The answer to
 "What is my diet?" was ranked below "Ana is learning Dutch".
 
-Filtering function words moved **MRR from 0.582 to 0.676 (+16%)** and restored
-the supersession category from 0.67 to 0.75. It costs recall in three categories
-(distractor_heavy, negation_contrast, multi_hop) whose expected facts were being
-reached incidentally through common words, leaving overall recall@8 flat — the
-right answers moved *up* rather than *in*. For a system that feeds a limited
-context window, rank beats presence.
+Measured on its own, before the pool change below (so: pool 50, 133 facts),
+filtering function words moved **MRR from 0.582 to 0.676 (+16%)** and lifted the
+supersession category from 0.67 to 0.75, while costing recall in three
+categories whose expected facts had been reached incidentally through common
+words. Overall recall@8 stayed flat at 0.735 — the right answers moved *up*
+rather than *in*. For a system that feeds a limited context window, rank beats
+presence.
+
+The two changes are reported separately because they interact: with the smaller
+pool shipped alongside it, supersession settles back at 0.67 while overall recall
+reaches 0.760 and MRR 0.702. The combination is better than either alone on every
+headline number; it is not better on every category.
 
 ### 2. The candidate pool was twice the size it should be
 
@@ -138,6 +149,21 @@ small local embedding model. It also means the highest-leverage retrieval
 improvement available is a better embedding model, not a better ranker.
 
 ---
+
+## Open work this measurement names
+
+1. **`temporal_supersession` gains nothing from fusion** (0.67, same as
+   vector-only) and the flat-temporal ablation scores identically to the shipped
+   config. Both channels correctly exclude expired facts, so the bi-temporal
+   work is doing its safety job — but the temporal *prior* is not contributing
+   ranking signal on top of that. Either it should, or ADR 0024's four-signal
+   framing should be honest that it is three signals and a filter.
+2. **`distractor_heavy` is weak everywhere** (0.31). These are queries where
+   several plausible facts compete and the corpus asks for the specific one.
+   This is the shape most like real recall failure and deserves its own look.
+3. **The vector scan grows linearly** — see the latency section above.
+4. **A better embedding model is the largest single lever**, per the section
+   below. Worth a spike against alternatives before more ranker tuning.
 
 ## Caveats
 

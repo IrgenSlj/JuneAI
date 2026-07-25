@@ -74,4 +74,23 @@ else
   echo "==> Mypy gate skipped via JUNE_CHECK_MYPY=0"
 fi
 
+# Retrieval quality is measured, not gated. The benchmark needs a running Ollama
+# and takes minutes, so making it part of every push would trade a fast gate for
+# a slow flaky one. It is opt-in and can never fail the gate: the point is to
+# make a recall regression *visible* to whoever asks for it, not to block a
+# commit on a number that depends on which embedding model happens to be pulled.
+# Fixture integrity IS gated (see test_retrieval_golden_fixture.py) because a
+# case pointing at a deleted fact silently invalidates the measurement.
+if [ "${JUNE_CHECK_RETRIEVAL_BENCH:-0}" = "1" ]; then
+  echo "==> Retrieval benchmark (report only, never fails the gate)"
+  if curl -sf -m 2 "${OLLAMA_BASE_URL:-http://127.0.0.1:11434}/api/tags" >/dev/null 2>&1; then
+    "$PYTHON_BIN" tools/retrieval_bench.py --k 8 || \
+      echo "warning: retrieval benchmark did not complete; not failing the gate" >&2
+  else
+    echo "    skipped: no Ollama on ${OLLAMA_BASE_URL:-http://127.0.0.1:11434}"
+  fi
+else
+  echo "==> Retrieval benchmark skipped (set JUNE_CHECK_RETRIEVAL_BENCH=1 to report)"
+fi
+
 echo "==> Checks complete"
