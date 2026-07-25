@@ -34,11 +34,22 @@ use tokio::process::{Child, Command};
 /// http://localhost:8000 (apps/web/src/lib/api.ts).
 pub const API_PORT: u16 = 8000;
 
-/// Poll budget for the health wait: 120 × 500 ms = 60 s total.
+/// Total wall-clock budget for the health wait: 60 s.
 /// The PyInstaller frozen cold start is 13–30 s (spike findings); 60 s gives
 /// a 2× margin. Do NOT reuse Ollama's 10 s budget.
-const HEALTH_POLL_ITERS: u32 = 120;
-const HEALTH_POLL_MS: u64 = 500;
+///
+/// The interval ramps from 50 ms to a 500 ms ceiling rather than sitting at a
+/// flat 500 ms. The ramp is what makes an already-warm start (adopting a
+/// surviving server, or a warm OS file cache — ~2 s per the cold-start notes)
+/// feel immediate. The *ceiling* is the point: unbounded exponential backoff
+/// would grow the interval past 500 ms and make the common 13–30 s frozen cold
+/// start slower to detect than it is today, which is the opposite of the goal.
+///
+/// The budget is wall-clock rather than an iteration count so the guarantee
+/// stays exactly 60 s no matter how the interval schedule is tuned.
+const HEALTH_BUDGET: Duration = Duration::from_secs(60);
+const HEALTH_POLL_START_MS: u64 = 50;
+const HEALTH_POLL_MAX_MS: u64 = 500;
 
 #[derive(Default)]
 pub struct SidecarState {
@@ -172,17 +183,28 @@ pub async fn start_api(app: AppHandle) -> Result<(), String> {
         *guard = Some(child);
     }
 
-    // Poll until reachable or the budget is exhausted.
-    for _ in 0..HEALTH_POLL_ITERS {
+    // Poll until reachable or the budget is exhausted, ramping the interval so
+    // a fast start is noticed almost immediately without polling a slow one
+    // hundreds of times.
+    let deadline = tokio::time::Instant::now() + HEALTH_BUDGET;
+    let mut interval_ms = HEALTH_POLL_START_MS;
+    loop {
         if api_reachable(API_PORT).await {
             return Ok(());
         }
-        tokio::time::sleep(Duration::from_millis(HEALTH_POLL_MS)).await;
+        let now = tokio::time::Instant::now();
+        if now >= deadline {
+            break;
+        }
+        // Never sleep past the deadline — the budget is the contract.
+        let remaining = deadline - now;
+        tokio::time::sleep(remaining.min(Duration::from_millis(interval_ms))).await;
+        interval_ms = (interval_ms * 2).min(HEALTH_POLL_MAX_MS);
     }
 
     Err(format!(
         "june-api started but did not become reachable on port {API_PORT} within {}s.",
-        (HEALTH_POLL_ITERS as u64 * HEALTH_POLL_MS) / 1000
+        HEALTH_BUDGET.as_secs()
     ))
 }
 
