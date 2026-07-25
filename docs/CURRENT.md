@@ -14,10 +14,11 @@ archived). Updated as workstreams land.
   (what and why) + [`v0.3-execution-plan.md`](product/v0.3-execution-plan.md)
   (order, slices, acceptance). Previous plans (`JUNE_V02_BRIEF.md`,
   `v0.2-execution-plan.md`) are superseded.
-- **Resume here next session:** execution plan Phase 2 — the golden retrieval
-  corpus and benchmark. Phases 0 and 1 are done (docs reconciled; working release
-  shipped). Development-plan Phase 1 (foundation fixes) is complete except the
-  DuckDuckGo fallback.
+- **Resume here next session:** execution plan Phase 3 — visual identity (social
+  preview card, README hero, the nine architecture diagrams). Phases 0-2 are done
+  (docs reconciled; working release shipped; retrieval measured and tuned —
+  [results](product/retrieval-benchmark.md)). Development-plan Phase 1 is
+  complete except the DuckDuckGo fallback.
 - **Reconciliation (brief vs. reality):** [`RECONCILIATION.md`](RECONCILIATION.md) — historical reference for v0.2.
 - **Durable worldview:** [`vision.md`](vision.md) (the four inversions; non-negotiable).
 - **Decision log:** [`decisions/`](decisions/) — ADRs 0001–0024 accepted; index in [`decisions/README.md`](decisions/README.md).
@@ -69,8 +70,11 @@ Everything lives under one versioned data directory (ADR 0019).
   Missing FTS5 degrades gracefully to the vector channel. Embeddings are served
   locally by Ollama (`nomic-embed-text`). Forgetting is first-class and tombstones
   content into `forgotten_*` tables. Schema is versioned (`memory/migration.py`,
-  latest v7). **Not yet measured:** there is no golden-corpus benchmark proving
-  fusion beats vector-only recall — that gate is Phase 2 of the execution plan.
+  latest v7). **Measured:** fusion beats vector-only recall@8 by **+29%** on a
+  100-case golden corpus at 50k facts (0.760 vs 0.588, MRR 0.702 vs 0.456). p95
+  retrieval is 252ms at that scale, against a 120ms target that was not met —
+  the vec0 scan is brute-force and grows linearly. Full results, method, and open
+  work in [`product/retrieval-benchmark.md`](product/retrieval-benchmark.md).
 
 - **Providers / routing (`packages/brain/.../providers`, `router`).** Three roles:
   `local-fast` (`gemma4:e2b`), `local-deep` (`gemma4:e4b`), `cloud-capable`
