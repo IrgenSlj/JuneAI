@@ -1,0 +1,166 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" preserveAspectRatio="xMidYMid meet">
+  <title>June's memory architecture</title>
+  <desc>One SQLite file holds structured rows, a sqlite-vec semantic index, and an entity graph behind one MemoryManager facade. On write, a conversation is extracted into facts, embedded locally, linked into the graph, and mirrored into an FTS5 index by triggers. On read, a query fans into four channels — vector, BM25, entity overlap, and temporal validity — which converge on reciprocal rank fusion and then a salience rerank of recency times frequency times relevance. Forgetting tombstones a fact into a forgotten table and is reversible.</desc>
+
+  <rect width="1600" height="1000" fill="#FAF9F7"/>
+
+  <g font-family="-apple-system, Helvetica Neue, Helvetica, Arial, sans-serif">
+    <text x="80" y="80" font-size="15" font-weight="500" fill="#6B665D" letter-spacing="1.4">MEMORY — ONE FILE, THREE STORES, FOUR SIGNALS</text>
+    <text x="80" y="128" font-size="15" font-weight="400" fill="#9A948A">Nothing on this diagram leaves your machine. Embeddings are served locally by Ollama.</text>
+
+    <!-- ==================== WRITE PATH ==================== -->
+    <text x="80" y="196" font-size="14" font-weight="500" fill="#E8965A" letter-spacing="1.4">WRITE</text>
+
+    <g font-size="16" font-weight="500" fill="#141410">
+      <g transform="translate(80, 216)">
+        <rect width="230" height="56" rx="10" fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+        <text x="20" y="34">conversation</text>
+      </g>
+      <g transform="translate(80, 300)">
+        <rect width="230" height="56" rx="10" fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+        <text x="20" y="34">extractor</text>
+      </g>
+      <g transform="translate(80, 384)">
+        <rect width="230" height="76" rx="10" fill="#F3F1ED" stroke="rgba(20,16,10,0.14)"/>
+        <text x="20" y="32">semantic_facts</text>
+        <text x="20" y="58" font-size="13" font-weight="400" fill="#6B665D">+ bi-temporal validity</text>
+      </g>
+    </g>
+
+    <g stroke="#6B665D" stroke-width="1.6" fill="#6B665D">
+      <line x1="195" y1="272" x2="195" y2="294"/><path d="M195 300 l-5 -9 h10 z"/>
+      <line x1="195" y1="356" x2="195" y2="378"/><path d="M195 384 l-5 -9 h10 z"/>
+    </g>
+
+    <!-- three destinations from the fact row -->
+    <g font-size="15" font-weight="500" fill="#2A2824">
+      <g transform="translate(392, 300)">
+        <rect width="252" height="56" rx="10" fill="#FFFFFF" stroke="#4E6B4A" stroke-width="1.4"/>
+        <text x="18" y="34">nomic-embed-text → vec0</text>
+      </g>
+      <g transform="translate(392, 384)">
+        <rect width="252" height="56" rx="10" fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+        <text x="18" y="34">entity graph</text>
+      </g>
+      <g transform="translate(392, 468)">
+        <rect width="252" height="76" rx="10" fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+        <text x="18" y="32">semantic_facts_fts</text>
+        <text x="18" y="58" font-size="13" font-weight="400" fill="#6B665D">kept in sync by triggers</text>
+      </g>
+    </g>
+
+    <g stroke="#6B665D" stroke-width="1.6" fill="#6B665D">
+      <line x1="310" y1="422" x2="352" y2="422"/>
+      <line x1="352" y1="422" x2="352" y2="328"/><line x1="352" y1="328" x2="386" y2="328"/><path d="M392 328 l-9 -5 v10 z"/>
+      <line x1="352" y1="422" x2="386" y2="422"/><path d="M392 422 l-9 -5 v10 z"/>
+      <line x1="352" y1="422" x2="352" y2="506"/><line x1="352" y1="506" x2="386" y2="506"/><path d="M392 506 l-9 -5 v10 z"/>
+    </g>
+
+    <!-- ==================== THE FILE ==================== -->
+    <g transform="translate(80, 604)">
+      <path d="M0 20 a282 20 0 0 1 564 0 v96 a282 20 0 0 1 -564 0 z"
+            fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+      <ellipse cx="282" cy="20" rx="282" ry="20" fill="#F3F1ED" stroke="rgba(20,16,10,0.14)"/>
+      <text x="22" y="56" font-size="18" font-weight="500" fill="#141410">june.db</text>
+      <text x="122" y="56" font-size="14" font-weight="400" fill="#6B665D">one file, one MemoryManager facade in front of it</text>
+      <g font-size="13" font-weight="500" fill="#2A2824">
+        <g transform="translate(22, 74)"><rect width="164" height="30" rx="7" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/><text x="14" y="20">structured rows</text></g>
+        <g transform="translate(200, 74)"><rect width="164" height="30" rx="7" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/><text x="14" y="20">sqlite-vec (vec0)</text></g>
+        <g transform="translate(378, 74)"><rect width="164" height="30" rx="7" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/><text x="14" y="20">entity graph</text></g>
+      </g>
+    </g>
+
+    <!-- ==================== READ PATH ==================== -->
+    <text x="760" y="196" font-size="14" font-weight="500" fill="#E8965A" letter-spacing="1.4">READ</text>
+
+    <g transform="translate(760, 216)">
+      <rect width="240" height="56" rx="10" fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+      <text x="20" y="34" font-size="16" font-weight="500" fill="#141410">a question</text>
+    </g>
+
+    <!-- four channels -->
+    <g font-size="15" font-weight="500" fill="#2A2824">
+      <g transform="translate(760, 320)">
+        <rect width="180" height="60" rx="10" fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+        <text x="18" y="26">vector</text>
+        <text x="18" y="48" font-size="12" font-weight="400" fill="#6B665D">semantic similarity</text>
+      </g>
+      <g transform="translate(960, 320)">
+        <rect width="180" height="60" rx="10" fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+        <text x="18" y="26">BM25</text>
+        <text x="18" y="48" font-size="12" font-weight="400" fill="#6B665D">exact + rare words</text>
+      </g>
+      <g transform="translate(1160, 320)">
+        <rect width="180" height="60" rx="10" fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+        <text x="18" y="26">entity</text>
+        <text x="18" y="48" font-size="12" font-weight="400" fill="#6B665D">who and what</text>
+      </g>
+      <g transform="translate(1360, 320)">
+        <rect width="180" height="60" rx="10" fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+        <text x="18" y="26">temporal</text>
+        <text x="18" y="48" font-size="12" font-weight="400" fill="#6B665D">still true?</text>
+      </g>
+    </g>
+
+    <g stroke="#6B665D" stroke-width="1.6" fill="#6B665D">
+      <line x1="880" y1="272" x2="880" y2="292"/>
+      <line x1="850" y1="292" x2="1450" y2="292"/>
+      <line x1="850" y1="292" x2="850" y2="314"/><path d="M850 320 l-5 -9 h10 z"/>
+      <line x1="1050" y1="292" x2="1050" y2="314"/><path d="M1050 320 l-5 -9 h10 z"/>
+      <line x1="1250" y1="292" x2="1250" y2="314"/><path d="M1250 320 l-5 -9 h10 z"/>
+      <line x1="1450" y1="292" x2="1450" y2="314"/><path d="M1450 320 l-5 -9 h10 z"/>
+    </g>
+
+    <!-- fusion bar: a seam the flow must pass through -->
+    <g stroke="#6B665D" stroke-width="1.6" fill="#6B665D">
+      <line x1="850" y1="380" x2="850" y2="416"/><path d="M850 424 l-5 -9 h10 z"/>
+      <line x1="1050" y1="380" x2="1050" y2="416"/><path d="M1050 424 l-5 -9 h10 z"/>
+      <line x1="1250" y1="380" x2="1250" y2="416"/><path d="M1250 424 l-5 -9 h10 z"/>
+      <line x1="1450" y1="380" x2="1450" y2="416"/><path d="M1450 424 l-5 -9 h10 z"/>
+    </g>
+
+    <g transform="translate(760, 424)">
+      <rect width="780" height="58" rx="10" fill="rgba(232,150,90,0.12)" stroke="#E8965A" stroke-width="2"/>
+      <text x="24" y="36" font-size="17" font-weight="600" fill="#E8965A">reciprocal rank fusion</text>
+      <text x="272" y="36" font-size="14" font-weight="400" fill="#2A2824">k = 60 · candidate pool 20, measured not guessed</text>
+    </g>
+
+    <g stroke="#6B665D" stroke-width="1.6" fill="#6B665D">
+      <line x1="1150" y1="482" x2="1150" y2="510"/><path d="M1150 516 l-5 -9 h10 z"/>
+    </g>
+
+    <g transform="translate(760, 516)">
+      <rect width="780" height="70" rx="10" fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+      <text x="24" y="30" font-size="17" font-weight="500" fill="#141410">salience rerank</text>
+      <text x="24" y="54" font-size="14" font-weight="400" fill="#6B665D">recency × frequency × relevance — not similarity alone</text>
+    </g>
+
+    <g stroke="#6B665D" stroke-width="1.6" fill="#6B665D">
+      <line x1="1150" y1="586" x2="1150" y2="614"/><path d="M1150 620 l-5 -9 h10 z"/>
+    </g>
+
+    <g transform="translate(760, 620)">
+      <rect width="780" height="60" rx="10" fill="#F3F1ED" stroke="rgba(20,16,10,0.14)"/>
+      <text x="24" y="37" font-size="17" font-weight="500" fill="#141410">top hits → context</text>
+      <text x="284" y="37" font-size="14" font-weight="400" fill="#4E6B4A">+29% recall@8 over vector alone</text>
+    </g>
+
+    <!-- ==================== FORGETTING ==================== -->
+    <text x="80" y="806" font-size="14" font-weight="500" fill="#E8965A" letter-spacing="1.4">FORGETTING</text>
+
+    <g transform="translate(80, 826)">
+      <rect width="230" height="60" rx="10" fill="#F3F1ED" stroke="rgba(20,16,10,0.14)"/>
+      <text x="20" y="36" font-size="16" font-weight="500" fill="#141410">a fact</text>
+    </g>
+    <g transform="translate(392, 826)">
+      <rect width="252" height="60" rx="10" fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+      <text x="18" y="36" font-size="16" font-weight="500" fill="#2A2824">forgotten_*</text>
+    </g>
+
+    <g stroke="#6B665D" stroke-width="1.6" fill="#6B665D">
+      <line x1="310" y1="846" x2="380" y2="846"/><path d="M386 846 l-9 -5 v10 z"/>
+      <line x1="386" y1="872" x2="316" y2="872"/><path d="M310 872 l9 -5 v10 z"/>
+    </g>
+    <text x="80" y="922" font-size="15" font-weight="400" fill="#6B665D">Tombstoned, not deleted. Conservative, reversible, and the user is the source of truth.</text>
+  </g>
+</svg>

@@ -37,10 +37,12 @@ no signup, no telemetry without consent, and one button to export everything.
 > [what is true right now](docs/CURRENT.md).
 
 June's center of gravity is the user, not the task. She borrows a coding agent's
-skeleton but inverts its four operations: she **defers** to the user instead of
-verifying against ground truth, **continues** standing intentions instead of
-completing and exiting, **forgets** gracefully instead of accumulating, and knows
-when to **stay quiet** instead of acting fast.
+skeleton but inverts its four operations:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture/diagrams/four-inversions-dark.svg">
+  <img alt="The four inversions. A coding agent verifies against ground truth, completes and exits, accumulates context and optimises for speed. June defers to you, continues standing intentions, forgets gracefully and stays quiet — each implemented by a named module." src="docs/architecture/diagrams/four-inversions-light.svg">
+</picture>
 
 ## Why June
 
@@ -63,9 +65,17 @@ shouldn't have to. Five principles are enforced in code, not just promised:
 On `main` today:
 
 - **Memory that remembers what matters.** Three stores behind one `MemoryManager`
-  — SQLite facts, a sqlite-vec semantic index, and an
-  entity graph. Recall is ranked by *salience* (recency × frequency × relevance),
-  not similarity alone. Browse, search, edit, and forget anything at `/memory`.
+  — SQLite facts, a sqlite-vec semantic index, and an entity graph — all in one
+  file. Recall fuses four signals and reranks by *salience* (recency × frequency ×
+  relevance), not similarity alone: **+29% recall@8 over vector search alone**,
+  [measured on a 100-case corpus](docs/product/retrieval-benchmark.md). Browse,
+  search, edit, and forget anything at `/memory`.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture/diagrams/memory-architecture-dark.svg">
+  <img alt="June's memory: on write, conversations become facts that are embedded locally, linked into an entity graph and mirrored into an FTS5 index. On read, a query fans into vector, BM25, entity and temporal channels, converges on reciprocal rank fusion, then a salience rerank. Forgetting tombstones a fact reversibly." src="docs/architecture/diagrams/memory-architecture-light.svg">
+</picture>
+
 - **A visible cloud boundary.** Every turn carries a provenance line — which model
   ran, whether anything left the device, and a plain-English rationale. A privacy
   dial can lock June to local-only, which provably blocks egress.
@@ -101,33 +111,24 @@ personal agent with memory needs a *trust layer* you can see:
 
 June is layered. Each layer calls only into the one below it.
 
-```mermaid
-flowchart TD
-    Shell["Tauri desktop shell / PWA / (mobile, planned)"]
-    API["FastAPI · REST + SSE"]
-    Brain["Brain — hand-written loop · context · character · guard · silence"]
-    Facade["MemoryManager (single facade)"]
-    Skills["Skills (MCP servers): calendar · health · research · files"]
-    DB[("june.db — one SQLite file")]
-    Vec["sqlite-vec (vec0) semantic index"]
-    Graph["entity graph (nodes + edges)"]
-    Ledger["Trust Ledger (hash-chained)"]
-    Local["Ollama · Gemma 4 (local, default)"]
-    Cloud["Gemini (cloud, opt-in only)"]
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture/diagrams/system-map-dark.svg">
+  <img alt="June's system map: Shell, API, Brain and Providers on one machine, over a single SQLite file holding structured rows, a sqlite-vec index, an entity graph and the Trust Ledger. Exactly one dashed edge crosses the device boundary to the cloud, and local-only mode blocks it." src="docs/architecture/diagrams/system-map-light.svg">
+</picture>
 
-    Shell --> API --> Brain
-    Brain --> Facade
-    Brain --> Skills
-    Brain -->|difficulty routing| Local
-    Brain -.->|surfaced + ledgered egress| Cloud
-    Facade --> DB
-    DB --- Vec
-    DB --- Graph
-    Brain --> Ledger --> DB
-```
-
-Every cloud call (dashed edge) is surfaced in the UI and written to the Trust
+Every cloud call (the dashed edge) is surfaced in the UI and written to the Trust
 Ledger before and after it happens; local-only mode blocks that edge entirely.
+
+### The one door
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture/diagrams/cloud-boundary-dark.svg">
+  <img alt="Every cloud call from the loop, a skill or a promise passes through one function, record_cloud_call, which writes an egress entry to the Trust Ledger and renders a provenance line in the UI. In local-only mode the same function raises CloudEgressBlockedError before the request leaves." src="docs/architecture/diagrams/cloud-boundary-light.svg">
+</picture>
+
+The chokepoint is a single function, so a skill cannot reach the network and skip
+the record. In local-only mode it raises before the request leaves rather than
+asking the caller to behave.
 
 The **brain** is the intelligence and is usable on its own — a Python developer
 can depend on `june-brain` and embed June without the HTTP layer. The **API** is

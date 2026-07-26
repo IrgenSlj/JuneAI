@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" preserveAspectRatio="xMidYMid meet">
+  <title>The four inversions</title>
+  <desc>June borrows a coding agent's skeleton and inverts all four of its operations. A coding agent verifies against ground truth, completes and exits, accumulates context, and optimises for speed. June defers to the user, continues standing intentions, forgets gracefully, and stays quiet. Each of June's four operations names the module that implements it.</desc>
+
+  <rect width="1600" height="900" fill="#FAF9F7"/>
+
+  <g font-family="-apple-system, Helvetica Neue, Helvetica, Arial, sans-serif">
+    <text x="80" y="92" font-size="15" font-weight="500" fill="#6B665D" letter-spacing="1.4">THE FOUR INVERSIONS</text>
+    <text x="80" y="146" font-size="34" font-weight="600" fill="#141410">June borrows a coding agent's skeleton</text>
+    <text x="80" y="192" font-size="34" font-weight="600" fill="#E8965A">and inverts every one of its operations.</text>
+
+    <!-- column headers -->
+    <text x="80" y="278" font-size="14" font-weight="500" fill="#9A948A" letter-spacing="1.4">A CODING AGENT</text>
+    <text x="900" y="278" font-size="14" font-weight="500" fill="#E8965A" letter-spacing="1.4">JUNE</text>
+
+    <!-- ============ row 1 ============ -->
+    <g transform="translate(80, 300)">
+      <rect width="620" height="118" rx="12" fill="#FFFFFF" stroke="rgba(20,16,10,0.08)"/>
+      <text x="28" y="52" font-size="24" font-weight="500" fill="#9A948A">Verifies against ground truth</text>
+      <text x="28" y="86" font-size="16" font-weight="400" fill="#9A948A">tests, compilers, an oracle that settles it</text>
+    </g>
+    <g transform="translate(730, 340)" fill="#6B665D">
+      <line x1="0" y1="18" x2="60" y2="18" stroke="#6B665D" stroke-width="1.6"/>
+      <path d="M66 18 l-9 -5 v10 z"/>
+    </g>
+    <g transform="translate(820, 300)">
+      <rect width="700" height="118" rx="12" fill="#FFFFFF" stroke="#E8965A" stroke-width="1.5"/>
+      <text x="28" y="52" font-size="24" font-weight="600" fill="#141410">Defers to you</text>
+      <text x="28" y="86" font-size="16" font-weight="400" fill="#6B665D">there is no oracle for a life; the user is the source of truth</text>
+      <text x="512" y="34" font-size="14" font-weight="500" fill="#E8965A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">guard/</text>
+    </g>
+
+    <!-- ============ row 2 ============ -->
+    <g transform="translate(80, 440)">
+      <rect width="620" height="118" rx="12" fill="#FFFFFF" stroke="rgba(20,16,10,0.08)"/>
+      <text x="28" y="52" font-size="24" font-weight="500" fill="#9A948A">Completes and exits</text>
+      <text x="28" y="86" font-size="16" font-weight="400" fill="#9A948A">the task terminates; the context dies with it</text>
+    </g>
+    <g transform="translate(730, 480)" fill="#6B665D">
+      <line x1="0" y1="18" x2="60" y2="18" stroke="#6B665D" stroke-width="1.6"/>
+      <path d="M66 18 l-9 -5 v10 z"/>
+    </g>
+    <g transform="translate(820, 440)">
+      <rect width="700" height="118" rx="12" fill="#FFFFFF" stroke="#E8965A" stroke-width="1.5"/>
+      <text x="28" y="52" font-size="24" font-weight="600" fill="#141410">Continues</text>
+      <text x="28" y="86" font-size="16" font-weight="400" fill="#6B665D">standing intentions, not terminating TODOs — a promise waits</text>
+      <text x="512" y="34" font-size="14" font-weight="500" fill="#E8965A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">tasks/</text>
+    </g>
+
+    <!-- ============ row 3 ============ -->
+    <g transform="translate(80, 580)">
+      <rect width="620" height="118" rx="12" fill="#FFFFFF" stroke="rgba(20,16,10,0.08)"/>
+      <text x="28" y="52" font-size="24" font-weight="500" fill="#9A948A">Accumulates context</text>
+      <text x="28" y="86" font-size="16" font-weight="400" fill="#9A948A">more is better, until the window runs out</text>
+    </g>
+    <g transform="translate(730, 620)" fill="#6B665D">
+      <line x1="0" y1="18" x2="60" y2="18" stroke="#6B665D" stroke-width="1.6"/>
+      <path d="M66 18 l-9 -5 v10 z"/>
+    </g>
+    <g transform="translate(820, 580)">
+      <rect width="700" height="118" rx="12" fill="#FFFFFF" stroke="#E8965A" stroke-width="1.5"/>
+      <text x="28" y="52" font-size="24" font-weight="600" fill="#141410">Forgets, gracefully</text>
+      <text x="28" y="86" font-size="16" font-weight="400" fill="#6B665D">conservative, reversible, tombstoned — never silently dropped</text>
+      <text x="512" y="34" font-size="14" font-weight="500" fill="#E8965A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">memory/</text>
+    </g>
+
+    <!-- ============ row 4 ============ -->
+    <g transform="translate(80, 720)">
+      <rect width="620" height="118" rx="12" fill="#FFFFFF" stroke="rgba(20,16,10,0.08)"/>
+      <text x="28" y="52" font-size="24" font-weight="500" fill="#9A948A">Optimises for speed</text>
+      <text x="28" y="86" font-size="16" font-weight="400" fill="#9A948A">answer fast, answer always</text>
+    </g>
+    <g transform="translate(730, 760)" fill="#6B665D">
+      <line x1="0" y1="18" x2="60" y2="18" stroke="#6B665D" stroke-width="1.6"/>
+      <path d="M66 18 l-9 -5 v10 z"/>
+    </g>
+    <g transform="translate(820, 720)">
+      <rect width="700" height="118" rx="12" fill="#FFFFFF" stroke="#E8965A" stroke-width="1.5"/>
+      <text x="28" y="52" font-size="24" font-weight="600" fill="#141410">Stays quiet</text>
+      <text x="28" y="86" font-size="16" font-weight="400" fill="#6B665D">an interruption must be earned; staying quiet is recorded too</text>
+      <text x="512" y="34" font-size="14" font-weight="500" fill="#E8965A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">silence/</text>
+    </g>
+
+    <text x="80" y="872" font-size="15" font-weight="400" fill="#9A948A">Nothing on this diagram leaves your machine. Every claim on the right names the module that implements it (ADR 0015).</text>
+  </g>
+</svg>

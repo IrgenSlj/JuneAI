@@ -1,0 +1,189 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" preserveAspectRatio="xMidYMid meet">
+  <title>June system map</title>
+  <desc>June is layered Shell, API, Brain, Providers on one machine. The Brain reads and writes one SQLite file holding structured rows, a sqlite-vec index, an entity graph, and the Trust Ledger. Local models and skills stay on the device. Exactly one edge crosses the device boundary to the cloud: it is dashed, opt-in, recorded in the ledger, and blocked entirely in local-only mode.</desc>
+
+  <rect width="1600" height="900" fill="#FAF9F7"/>
+
+  <g font-family="-apple-system, Helvetica Neue, Helvetica, Arial, sans-serif">
+
+    <!-- ===================== device boundary ===================== -->
+    <!-- The strongest line on the page: everything inside is the user's -->
+    <rect x="56" y="80" width="1180" height="784" rx="18"
+          fill="none" stroke="#141410" stroke-width="2.5" stroke-opacity="0.55"/>
+    <text x="80" y="116" font-size="15" font-weight="500" fill="#6B665D" letter-spacing="1.4">YOUR MACHINE</text>
+
+    <!-- ===================== spine: shell ===================== -->
+    <g transform="translate(100, 140)">
+      <rect width="520" height="86" rx="12" fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+      <text x="20" y="30" font-size="13" font-weight="500" fill="#6B665D" letter-spacing="1.2">SHELL</text>
+      <text x="20" y="60" font-size="19" font-weight="500" fill="#141410">Tauri desktop</text>
+      <text x="182" y="60" font-size="19" font-weight="500" fill="#141410">Web PWA</text>
+      <text x="318" y="60" font-size="19" font-weight="400" fill="#9A948A">mobile (planned)</text>
+    </g>
+
+    <!-- ===================== spine: api ===================== -->
+    <g transform="translate(100, 266)">
+      <rect width="520" height="76" rx="12" fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+      <text x="20" y="28" font-size="13" font-weight="500" fill="#6B665D" letter-spacing="1.2">API</text>
+      <text x="20" y="56" font-size="19" font-weight="500" fill="#141410">FastAPI · REST + SSE</text>
+      <text x="290" y="56" font-size="15" font-weight="400" fill="#6B665D">schemas generate the client</text>
+    </g>
+
+    <!-- ===================== spine: brain ===================== -->
+    <!-- Accent belongs to June's own boundary and is spent nowhere else -->
+    <g transform="translate(100, 382)">
+      <rect width="520" height="188" rx="14" fill="#FFFFFF" stroke="#E8965A" stroke-width="2"/>
+      <text x="20" y="30" font-size="13" font-weight="500" fill="#E8965A" letter-spacing="1.2">BRAIN</text>
+      <text x="20" y="58" font-size="19" font-weight="500" fill="#141410">One hand-written loop</text>
+      <text x="248" y="58" font-size="14" font-weight="400" fill="#6B665D">shape fixed, never self-modified</text>
+      <g font-size="15" font-weight="500" fill="#2A2824">
+        <g transform="translate(20, 80)">
+          <rect width="112" height="38" rx="8" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/>
+          <text x="18" y="25">context</text>
+        </g>
+        <g transform="translate(144, 80)">
+          <rect width="120" height="38" rx="8" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/>
+          <text x="18" y="25">character</text>
+        </g>
+        <g transform="translate(276, 80)">
+          <rect width="100" height="38" rx="8" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/>
+          <text x="18" y="25">router</text>
+        </g>
+        <g transform="translate(388, 80)">
+          <rect width="112" height="38" rx="8" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/>
+          <text x="18" y="25">guard</text>
+        </g>
+        <g transform="translate(20, 130)">
+          <rect width="112" height="38" rx="8" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/>
+          <text x="18" y="25">silence</text>
+        </g>
+        <g transform="translate(144, 130)">
+          <rect width="132" height="38" rx="8" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/>
+          <text x="18" y="25">promises</text>
+        </g>
+        <g transform="translate(288, 130)">
+          <rect width="212" height="38" rx="8" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/>
+          <text x="18" y="25">scheduler (user-requested)</text>
+        </g>
+      </g>
+    </g>
+
+    <!-- ===================== memory facade ===================== -->
+    <g transform="translate(100, 610)">
+      <rect width="520" height="54" rx="10" fill="#F3F1ED" stroke="rgba(20,16,10,0.14)"/>
+      <text x="20" y="34" font-size="18" font-weight="500" fill="#141410">MemoryManager</text>
+      <text x="238" y="34" font-size="14" font-weight="400" fill="#6B665D">the only way in or out</text>
+    </g>
+
+    <!-- ===================== the one file ===================== -->
+    <g transform="translate(100, 690)">
+      <!-- cylinder = data at rest -->
+      <path d="M0 18 a260 18 0 0 1 520 0 v124 a260 18 0 0 1 -520 0 z"
+            fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+      <ellipse cx="260" cy="18" rx="260" ry="18" fill="#F3F1ED" stroke="rgba(20,16,10,0.14)"/>
+      <text x="20" y="52" font-size="17" font-weight="500" fill="#141410">june.db</text>
+      <text x="112" y="52" font-size="14" font-weight="400" fill="#6B665D">one file</text>
+
+      <g font-size="13" font-weight="500" fill="#2A2824">
+        <g transform="translate(20, 66)">
+          <rect width="150" height="32" rx="7" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/>
+          <text x="14" y="21">structured rows</text>
+        </g>
+        <g transform="translate(182, 66)">
+          <rect width="150" height="32" rx="7" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/>
+          <text x="14" y="21">sqlite-vec (vec0)</text>
+        </g>
+        <g transform="translate(344, 66)">
+          <rect width="156" height="32" rx="7" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/>
+          <text x="14" y="21">entity graph</text>
+        </g>
+        <!-- ledger carries the chain motif: append-only, tamper-evident -->
+        <g transform="translate(20, 108)">
+          <rect width="480" height="34" rx="7" fill="#F0ECE3" stroke="rgba(20,16,10,0.14)"/>
+          <text x="14" y="22" fill="#E8965A">Trust Ledger</text>
+          <text x="120" y="22" fill="#6B665D" font-weight="400">append-only · blake2b hash-chained</text>
+          <g stroke="#6B665D" stroke-width="1.5" fill="none">
+            <rect x="432" y="11" width="16" height="12" rx="6"/>
+            <rect x="441" y="11" width="16" height="12" rx="6"/>
+          </g>
+        </g>
+      </g>
+    </g>
+
+    <!-- ===================== skills ===================== -->
+    <g transform="translate(700, 140)">
+      <rect width="480" height="182" rx="12" fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+      <text x="20" y="30" font-size="13" font-weight="500" fill="#6B665D" letter-spacing="1.2">SKILLS · MCP SERVERS</text>
+      <text x="20" y="58" font-size="15" font-weight="400" fill="#6B665D">one supervised subprocess each, guard-fronted</text>
+      <g font-size="14" font-weight="500" fill="#2A2824">
+        <g transform="translate(20, 78)"><rect width="104" height="34" rx="7" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/><text x="16" y="22">calendar</text></g>
+        <g transform="translate(136, 78)"><rect width="86" height="34" rx="7" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/><text x="16" y="22">files</text></g>
+        <g transform="translate(234, 78)"><rect width="98" height="34" rx="7" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/><text x="16" y="22">health</text></g>
+        <g transform="translate(344, 78)"><rect width="110" height="34" rx="7" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/><text x="16" y="22">research</text></g>
+        <g transform="translate(20, 124)"><rect width="94" height="34" rx="7" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/><text x="16" y="22">daily</text></g>
+        <g transform="translate(126, 124)"><rect width="112" height="34" rx="7" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/><text x="16" y="22">telegram</text></g>
+      </g>
+    </g>
+
+    <!-- ===================== local models ===================== -->
+    <g transform="translate(700, 560)">
+      <rect width="480" height="182" rx="12" fill="#FFFFFF" stroke="#4E6B4A" stroke-width="1.5"/>
+      <text x="20" y="30" font-size="13" font-weight="500" fill="#4E6B4A" letter-spacing="1.2">LOCAL MODELS · OLLAMA</text>
+      <text x="20" y="58" font-size="15" font-weight="400" fill="#6B665D">chat and recall never leave the machine</text>
+      <g font-size="14" font-weight="500" fill="#2A2824">
+        <g transform="translate(20, 78)"><rect width="200" height="34" rx="7" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/><text x="16" y="22">gemma4:e2b · fast</text></g>
+        <g transform="translate(236, 78)"><rect width="200" height="34" rx="7" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/><text x="16" y="22">gemma4:e4b · deep</text></g>
+        <g transform="translate(20, 124)"><rect width="280" height="34" rx="7" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/><text x="16" y="22">nomic-embed-text · embeddings</text></g>
+      </g>
+    </g>
+
+    <!-- ===================== flow arrows ===================== -->
+    <g stroke="#6B665D" stroke-width="1.6" fill="none">
+      <line x1="360" y1="226" x2="360" y2="258"/>
+      <line x1="360" y1="342" x2="360" y2="374"/>
+      <line x1="360" y1="570" x2="360" y2="602"/>
+      <line x1="360" y1="664" x2="360" y2="684"/>
+      <!-- brain to skills -->
+      <line x1="620" y1="430" x2="660" y2="430"/>
+      <line x1="660" y1="430" x2="660" y2="231"/>
+      <line x1="660" y1="231" x2="694" y2="231"/>
+      <!-- brain to local models -->
+      <line x1="620" y1="520" x2="660" y2="520"/>
+      <line x1="660" y1="520" x2="660" y2="651"/>
+      <line x1="660" y1="651" x2="694" y2="651"/>
+    </g>
+    <g fill="#6B665D">
+      <path d="M360 264 l-5 -9 h10 z"/>
+      <path d="M360 380 l-5 -9 h10 z"/>
+      <path d="M360 608 l-5 -9 h10 z"/>
+      <path d="M360 690 l-5 -9 h10 z"/>
+      <path d="M700 231 l-9 -5 v10 z"/>
+      <path d="M700 651 l-9 -5 v10 z"/>
+    </g>
+
+    <!-- ===================== the single crossing ===================== -->
+    <!-- Dashed, labelled with what crosses, and stopped in local-only mode -->
+    <g transform="translate(620, 472)">
+      <line x1="0" y1="0" x2="700" y2="0" stroke="#8A6A2F" stroke-width="2.2" stroke-dasharray="8 7"/>
+      <path d="M700 0 l-11 -6 v12 z" fill="#8A6A2F"/>
+      <text x="26" y="-16" font-size="15" font-weight="500" fill="#8A6A2F">explicit agentic paths only · surfaced in the UI · written to the ledger</text>
+      <text x="26" y="26" font-size="14" font-weight="400" fill="#6B665D">difficulty routing never escalates to cloud on its own</text>
+
+      <!-- stop glyph exactly at the boundary crossing -->
+      <g transform="translate(616, 0)">
+        <circle r="14" fill="#FAF9F7" stroke="#8A3B3B" stroke-width="2.2"/>
+        <line x1="-7" y1="0" x2="7" y2="0" stroke="#8A3B3B" stroke-width="2.2" stroke-linecap="round"/>
+      </g>
+      <text x="616" y="52" text-anchor="middle" font-size="13" font-weight="500" fill="#8A3B3B">blocked in local-only</text>
+    </g>
+
+    <!-- ===================== cloud, outside ===================== -->
+    <g transform="translate(1320, 424)">
+      <rect width="220" height="96" rx="12" fill="none" stroke="#9A948A" stroke-width="1.5" stroke-dasharray="6 6"/>
+      <text x="20" y="34" font-size="13" font-weight="500" fill="#6B665D" letter-spacing="1.2">CLOUD</text>
+      <text x="20" y="66" font-size="18" font-weight="500" fill="#2A2824">gemini-2.0-flash</text>
+    </g>
+
+    <text x="1320" y="566" font-size="14" font-weight="400" fill="#9A948A">opt-in. off by default.</text>
+  </g>
+</svg>

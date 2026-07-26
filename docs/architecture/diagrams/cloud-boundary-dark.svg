@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 700" role="img" preserveAspectRatio="xMidYMid meet">
+  <title>The visible cloud boundary</title>
+  <desc>Every cloud-routed model call, whether it comes from the loop or from a skill, passes through one function: record_cloud_call in providers/provenance.py. It writes an egress entry to the hash-chained Trust Ledger and renders a provenance line in the UI, before and after the call. In local-only mode the same function raises CloudEgressBlockedError at the start phase, so the request never leaves the machine. There is no second path.</desc>
+
+  <rect width="1600" height="700" fill="#13110E"/>
+
+  <g font-family="-apple-system, Helvetica Neue, Helvetica, Arial, sans-serif">
+    <text x="80" y="72" font-size="15" font-weight="500" fill="#8E8778" letter-spacing="1.4">ONE DOOR, AND IT IS ALWAYS ON THE RECORD</text>
+    <text x="80" y="116" font-size="26" font-weight="500" fill="#F1EEE7">A skill cannot egress and skip the ledger. There is no second path.</text>
+
+    <!-- device boundary -->
+    <rect x="56" y="160" width="1000" height="470" rx="18"
+          fill="none" stroke="#F1EEE7" stroke-width="2.5" stroke-opacity="0.55"/>
+    <text x="80" y="196" font-size="14" font-weight="500" fill="#8E8778" letter-spacing="1.4">YOUR MACHINE</text>
+
+    <!-- callers -->
+    <g font-size="17" font-weight="500" fill="#F1EEE7">
+      <g transform="translate(96, 232)">
+        <rect width="240" height="64" rx="10" fill="#1A1814" stroke="rgba(255,250,240,0.16)"/>
+        <text x="20" y="38">the loop</text>
+      </g>
+      <g transform="translate(96, 320)">
+        <rect width="240" height="64" rx="10" fill="#1A1814" stroke="rgba(255,250,240,0.16)"/>
+        <text x="20" y="38">a skill</text>
+      </g>
+      <g transform="translate(96, 408)">
+        <rect width="240" height="64" rx="10" fill="#1A1814" stroke="rgba(255,250,240,0.16)"/>
+        <text x="20" y="38">a promise</text>
+      </g>
+    </g>
+
+    <!-- every caller funnels into the same bar -->
+    <g stroke="#8E8778" stroke-width="1.6" fill="#8E8778">
+      <line x1="336" y1="264" x2="392" y2="264"/><line x1="392" y1="264" x2="392" y2="352"/>
+      <line x1="336" y1="352" x2="392" y2="352"/>
+      <line x1="336" y1="440" x2="392" y2="440"/><line x1="392" y1="440" x2="392" y2="352"/>
+      <line x1="392" y1="352" x2="440" y2="352"/><path d="M446 352 l-9 -5 v10 z"/>
+    </g>
+
+    <!-- the chokepoint: a narrow bar, not a box with a way around it -->
+    <g transform="translate(448, 208)">
+      <rect width="112" height="288" rx="10" fill="rgba(242,172,110,0.16)" stroke="#F2AC6E" stroke-width="2.5"/>
+      <text transform="translate(56, 144) rotate(-90)" text-anchor="middle" dominant-baseline="central" font-size="17" font-weight="600" fill="#F2AC6E" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">record_cloud_call</text>
+    </g>
+    <text x="504" y="528" text-anchor="middle" font-size="13" font-weight="400" fill="#8E8778">providers/</text>
+    <text x="504" y="548" text-anchor="middle" font-size="13" font-weight="400" fill="#8E8778">provenance.py</text>
+
+    <!-- what the chokepoint emits, on every single call -->
+    <g font-size="15" font-weight="500">
+      <g transform="translate(616, 216)">
+        <rect width="392" height="72" rx="10" fill="#0E0C09" stroke="rgba(255,250,240,0.16)"/>
+        <text x="20" y="30" fill="#F2AC6E">egress entry → Trust Ledger</text>
+        <text x="20" y="54" font-size="13" font-weight="400" fill="#8E8778">append-only · blake2b hash-chained · verifiable</text>
+        <g stroke="#8E8778" stroke-width="1.5" fill="none">
+          <rect x="344" y="24" width="16" height="12" rx="6"/>
+          <rect x="353" y="24" width="16" height="12" rx="6"/>
+        </g>
+      </g>
+      <g transform="translate(616, 312)">
+        <rect width="392" height="72" rx="10" fill="#1A1814" stroke="rgba(255,250,240,0.16)"/>
+        <text x="20" y="30" fill="#F1EEE7">provenance line in the UI</text>
+        <text x="20" y="54" font-size="13" font-weight="400" fill="#8E8778">which model ran, what left, and why — before and after</text>
+      </g>
+      <g transform="translate(616, 408)">
+        <rect width="392" height="72" rx="10" fill="#1A1814" stroke="rgba(255,250,240,0.16)"/>
+        <text x="20" y="30" fill="#F1EEE7">the call itself</text>
+        <text x="20" y="54" font-size="13" font-weight="400" fill="#8E8778">only on an explicit agentic path, never by auto-escalation</text>
+      </g>
+    </g>
+
+    <g stroke="#8E8778" stroke-width="1.6" fill="#8E8778">
+      <line x1="560" y1="252" x2="604" y2="252"/><path d="M610 252 l-9 -5 v10 z"/>
+      <line x1="560" y1="348" x2="604" y2="348"/><path d="M610 348 l-9 -5 v10 z"/>
+      <line x1="560" y1="444" x2="604" y2="444"/><path d="M610 444 l-9 -5 v10 z"/>
+    </g>
+
+    <!-- the single crossing -->
+    <line x1="1008" y1="444" x2="1240" y2="444" stroke="#C8A260" stroke-width="2.2" stroke-dasharray="8 7"/>
+    <path d="M1240 444 l-11 -6 v12 z" fill="#C8A260"/>
+
+    <!-- local-only: the same function raises before anything leaves -->
+    <g transform="translate(1056, 444)">
+      <circle r="15" fill="#13110E" stroke="#C88080" stroke-width="2.4"/>
+      <line x1="-7.5" y1="0" x2="7.5" y2="0" stroke="#C88080" stroke-width="2.4" stroke-linecap="round"/>
+    </g>
+    <text x="1032" y="502" text-anchor="end" font-size="14" font-weight="500" fill="#C88080">local-only mode</text>
+    <text x="1032" y="524" text-anchor="end" font-size="13" font-weight="400" fill="#C88080">raises CloudEgressBlockedError</text>
+    <text x="1032" y="546" text-anchor="end" font-size="13" font-weight="400" fill="#8E8778">at the start phase — before the request leaves</text>
+
+    <!-- cloud, outside -->
+    <g transform="translate(1264, 400)">
+      <rect width="256" height="88" rx="12" fill="none" stroke="#5F5A50" stroke-width="1.5" stroke-dasharray="6 6"/>
+      <text x="20" y="34" font-size="13" font-weight="500" fill="#8E8778" letter-spacing="1.2">CLOUD</text>
+      <text x="20" y="64" font-size="18" font-weight="500" fill="#D8D3C9">gemini-2.0-flash</text>
+    </g>
+
+    <text x="80" y="676" font-size="15" font-weight="400" fill="#8E8778">The dashed edge is the only one that crosses. It is opt-in, it is recorded whether it succeeds or fails, and the privacy dial closes it.</text>
+  </g>
+</svg>
