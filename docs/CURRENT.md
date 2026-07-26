@@ -14,8 +14,10 @@ archived). Updated as workstreams land.
   — the single plan of record: state, competitive position, phases, slices, and
   acceptance criteria. The separate execution plan was merged into it on
   2026-07-26; `JUNE_V02_BRIEF.md` and `v0.2-execution-plan.md` are superseded.
-- **Resume here next session:** plan **Phase 4.3 — surface MCP grants in the UI**.
-  ADR 0030 and the read-only server (4.1, 4.2) are shipped.
+- **Resume here next session:** plan **Phase 5 — make the security claim
+  checkable** (injection heuristic, an attack corpus shaped like the published
+  CVEs, a published threat model, and a ledger-verification CLI). Phase 4 (the
+  MCP memory server) is done.
   Phases 0-3 are done: docs reconciled, a working release shipped, retrieval
   measured ([results](product/retrieval-benchmark.md)), and a visual identity
   built (social card, hero, nine architecture diagrams).
