@@ -18,10 +18,12 @@ from .actions import (
     requires_approval,
 )
 from .framing import UNTRUSTED_CONTENT_RULE, is_framed, wrap_untrusted
+from .injection import InjectionScan, scan, scan_all
 from .redaction import redact_secrets
 
 __all__ = [
     "ActionClass",
+    "InjectionScan",
     "UNTRUSTED_CONTENT_RULE",
     "classify_action",
     "evaluate_call",
@@ -30,5 +32,7 @@ __all__ = [
     "is_waivable",
     "redact_secrets",
     "requires_approval",
+    "scan",
+    "scan_all",
     "wrap_untrusted",
 ]
