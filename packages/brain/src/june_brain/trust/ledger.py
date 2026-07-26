@@ -45,7 +45,11 @@ logger = logging.getLogger(__name__)
 _DIGEST_SIZE = 32
 GENESIS_PREV = "0" * (_DIGEST_SIZE * 2)
 
-VALID_KINDS = frozenset({"egress", "action", "approval", "system"})
+# `mcp_access` records a third-party MCP client reading memory (ADR 0030). It is
+# its own kind rather than an `action` because the actor differs in a way that
+# matters to the reader: an action is something June did for her user, an
+# mcp_access is something another program did to the user's memory.
+VALID_KINDS = frozenset({"egress", "action", "approval", "system", "mcp_access"})
 VALID_ACTORS = frozenset({"june", "user"})
 
 # Serializes appends across threads so the (read-last, compute-hash, insert) step
