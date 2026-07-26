@@ -14,12 +14,16 @@ archived). Updated as workstreams land.
   — the single plan of record: state, competitive position, phases, slices, and
   acceptance criteria. The separate execution plan was merged into it on
   2026-07-26; `JUNE_V02_BRIEF.md` and `v0.2-execution-plan.md` are superseded.
-- **Resume here next session:** **Phase 5.5 — the published threat model**, the
-  last slice of Phase 5. The injection heuristic
-  ([measured](product/injection-benchmark.md): 100% recall, 3% false positives),
-  its wiring into the approval gate, and `june-verify`
-  ([how](product/trust-ledger-verification.md)) are all done, as is Phase 4's
-  MCP memory server.
+- **Resume here next session:** **Phase 6.0 — enforce skill capabilities at
+  dispatch.** Phase 5 is complete (injection heuristic
+  [measured](product/injection-benchmark.md) at 100% recall / 3% false
+  positives, wired so a detection revokes standing approvals; `june-verify`
+  with third-party [export verification](product/trust-ledger-verification.md);
+  a gaps-first [threat model](security/threat-model.md)). Writing that threat
+  model surfaced a High-severity gap in June's own design: the action gate
+  classifies tool calls by naming convention, so a skill advertising a network
+  tool as `get_something` runs ungated. It is documented, unfixed, and first in
+  Phase 6.
   Phases 0-3 are done: docs reconciled, a working release shipped, retrieval
   measured ([results](product/retrieval-benchmark.md)), and a visual identity
   built (social card, hero, nine architecture diagrams).
