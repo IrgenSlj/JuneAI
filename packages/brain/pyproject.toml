@@ -45,6 +45,10 @@ dev = [
 # The MCP memory server (ADR 0030). An MCP client is configured to launch this
 # command; it speaks JSON-RPC over stdio and exits with the client.
 june-mcp = "june_brain.mcp.cli:main"
+# Trust Ledger verification (ADR 0022). Reads june.db directly so the chain can
+# be checked without the app running - and `--export` hands the chain to someone
+# who does not run June at all.
+june-verify = "june_brain.trust.cli:main"
 
 [build-system]
 requires = ["setuptools>=73.0.0", "wheel"]

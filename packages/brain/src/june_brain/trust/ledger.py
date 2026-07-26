@@ -37,7 +37,7 @@ from uuid import uuid4
 
 from ..guard.redaction import redact_secrets
 from ..memory.sqlite import _get_connection, db_path
-from .signing import Signer, device_public_key, verify_sig
+from .signing import Signer, device_public_key
 
 logger = logging.getLogger(__name__)
 
@@ -306,52 +306,23 @@ class LedgerReader:
         return result
 
     def _verify(self, *, verify_key_hex: str | None = None) -> VerifyResult:
-        rows = self._conn.execute(
-            "SELECT * FROM trust_ledger ORDER BY seq ASC"
-        ).fetchall()
+        # The algorithm lives in `verify.py` as a pure function so that this
+        # path, the `june-verify` CLI, and the exported-file check cannot drift
+        # apart. A verifier only June can run is not much of a verifier.
+        from .verify import verify_entries
 
+        rows = self._conn.execute("SELECT * FROM trust_ledger ORDER BY seq ASC").fetchall()
         if verify_key_hex is None:
             verify_key_hex = device_public_key()
-        has_sig = any(r["sig"] for r in rows)
-        can_check_sig = bool(verify_key_hex) and has_sig
 
-        prev = GENESIS_PREV
-        expected_seq = 1
-        for row in rows:
-            seq = int(row["seq"])
-            if seq != expected_seq:
-                return VerifyResult(ok=False, first_broken_seq=seq, signed=can_check_sig)
-            if str(row["prev_hash"]) != prev:
-                return VerifyResult(ok=False, first_broken_seq=seq, signed=can_check_sig)
-            recomputed = compute_entry_hash(
-                seq=seq,
-                id=str(row["id"]),
-                ts=str(row["ts"]),
-                kind=str(row["kind"]),
-                actor=str(row["actor"]),
-                payload=str(row["payload"]),
-                prev_hash=str(row["prev_hash"]),
-            )
-            if recomputed != str(row["entry_hash"]):
-                return VerifyResult(ok=False, first_broken_seq=seq, signed=can_check_sig)
-            if can_check_sig and row["sig"]:
-                if not verify_sig(str(verify_key_hex), str(row["entry_hash"]), str(row["sig"])):
-                    return VerifyResult(ok=False, first_broken_seq=seq, signed=can_check_sig)
-            prev = str(row["entry_hash"])
-            expected_seq += 1
-
-        # Tail-truncation check. A plain hash chain cannot, on its own, detect
-        # that the most recent entries were deleted: rows 1..N-k still form a
-        # valid chain. But ``seq`` is AUTOINCREMENT, so sqlite keeps a high-water
-        # mark in ``sqlite_sequence`` that does NOT drop when rows are deleted. If
-        # it exceeds the last seq we verified, entries were truncated from the
-        # tail. (An attacker with full db write access can still evade this by
-        # also rewriting sqlite_sequence — see ADR 0022's verification contract.)
-        hwm = self._high_water_seq()
-        if hwm >= expected_seq:
-            return VerifyResult(ok=False, first_broken_seq=expected_seq, signed=can_check_sig)
-
-        return VerifyResult(ok=True, first_broken_seq=None, signed=can_check_sig)
+        # The tail-truncation check needs the AUTOINCREMENT high-water mark: a
+        # chain with its last k rows deleted is still a valid chain of length
+        # N-k, and only sqlite_sequence remembers they existed.
+        return verify_entries(
+            (dict(row) for row in rows),
+            verify_key_hex=verify_key_hex,
+            high_water=self._high_water_seq(),
+        )
 
     def _high_water_seq(self) -> int:
         """Highest seq ever allocated (survives row deletion via AUTOINCREMENT)."""

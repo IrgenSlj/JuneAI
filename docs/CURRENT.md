@@ -14,10 +14,12 @@ archived). Updated as workstreams land.
   — the single plan of record: state, competitive position, phases, slices, and
   acceptance criteria. The separate execution plan was merged into it on
   2026-07-26; `JUNE_V02_BRIEF.md` and `v0.2-execution-plan.md` are superseded.
-- **Resume here next session:** plan **Phase 5 — make the security claim
-  checkable** (injection heuristic, an attack corpus shaped like the published
-  CVEs, a published threat model, and a ledger-verification CLI). Phase 4 (the
-  MCP memory server) is done.
+- **Resume here next session:** **Phase 5.5 — the published threat model**, the
+  last slice of Phase 5. The injection heuristic
+  ([measured](product/injection-benchmark.md): 100% recall, 3% false positives),
+  its wiring into the approval gate, and `june-verify`
+  ([how](product/trust-ledger-verification.md)) are all done, as is Phase 4's
+  MCP memory server.
   Phases 0-3 are done: docs reconciled, a working release shipped, retrieval
   measured ([results](product/retrieval-benchmark.md)), and a visual identity
   built (social card, hero, nine architecture diagrams).

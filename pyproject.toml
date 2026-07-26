@@ -29,6 +29,7 @@ lint.ignore = ["E501"]
 # -script entry point (`june-mcp`): its stdout is the user interface for
 # granting and revoking MCP access.
 "**/mcp/cli.py" = ["T201"]
+"**/trust/cli.py" = ["T201"]
 
 [tool.mypy]
 python_version = "3.13"
