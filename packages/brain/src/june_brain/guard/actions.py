@@ -22,6 +22,8 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
+from .injection import scan_all
+
 ActionClass = Literal[
     "read_local", "read_network", "write_local", "write_network", "execute"
 ]
@@ -99,18 +101,30 @@ def is_tainted(args: dict[str, Any], prior_results: list[str]) -> bool:
 
 
 def requires_approval(
-    action_class: ActionClass, *, tainted: bool = False
+    action_class: ActionClass, *, tainted: bool = False, injected: bool = False
 ) -> tuple[bool, str]:
-    """Return (needs_approval, human-readable reason) for an action class."""
+    """Return (needs_approval, human-readable reason) for an action class.
+
+    ``injected`` means a prior tool result carried an injection shape (see
+    ``guard.injection``). It closes the gap taint alone leaves: taint catches a
+    URL copied verbatim out of a page, but not one the page *described* in prose
+    for the model to reconstruct. After an injection signal, a network read asks
+    even when nothing was copied.
+    """
     if action_class == "execute":
         return True, "Runs code or a shell command"
     if action_class == "write_network":
         reason = "Sends data off your device"
         if tainted:
             reason += " using content from a tool result"
+        elif injected:
+            reason += ", after a tool result that looked like an injection attempt"
         return True, reason
-    if action_class == "read_network" and tainted:
-        return True, "Fetches a network resource chosen by a prior tool result"
+    if action_class == "read_network":
+        if tainted:
+            return True, "Fetches a network resource chosen by a prior tool result"
+        if injected:
+            return True, "Fetches a network resource after a suspicious tool result"
     return False, ""
 
 
@@ -121,30 +135,47 @@ def evaluate_call(
     *,
     allow_list: frozenset[str] = frozenset(),
     network_tools: frozenset[str] | None = None,
+    injected: bool | None = None,
 ) -> tuple[bool, str, str]:
     """Decide whether a tool call may execute. Returns (allowed, action_class, reason).
 
     ``allow_list`` is the per-conversation set of tool names the user already
-    approved; it can waive future approvals except for taint-flagged network
-    actions (the exfiltration pattern always asks). ``reason`` is non-empty only
-    when the call is blocked.
+    approved; it can waive future approvals except where the exfiltration
+    pattern is present, which always asks. ``reason`` is non-empty only when the
+    call is blocked.
+
+    ``injected`` is scanned from ``prior_results`` when not supplied. Callers
+    dispatching a batch of calls should scan once and pass the result, since the
+    evidence is the same for every call in the batch.
     """
     action_class = classify_action(name, network_tools=network_tools)
     tainted = is_tainted(args, prior_results)
-    needs, reason = requires_approval(action_class, tainted=tainted)
+    if injected is None:
+        injected = scan_all(prior_results).suspicious
+    needs, reason = requires_approval(action_class, tainted=tainted, injected=injected)
     if not needs:
         return True, action_class, ""
-    if name in allow_list and is_waivable(action_class, tainted=tainted):
+    if name in allow_list and is_waivable(action_class, tainted=tainted, injected=injected):
         return True, action_class, ""
     return False, action_class, reason
 
 
-def is_waivable(action_class: ActionClass, *, tainted: bool = False) -> bool:
+def is_waivable(
+    action_class: ActionClass, *, tainted: bool = False, injected: bool = False
+) -> bool:
     """Whether a per-conversation 'always allow' may waive future approvals.
 
-    Taint-flagged network actions — the exact exfiltration pattern — always ask;
-    everything else can be waived for the conversation once approved.
+    Two conditions revoke a standing approval, and they are the whole point of
+    having one: taint (an argument copied out of a tool result) and injection (a
+    tool result that read like an attempt to steer June). "Always allow" is a
+    statement about a tool, made before the untrusted content arrived; it cannot
+    also be consent for what that content later asks the tool to do.
+
+    Local reads and writes stay waivable either way — gating June's own memory
+    on her own machine is naggy and is not the threat. Content that arrives
+    poisoned is Phase 6's quarantine problem, not this gate's.
     """
-    if tainted and action_class in ("write_network", "read_network"):
+    consequential = ("write_network", "read_network", "execute")
+    if (tainted or injected) and action_class in consequential:
         return False
     return True
