@@ -46,7 +46,8 @@ Status progression:
 | [0021](0021-guard-layer.md) | Guard layer: untrusted-content framing, action gates, skill permissions | Accepted; partially implemented |
 | [0022](0022-trust-ledger.md) | Trust Ledger: tamper-evident, hash-chained local provenance | Accepted; implementation in progress |
 | [0023](0023-silence-model.md) | Silence Model: local rules-first surface-vs-defer policy | Accepted; v1 in progress |
-| [0024](0024-retrieval-v2-fusion-bitemporal.md) | Retrieval v2: multi-signal fusion and bi-temporal facts | Accepted; implementation in progress |
+| [0024](0024-retrieval-v2-fusion-bitemporal.md) | Retrieval v2: multi-signal fusion and bi-temporal facts | Accepted; shipped and measured (+29% recall@8) |
+| [0030](0030-june-as-mcp-memory-server.md) | June as an MCP memory server (read-only, consent-gated, ledgered) | Accepted |
 
 ## Planned for v0.2
 
@@ -59,3 +60,8 @@ These ADRs are called for by [`JUNE_V02_BRIEF.md`](../../JUNE_V02_BRIEF.md) §9 
 | 0027 | Apple FM instant tier & the "no third provider" interpretation | W5 | Not yet drafted (FOUNDER sign-off) |
 | 0028 | Opt-in telemetry design | W6 | Not yet drafted |
 | 0029 | Update-check network call | W1.4 | Not yet drafted |
+
+Numbers 0025-0029 stay reserved for the workstreams above even though 0030 was
+written first: the MCP server was promoted ahead of them by the 2026-07-26
+re-ordering, and renumbering a reserved slot would break the references that
+already point at it.
