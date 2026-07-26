@@ -213,3 +213,61 @@ def test_results_are_capped_regardless_of_requested_limit(wired) -> None:
     consent.grant("test-client", "list_recent")
     out = _call(server, "list_recent", limit=10_000)
     assert out["count"] <= 25
+
+
+# -- rate limiting ------------------------------------------------------
+
+
+def test_a_client_cannot_flood_the_ledger(consent: ConsentStore) -> None:
+    from june_brain.mcp.server import _RateLimiter
+
+    manager, ledger = _FakeManager(), _FakeLedger()
+    server = build_server(
+        manager=manager,
+        consent=consent,
+        ledger=ledger,
+        client="chatty",
+        limiter=_RateLimiter(limit=3, window=60.0),
+    )
+    consent.grant("chatty", "search_memory")
+
+    for _ in range(3):
+        _call(server, "search_memory", query="dog")
+    with pytest.raises(Exception, match="exceeded"):
+        _call(server, "search_memory", query="dog")
+
+
+def test_the_denial_names_the_client_and_the_fix(wired) -> None:
+    """A denial is read inside the MCP client, where June's UI is not."""
+    server, _manager, _ledger, _consent = wired
+    with pytest.raises(Exception) as excinfo:
+        _call(server, "search_memory", query="dog")
+    message = str(excinfo.value)
+    assert "test-client" in message
+    assert "june-mcp grant test-client search_memory" in message
+
+
+# -- the CLI ------------------------------------------------------------
+
+
+def test_cli_grant_list_revoke_round_trip(tmp_path: Path, monkeypatch, capsys) -> None:
+    from june_brain.mcp import cli
+    from june_brain.mcp import consent as consent_mod
+
+    monkeypatch.setattr(consent_mod, "grants_path", lambda: tmp_path / "g.json")
+
+    assert cli.main(["grant", "claude-desktop", "search_memory"]) == 0
+    assert cli.main(["list"]) == 0
+    assert "claude-desktop" in capsys.readouterr().out
+
+    assert cli.main(["revoke", "claude-desktop"]) == 0
+    assert cli.main(["list"]) == 0
+    assert "No client may read" in capsys.readouterr().out
+
+
+def test_cli_rejects_an_unknown_tool(tmp_path: Path, monkeypatch) -> None:
+    from june_brain.mcp import cli
+    from june_brain.mcp import consent as consent_mod
+
+    monkeypatch.setattr(consent_mod, "grants_path", lambda: tmp_path / "g.json")
+    assert cli.main(["grant", "c", "delete_everything"]) == 2

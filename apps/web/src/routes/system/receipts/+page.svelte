@@ -11,7 +11,7 @@
   import { formatRelative } from "$lib/dates.js";
 
   type VerifyState = "unknown" | "verified" | "verifying" | "tampered";
-  type KindFilter = "all" | "egress" | "action" | "approval";
+  type KindFilter = "all" | "egress" | "mcp_access" | "action" | "approval";
 
   let entries: LedgerEntryView[] = $state([]);
   let nextCursor: number | null = $state(null);
@@ -26,6 +26,7 @@
   const KINDS: [KindFilter, string][] = [
     ["all", "Everything"],
     ["egress", "Egress"],
+    ["mcp_access", "External reads"],
     ["action", "Actions"],
     ["approval", "Approvals"],
   ];
@@ -113,6 +114,11 @@
       const decision = payloadStr(p, "decision");
       return `${decision || "approval"}${tool ? ` · ${tool}` : ""}`;
     }
+    if (e.kind === "mcp_access") {
+      const client = payloadStr(p, "client") || "an external client";
+      const allowed = p["allowed"] === true;
+      return `${allowed ? "Read by" : "Blocked"} ${client}`;
+    }
     return "System event";
   }
 
@@ -133,6 +139,17 @@
     if (e.kind === "approval") {
       return payloadStr(p, "reason") || "A decision you made, recorded locally.";
     }
+    if (e.kind === "mcp_access") {
+      const client = payloadStr(p, "client") || "An external client";
+      const tool = payloadStr(p, "tool") || "a memory tool";
+      if (p["allowed"] !== true) {
+        const why = payloadStr(p, "reason") || "no grant";
+        return `${client} tried ${tool} and was refused (${why}). Nothing was read.`;
+      }
+      const returned = typeof p["returned"] === "number" ? (p["returned"] as number) : null;
+      const howMany = returned === null ? "some memories" : `${returned} ${returned === 1 ? "memory" : "memories"}`;
+      return `${client} read ${howMany} through ${tool}. Nothing left the device — it asked June, on this machine.`;
+    }
     return "Recorded locally.";
   }
 
@@ -145,6 +162,11 @@
     } else if (e.kind === "action") {
       if (payloadStr(p, "action_class")) pairs.push(["class", payloadStr(p, "action_class")]);
       if (payloadStr(p, "tool")) pairs.push(["tool", payloadStr(p, "tool")]);
+    } else if (e.kind === "mcp_access") {
+      if (payloadStr(p, "client")) pairs.push(["client", payloadStr(p, "client")]);
+      if (payloadStr(p, "tool")) pairs.push(["tool", payloadStr(p, "tool")]);
+      pairs.push(["allowed", p["allowed"] === true ? "yes" : "no"]);
+      if (typeof p["returned"] === "number") pairs.push(["returned", String(p["returned"])]);
     } else if (e.kind === "approval") {
       if (payloadStr(p, "surface")) pairs.push(["surface", payloadStr(p, "surface")]);
       if (payloadStr(p, "tool")) pairs.push(["tool", payloadStr(p, "tool")]);

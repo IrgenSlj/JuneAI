@@ -172,6 +172,55 @@ the UI before and after, and is written to the Trust Ledger.
 The first launch after install takes 15-30 seconds while the frozen Python
 sidecar warms up. Later launches take about two seconds.
 
+## Use June's memory from Claude Desktop, Cursor, or any MCP client
+
+You do not need the Mac app, and you do not need to download a model. June can
+act as an [MCP](https://modelcontextprotocol.io) memory server for an assistant
+you already run — and every read that assistant performs lands in June's
+Receipts, which is the whole point.
+
+**1. Install the brain** (Python 3.13):
+
+```bash
+pip install ./packages/brain    # from a clone; a published wheel is coming
+```
+
+**2. Point your client at it.** In Claude Desktop's `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "june-memory": {
+      "command": "june-mcp",
+      "env": { "JUNE_MCP_CLIENT": "claude-desktop" }
+    }
+  }
+}
+```
+
+**3. Grant access.** Nothing is readable until you say so — the first call comes
+back refused, telling you exactly what to run:
+
+```bash
+june-mcp grant claude-desktop search_memory   # or `all` for every read tool
+june-mcp list                                  # what is allowed, and what it has read
+june-mcp revoke claude-desktop                 # effective on the next call
+```
+
+**What the client can and cannot do.** Three read tools — `search_memory`,
+`get_memory`, `list_recent`. There is no write, no forget, no update: a memory
+store any connected agent can write is a poisoning vector. Every call, allowed or
+refused, is written to the hash-chained Trust Ledger and appears under **External
+reads** in `/system` → Receipts. The ledger records the shape of each access —
+which tool, whose grant, how many facts came back — never the text of what was
+read.
+
+**One honest limitation.** `JUNE_MCP_CLIENT` is a name the client declares, not
+an identity it proves; MCP has no client authentication. A grant narrows blast
+radius and creates an audit trail — it does not stop another program on the same
+machine from claiming the same name. Closing that needs OS-level attestation and
+is tracked, not hidden. See [ADR 0030](docs/decisions/0030-june-as-mcp-memory-server.md).
+
 ## Quickstart
 
 Running from source, for development or if you would rather not use the DMG.

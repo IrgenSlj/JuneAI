@@ -22,9 +22,13 @@ lint.ignore = ["E501"]
 [tool.ruff.lint.per-file-ignores]
 "**/tests/*" = ["D", "UP"]
 "**/scripts/*" = ["T201"]
-# tools/ holds operator-facing CLI scripts (seed_demo, migrate_v1_data,
-# export_obsidian) where print is the intended UI, not stray debug output.
+# tools/ holds operator-facing CLI scripts (seed_demo, retrieval_bench,
+# svg_light_variant) where print is the intended UI, not stray debug output.
 "tools/*" = ["T201"]
+# Same reasoning, but this one ships inside the package because it is a console
+# -script entry point (`june-mcp`): its stdout is the user interface for
+# granting and revoking MCP access.
+"**/mcp/cli.py" = ["T201"]
 
 [tool.mypy]
 python_version = "3.13"

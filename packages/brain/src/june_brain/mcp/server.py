@@ -25,6 +25,7 @@ rather than taking an SDK dependency.
 from __future__ import annotations
 
 import os
+import time
 from typing import Any
 
 from ..memory.manager import MemoryManager
@@ -35,14 +36,25 @@ from .consent import ConsentStore
 SERVER_NAME = "june-memory"
 SERVER_VERSION = "0.1.0"
 
-# How the calling client identifies itself. MCP has no authenticated client
-# identity, so this is a declared name, not a proven one — which is exactly why
-# it is paired with an explicit user grant and a ledger entry rather than
-# trusted on its own.
+# How the calling client identifies itself.
+#
+# KNOWN LIMITATION, stated plainly: this is a *declared* name, not a proven one.
+# MCP has no authenticated client identity, so anything on this machine that can
+# run `june-mcp` can claim to be the client you granted. A grant is therefore a
+# statement about a program you chose to install, not a cryptographic identity —
+# it narrows blast radius and creates an audit trail, it does not authenticate.
+# Closing this properly needs OS-level attestation of the calling process and is
+# tracked with the provenance work, not papered over here.
 CLIENT_ENV_VAR = "JUNE_MCP_CLIENT"
 DEFAULT_CLIENT = "unknown-client"
 
 MAX_RESULTS = 25
+
+# A chatty agent can call in a loop. The cap keeps one client from flooding the
+# ledger — which would degrade the audit trail into noise, the one thing it
+# cannot afford to be.
+RATE_LIMIT_CALLS = 60
+RATE_LIMIT_WINDOW_S = 60.0
 
 
 def _client_id() -> str:
@@ -57,12 +69,39 @@ class _Denied(Exception):
     """Raised when no live grant covers the call."""
 
 
+class _RateLimited(Exception):
+    """Raised when one client exceeds the per-window call budget."""
+
+
+class _RateLimiter:
+    """Fixed-window per (client, tool) call budget.
+
+    Deliberately in-memory and per-process: the server's lifetime is the
+    client's session, so a restart resetting the window is the correct scope.
+    Persisting it would mean a crashed client is punished by its predecessor.
+    """
+
+    def __init__(self, limit: int = RATE_LIMIT_CALLS, window: float = RATE_LIMIT_WINDOW_S) -> None:
+        self.limit = limit
+        self.window = window
+        self._hits: dict[str, list[float]] = {}
+
+    def check(self, key: str, *, now: float) -> bool:
+        recent = [t for t in self._hits.get(key, []) if now - t < self.window]
+        self._hits[key] = recent
+        if len(recent) >= self.limit:
+            return False
+        recent.append(now)
+        return True
+
+
 def build_server(
     *,
     manager: MemoryManager | None = None,
     consent: ConsentStore | None = None,
     ledger: LedgerWriter | None = None,
     client: str | None = None,
+    limiter: _RateLimiter | None = None,
 ) -> MCPStdioServer:
     """Wire the three read tools. Dependencies are injectable for tests."""
     server = MCPStdioServer(name=SERVER_NAME, version=SERVER_VERSION)
@@ -70,6 +109,7 @@ def build_server(
     who = client or _client_id()
     mgr = manager if manager is not None else MemoryManager(_user_id())
     book = ledger if ledger is not None else get_writer()
+    limiter = limiter or _RateLimiter()
 
     def _record(tool: str, *, allowed: bool, detail: dict[str, Any]) -> None:
         """Append the access to the ledger.
@@ -94,9 +134,23 @@ def build_server(
     def _guard(tool: str, detail: dict[str, Any]) -> None:
         if not store.is_allowed(who, tool):
             _record(tool, allowed=False, detail={**detail, "reason": "no grant"})
+            # The denial has to be actionable where it is read. The user sees
+            # this text inside their MCP client, not inside June, so it names
+            # the exact client id and the exact command — telling them to "open
+            # June's Trust screen" is useless when June may not be running and
+            # they do not know which client name to grant.
             raise _Denied(
-                f"June has not granted {who!r} access to {tool!r}. "
-                "Grant it from June's Trust screen."
+                f"June has not granted '{who}' access to '{tool}'.\n"
+                f"Allow it by running:\n"
+                f"    june-mcp grant {who} {tool}\n"
+                f"Review or revoke anytime with `june-mcp list` "
+                f"or from June's Trust screen."
+            )
+        if not limiter.check(f"{who}:{tool}", now=time.time()):
+            _record(tool, allowed=False, detail={**detail, "reason": "rate limited"})
+            raise _RateLimited(
+                f"'{who}' exceeded {RATE_LIMIT_CALLS} calls to '{tool}' "
+                f"per {int(RATE_LIMIT_WINDOW_S)}s."
             )
 
     def _hit_to_payload(hit: dict[str, Any]) -> dict[str, Any]:

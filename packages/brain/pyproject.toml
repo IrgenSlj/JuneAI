@@ -44,7 +44,7 @@ dev = [
 [project.scripts]
 # The MCP memory server (ADR 0030). An MCP client is configured to launch this
 # command; it speaks JSON-RPC over stdio and exits with the client.
-june-mcp = "june_brain.mcp.server:main"
+june-mcp = "june_brain.mcp.cli:main"
 
 [build-system]
 requires = ["setuptools>=73.0.0", "wheel"]
