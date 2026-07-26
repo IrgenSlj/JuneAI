@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" preserveAspectRatio="xMidYMid meet">
+  <title>The guard layer and taint tracking</title>
+  <desc>Every tool call the loop proposes passes through one seam, evaluate_call, which classifies it as read, read_network, write, write_network or execute. Execute and write_network are gated behind explicit approval. Tool results return framed as untrusted content and carry a taint marker; when tainted content flows into a new network call, that call is escalated to approval even if it would otherwise be allowed. Secrets are redacted before anything reaches the ledger. The defence is structural: there is no content-based injection detector.</desc>
+
+  <rect width="1600" height="900" fill="#FAF9F7"/>
+
+  <g font-family="-apple-system, Helvetica Neue, Helvetica, Arial, sans-serif">
+    <text x="80" y="72" font-size="15" font-weight="500" fill="#6B665D" letter-spacing="1.4">GUARD LAYER · ADR 0021</text>
+    <text x="80" y="116" font-size="26" font-weight="500" fill="#141410">Untrusted content can be read. It cannot silently become an action.</text>
+
+    <!-- proposal -->
+    <g transform="translate(80, 190)">
+      <rect width="248" height="70" rx="10" fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+      <text x="20" y="42" font-size="17" font-weight="500" fill="#141410">the loop proposes a call</text>
+    </g>
+
+    <g stroke="#6B665D" stroke-width="1.6" fill="#6B665D">
+      <line x1="328" y1="225" x2="368" y2="225"/><path d="M374 225 l-9 -5 v10 z"/>
+    </g>
+
+    <!-- the single seam -->
+    <g transform="translate(376, 168)">
+      <rect width="108" height="424" rx="10" fill="rgba(232,150,90,0.12)" stroke="#E8965A" stroke-width="2.5"/>
+      <text transform="translate(54, 212) rotate(-90)" text-anchor="middle" dominant-baseline="central"
+            font-size="17" font-weight="600" fill="#E8965A"
+            font-family="ui-monospace, SFMono-Regular, Menlo, monospace">evaluate_call</text>
+    </g>
+    <text x="430" y="620" text-anchor="middle" font-size="13" font-weight="400" fill="#6B665D">guard/actions.py</text>
+    <text x="430" y="640" text-anchor="middle" font-size="13" font-weight="400" fill="#6B665D">one seam, no bypass</text>
+
+    <!-- classification -->
+    <text x="540" y="196" font-size="13" font-weight="500" fill="#6B665D" letter-spacing="1.2">ACTION CLASS</text>
+    <g font-size="15" font-weight="500" transform="translate(540, 210)">
+      <g transform="translate(0, 0)">
+        <rect width="212" height="48" rx="8" fill="#FFFFFF" stroke="#4E6B4A" stroke-width="1.3"/>
+        <text x="18" y="30" fill="#4E6B4A">read</text>
+      </g>
+      <g transform="translate(0, 60)">
+        <rect width="212" height="48" rx="8" fill="#FFFFFF" stroke="#4E6B4A" stroke-width="1.3"/>
+        <text x="18" y="30" fill="#4E6B4A">read_network</text>
+      </g>
+      <g transform="translate(0, 120)">
+        <rect width="212" height="48" rx="8" fill="#FFFFFF" stroke="#8A6A2F" stroke-width="1.3"/>
+        <text x="18" y="30" fill="#8A6A2F">write</text>
+      </g>
+      <g transform="translate(0, 180)">
+        <rect width="212" height="48" rx="8" fill="#FFFFFF" stroke="#8A6A2F" stroke-width="1.3"/>
+        <text x="18" y="30" fill="#8A6A2F">write_network</text>
+      </g>
+      <g transform="translate(0, 240)">
+        <rect width="212" height="48" rx="8" fill="#FFFFFF" stroke="#8A3B3B" stroke-width="1.3"/>
+        <text x="18" y="30" fill="#8A3B3B">execute</text>
+      </g>
+    </g>
+
+    <!-- outcomes -->
+    <text x="856" y="196" font-size="13" font-weight="500" fill="#6B665D" letter-spacing="1.2">OUTCOME</text>
+    <g font-size="16" font-weight="500" transform="translate(856, 210)">
+      <g transform="translate(0, 0)">
+        <rect width="300" height="98" rx="10" fill="#FFFFFF" stroke="#4E6B4A" stroke-width="1.4"/>
+        <text x="20" y="34" fill="#4E6B4A">runs</text>
+        <text x="20" y="60" font-size="13" font-weight="400" fill="#6B665D">reading is not an action</text>
+      </g>
+      <g transform="translate(0, 120)">
+        <rect width="300" height="98" rx="10" fill="#FFFFFF" stroke="#8A6A2F" stroke-width="1.6"/>
+        <text x="20" y="34" fill="#8A6A2F">you are asked first</text>
+        <text x="20" y="60" font-size="13" font-weight="400" fill="#6B665D">shown before it runs, and ledgered</text>
+        <g stroke="#8A6A2F" stroke-width="1.6" fill="none">
+          <circle cx="266" cy="30" r="7"/><line x1="266" y1="37" x2="266" y2="48"/><line x1="266" y1="44" x2="272" y2="44"/>
+        </g>
+      </g>
+      <g transform="translate(0, 240)">
+        <rect width="300" height="98" rx="10" fill="#FFFFFF" stroke="#8A3B3B" stroke-width="1.4"/>
+        <text x="20" y="34" fill="#8A3B3B">refused</text>
+        <text x="20" y="60" font-size="13" font-weight="400" fill="#6B665D">and the refusal is on the record</text>
+      </g>
+    </g>
+
+    <g stroke="#6B665D" stroke-width="1.6" fill="#6B665D">
+      <line x1="752" y1="234" x2="844" y2="240"/><path d="M850 240 l-9 -5 v10 z"/>
+      <line x1="752" y1="294" x2="844" y2="252"/>
+      <line x1="752" y1="354" x2="844" y2="366"/><path d="M850 366 l-9 -5 v10 z"/>
+      <line x1="752" y1="414" x2="844" y2="372"/>
+      <line x1="752" y1="474" x2="844" y2="486"/><path d="M850 486 l-9 -5 v10 z"/>
+    </g>
+
+    <!-- taint channel -->
+    <g transform="translate(80, 660)">
+      <rect width="1440" height="150" rx="12" fill="#FFFFFF" stroke="rgba(20,16,10,0.08)"/>
+      <text x="24" y="34" font-size="13" font-weight="500" fill="#E8965A" letter-spacing="1.2">TAINT — WHY A READ CAN CHANGE WHAT A LATER CALL COSTS</text>
+
+      <g font-size="15" font-weight="500" fill="#2A2824">
+        <g transform="translate(24, 52)">
+          <rect width="268" height="72" rx="9" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/>
+          <text x="18" y="30" fill="#141410">a tool result</text>
+          <text x="18" y="52" font-size="13" font-weight="400" fill="#6B665D">framed as untrusted content</text>
+        </g>
+        <g transform="translate(340, 52)">
+          <rect width="268" height="72" rx="9" fill="#F3F1ED" stroke="#8A6A2F" stroke-width="1.3"/>
+          <text x="18" y="30" fill="#8A6A2F">carries a taint marker</text>
+          <text x="18" y="52" font-size="13" font-weight="400" fill="#6B665D">it came from outside</text>
+        </g>
+        <g transform="translate(656, 52)">
+          <rect width="300" height="72" rx="9" fill="#F3F1ED" stroke="rgba(20,16,10,0.08)"/>
+          <text x="18" y="30" fill="#141410">flows into a new call</text>
+          <text x="18" y="52" font-size="13" font-weight="400" fill="#6B665D">e.g. a URL it suggested</text>
+        </g>
+        <g transform="translate(1004, 52)">
+          <rect width="412" height="72" rx="9" fill="#F3F1ED" stroke="#8A6A2F" stroke-width="1.6"/>
+          <text x="18" y="30" fill="#8A6A2F">that call escalates to approval</text>
+          <text x="18" y="52" font-size="13" font-weight="400" fill="#6B665D">even when its class would normally run</text>
+        </g>
+      </g>
+
+      <g stroke="#8A6A2F" stroke-width="1.6" fill="#8A6A2F">
+        <line x1="292" y1="88" x2="330" y2="88"/><path d="M336 88 l-9 -5 v10 z"/>
+        <line x1="608" y1="88" x2="646" y2="88"/><path d="M652 88 l-9 -5 v10 z"/>
+        <line x1="956" y1="88" x2="994" y2="88"/><path d="M1000 88 l-9 -5 v10 z"/>
+      </g>
+    </g>
+
+    <!-- honest limitation, stated on the diagram itself -->
+    <g transform="translate(1204, 190)">
+      <rect width="316" height="132" rx="10" fill="none" stroke="#9A948A" stroke-width="1.4" stroke-dasharray="5 5"/>
+      <text x="20" y="34" font-size="13" font-weight="500" fill="#6B665D" letter-spacing="1.2">WHAT THIS IS NOT</text>
+      <text x="20" y="62" font-size="14" font-weight="400" fill="#6B665D">The defence is structural.</text>
+      <text x="20" y="86" font-size="14" font-weight="400" fill="#6B665D">There is no content-based</text>
+      <text x="20" y="110" font-size="14" font-weight="400" fill="#6B665D">injection-phrase detector yet.</text>
+    </g>
+
+    <g transform="translate(1204, 350)">
+      <rect width="316" height="108" rx="10" fill="#F0ECE3" stroke="rgba(20,16,10,0.14)"/>
+      <text x="20" y="34" font-size="15" font-weight="500" fill="#E8965A">secrets redacted</text>
+      <text x="20" y="60" font-size="13" font-weight="400" fill="#6B665D">before anything is written to</text>
+      <text x="20" y="82" font-size="13" font-weight="400" fill="#6B665D">the ledger or shown in a trace</text>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 800" role="img" preserveAspectRatio="xMidYMid meet">
+  <title>The Silence Model</title>
+  <desc>June-initiated surfacing passes through a pure, clockless, model-free policy. Its inputs are injected rather than read: the current time, salience, presence derived from recency of activity, and whether a thread is open. It decides now, batch, or suppress. All three outcomes, including suppress, are written to the Trust Ledger, so restraint is auditable too. This governs surfacing only and never the reply path.</desc>
+
+  <rect width="1600" height="800" fill="#FAF9F7"/>
+
+  <g font-family="-apple-system, Helvetica Neue, Helvetica, Arial, sans-serif">
+    <text x="80" y="72" font-size="15" font-weight="500" fill="#6B665D" letter-spacing="1.4">SILENCE MODEL · ADR 0023</text>
+    <text x="80" y="116" font-size="26" font-weight="500" fill="#141410">Restraint is a decision, and it goes on the record too.</text>
+
+    <!-- candidates -->
+    <text x="80" y="180" font-size="13" font-weight="500" fill="#6B665D" letter-spacing="1.2">CANDIDATES TO SURFACE</text>
+    <g font-size="15" font-weight="500" fill="#2A2824">
+      <g transform="translate(80, 196)">
+        <rect width="268" height="56" rx="9" fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+        <text x="18" y="34">a promise needs a nudge</text>
+      </g>
+      <g transform="translate(80, 268)">
+        <rect width="268" height="56" rx="9" fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+        <text x="18" y="34">a skill event arrived</text>
+      </g>
+      <g transform="translate(80, 340)">
+        <rect width="268" height="56" rx="9" fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+        <text x="18" y="34">a recall worth raising</text>
+      </g>
+    </g>
+
+    <g stroke="#6B665D" stroke-width="1.6" fill="#6B665D">
+      <line x1="348" y1="224" x2="392" y2="224"/><line x1="392" y1="224" x2="392" y2="296"/>
+      <line x1="348" y1="296" x2="392" y2="296"/>
+      <line x1="348" y1="368" x2="392" y2="368"/><line x1="392" y1="368" x2="392" y2="296"/>
+      <line x1="392" y1="296" x2="440" y2="296"/><path d="M446 296 l-9 -5 v10 z"/>
+    </g>
+
+    <!-- the policy -->
+    <g transform="translate(452, 196)">
+      <rect width="360" height="280" rx="12" fill="rgba(232,150,90,0.12)" stroke="#E8965A" stroke-width="2.5"/>
+      <text x="24" y="40" font-size="19" font-weight="600" fill="#E8965A">decide()</text>
+      <text x="24" y="70" font-size="14" font-weight="500" fill="#2A2824">pure · clockless · model-free</text>
+      <text x="24" y="104" font-size="13" font-weight="500" fill="#6B665D" letter-spacing="1.2">INPUTS, ALL INJECTED</text>
+      <g font-size="14" font-weight="400" fill="#2A2824">
+        <text x="24" y="134">now — passed in, never read from a clock</text>
+        <text x="24" y="162">salience — is this worth an interruption</text>
+        <text x="24" y="190">presence — derived from recency of activity</text>
+        <text x="24" y="218">active_thread_open — are you mid-task</text>
+      </g>
+      <text x="24" y="252" font-size="13" font-weight="400" fill="#6B665D">no OS idle signal, no power state, no timer</text>
+    </g>
+
+    <!-- outcomes -->
+    <g font-size="17" font-weight="500">
+      <g transform="translate(896, 196)">
+        <rect width="248" height="72" rx="10" fill="#FFFFFF" stroke="#4E6B4A" stroke-width="1.5"/>
+        <text x="20" y="32" fill="#4E6B4A">now</text>
+        <text x="20" y="56" font-size="13" font-weight="400" fill="#6B665D">it earned the interruption</text>
+      </g>
+      <g transform="translate(896, 292)">
+        <rect width="248" height="72" rx="10" fill="#FFFFFF" stroke="#8A6A2F" stroke-width="1.5"/>
+        <text x="20" y="32" fill="#8A6A2F">batch</text>
+        <text x="20" y="56" font-size="13" font-weight="400" fill="#6B665D">held for the next opening</text>
+      </g>
+      <g transform="translate(896, 388)">
+        <rect width="248" height="72" rx="10" fill="#FFFFFF" stroke="rgba(20,16,10,0.14)"/>
+        <text x="20" y="32" fill="#141410">suppress</text>
+        <text x="20" y="56" font-size="13" font-weight="400" fill="#6B665D">stay quiet</text>
+      </g>
+    </g>
+
+    <g stroke="#6B665D" stroke-width="1.6" fill="#6B665D">
+      <line x1="812" y1="232" x2="884" y2="232"/><path d="M890 232 l-9 -5 v10 z"/>
+      <line x1="812" y1="328" x2="884" y2="328"/><path d="M890 328 l-9 -5 v10 z"/>
+      <line x1="812" y1="424" x2="884" y2="424"/><path d="M890 424 l-9 -5 v10 z"/>
+    </g>
+
+    <!-- every outcome is ledgered, suppress included -->
+    <g transform="translate(1240, 292)">
+      <rect width="280" height="76" rx="10" fill="#F0ECE3" stroke="rgba(20,16,10,0.14)"/>
+      <text x="20" y="32" font-size="16" font-weight="500" fill="#E8965A">Trust Ledger</text>
+      <text x="20" y="56" font-size="13" font-weight="400" fill="#6B665D">every decision, including silence</text>
+      <g stroke="#6B665D" stroke-width="1.5" fill="none">
+        <rect x="232" y="20" width="16" height="12" rx="6"/>
+        <rect x="241" y="20" width="16" height="12" rx="6"/>
+      </g>
+    </g>
+
+    <g stroke="#6B665D" stroke-width="1.6" fill="#6B665D">
+      <line x1="1144" y1="232" x2="1192" y2="232"/><line x1="1192" y1="232" x2="1192" y2="330"/>
+      <line x1="1144" y1="328" x2="1192" y2="328"/>
+      <line x1="1144" y1="424" x2="1192" y2="424"/><line x1="1192" y1="424" x2="1192" y2="330"/>
+      <line x1="1192" y1="330" x2="1228" y2="330"/><path d="M1234 330 l-9 -5 v10 z"/>
+    </g>
+
+    <!-- scope, stated so the diagram cannot be misread -->
+    <g transform="translate(80, 560)">
+      <rect width="1440" height="96" rx="12" fill="none" stroke="#9A948A" stroke-width="1.4" stroke-dasharray="5 5"/>
+      <text x="24" y="36" font-size="13" font-weight="500" fill="#6B665D" letter-spacing="1.2">SCOPE</text>
+      <text x="24" y="66" font-size="16" font-weight="400" fill="#2A2824">This governs June-initiated surfacing only. It never touches the reply path — when you speak to her, she answers.</text>
+    </g>
+
+    <text x="80" y="720" font-size="15" font-weight="400" fill="#6B665D">There is no heartbeat and no timer-driven proactivity (ADR 0016). The scheduler runs deterministic, user-requested jobs only.</text>
+  </g>
+</svg>

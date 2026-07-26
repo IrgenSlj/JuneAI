@@ -13,9 +13,34 @@ the hand-written loop; the LangGraph engine has since been removed. Sections
 below mark what is shipped
 versus in-progress.
 
+## Diagrams
+
+The nine diagrams in [`diagrams/`](diagrams/) are the fastest way into this
+document. Each ships as a dark/light pair and is referenced from the section it
+belongs to. Four of them (four inversions, system map, memory architecture, cloud
+boundary) also appear on the [README](../../README.md); the other five are here.
+
+| Diagram | What it settles |
+| --- | --- |
+| [system map](diagrams/system-map-dark.svg) | the layers, the one file, and the single edge that leaves |
+| [four inversions](diagrams/four-inversions-dark.svg) | how June differs from a coding agent, module by module |
+| [memory architecture](diagrams/memory-architecture-dark.svg) | write path, four-signal read path, and forgetting |
+| [cloud boundary](diagrams/cloud-boundary-dark.svg) | the egress chokepoint and what it emits every time |
+| [turn lifecycle](diagrams/turn-lifecycle-dark.svg) | the ten stages of a single message |
+| [guard and taint](diagrams/guard-taint-dark.svg) | how untrusted content is stopped from becoming an action |
+| [silence model](diagrams/silence-model-dark.svg) | how June decides whether to speak at all |
+| [promise lifecycle](diagrams/promise-lifecycle-dark.svg) | the states of a standing intention, and its known limit |
+| [runtime topology](diagrams/runtime-topology-dark.svg) | what actually runs on the machine, and on which port |
+
 ## Layered View
 
 June is organized in horizontal layers, each with a single responsibility:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="diagrams/system-map-dark.svg">
+  <img alt="June's system map: Shell, API, Brain and Providers on one machine over a single SQLite file, with exactly one dashed edge crossing to the cloud." src="diagrams/system-map-light.svg">
+</picture>
+
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
@@ -179,6 +204,43 @@ Calendar, Drive, Maps) arrive in Tier 2 as per-service skills: granted once,
 revocable, always visible, reads before writes.
 
 ## Data Flow: One Turn
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="diagrams/turn-lifecycle-dark.svg">
+  <img alt="The ten stages of a turn: message arrives, recall, context assembly, difficulty routing, provider streams, guard evaluates each tool call, results return framed as untrusted content and loop back, memory write, provenance frame, ledger append." src="diagrams/turn-lifecycle-light.svg">
+</picture>
+
+Every tool call in stage 6 passes the guard, which also tracks taint from one
+call to the next:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="diagrams/guard-taint-dark.svg">
+  <img alt="The guard classifies every tool call as read, read_network, write, write_network or execute, and gates the consequential ones behind approval. Tainted content flowing into a network call escalates that call to approval." src="diagrams/guard-taint-light.svg">
+</picture>
+
+June-initiated surfacing — never the reply path — goes through the Silence Model
+instead:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="diagrams/silence-model-dark.svg">
+  <img alt="The Silence Model takes candidates and decides now, batch or suppress using injected inputs, with every outcome including suppress written to the Trust Ledger." src="diagrams/silence-model-light.svg">
+</picture>
+
+Work that outlives a single turn becomes a promise:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="diagrams/promise-lifecycle-dark.svg">
+  <img alt="Promise states: pending, running, then blocked, waiting on you, done or failed, with capped retries, recurrence back to pending, and restart reconciliation." src="diagrams/promise-lifecycle-light.svg">
+</picture>
+
+And this is what is actually running while all of that happens:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="diagrams/runtime-topology-dark.svg">
+  <img alt="June.app is a Tauri shell supervising a frozen Python sidecar over loopback port 8000, talking to a separately installed Ollama on port 11434, with all state in one versioned data directory." src="diagrams/runtime-topology-light.svg">
+</picture>
+
+The same turn, as text:
 
 ```
 user types a message in apps/web
