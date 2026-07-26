@@ -4,17 +4,18 @@
 planning doc disagrees with this one, this one wins (and that doc should be
 archived). Updated as workstreams land.
 
-- **Last updated:** 2026-07-25.
+- **Last updated:** 2026-07-26.
 - **Release status:** `v0.1.0` re-cut on 2026-07-25 and **verified working** — a
   45MB Apple Silicon DMG built by CI from the tag, with the frozen sidecar inside
   it, ad-hoc signed. The tag points at the code the artifact was built from. The
   previously published asset (2.7MB, no sidecar, cut before the packaging pipeline
   existed) has been deleted. Active target: **`v0.3.0`**.
-- **Active plans:** [`v0.3-development-plan.md`](product/v0.3-development-plan.md)
-  (what and why) + [`v0.3-execution-plan.md`](product/v0.3-execution-plan.md)
-  (order, slices, acceptance). Previous plans (`JUNE_V02_BRIEF.md`,
-  `v0.2-execution-plan.md`) are superseded.
-- **Resume here next session:** execution plan **Phase 4 — the MCP server**.
+- **Active plan:** [`v0.3-development-plan.md`](product/v0.3-development-plan.md)
+  — the single plan of record: state, competitive position, phases, slices, and
+  acceptance criteria. The separate execution plan was merged into it on
+  2026-07-26; `JUNE_V02_BRIEF.md` and `v0.2-execution-plan.md` are superseded.
+- **Resume here next session:** plan **Phase 4.3 — surface MCP grants in the UI**.
+  ADR 0030 and the read-only server (4.1, 4.2) are shipped.
   Phases 0-3 are done: docs reconciled, a working release shipped, retrieval
   measured ([results](product/retrieval-benchmark.md)), and a visual identity
   built (social card, hero, nine architecture diagrams).
@@ -24,13 +25,13 @@ archived). Updated as workstreams land.
   that can prove what it did** — which is what the guard layer and Trust Ledger
   already are. Reach comes before polish: MCP server, then a checkable security
   claim, then launch. Rationale in
-  [`v0.3-execution-plan.md`](product/v0.3-execution-plan.md).
+  [`v0.3-development-plan.md`](product/v0.3-development-plan.md) §2.
 - **Repo audit:** [`repo-audit-2026-07-26.md`](product/repo-audit-2026-07-26.md)
   — the codebase is clean; the open items are a 240MB git history carrying v1
   artifacts, and untested first-run paths.
 - **Reconciliation (brief vs. reality):** [`RECONCILIATION.md`](RECONCILIATION.md) — historical reference for v0.2.
 - **Durable worldview:** [`vision.md`](vision.md) (the four inversions; non-negotiable).
-- **Decision log:** [`decisions/`](decisions/) — ADRs 0001–0024 accepted; index in [`decisions/README.md`](decisions/README.md).
+- **Decision log:** [`decisions/`](decisions/) — ADRs 0001–0024 and 0030 accepted; index in [`decisions/README.md`](decisions/README.md).
 
 ---
 
@@ -98,7 +99,7 @@ Everything lives under one versioned data directory (ADR 0019).
 - **Trust Ledger (`packages/brain/.../trust`, ADR 0022).** Append-only,
   blake2b-hash-chained local event log (`trust_ledger`), with tail-truncation-aware
   chain verification and optional Ed25519 signing. Kinds today:
-  `egress`/`action`/`approval`/`system`. Renders in the UI as **Receipts** under
+  `egress`/`action`/`approval`/`system`/`mcp_access`. Renders in the UI as **Receipts** under
   the **Trust** screen (`/system`), with a verify affordance.
 
 - **Guard layer (`packages/brain/.../guard`, ADR 0021).** A single seam

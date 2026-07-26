@@ -1,6 +1,6 @@
 # Retrieval benchmark — results, 2026-07-26
 
-Phase 2 of the [v0.3 execution plan](v0.3-execution-plan.md). Retrieval v2
+Phase 2 of the [v0.3 development plan](v0.3-development-plan.md). Retrieval v2
 (ADR 0024) shipped four-signal fusion with unit tests proving each part runs and
 nothing proving the whole beats the vector similarity it replaced. This is that
 measurement.

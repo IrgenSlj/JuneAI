@@ -20,8 +20,10 @@ The four inversions of a coding agent (ADR 0015) define her:
 
 ## Canonical direction
 
-- `docs/product/v0.3-development-plan.md` — the active lead plan (phases 1-5:
-  foundation fixes, memory intelligence, voice/proactive, integrations, distribution).
+- `docs/product/v0.3-development-plan.md` — the single plan of record: state,
+  competitive position, phases with slices and acceptance criteria. Re-ordered
+  2026-07-26 around reach before polish (MCP server, checkable security claim,
+  launch); voice and Night Shift are deferred.
   `docs/CURRENT.md` is the authoritative state page. Previous plans
   (`JUNE_V02_BRIEF.md`, `v0.2-execution-plan.md`) are superseded — see
   `docs/archive/README.md`.

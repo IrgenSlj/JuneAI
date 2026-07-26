@@ -1,6 +1,6 @@
 # Cold-install verification — v0.1.0 candidate, 2026-07-25
 
-Slice 1.2 of the [v0.3 execution plan](v0.3-execution-plan.md). This is the
+Slice 1.2 of the [v0.3 development plan](v0.3-development-plan.md). This is the
 written record of walking the packaged app from a state that has never run the
 repo, and the defects that walk surfaced.
 

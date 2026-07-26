@@ -302,7 +302,7 @@ Trust Ledger, the guard layer, the Silence Model, and multi-signal retrieval
 and quarantine, promise checkpointing, voice, and signed distribution. See the
 current state in [docs/CURRENT.md](docs/CURRENT.md), the plan in
 [docs/product/v0.3-development-plan.md](docs/product/v0.3-development-plan.md)
-and its [execution order](docs/product/v0.3-execution-plan.md), and
+and
 [ROADMAP.md](ROADMAP.md).
 
 ## Security posture
@@ -340,7 +340,7 @@ Discussion happens in [GitHub issues](https://github.com/IrgenSlj/JuneAI/issues)
 ## Documentation
 
 - [Current state](docs/CURRENT.md) — the authoritative state-of-the-project page
-- [v0.3 development plan](docs/product/v0.3-development-plan.md) — the active plan; [execution order](docs/product/v0.3-execution-plan.md)
+- [v0.3 development plan](docs/product/v0.3-development-plan.md) — the single plan of record: state, competitive position, phases, acceptance criteria
 - [Vision](docs/vision.md) — what June is and the non-negotiables
 - [Product overview](docs/product/overview.md) — the surfaces and the boundary
 - [Architecture overview](docs/architecture/overview.md) — the layered model
