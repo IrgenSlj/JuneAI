@@ -14,11 +14,20 @@ archived). Updated as workstreams land.
   (what and why) + [`v0.3-execution-plan.md`](product/v0.3-execution-plan.md)
   (order, slices, acceptance). Previous plans (`JUNE_V02_BRIEF.md`,
   `v0.2-execution-plan.md`) are superseded.
-- **Resume here next session:** execution plan Phase 3 — visual identity (social
-  preview card, README hero, the nine architecture diagrams). Phases 0-2 are done
-  (docs reconciled; working release shipped; retrieval measured and tuned —
-  [results](product/retrieval-benchmark.md)). Development-plan Phase 1 is
-  complete except the DuckDuckGo fallback.
+- **Resume here next session:** execution plan **Phase 4 — the MCP server**.
+  Phases 0-3 are done: docs reconciled, a working release shipped, retrieval
+  measured ([results](product/retrieval-benchmark.md)), and a visual identity
+  built (social card, hero, nine architecture diagrams).
+- **The plan was re-ordered on 2026-07-26.** June has 0 stars and 0 downloads
+  after 835 commits, and the local-first-open-source category now has a
+  3.2M-user incumbent. The differentiator moves from *local-first* to **the agent
+  that can prove what it did** — which is what the guard layer and Trust Ledger
+  already are. Reach comes before polish: MCP server, then a checkable security
+  claim, then launch. Rationale in
+  [`v0.3-execution-plan.md`](product/v0.3-execution-plan.md).
+- **Repo audit:** [`repo-audit-2026-07-26.md`](product/repo-audit-2026-07-26.md)
+  — the codebase is clean; the open items are a 240MB git history carrying v1
+  artifacts, and untested first-run paths.
 - **Reconciliation (brief vs. reality):** [`RECONCILIATION.md`](RECONCILIATION.md) — historical reference for v0.2.
 - **Durable worldview:** [`vision.md`](vision.md) (the four inversions; non-negotiable).
 - **Decision log:** [`decisions/`](decisions/) — ADRs 0001–0024 accepted; index in [`decisions/README.md`](decisions/README.md).

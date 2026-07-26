@@ -1,5 +1,10 @@
 #!/usr/bin/env python
-"""One-shot migration: ChromaDB -> sqlite-vec (ADR 0019).
+"""HISTORICAL — one-shot migration: ChromaDB -> sqlite-vec (ADR 0019).
+
+Kept only because ADR 0019 references it by path and ADRs are append-only.
+Chroma has not been a June dependency since that ADR landed, so this script is
+useful only to someone opening a data directory written before the switch. It is
+not part of any current workflow and nothing in check.sh exercises it.
 
 Re-embeds every semantic fact from the authoritative SQLite shadow table into
 the new vec0 index, then archives the legacy ``chroma`` directory to

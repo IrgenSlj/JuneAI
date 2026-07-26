@@ -1,5 +1,16 @@
 # JUNE_V02_BRIEF.md — JuneAI Next Phase Development Brief
 
+> **SUPERSEDED (2026-07-24).** The lead plan is
+> [`docs/product/v0.3-development-plan.md`](docs/product/v0.3-development-plan.md)
+> (the what and why) with
+> [`docs/product/v0.3-execution-plan.md`](docs/product/v0.3-execution-plan.md)
+> (the order and acceptance criteria). Current state of the project is
+> [`docs/CURRENT.md`](docs/CURRENT.md). This file is kept in place, not moved,
+> because append-only ADRs reference it by path — see
+> [`docs/archive/README.md`](docs/archive/README.md) for that convention.
+> **Do not follow this document for new work.** Several of its workstreams
+> (W2 retrieval, the egress gate) shipped; others were dropped.
+
 **Version:** 1.0 (LOCKED)
 **Date:** 2026-07-06
 **Author:** Irgen Salianji (strategy co-developed with Claude)

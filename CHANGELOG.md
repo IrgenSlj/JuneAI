@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Release repair, measured retrieval, and a visual identity (2026-07-26)
+
+- **Fixed a release-blocking hang in the packaged app.** Every chat turn hung
+  forever in the DMG while the same code answered in 18s in development: a macOS
+  Keychain read blocking on an authorization decision that never arrives in a
+  headless sidecar, because the ad-hoc-signed binary has a different code
+  identity from the dev interpreter that created the items. The Trust Ledger
+  loads its signing key there at the end of every turn. Credential-store calls
+  now run under a 2s deadline with a process-wide degraded latch.
+- **Re-cut `v0.1.0`.** The published DMG had been built before the sidecar
+  pipeline existed and shipped with no Python inside it. The tag now points at
+  the code the artifact was built from, and the artifact is verified: sidecar
+  present, a real turn completes, semantic recall ready.
+- **Measured retrieval for the first time.** A 100-case golden corpus and an
+  ablation harness show four-signal fusion beats vector-only recall@8 by **+29%**
+  at 50k facts. The same measurement failed the latency gate (p95 252ms against
+  a 120ms target) and found that stop words were flooding the lexical channel,
+  costing 16% MRR. Both are written up in `docs/product/retrieval-benchmark.md`.
+- **Gave the project a face.** Social preview card, dual-theme README hero, and
+  nine architecture diagrams as dark/light SVG pairs, all built from the shipped
+  design tokens.
+- **First-run honesty.** The setup screen no longer reports a flat "ready" when
+  the embedding model is missing, because that let a new user finish setup with
+  semantic recall silently degraded to a keyword scan.
+
 ### Trusted continuity direction (2026-06-28)
 
 - **Consolidated the active product direction** around June as a Trusted

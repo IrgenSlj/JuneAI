@@ -33,6 +33,7 @@ These are accurate for when they were written and are retained for provenance:
 `docs/product/sidecar-spike-findings.md`,
 `docs/product/tauri-build-report.md`,
 `docs/product/cold-start-notes.md`,
+`docs/product/cold-install-log-2026-07-25.md`,
 `docs/product/license-design.md`,
 `docs/experiments/*`,
 `docs/design/artifact/*`,
