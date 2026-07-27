@@ -582,6 +582,10 @@ class SkillSupervisor:
             args=args_schema,
             func=_run,
             injected=("state",),
+            # The action gate needs to know this name came from a skill rather
+            # than from June, and what that skill was permitted to do.
+            origin=skill.key,
+            declared_scopes=tuple(skill.entry.declared_scopes or ()),
         )
 
 

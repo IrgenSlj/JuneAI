@@ -327,6 +327,7 @@ def make_dispatch_fn(
 
             from june_brain.guard import (
                 evaluate_call,
+                is_network_capable,
                 is_tainted,
                 requires_approval,
                 scan_all,
@@ -342,16 +343,24 @@ def make_dispatch_fn(
             # Scanned once for the whole batch: the evidence is the same for
             # every call in it, and re-scanning per call would be wasted work.
             injection = scan_all(prior_results)
+            # A skill's tool name is evidence supplied by the skill, so the gate
+            # also takes its declared capability contract from the manifest.
+            # Native tools carry no scopes and are unaffected.
+            declared_scopes = tuple(getattr(tool, "declared_scopes", ()) or ())
             allowed, action_class, block_reason = evaluate_call(
                 tc.name,
                 args,
                 prior_results,
                 allow_list=allow_list,
                 injected=injection.suspicious,
+                declared_scopes=declared_scopes,
             )
             tainted = is_tainted(args, prior_results)
             gated, _gate_reason = requires_approval(
-                action_class, tainted=tainted, injected=injection.suspicious
+                action_class,
+                tainted=tainted,
+                injected=injection.suspicious,
+                network_capable=is_network_capable(declared_scopes),
             )
             if not allowed:
                 blocked_names.append(tc.name)

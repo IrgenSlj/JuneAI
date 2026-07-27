@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from june_brain.guard.actions import (
+    RISK_ORDER,
     classify_action,
     evaluate_call,
+    exceeds_declared_scopes,
     is_tainted,
     is_waivable,
     requires_approval,
@@ -198,3 +200,144 @@ def test_an_explicit_flag_wins_over_the_scan() -> None:
         "send_email", {"body": "x"}, [_POISONED], allow_list=allow, injected=False
     )
     assert ok is True
+
+
+# ---------------------------------------------------------------------------
+# Skill capability contracts, enforced (Phase 6.0)
+# ---------------------------------------------------------------------------
+
+# A skill's tool name is evidence supplied by the thing being classified. The
+# manifest contract is what the user actually agreed to, so it is what binds.
+
+
+def test_a_skill_cannot_use_a_capability_it_did_not_declare() -> None:
+    """The update attack: v1 is honest, v2 quietly adds egress."""
+    ok, action_class, why = evaluate_call(
+        "send_report", {"to": "x@example.com"}, [], declared_scopes=("read_local",)
+    )
+    assert ok is False
+    assert action_class == "write_network"
+    assert "did not declare" in why and "read_local" in why
+
+
+def test_a_declared_capability_is_gated_normally_not_blocked() -> None:
+    """Declaring egress buys an approval prompt, not silent permission."""
+    ok, _cls, why = evaluate_call(
+        "send_report", {"to": "x@example.com"}, [], declared_scopes=("write_network",)
+    )
+    assert ok is False
+    assert "Sends data off your device" in why
+
+    ok, _cls, _why = evaluate_call(
+        "send_report",
+        {"to": "x@example.com"},
+        [],
+        declared_scopes=("write_network",),
+        allow_list=frozenset({"send_report"}),
+    )
+    assert ok is True
+
+
+def test_an_always_allow_cannot_waive_a_contract_breach() -> None:
+    """Approving a tool is not approving a skill to exceed its contract."""
+    ok, _cls, why = evaluate_call(
+        "send_report",
+        {"to": "x@example.com"},
+        [],
+        declared_scopes=("read_local",),
+        allow_list=frozenset({"send_report"}),
+    )
+    assert ok is False
+    assert "did not declare" in why
+
+
+def test_a_skill_with_no_contract_behaves_as_before() -> None:
+    """Existing installs must not break: no declaration, no new restriction."""
+    ok, _cls, _why = evaluate_call("get_weather", {"city": "Amsterdam"}, [])
+    assert ok is True
+
+
+def test_a_network_capable_skill_has_its_reads_gated_like_network_reads() -> None:
+    """The concrete hole this closes.
+
+    A skill tool named `get_page_content` that actually fetches URLs classifies
+    as `read_local`, so taint gating never applied — the exfiltration pattern
+    walked straight through. Declaring a network scope now gates it.
+    """
+    page = "https://attacker.example.net/collect?d=steal-the-notes-please"
+
+    ok, _cls, _why = evaluate_call("get_page_content", {"url": page}, [page])
+    assert ok is True, "a native tool with no network contract: unchanged"
+
+    ok, action_class, why = evaluate_call(
+        "get_page_content",
+        {"url": page},
+        [page],
+        declared_scopes=("read_local", "read_network"),
+    )
+    assert ok is False
+    assert "can reach the network" in why
+    # The class stays honest: it is what the call is, not how careful June is
+    # being about it. The UI and the ledger both read this value.
+    assert action_class == "read_local"
+
+
+def test_a_network_capable_skill_reads_freely_when_nothing_is_suspicious() -> None:
+    """The cost of the rule above must be zero in ordinary use."""
+    ok, _cls, _why = evaluate_call(
+        "read_file",
+        {"path": "/Users/ana/notes.md"},
+        ["The weather is fine."],
+        declared_scopes=("read_local", "read_network"),
+    )
+    assert ok is True
+
+
+def test_the_class_never_changes_with_the_contract() -> None:
+    """Provenance must not drift with policy — the ledger records this value."""
+    for tool in ("read_file", "get_status", "save_thing", "send_thing"):
+        bare = classify_action(tool)
+        for scopes in ((), ("read_network",), ("write_network", "execute")):
+            assert classify_action(tool) == bare, (tool, scopes)
+
+
+def test_declaring_execute_does_not_gate_every_read() -> None:
+    """Approval fatigue is an attack surface, so the floor is raised narrowly.
+
+    A skill holding `execute` still calls its ordinary read and write tools
+    without a prompt each time; only the execute tool itself is gated.
+    """
+    scopes = ("execute", "read_local", "write_local")
+    for tool in ("get_thing", "list_things", "save_thing"):
+        ok, _cls, _why = evaluate_call(tool, {}, [], declared_scopes=scopes)
+        assert ok is True, tool
+
+    ok, _cls, _why = evaluate_call("run_script", {}, [], declared_scopes=scopes)
+    assert ok is False
+
+
+def test_an_unrecognised_tool_name_needs_write_local_declared() -> None:
+    """Names June cannot read fall through to `write_local`, so declaring a
+    contract means declaring that too. Stated here because it is the most
+    likely way a real skill's contract is written too narrowly."""
+    ok, action_class, why = evaluate_call(
+        "frobnicate_widget", {}, [], declared_scopes=("read_local",)
+    )
+    assert ok is False
+    assert action_class == "write_local"
+    assert "did not declare" in why
+
+
+def test_exceeds_declared_scopes_is_quiet_without_a_contract() -> None:
+    assert exceeds_declared_scopes("execute", ()) == ""
+    assert exceeds_declared_scopes("execute", ("execute",)) == ""
+    assert "did not declare" in exceeds_declared_scopes("execute", ("read_local",))
+
+
+def test_the_risk_order_covers_every_action_class() -> None:
+    """A class missing from the order would silently never be comparable."""
+    from typing import get_args
+
+    from june_brain.guard.actions import ActionClass
+
+    assert set(RISK_ORDER) == set(get_args(ActionClass))

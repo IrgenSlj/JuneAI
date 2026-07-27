@@ -43,14 +43,34 @@ _WRITE_PREFIXES = (
 # words and would flag everything.
 _MIN_TAINT_LEN = 8
 
+# Least to most consequential. Used to ask "is this class covered by what the
+# skill declared?", never to sum or average — the classes are a lattice of
+# capability, not a score.
+RISK_ORDER: tuple[ActionClass, ...] = (
+    "read_local",
+    "write_local",
+    "read_network",
+    "write_network",
+    "execute",
+)
+
+_NETWORK_SCOPES = frozenset({"read_network", "write_network"})
+
 
 def classify_action(
     tool_name: str, *, network_tools: frozenset[str] | None = None
 ) -> ActionClass:
     """Classify a tool call into an action class by name convention.
 
-    Skill tools whose semantics we cannot infer fall through to ``write_local``;
-    their real permissions come from the skill manifest (S6.3).
+    The name is the only input, deliberately: this value is what the UI shows
+    and what the ledger records, so it has to describe what the call *is*, not
+    how cautious June has decided to be about it. Reading a local PDF is a
+    ``read_local`` even when the skill offering it can also reach the network —
+    labelling it otherwise would put a false statement in the audit trail.
+
+    Caution about who is asking lives in :func:`requires_approval`, which takes
+    the skill's capabilities as a separate argument. Skill tools whose semantics
+    cannot be inferred fall through to ``write_local``.
     """
     name = (tool_name or "").strip().lower()
     nt = network_tools if network_tools is not None else _DEFAULT_NETWORK_TOOLS
@@ -65,6 +85,11 @@ def classify_action(
     if any(name.startswith(p) for p in _WRITE_PREFIXES):
         return "write_local"
     return "write_local"
+
+
+def is_network_capable(declared_scopes: tuple[str, ...] | frozenset[str]) -> bool:
+    """Whether a skill's contract lets it reach the network at all."""
+    return bool(_NETWORK_SCOPES & frozenset(declared_scopes))
 
 
 def _flatten_str_values(value: Any) -> list[str]:
@@ -101,7 +126,11 @@ def is_tainted(args: dict[str, Any], prior_results: list[str]) -> bool:
 
 
 def requires_approval(
-    action_class: ActionClass, *, tainted: bool = False, injected: bool = False
+    action_class: ActionClass,
+    *,
+    tainted: bool = False,
+    injected: bool = False,
+    network_capable: bool = False,
 ) -> tuple[bool, str]:
     """Return (needs_approval, human-readable reason) for an action class.
 
@@ -110,6 +139,14 @@ def requires_approval(
     URL copied verbatim out of a page, but not one the page *described* in prose
     for the model to reconstruct. After an injection signal, a network read asks
     even when nothing was copied.
+
+    ``network_capable`` says the caller is a skill whose contract permits
+    network access. A name is not proof of what a call does, so a "read" from
+    such a skill is treated as a possible network read — a tool named
+    ``get_page_content`` that fetches URLs otherwise classifies ``read_local``
+    and escapes taint gating entirely. This only bites when the arguments are
+    tainted or a prior result looked hostile, so it costs no extra prompts in
+    ordinary use, and the *class* stays honest for the UI and the ledger.
     """
     if action_class == "execute":
         return True, "Runs code or a shell command"
@@ -125,7 +162,45 @@ def requires_approval(
             return True, "Fetches a network resource chosen by a prior tool result"
         if injected:
             return True, "Fetches a network resource after a suspicious tool result"
+    if action_class == "read_local" and network_capable:
+        if tainted:
+            return True, (
+                "Reads through a skill that can reach the network, "
+                "using content from a tool result"
+            )
+        if injected:
+            return True, (
+                "Reads through a skill that can reach the network, "
+                "after a suspicious tool result"
+            )
     return False, ""
+
+
+def exceeds_declared_scopes(
+    action_class: ActionClass, declared_scopes: tuple[str, ...] | frozenset[str]
+) -> str:
+    """Return a reason when a call exceeds the skill's contract, else "".
+
+    A skill declares in the manifest which action classes it may use. Until now
+    that contract was *reported* — the UI showed drift — and the call went
+    through anyway. Reporting a violation after allowing it is not a permission
+    system, so the contract is enforced here.
+
+    The attack this stops is the update: a skill the user installed and granted
+    ``read_local`` ships a new version that advertises ``send_report``, and
+    inherits the trust the user extended to the old one. It now blocks until the
+    user widens the contract deliberately.
+
+    A skill with no declared scopes has no contract to violate, and nothing here
+    applies — that stays true so existing installs do not break on upgrade.
+    """
+    declared = frozenset(declared_scopes)
+    if not declared or action_class in declared:
+        return ""
+    return (
+        f"This skill did not declare the '{action_class}' capability. "
+        f"It declared: {', '.join(sorted(declared)) or 'nothing'}."
+    )
 
 
 def evaluate_call(
@@ -136,6 +211,7 @@ def evaluate_call(
     allow_list: frozenset[str] = frozenset(),
     network_tools: frozenset[str] | None = None,
     injected: bool | None = None,
+    declared_scopes: tuple[str, ...] | frozenset[str] = (),
 ) -> tuple[bool, str, str]:
     """Decide whether a tool call may execute. Returns (allowed, action_class, reason).
 
@@ -149,19 +225,36 @@ def evaluate_call(
     evidence is the same for every call in the batch.
     """
     action_class = classify_action(name, network_tools=network_tools)
+
+    # Checked before approval, and not waivable by it: an "always allow" is the
+    # user permitting a tool they were shown, not permitting a skill to step
+    # outside the contract they agreed to when they installed it.
+    breach = exceeds_declared_scopes(action_class, declared_scopes)
+    if breach:
+        return False, action_class, breach
+
+    network_capable = is_network_capable(declared_scopes)
     tainted = is_tainted(args, prior_results)
     if injected is None:
         injected = scan_all(prior_results).suspicious
-    needs, reason = requires_approval(action_class, tainted=tainted, injected=injected)
+    needs, reason = requires_approval(
+        action_class, tainted=tainted, injected=injected, network_capable=network_capable
+    )
     if not needs:
         return True, action_class, ""
-    if name in allow_list and is_waivable(action_class, tainted=tainted, injected=injected):
+    if name in allow_list and is_waivable(
+        action_class, tainted=tainted, injected=injected, network_capable=network_capable
+    ):
         return True, action_class, ""
     return False, action_class, reason
 
 
 def is_waivable(
-    action_class: ActionClass, *, tainted: bool = False, injected: bool = False
+    action_class: ActionClass,
+    *,
+    tainted: bool = False,
+    injected: bool = False,
+    network_capable: bool = False,
 ) -> bool:
     """Whether a per-conversation 'always allow' may waive future approvals.
 
@@ -177,5 +270,9 @@ def is_waivable(
     """
     consequential = ("write_network", "read_network", "execute")
     if (tainted or injected) and action_class in consequential:
+        return False
+    # A network-capable skill's "read" is treated the same way, for the same
+    # reason it is gated at all: the name is not evidence about the call.
+    if (tainted or injected) and network_capable and action_class == "read_local":
         return False
     return True

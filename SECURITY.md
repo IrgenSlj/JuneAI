@@ -12,9 +12,11 @@ be allowed to see.
 
 The short version of the gaps:
 
-- **Skills are executables.** Tool calls are classified by naming convention, so
-  a skill that names a network tool `get_something` is not gated. Install skills
-  the way you install programs.
+- **Skills are executables.** A skill runs as a subprocess with your privileges
+  and does not need June to call it in order to act, so no gate of June's can
+  stop a hostile one. Skills declare a capability contract that is enforced, and
+  that stops a skill exceeding what you granted it — not a skill that was never
+  honest. Install skills the way you install programs.
 - **MCP client identity is self-declared.** A grant limits blast radius and
   creates an audit trail; it does not authenticate the caller.
 - **The ledger is tamper-evident, not tamper-proof.** It makes silent revision

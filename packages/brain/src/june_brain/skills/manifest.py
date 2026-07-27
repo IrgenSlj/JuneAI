@@ -136,6 +136,7 @@ DEFAULT_MANIFEST: SkillManifest = SkillManifest(
             command=sys.executable,
             args=["-m", "june_skill_calendar"],
             description="Calendar events, reminders, and birthdays.",
+            declared_scopes=["read_local", "write_local"],
         ),
         "health": SkillManifestEntry(
             key="health",
@@ -143,6 +144,7 @@ DEFAULT_MANIFEST: SkillManifest = SkillManifest(
             command=sys.executable,
             args=["-m", "june_skill_health"],
             description="Body metrics, workouts, water, and habits.",
+            declared_scopes=["read_local", "write_local"],
         ),
         "research": SkillManifestEntry(
             key="research",
@@ -152,6 +154,7 @@ DEFAULT_MANIFEST: SkillManifest = SkillManifest(
             description="Web search via Brave Search or DuckDuckGo.",
             # Network fetches can be slow; give the research skill more headroom.
             response_timeout_seconds=60.0,
+            declared_scopes=["read_network"],
         ),
         "files": SkillManifestEntry(
             key="files",
@@ -164,6 +167,10 @@ DEFAULT_MANIFEST: SkillManifest = SkillManifest(
                 "text from webpages."
             ),
             model_policy="local_only",
+            # read_webpage is a network read, so every read this skill makes is
+            # treated as one - which is what puts a path lifted out of a tool
+            # result behind an approval prompt.
+            declared_scopes=["read_local", "read_network"],
         ),
         "daily": SkillManifestEntry(
             key="daily",
@@ -171,6 +178,7 @@ DEFAULT_MANIFEST: SkillManifest = SkillManifest(
             command=sys.executable,
             args=["-m", "june_skill_daily"],
             description="Journaling, moods, goals, and chapter intake.",
+            declared_scopes=["write_local"],
         ),
         "telegram": SkillManifestEntry(
             key="telegram",
@@ -179,6 +187,7 @@ DEFAULT_MANIFEST: SkillManifest = SkillManifest(
             command=sys.executable,
             args=["-m", "june_skill_telegram"],
             description="Telegram bridge — send/receive messages from your bot. Requires JUNE_TELEGRAM_BOT_TOKEN.",
+            declared_scopes=["read_local", "write_network"],
         ),
     }
 )

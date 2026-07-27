@@ -4,7 +4,7 @@
 planning doc disagrees with this one, this one wins (and that doc should be
 archived). Updated as workstreams land.
 
-- **Last updated:** 2026-07-26.
+- **Last updated:** 2026-07-27.
 - **Release status:** `v0.1.0` re-cut on 2026-07-25 and **verified working** — a
   45MB Apple Silicon DMG built by CI from the tag, with the frozen sidecar inside
   it, ad-hoc signed. The tag points at the code the artifact was built from. The
@@ -14,16 +14,17 @@ archived). Updated as workstreams land.
   — the single plan of record: state, competitive position, phases, slices, and
   acceptance criteria. The separate execution plan was merged into it on
   2026-07-26; `JUNE_V02_BRIEF.md` and `v0.2-execution-plan.md` are superseded.
-- **Resume here next session:** **Phase 6.0 — enforce skill capabilities at
-  dispatch.** Phase 5 is complete (injection heuristic
-  [measured](product/injection-benchmark.md) at 100% recall / 3% false
-  positives, wired so a detection revokes standing approvals; `june-verify`
-  with third-party [export verification](product/trust-ledger-verification.md);
-  a gaps-first [threat model](security/threat-model.md)). Writing that threat
-  model surfaced a High-severity gap in June's own design: the action gate
-  classifies tool calls by naming convention, so a skill advertising a network
-  tool as `get_something` runs ungated. It is documented, unfixed, and first in
-  Phase 6.
+- **Resume here next session:** **Phase 6.1 — ADR 0025, provenance-gated
+  memory writes.** Phase 5 is complete and Phase 6.0 is done: skill capability
+  contracts are enforced at dispatch rather than reported, all six bundled
+  skills declare one, and an "always allow" cannot waive a breach. Building it
+  corrected the [threat model](security/threat-model.md) — a *hostile* skill was
+  never stoppable by an action gate, since it runs as a subprocess and does not
+  need June to call it. Phase 5 shipped the injection heuristic
+  ([measured](product/injection-benchmark.md) at 100% recall / 3% false
+  positives, wired so a detection revokes standing approvals), `june-verify`
+  with third-party [export verification](product/trust-ledger-verification.md),
+  and a gaps-first threat model.
   Phases 0-3 are done: docs reconciled, a working release shipped, retrieval
   measured ([results](product/retrieval-benchmark.md)), and a visual identity
   built (social card, hero, nine architecture diagrams).
@@ -115,8 +116,14 @@ Everything lives under one versioned data directory (ADR 0019).
   (content flowing from untrusted results back into new actions), gates
   `execute`/`write_network`/tainted-network behind approval, frames every tool
   result as untrusted content, and redacts secrets before they hit the ledger.
-  Defense is **structural** — there is (as of v0.1) no content-based
-  injection-phrase detector.
+  Defense is primarily **structural** — the gates hold regardless of what the
+  content says. A content heuristic (`guard/injection.py`) sits under it as
+  defence in depth: it does not block, it *revokes standing approvals*, so an
+  "always allow" stops covering a tool once a poisoned result lands
+  ([measured](product/injection-benchmark.md): 100% recall, 3% false positives
+  on a 62-case corpus). Skill capability contracts declared in the manifest are
+  enforced here too, not merely reported. Full picture, gaps first, in
+  [`security/threat-model.md`](security/threat-model.md).
 
 - **Silence Model (`packages/brain/.../silence`, ADR 0023).** Governs
   June-*initiated* surfacing only (never the reply path). A pure, clockless,

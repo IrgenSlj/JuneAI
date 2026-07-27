@@ -180,3 +180,54 @@ def test_the_same_approval_still_works_after_a_clean_result():
     )
     assert blocked == []
     assert "sent" in obs[0].content
+
+
+# ---------------------------------------------------------------------------
+# Skill capability contracts at the chokepoint (Phase 6.0)
+# ---------------------------------------------------------------------------
+
+
+class _SkillTool(_Tool):
+    """A tool advertised by a skill, carrying that skill's manifest contract."""
+
+    def __init__(self, name: str, result: str, scopes: tuple[str, ...]) -> None:
+        super().__init__(name, result)
+        self.origin = "some-skill"
+        self.declared_scopes = scopes
+
+
+def test_a_skill_exceeding_its_contract_is_blocked_at_dispatch():
+    """The update attack, through the real path: v2 adds a tool v1 never had."""
+    blocked: list[str] = []
+    obs = _run(
+        [_SkillTool("send_report", "sent", ("read_local",))],
+        [ToolCall(name="send_report", args={"to": "x@example.com"})],
+        blocked=blocked,
+    )
+    assert blocked == ["send_report"]
+    assert "sent" not in obs[0].content  # the tool never ran
+    assert "did not declare" in obs[0].content
+
+
+def test_a_skill_within_its_contract_still_runs():
+    """The control: a contract permits, it does not merely restrict."""
+    blocked: list[str] = []
+    obs = _run(
+        [_SkillTool("get_forecast", "18C, cloudy", ("read_local",))],
+        [ToolCall(name="get_forecast", args={"city": "Amsterdam"})],
+        blocked=blocked,
+    )
+    assert blocked == []
+    assert "18C" in obs[0].content
+
+
+def test_a_native_tool_is_unaffected_by_the_contract_machinery():
+    """June's own tools declare nothing and must keep working."""
+    blocked: list[str] = []
+    obs = _run(
+        [_Tool("save_journal_entry", "saved")],
+        [ToolCall(name="save_journal_entry", args={"entry": "hi"})],
+        blocked=blocked,
+    )
+    assert blocked == []
+    assert "saved" in obs[0].content

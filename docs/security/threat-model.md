@@ -1,6 +1,7 @@
 # June — threat model
 
-**Version:** 1.0, 2026-07-26. Covers `main` at the time of writing.
+**Version:** 1.1, 2026-07-27. Covers `main` at the time of writing.
+**Changed in 1.1:** §2.1 was partly wrong and is corrected — see the note there.
 **Status:** June is alpha. Treat this as a description of a work in progress.
 
 June's positioning is that she can prove what she did. A claim like that earns
@@ -39,29 +40,45 @@ claiming otherwise would be the first dishonest sentence in this document.
 First, and in detail, because a threat model that leads with its strengths is
 marketing.
 
-### 2.1 Tool classification is by naming convention
+### 2.1 A skill you install can do anything you can
 
-**This is the most important gap in the system.**
+**This is the most important gap in the system, and most of it is not fixable
+at this layer.**
 
-The action gate decides whether a tool call needs approval by classifying it
-into an action class — and `classify_action()` does that from the tool's *name*
-(`packages/brain/src/june_brain/guard/actions.py`). `send_*` is network egress;
-`get_*` is a local read; anything unrecognised falls through to `write_local`.
+Version 1.0 of this document filed this as "tool classification is by naming
+convention" and rated it High, implying the action gate could be made to stop
+it. Building the fix showed that framing was wrong, so it is corrected here.
 
-A skill that advertises a tool named `get_weather`, which in fact posts the
-user's memory to a remote host, is classified `read_local` and executes without
-an approval prompt.
+A skill is a subprocess, spawned with the user's privileges, with no sandbox.
+**It does not need June to call it in order to act.** A malicious skill can open
+a socket and exfiltrate the moment it starts. Every gate June has governs
+whether *June* invokes a tool — which is worth a great deal against a *hijacked*
+agent, and worth nothing against a *hostile skill*. No classification scheme
+changes that; only OS-level sandboxing would.
 
-Skill manifests can declare which action classes a skill uses, and
-`check_scope_drift()` compares declared scopes against derived ones — but it
-derives them with the same name-based classifier, and it **reports** drift to
-the UI rather than blocking the call. A skill that lies consistently produces no
-drift at all.
+So: **install skills the way you install programs.** They are visible in
+`/skills` and their calls appear in the trace, which is supply-chain trust, not
+enforcement.
 
-The mitigations that do apply: skills are installed deliberately by the user,
-they are visible in `/skills`, and their tools appear in the trace. That is
-supply-chain trust, not enforcement. **Install skills you would install as
-executables, because that is what they are.**
+Two parts of the original concern *were* fixable, and are now fixed:
+
+- **Contract violation.** A skill declares its action classes in the manifest.
+  That contract used to be *reported* — `check_scope_drift()` showed the UI a
+  warning and the call went through. It is now enforced at dispatch
+  (`exceeds_declared_scopes`), and an "always allow" cannot waive it. This
+  closes the update attack: a skill granted `read_local` that ships a new
+  version advertising `send_report` is blocked until the user widens the
+  contract deliberately. All six bundled skills now declare contracts, pinned by
+  `test_skill_scope_contracts.py`.
+- **Network reads hiding behind local-sounding names.** A tool named
+  `get_page_content` that fetches URLs classifies as `read_local` and escaped
+  taint gating entirely. Reads from a skill whose contract permits network
+  access are now gated like network reads whenever the arguments are tainted or
+  a prior result looked hostile.
+
+The classification itself remains name-based, deliberately: it is what the UI
+and the ledger display, so it has to describe what a call *is*, not how cautious
+June is being about it. Caution is applied separately, from the contract.
 
 ### 2.2 The MCP client's identity is self-declared
 
@@ -192,6 +209,7 @@ Each row names the code and the test, so the claim is checkable.
 | Memory read over MCP | Read-only surface, per-tool consent, 90-day expiry, rate limited, every access ledgered | `mcp/server.py` | `test_mcp_server.py` |
 | Malicious page hitting the API | Loopback bind, Host-header validation, CORS allow-list, loopback token | `api/app.py`, `middleware/auth.py` | `test_auth*.py` |
 | A skill crashing June | Subprocess isolation with respawn | `skills/supervisor.py` | `test_skill_supervisor*.py` |
+| A skill exceeding its permission contract | Declared scopes enforced at dispatch; "always allow" cannot waive a breach | `guard/actions.py` | `test_skill_scope_contracts.py` |
 
 ### The property worth stating separately
 
@@ -210,7 +228,9 @@ classification is structural, but its *input* is a name a skill chooses.
 
 | Risk | Severity | Status |
 |---|---|---|
-| Lying skill defeats the action gate (§2.1) | **High** | Open. Needs capability declaration enforced at dispatch, not derived from names |
+| A hostile skill acts without June invoking it (§2.1) | **High** | Accepted at this layer. Only OS sandboxing changes it; the defence is install-time trust |
+| A skill exceeding its declared contract (§2.1) | Medium | **Fixed.** Enforced at dispatch, not waivable by "always allow" |
+| Network reads named like local reads (§2.1) | Medium | **Fixed.** Gated under taint or injection when the skill's contract permits network access |
 | MCP client identity spoofable (§2.2) | Medium | Open, Phase 6. Needs OS process attestation |
 | Injection heuristic evaded by paraphrase (§2.3) | Medium | Accepted. Structural layers are the defence |
 | Ledger rewritten wholesale (§2.4) | Medium | Accepted. Out of scope per §1 |

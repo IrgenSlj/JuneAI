@@ -58,6 +58,14 @@ class Tool:
     func: Callable[..., Any]
     injected: tuple[str, ...] = ()
 
+    # Provenance, for the action gate. Empty ``origin`` means a native June
+    # tool, whose name June chose. A non-empty one names the skill that
+    # advertised it, and ``declared_scopes`` is that skill's permission contract
+    # from the manifest — the gate needs both, because a name it did not choose
+    # is not evidence about what a call does (see docs/security/threat-model.md).
+    origin: str = ""
+    declared_scopes: tuple[str, ...] = ()
+
     def invoke(self, arguments: dict[str, Any] | None = None) -> Any:
         """Call the underlying function with the supplied arguments.
 
