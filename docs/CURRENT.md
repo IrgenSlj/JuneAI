@@ -4,7 +4,7 @@
 planning doc disagrees with this one, this one wins (and that doc should be
 archived). Updated as workstreams land.
 
-- **Last updated:** 2026-07-27.
+- **Last updated:** 2026-07-27 (plan consolidated).
 - **Release status:** `v0.1.0` re-cut on 2026-07-25 and **verified working** — a
   45MB Apple Silicon DMG built by CI from the tag, with the frozen sidecar inside
   it, ad-hoc signed. The tag points at the code the artifact was built from. The
@@ -14,26 +14,14 @@ archived). Updated as workstreams land.
   — the single plan of record: state, competitive position, phases, slices, and
   acceptance criteria. The separate execution plan was merged into it on
   2026-07-26; `JUNE_V02_BRIEF.md` and `v0.2-execution-plan.md` are superseded.
-- **Resume here next session:** **Phase 7 — launch.** Re-ordered 2026-07-27:
-  every phase since the last re-order was justified by "June needs something
-  worth showing," and that is now built and measured, so the justification has
-  expired. Phase 6's remaining provenance work serves users who do not exist
-  yet and moves behind launch. Two launch blockers come first: nothing tests the
-  packaged binary (7.0), and the published DMG is `v0.1.0`, cut before any of
-  the guard, MCP, or verification work the pitch is now about (7.1).
-  Phases 0-5 and slice 6.0 are done — injection detection
-  ([measured](product/injection-benchmark.md) at 100% recall / 3% false
-  positives, wired so a detection revokes standing approvals), `june-verify`
-  with third-party [export verification](product/trust-ledger-verification.md),
-  a gaps-first [threat model](security/threat-model.md), and skill capability
-  contracts enforced at dispatch.
-- **Audit, 2026-07-27:** all 540 tracked files read for dead content and wiring.
-  The codebase is clean — no unreferenced UI components, every API route has a
-  consumer, one TODO in 32k lines of Python and it is a false positive. Three
-  real findings, all now fixed or scheduled: inbound Telegram wrote to a table
-  nothing read (unreachable halves removed, consumer scheduled as 9.5), the
-  network-tools set was defined twice in two packages (collapsed to one), and
-  `tool_aliases.py` is 391 lines with no tests (scheduled as 9.4).
+- **Resume here next session:** **Phase 7 — launch**, in the consolidated
+  [plan](product/v0.3-development-plan.md). Launch is gated on four blockers,
+  not one: SSRF defence on outbound fetches (7.1), a smoke test that runs the
+  packaged binary (7.2), cutting `v0.3.0` (7.3), and an update channel (7.4).
+  Announcing a security-positioned product with an untested binary, a stale
+  build, an SSRF hole and no way to ship a fix would invert the pitch at the
+  moment of maximum scrutiny. Phases 0-6 are done. **Eight open questions are
+  listed in the plan §9** and want founder decisions before 9.x starts.
 - **The plan was re-ordered on 2026-07-26.** June has 0 stars and 0 downloads
   after 835 commits, and the local-first-open-source category now has a
   3.2M-user incumbent. The differentiator moves from *local-first* to **the agent
