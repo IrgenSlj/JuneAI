@@ -10,16 +10,15 @@ from __future__ import annotations
 
 from typing import Any
 
+# NETWORK_TOOLS is re-exported from the guard, which owns the definition. This
+# module used to keep a second copy of the same three names, so adding a
+# networked tool to one list and not the other left it either ungated or
+# unsurfaced - and in opposite directions, which is the worst way for two lists
+# to disagree.
+from june_brain.guard.actions import NETWORK_TOOLS
 from june_brain.providers.base import Message
 
 from .interface import SessionState, ToolCall
-
-# Tools that reach the network when invoked. Dispatching one of these sends
-# data off the machine, so the loop surfaces it as egress even when the LLM
-# tier is local. Keep this in sync as networked skills are added.
-NETWORK_TOOLS: frozenset[str] = frozenset(
-    {"web_search", "fetch_url", "read_webpage"}
-)
 
 
 def is_network_tool(name: str) -> bool:

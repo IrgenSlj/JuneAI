@@ -28,8 +28,12 @@ ActionClass = Literal[
     "read_local", "read_network", "write_local", "write_network", "execute"
 ]
 
-# Kept local to the guard package to avoid a guard -> loop import cycle.
-_DEFAULT_NETWORK_TOOLS = frozenset({"web_search", "fetch_url", "read_webpage"})
+# The one definition of "invoking this reaches the network". It lives in the
+# guard because the guard is the lowest layer that needs it (the loop imports
+# the guard, never the reverse), and because the alternative — a second copy in
+# `loop/wiring.py` — meant adding a networked tool to one list and not the other
+# left it either ungated or unsurfaced, silently and in opposite directions.
+NETWORK_TOOLS = frozenset({"web_search", "fetch_url", "read_webpage"})
 
 _EXECUTE_PREFIXES = ("run_", "exec_", "execute_", "shell_", "eval_")
 _NETWORK_WRITE_PREFIXES = ("send_", "post_", "publish_", "email_", "notify_", "sms_", "tweet_")
@@ -73,7 +77,7 @@ def classify_action(
     cannot be inferred fall through to ``write_local``.
     """
     name = (tool_name or "").strip().lower()
-    nt = network_tools if network_tools is not None else _DEFAULT_NETWORK_TOOLS
+    nt = network_tools if network_tools is not None else NETWORK_TOOLS
     if any(name.startswith(p) for p in _EXECUTE_PREFIXES):
         return "execute"
     if any(name.startswith(p) for p in _NETWORK_WRITE_PREFIXES):

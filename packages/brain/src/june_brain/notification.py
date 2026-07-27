@@ -13,13 +13,10 @@ Usage::
 
 from __future__ import annotations
 
-import json
 import logging
-import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -89,50 +86,16 @@ def _log_channel(notification: Notification) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Telegram channel — writes to skill_inbound_events for daemon skill pickup
+# Channels
 # ---------------------------------------------------------------------------
-
-def _default_data_dir() -> Path:
-    data_dir = Path.home() / "Library" / "Application Support" / "June"
-    env = __import__("os").environ.get("JUNE_DATA_DIR")
-    if env:
-        data_dir = Path(env)
-    return data_dir
-
-
-def telegram_channel(notification: Notification) -> bool:
-    """Forward a notification to the Telegram daemon skill.
-
-    Writes to ``skill_inbound_events``, where the Telegram skill picks it
-    up on its next poll and sends it to the configured chat.
-    """
-    chat_id = notification.metadata.get("chat_id", notification.metadata.get("telegram_chat_id"))
-    if not chat_id:
-        logger.debug("Telegram channel: no chat_id in metadata, skipping")
-        return False
-    db_path = _default_data_dir() / "june.db"
-    if not db_path.exists():
-        logger.warning("Telegram channel: june.db not found at %s", db_path)
-        return False
-    conn = sqlite3.connect(str(db_path))
-    conn.execute(
-        "INSERT INTO skill_inbound_events (skill_key, event_type, payload, user_id) "
-        "VALUES (?, ?, ?, ?)",
-        (
-            "telegram",
-            "send_notification",
-            json.dumps({
-                "chat_id": chat_id,
-                "text": f"*{notification.title}*\n{notification.body}",
-                "priority": notification.priority,
-            }),
-            str(chat_id),
-        ),
-    )
-    conn.commit()
-    conn.close()
-    return True
-
+#
+# A `telegram_channel` used to live here. It wrote notifications into
+# `skill_inbound_events` "where the Telegram skill picks it up on its next
+# poll" — except the Telegram skill only ever writes that table, never reads
+# it, and nothing registered this channel with the bus either. It was dead in
+# two independent ways, so it is removed rather than left to look like a
+# feature. Delivering notifications over Telegram needs a consumer for that
+# table first; see the v0.3 plan.
 
 # Module-level singleton
 bus = NotificationBus()

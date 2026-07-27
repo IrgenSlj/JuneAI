@@ -8,7 +8,23 @@ subprocess managed by the June supervisor. On startup it:
 1. Registers ``send_telegram_message`` and ``get_telegram_bot_status`` tools.
 2. Starts a background thread that long-polls Telegram for new messages.
 3. Writes incoming messages to the ``skill_inbound_events`` table in June's
-   SQLite database, where the scheduler's event poller picks them up.
+   SQLite database.
+
+What works, and what does not
+-----------------------------
+**Outbound works.** ``send_telegram_message`` calls the Bot API directly, so
+June can send a message when the user asks her to.
+
+**Inbound does not.** Step 3 writes to a table that nothing reads. This
+docstring used to say the events were picked up by "the scheduler's event
+poller"; that poller existed but was never wired into anything, and it has been
+removed rather than left to imply a working feature. Messages sent *to* the bot
+are recorded and then ignored.
+
+Finishing it means building a consumer that turns an inbound event into a turn
+through the harness loop — legitimate under ADR 0016, which permits acting on
+real-world events and forbids only bare timers. It is a plan item, not a bug to
+paper over. Until then the skill ships disabled by default.
 
 Configuration
 -------------
