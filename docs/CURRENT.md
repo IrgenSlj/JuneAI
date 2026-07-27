@@ -15,13 +15,18 @@ archived). Updated as workstreams land.
   acceptance criteria. The separate execution plan was merged into it on
   2026-07-26; `JUNE_V02_BRIEF.md` and `v0.2-execution-plan.md` are superseded.
 - **Resume here next session:** **Phase 7 — launch**, in the consolidated
-  [plan](product/v0.3-development-plan.md). Launch is gated on four blockers,
-  not one: SSRF defence on outbound fetches (7.1), a smoke test that runs the
-  packaged binary (7.2), cutting `v0.3.0` (7.3), and an update channel (7.4).
-  Announcing a security-positioned product with an untested binary, a stale
-  build, an SSRF hole and no way to ship a fix would invert the pitch at the
-  moment of maximum scrutiny. Phases 0-6 are done. **Eight open questions are
-  listed in the plan §9** and want founder decisions before 9.x starts.
+  [plan](product/v0.3-development-plan.md). Launch is gated on five slices, not
+  one: rewrite the 240MB `.git` history while zero forks makes it cheap (7.0),
+  SSRF defence on outbound fetches (7.1), a smoke test that runs the packaged
+  binary (7.2), cutting `v0.3.0` (7.3), and an update channel (7.4). Announcing
+  a security-positioned product with an untested binary, a stale build, an SSRF
+  hole and no way to ship a fix would invert the pitch at the moment of maximum
+  scrutiny. Phases 0-6 are done.
+- **Four decisions taken 2026-07-27** (plan §9): OS geolocation asked once at
+  point of use and coarsened to city level; all four launch blockers before
+  announcing; rewrite git history before launch; monetization parked for v0.3.
+  Five questions stay open — launch channel and order, second platform,
+  notarization, the Brave key, and repo workflow permissions.
 - **The plan was re-ordered on 2026-07-26.** June has 0 stars and 0 downloads
   after 835 commits, and the local-first-open-source category now has a
   3.2M-user incumbent. The differentiator moves from *local-first* to **the agent
