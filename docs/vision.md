@@ -1,7 +1,7 @@
 # Vision
 
 June is a personal assistant whose center of gravity is the user, not the task.
-She remembers what matters, forgets what doesn't, tells the truth, knows when to
+June remembers what matters, forgets what doesn't, tells the truth, knows when to
 stay quiet, and never does anything the user can't see. June is private by default —
 chat and recall stay on the machine; capability reaches Gemini only when the user
 asks, with the call visible before and after. One brain spans browser, desktop, and
@@ -63,12 +63,12 @@ cloud — on work the user did not ask for. The user holds the dial: `local-only
 Privacy and "what is June doing" are proven in the UI and in code, not asserted in
 docs. Every cloud model call and every external service call is surfaced before and
 after. Local-only mode provably blocks egress. Radical, user-readable transparency
-of June's inner life is one of her two genuine differentiators.
+of June's inner life is one of its two genuine differentiators.
 
 ### 4. Honesty is not adjustable
 
 Personalization may shape tone and humor; it may never erode candor into sycophancy.
-Honesty lives in June's fixed, non-editable character core. She tells the truth
+Honesty lives in June's fixed, non-editable character core. June tells the truth
 plainly and kindly, disagrees when it matters, and never flatters. Honesty and care
 are the same value here, not a tradeoff.
 
@@ -88,16 +88,16 @@ how a small team ships a multi-platform product.
   cold-starts a session.
 - **Not an account-required service.** June installs onto the machine. No signup,
   no login, no cloud dependency by default.
-- **Not a therapist, doctor, lawyer, or financial advisor**, and never implies she
-  is. In high-stakes domains she informs and helps the user think, points to
+- **Not a therapist, doctor, lawyer, or financial advisor**, and never implies it
+  is. In high-stakes domains June informs and helps the user think, points to
   qualified humans for decisions, and surfaces real-world support in a crisis. No
   metric in June rewards keeping the user talking.
 - **Not self-modifying at the core.** June evolves character and skills on top of a
-  fixed engine she never edits. That fixed engine is what makes her auditable.
+  fixed engine it never edits. That fixed engine is what makes June auditable.
 
 ## North Star User Experience
 
-A user opens June on their Mac. She greets them within the turn, recalls a relevant
+A user opens June on their Mac. June greets them within the turn, recalls a relevant
 older fact over a merely-similar recent one, and answers in a consistent voice that
 will gently disagree when warranted. They work together across a long conversation;
 June compacts it mid-session without losing the stated goal. The user asks June to

@@ -47,7 +47,7 @@ GENESIS_PREV = "0" * (_DIGEST_SIZE * 2)
 
 # `mcp_access` records a third-party MCP client reading memory (ADR 0030). It is
 # its own kind rather than an `action` because the actor differs in a way that
-# matters to the reader: an action is something June did for her user, an
+# matters to the reader: an action is something June did for its user, an
 # mcp_access is something another program did to the user's memory.
 VALID_KINDS = frozenset({"egress", "action", "approval", "system", "mcp_access"})
 VALID_ACTORS = frozenset({"june", "user"})

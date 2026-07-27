@@ -10,17 +10,17 @@ decision (ADR 0018). Relates to the roadmap's D.2 deferred-proactivity track.
 
 ## Context
 
-The fourth inversion says June "stays quiet, not fast": she acts when the user
-speaks or the world changes, never on a timer, and she does not manufacture
+The fourth inversion says June "stays quiet, not fast": it acts when the user
+speaks or the world changes, never on a timer, and it does not manufacture
 reasons to interrupt. Until now that has been a principle in prose, not a
-mechanism. As June gains things worth surfacing on her own initiative — a hard
+mechanism. As June gains things worth surfacing on its own initiative — a hard
 deadline approaching, a contradiction found between two stored facts, a promise
 that needs a nudge — the question "should I say this now, hold it, or drop it?"
 becomes a real decision that needs a real, inspectable answer.
 
 Every engagement-funded assistant answers this question with "surface now, as
 often as plausible," because attention is the business model. June is funded by
-trust, not attention, so she must answer it with *restraint*, and must be able to
+trust, not attention, so June must answer it with *restraint*, and must be able to
 show the user the honest reason for each choice. A policy that optimizes for
 appropriate silence — and exposes why it stayed quiet — is the structural
 inversion of the notification-maximizing competitor.

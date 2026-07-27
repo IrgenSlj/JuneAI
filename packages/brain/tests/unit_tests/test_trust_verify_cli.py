@@ -157,7 +157,7 @@ def test_a_tampered_export_fails_the_check(db: Path, tmp_path: Path) -> None:
 
 
 def test_the_export_can_be_verified_without_june_s_code(db: Path, tmp_path: Path) -> None:
-    """A third party should not have to import June to check her ledger.
+    """A third party should not have to import June to check its ledger.
 
     This reimplements the documented scheme with nothing but the standard
     library. If it ever stops matching, either the format changed silently or

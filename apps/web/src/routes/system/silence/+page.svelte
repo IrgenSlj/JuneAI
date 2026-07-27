@@ -151,7 +151,7 @@
       <h1>Silence</h1>
       <p class="lede">
         When June stays quiet, it's a choice — and you can see every one of them. Here's what
-        she held for you, and the reasoning behind what she surfaced, batched, or kept back
+        it held for you, and the reasoning behind what it surfaced, batched, or kept back
         entirely.
       </p>
     </div>

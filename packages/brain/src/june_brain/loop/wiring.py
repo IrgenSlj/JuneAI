@@ -57,7 +57,7 @@ def _annotate_injection(raw: str) -> str:
     could inject a warning could also inject the absence of one.
 
     Detection changes the gate regardless of whether the model reads this; the
-    note exists so June can tell the user in her own words what she noticed,
+    note exists so June can tell the user in its own words what it noticed,
     rather than silently becoming more cautious for reasons nobody can see.
     """
     from june_brain.guard import scan

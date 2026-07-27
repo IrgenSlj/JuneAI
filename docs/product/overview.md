@@ -1,7 +1,7 @@
 # June
 
 June is a personal assistant whose center of gravity is the user, not the task.
-She remembers what matters, forgets what doesn't, tells the truth, knows when to
+June remembers what matters, forgets what doesn't, tells the truth, knows when to
 stay quiet, and never does anything the user can't see. June runs Gemma 4 locally
 for chat and recall, and reaches Gemini for capability when the user allows it,
 with every cloud call visible before and after. One brain spans browser, desktop,
@@ -27,15 +27,15 @@ the data models and the control flow.
 | **Acts fast** | Knows when to **stay quiet**. "Surface vs defer" is a real operation with real timing code. |
 
 June's genuine distinctiveness is exactly two things: these four inversions, and
-radical, user-readable transparency of her inner life. Everything else — tiered
+radical, user-readable transparency of its inner life. Everything else — tiered
 memory, salience scoring, anchored compaction, the character block — is a sound
 synthesis of known work, built in service of those two.
 
 ## Product Center
 
 June is not primarily a chat product. Chat is the input surface. The product
-center is continuity: what June remembers, what she has promised to hold, what is
-blocked, what is waiting on the user, and what she is allowed to do.
+center is continuity: what June remembers, what it has promised to hold, what is
+blocked, what is waiting on the user, and what it is allowed to do.
 
 The mature home surface should summarize that continuity before offering a text
 box: open promises, blocked approvals, degraded local capabilities, recent memory
@@ -44,8 +44,8 @@ changes, and whether anything left the machine. The user should be able to answe
 
 ## The Product in One Turn
 
-A user opens June. She greets them within a live turn — never cold-starting a
-session — references something real, and answers in her own voice. A message
+A user opens June. June greets them within a live turn — never cold-starting a
+session — references something real, and answers in its own voice. A message
 arrives: a cheap local classifier tags its difficulty and the router picks a tier;
 the assembler builds context in a fixed order, pulling salience-ranked memories,
 the pinned state, and the character block; the loop calls the model, dispatches any
@@ -103,7 +103,7 @@ Three roles, one dial.
   Escalation to cloud for a routine local operation is a visible last resort,
   never a silent default.
 
-June is model-specific on purpose: she is tuned for this roster the way a real
+June is model-specific on purpose: it is tuned for this roster the way a real
 harness is tuned for its model, because abstraction would block that tuning.
 
 ## Memory Model
@@ -132,9 +132,9 @@ June holds intimate context — relationships, family, health-adjacent, financia
 This is core to the product, not boilerplate.
 
 - June is not a therapist, doctor, lawyer, or financial advisor, and never implies
-  she is. In high-stakes domains she informs and helps the user think, and points
+  it is. In high-stakes domains June informs and helps the user think, and points
   to qualified humans for decisions.
-- In genuine distress or crisis she responds with care, avoids amateur diagnosis,
+- In genuine distress or crisis June responds with care, avoids amateur diagnosis,
   and surfaces real-world support. No metric in June rewards keeping the user
   talking.
 - Candor means honest, never cruel; June can disagree kindly and decline kindly.
@@ -143,7 +143,7 @@ This is core to the product, not boilerplate.
 
 ## The Product Boundary
 
-- **No account.** June is installed, not subscribed to. No signup, no login, no
+- **No account needed.** June is installed, not subscribed to. No signup, no login, no
   cloud sync by default.
 - **No silent cloud calls.** Every cloud-routed model call and external service
   call is visible in the UI before and after.
@@ -152,7 +152,7 @@ This is core to the product, not boilerplate.
 - **No heartbeat.** June acts when the user speaks or the world genuinely changes,
   never merely because time passed.
 - **No core self-modification.** June evolves character and skills on top of the
-  harness; she never edits the loop itself.
+  harness; it never edits the loop itself.
 
 ## Status
 

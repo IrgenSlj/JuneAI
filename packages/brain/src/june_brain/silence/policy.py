@@ -43,7 +43,7 @@ PRESENCE_ABSENT = "absent"
 
 @dataclass(frozen=True)
 class SurfacingCandidate:
-    """Something June might surface on her own initiative."""
+    """Something June might surface on its own initiative."""
 
     candidate_id: str
     kind: str  # deadline | contradiction | promise_nudge | ...

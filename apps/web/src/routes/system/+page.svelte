@@ -361,7 +361,7 @@
         </div>
         <p class="card-body">
           Why June surfaced, batched, or stayed quiet — every decision with its truthful reason,
-          including the ones she kept back.
+          including the ones it kept back.
         </p>
         <span class="card-cta">Open silence →</span>
       </a>

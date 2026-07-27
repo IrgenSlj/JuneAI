@@ -9,7 +9,7 @@ MCP *server*. Constrained by the guard layer (ADR 0021), the Trust Ledger
 
 ## Context
 
-June's memory is her best-built subsystem: one SQLite file behind one facade,
+June's memory is its best-built subsystem: one SQLite file behind one facade,
 four-signal retrieval measured at +29% recall@8 over vector search alone, and
 first-class reversible forgetting. It is also, today, reachable by exactly one
 population: people who own an Apple Silicon Mac, install Ollama, and download
@@ -51,7 +51,7 @@ Three tools, all read paths:
 
 - **No writes.** Not `remember`, not `forget`, not update. A memory server that
   any connected agent can write is a poisoning vector, and June's entire
-  differentiator is that she can say where a memory came from. Writes wait for
+  differentiator is that it can say where a memory came from. Writes wait for
   the provenance and quarantine columns (ADR 0025), and will arrive gated by
   them.
 - **No raw store access.** The MCP layer calls the facade, never SQLite, never
@@ -80,7 +80,7 @@ the tool called, the query, and how many facts were returned. It does not carry
 fact contents; the ledger records *that* an access happened and its shape, not a
 second copy of the memory.
 
-This is deliberately stricter than the reply path. When June answers her own
+This is deliberately stricter than the reply path. When June answers its own
 user, the provenance frame is enough. When a third-party agent reads the user's
 memory, the user gets a durable, verifiable record — because they were not in the
 room when it happened.

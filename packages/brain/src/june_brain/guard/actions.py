@@ -269,7 +269,7 @@ def is_waivable(
     also be consent for what that content later asks the tool to do.
 
     Local reads and writes stay waivable either way — gating June's own memory
-    on her own machine is naggy and is not the threat. Content that arrives
+    on the user's own machine is naggy and is not the threat. Content that arrives
     poisoned is Phase 6's quarantine problem, not this gate's.
     """
     consequential = ("write_network", "read_network", "execute")

@@ -334,7 +334,7 @@
   {:else if tasks.length === 0 && !loadError}
     <div class="empty">
       <p>No tasks yet.</p>
-      <p class="muted">Use the box above to give June her first one.</p>
+      <p class="muted">Use the box above to give June its first one.</p>
     </div>
   {:else}
     {#if activeTasks.length > 0}

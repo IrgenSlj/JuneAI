@@ -6,7 +6,7 @@ hardened production service.
 ## The threat model
 
 [`docs/security/threat-model.md`](docs/security/threat-model.md) is the real
-document: what June stops, what she does not, and the residual risks — gaps
+document: what June stops, what it does not, and the residual risks — gaps
 first, each specific enough to check. Read it before deciding what June should
 be allowed to see.
 

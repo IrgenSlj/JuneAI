@@ -1,7 +1,7 @@
 """``june-verify`` — check the Trust Ledger without asking June (ADR 0022).
 
-June's pitch is that she can prove what she did. A proof that can only be
-inspected through her own UI, while she is running, is not one — it is the
+June's pitch is that it can prove what it did. A proof that can only be
+inspected through June's own UI, while it is running, is not one — it is the
 system reporting on itself. This command reads the database directly, exits
 non-zero when the chain is broken, and can export the chain for someone else to
 check with code that is not June's.

@@ -63,7 +63,7 @@ Privacy boundary: memory files stay in `JUNE_DATA_DIR` for both providers. With 
 
 Tool egress is gated by the **privacy dial** (`local_only` / `private_by_default` / `cloud_first`), which is the mode shown in the header and changed in Settings:
 
-- **`local_only`** — networked tools (`web_search`/`fetch_url`/`read_webpage`) are **blocked**, not dispatched. June explains in her reply and the UI offers a one-click switch to `private_by_default` that retries. Nothing egresses.
+- **`local_only`** — networked tools (`web_search`/`fetch_url`/`read_webpage`) are **blocked**, not dispatched. June explains in its reply and the UI offers a one-click switch to `private_by_default` that retries. Nothing egresses.
 - **`private_by_default` (default) / `cloud_first`** — networked tools run, but the loop tags them as egress (`TurnProvenance.egress`, an amber row in the activity terminal, and the persisted trace), so a query leaving the machine is never silent.
 
 Networked tools are listed in `loop/wiring.py:NETWORK_TOOLS` — extend it as networked skills are added. Note the privacy dial is distinct from `MODEL_PROVIDER`: the dial gates tool egress; `MODEL_PROVIDER` selects which LLM runs.

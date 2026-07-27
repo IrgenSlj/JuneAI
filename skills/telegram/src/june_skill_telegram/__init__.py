@@ -13,7 +13,7 @@ subprocess managed by the June supervisor. On startup it:
 What works, and what does not
 -----------------------------
 **Outbound works.** ``send_telegram_message`` calls the Bot API directly, so
-June can send a message when the user asks her to.
+June can send a message when the user asks it to.
 
 **Inbound does not.** Step 3 writes to a table that nothing reads. This
 docstring used to say the events were picked up by "the scheduler's event

@@ -18,12 +18,41 @@ Usage:
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 SCOPED_FILES = ("README.md", "docs/CURRENT.md")
+
+# June is software and is referred to by name, or as "it" — never "she".
+# Enforced here because a voice convention applied once decays; the next person
+# writing a paragraph has no way to know the rule exists unless something says
+# so. Word-boundary matched, so "other", "where" and "gather" are untouched.
+BANNED_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (
+        re.compile(r"\b(she|her|hers|herself)\b", re.IGNORECASE),
+        "June is 'June' or 'it', never 'she' — prefer the name",
+    ),
+]
+
+# The product-voice surfaces: everywhere June is described to a reader. Source
+# and tests are deliberately out of scope — they legitimately contain people
+# ("She lives in Berlin" in a memory fixture, Marie Curie in a capability probe)
+# and English stop-word lists.
+VOICE_FILES: tuple[str, ...] = (
+    "README.md",
+    "SECURITY.md",
+    "ROADMAP.md",
+    "docs/CURRENT.md",
+    "docs/vision.md",
+    "docs/product/overview.md",
+    "docs/product/roadmap.md",
+    "docs/security/threat-model.md",
+    "apps/landing/index.html",
+)
+VOICE_GLOBS: tuple[str, ...] = ("apps/web/src/routes/**/*.svelte",)
 
 # Module-level, easy to extend: (token, reason). Matching is case-insensitive
 # substring matching, done line-by-line.
@@ -47,6 +76,24 @@ def scan_text(text: str) -> list[tuple[int, str, str]]:
     return hits
 
 
+def scan_voice(text: str) -> list[tuple[int, str, str]]:
+    """Return (1-based lineno, matched word, reason) for pronoun violations."""
+    hits: list[tuple[int, str, str]] = []
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        for pattern, reason in BANNED_PATTERNS:
+            match = pattern.search(line)
+            if match:
+                hits.append((lineno, match.group(0), reason))
+    return hits
+
+
+def _voice_paths() -> list[Path]:
+    paths = [REPO_ROOT / rel for rel in VOICE_FILES]
+    for glob in VOICE_GLOBS:
+        paths.extend(sorted(REPO_ROOT.glob(glob)))
+    return [p for p in paths if p.exists()]
+
+
 def main() -> int:
     ok = True
     for rel_path in SCOPED_FILES:
@@ -60,10 +107,20 @@ def main() -> int:
                 f"docs-hygiene: {rel_path}:{lineno}: banned token '{token}' found ({reason})"
             )
 
+    voice_paths = _voice_paths()
+    for path in voice_paths:
+        rel = path.relative_to(REPO_ROOT)
+        for lineno, word, reason in scan_voice(path.read_text(encoding="utf-8")):
+            ok = False
+            print(f"docs-hygiene: {rel}:{lineno}: '{word}' — {reason}")
+
     if not ok:
         return 1
 
-    print("docs-hygiene: OK (README.md, docs/CURRENT.md clean)")
+    print(
+        f"docs-hygiene: OK (README.md, docs/CURRENT.md clean; "
+        f"June's voice consistent across {len(voice_paths)} surfaces)"
+    )
     return 0
 
 

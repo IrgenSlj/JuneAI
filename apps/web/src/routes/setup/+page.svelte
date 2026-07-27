@@ -96,7 +96,7 @@
                     <!-- The embedding model is a second, separate Ollama pull.
                          Claiming a flat "ready" here would let someone finish
                          setup with June's memory silently degraded to a keyword
-                         scan — the one thing she is meant to be good at. -->
+                         scan — the one thing it is meant to be good at. -->
                     <span class="warn">
                       Chat is ready with {status.model || "gemma4:e2b"}, but
                       memory is running degraded.

@@ -1,13 +1,13 @@
 """The chain verification algorithm, separated from where the chain is stored.
 
 ADR 0022 says the ledger is verifiable. Until now it was verifiable *by June* —
-`LedgerReader.verify_chain` reads her database, runs her code, and reports that
+`LedgerReader.verify_chain` reads June's database, runs June's code, and reports that
 everything is fine. Asking a system whether it has been honest is not an audit.
 
 So the algorithm lives here, as a pure function over a sequence of entries, with
 three callers that share it exactly: the reader (live database), the CLI
 (`june-verify`), and the exported-file check. An export can be handed to someone
-who does not run June and does not trust her, and checked against this
+who does not run June and does not trust it, and checked against this
 description:
 
     entry_hash = blake2b_256(canonical_json({

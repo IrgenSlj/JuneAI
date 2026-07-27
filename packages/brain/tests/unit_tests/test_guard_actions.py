@@ -170,7 +170,7 @@ def test_a_described_url_is_caught_where_taint_alone_would_miss_it() -> None:
 
 
 def test_local_work_still_flows_after_a_detection() -> None:
-    """Gating June's own memory on her own machine is naggy, not safety."""
+    """Gating June's own memory on the user's own machine is naggy, not safety."""
     for tool in ("save_goal", "search_memory", "list_tasks"):
         ok, _cls, _why = evaluate_call(tool, {"text": "x"}, [_POISONED])
         assert ok is True, tool

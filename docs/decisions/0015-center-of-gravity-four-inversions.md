@@ -26,7 +26,7 @@ not just a feature list.
 ## Decision
 
 **June is a personal assistant whose center of gravity is the user, not the task.**
-She remembers what matters, forgets what doesn't, tells the truth, knows when to
+June remembers what matters, forgets what doesn't, tells the truth, knows when to
 stay quiet, and never does anything the user can't see.
 
 June shares a coding harness's skeleton — a loop, tools, tiered memory, compaction —
@@ -34,7 +34,7 @@ but **inverts its four core operations**. These inversions are load-bearing: eac
 one changes a data model or a control-flow rule.
 
 1. **Defers, not verifies.** A coding agent checks its work against ground truth
-   (tests, the compiler). June has no such oracle for a person's life, so she
+   (tests, the compiler). June has no such oracle for a person's life, so it
    verifies *with* the user. Human-in-the-loop approval is a core operation, not an
    optional setting. "Critical mode" means judgment, not a ground-truth check.
 2. **Continues, not completes.** A coding agent's loop exits when the task is done.

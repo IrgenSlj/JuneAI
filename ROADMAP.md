@@ -1,7 +1,7 @@
 # June AI — Roadmap
 
 June is a **personal assistant whose center of gravity is the user, not the task**:
-she remembers what matters, forgets what doesn't, tells the truth, knows when to
+it remembers what matters, forgets what doesn't, tells the truth, knows when to
 stay quiet, and never does anything the user can't see.
 
 The full direction, invariants, and rationale live in the
@@ -94,7 +94,7 @@ Build simple, observe, refine — these need a working June to tune against.
 
 - **D.1** Temporal context layer — passive time-awareness, no timer.
 - **D.2** Event-driven, deferred proactivity — never cold-starts a session; hard
-  deadlines become OS notifications; the clock alone never wakes her.
+  deadlines become OS notifications; the clock alone never wakes June.
 - **D.3** Self-monitor + idle housekeeping + reference-context diffing.
 - **D.4** Conservative, reversible forgetting — biased hard toward retention.
 - **D.5** Durable promise ledger built around continuity — promises remain

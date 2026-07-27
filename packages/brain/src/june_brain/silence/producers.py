@@ -167,7 +167,7 @@ def build_contradiction_candidates(calendar_items: list, *, now_iso: str) -> lis
 
     Deterministic scheduling-conflict detection: two or more *active* calendar
     items sharing the same concrete (date, time) slot cannot both hold, so the
-    slot is surfaced as a contradiction June found on her own. Pure rules, no
+    slot is surfaced as a contradiction June found on its own. Pure rules, no
     model, no egress; now_iso only drops clashes already in the past.
 
     Behavioral-safety (ADR / invariant): the summary names only the *slot*, never

@@ -4,8 +4,8 @@
 **Changed in 1.1:** §2.1 was partly wrong and is corrected — see the note there.
 **Status:** June is alpha. Treat this as a description of a work in progress.
 
-June's positioning is that she can prove what she did. A claim like that earns
-scrutiny, so this document starts with what she does *not* stop, names the gaps
+June's positioning is that it can prove what it did. A claim like that earns
+scrutiny, so this document starts with what it does *not* stop, names the gaps
 specifically enough to be checked, and only then describes the defences. Where
 a defence exists, it points at the file and the test, so you do not have to take
 prose for evidence.

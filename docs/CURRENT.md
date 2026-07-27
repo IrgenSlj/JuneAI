@@ -55,7 +55,7 @@ archived). Updated as workstreams land.
 *A personal AI you can audit. June remembers you, forgets gracefully, explains
 every action, and never phones home.*
 
-June's center of gravity is the user, not the task. She inverts a coding agent's
+June's center of gravity is the user, not the task. It inverts a coding agent's
 four operations: **defers** instead of verifying, **continues** standing
 intentions instead of completing and exiting, **forgets** gracefully instead of
 accumulating, and **stays quiet** instead of acting fast (the four inversions,
@@ -164,7 +164,7 @@ Everything lives under one versioned data directory (ADR 0019).
 
 ## Privacy posture (enforced in code, not promised)
 
-- No account, no signup, no cloud sync by default.
+- No account needed, no signup, no cloud sync by default.
 - No silent cloud calls — every cloud-routed model call is surfaced in the UI and
   written to the ledger. A privacy dial can lock June to local-only (provably
   blocks egress).

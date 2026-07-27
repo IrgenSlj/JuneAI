@@ -35,15 +35,15 @@ because time passed.** Concretely:
 - **No heartbeat-as-cron.** June does not wake on a periodic timer to scan state and
   decide whether to act. Time-*awareness* is allowed as passive temporal context;
   time-*triggered action* is not.
-- **June never cold-starts a session.** She does not initiate a conversation out of
-  nowhere. Within a *live* turn she may open richly and surface a salient thread,
+- **June never cold-starts a session.** It does not initiate a conversation out of
+  nowhere. Within a *live* turn June may open richly and surface a salient thread,
   but only when its salience (the recency × frequency × relevance score) crosses a
   high threshold.
 - **Real-world events may wake June; the clock alone never does.** A calendar
   change, an incoming message, or a file change delivered through an event source
   (Tier 2 Mode-3 skills) is a legitimate trigger. A bare timer is not.
 - **Hard deadlines become OS notifications, not loops.** When June learns a hard
-  deadline she schedules an OS-level notification with a pre-written string (zero
+  deadline June schedules an OS-level notification with a pre-written string (zero
   inference). The model wakes only if the user engages with it.
 - **Sensitive context is surfaced by the user, not volunteered.** Heavy or painful
   memories are never resurfaced proactively (behavioral safety floor).

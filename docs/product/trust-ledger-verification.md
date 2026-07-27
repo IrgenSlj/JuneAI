@@ -1,7 +1,7 @@
 # Verifying June's Trust Ledger
 
-June's claim is that she can prove what she did. This page is how you check it
-without taking her word for anything — including without running her code.
+June's claim is that it can prove what it did. This page is how you check it
+without taking June's word for anything — including without running its code.
 
 ## The quick version
 

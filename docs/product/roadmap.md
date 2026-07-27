@@ -8,7 +8,7 @@ tracks status; where the two differ, the rebuild plan wins.
 ## Direction
 
 June is a personal assistant whose center of gravity is the user, not the task.
-She remembers what matters, forgets what doesn't, tells the truth, knows when to
+June remembers what matters, forgets what doesn't, tells the truth, knows when to
 stay quiet, and never does anything the user can't see.
 
 The UI should feel simple. The system should be technically rigorous, local-first,
@@ -17,7 +17,7 @@ not abstracted to be model-agnostic.
 
 The active direction is the **Trusted Continuity Engine**. Chat remains the
 natural input surface, but June's product center is the standing record of what
-she is holding: Promises, Memory, Trust, Skills, and explicit Time. The home
+it is holding: Promises, Memory, Trust, Skills, and explicit Time. The home
 surface should answer "what is June holding for me?" before it asks for more
 input.
 
@@ -168,7 +168,7 @@ observe, refine; do not over-specify the perfect rule in the abstract.
 - **D.1** Temporal context layer — passive time-awareness folded into the
   assembler; no process, no timer.
 - **D.2** Event-driven + deferred proactivity + OS-notification scheduler — June
-  never cold-starts a session; real-world events may wake her, the clock never
+  never cold-starts a session; real-world events may wake June, the clock never
   does; hard deadlines become pre-written OS notifications.
 - **D.3** Self-monitor + idle housekeeping + reference-context diffing — hygiene
   (dedup/re-index/decay) when truly idle; idle inference forbidden.

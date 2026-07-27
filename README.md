@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/hero-dark.svg">
-    <img alt="June — a personal AI you can audit. She remembers you, forgets gracefully, explains every action, and never phones home." src="assets/hero-light.svg">
+    <img alt="June — a personal AI you can audit. June remembers you, forgets gracefully, explains every action, and never phones home." src="assets/hero-light.svg">
   </picture>
 </p>
 
@@ -24,7 +24,7 @@ visible in the UI before and after it happens. Your conversations, memories, and
 embeddings live in a local SQLite database and an on-disk vector store. There is
 no signup, no telemetry without consent, and one button to export everything.
 
-> **Status:** June is alpha software under active development. She runs as a web
+> **Status:** June is alpha software under active development. It runs as a web
 > app and as an Apple Silicon macOS app ([install below](#install-macos-apple-silicon)),
 > ad-hoc signed rather than notarized, so macOS shows a first-launch warning. The
 > **Tier 1 spine** of June's [vision](docs/vision.md) is
@@ -36,7 +36,7 @@ no signup, no telemetry without consent, and one button to export everything.
 > [v0.3 development plan](docs/product/v0.3-development-plan.md) and
 > [what is true right now](docs/CURRENT.md).
 
-June's center of gravity is the user, not the task. She borrows a coding agent's
+June's center of gravity is the user, not the task. It borrows a coding agent's
 skeleton but inverts its four operations:
 
 <picture>
@@ -49,7 +49,7 @@ skeleton but inverts its four operations:
 Most assistants ask you to trade privacy for capability. June is a bet that you
 shouldn't have to. Five principles are enforced in code, not just promised:
 
-- **No account.** June is installed, not subscribed to. No signup, no login, no
+- **No account needed.** June is installed, not subscribed to. No signup, no login, no
   cloud sync by default.
 - **No silent cloud calls.** Every cloud-routed model call and every external
   service call is surfaced in the UI. A privacy dial in settings can lock June
@@ -104,7 +104,7 @@ personal agent with memory needs a *trust layer* you can see:
 - **Graceful forgetting.** Forgetting is a first-class, conservative, reversible
   operation, with you as the source of truth. Auditable sleep-time consolidation
   (Night Shift) arrives in v0.2.
-- **Provably local.** Loopback-only, no account, no telemetry by default. Every
+- **Provably local.** Loopback-only, no account needed, no telemetry by default. Every
   cloud call is surfaced before and after; a privacy dial can block egress entirely.
 
 ## Architecture
@@ -149,7 +149,7 @@ Right-click June in Applications, choose **Open**, then **Open** again in the
 dialog. You only do this once. If you would rather not, build from source with
 the [quickstart](#quickstart) below — the DMG is the same code.
 
-**June needs a local model runtime.** She does not bundle one, and there is no
+**June needs a local model runtime.** June does not bundle one, and there is no
 cloud account to fall back on:
 
 | What | Size | How |
@@ -359,7 +359,7 @@ and
 June's threat model takes seriously that a personal agent with memory is a target
 — including web-content prompt injection that tries to poison what June remembers.
 
-- **What June never does:** no account, no cloud sync, no telemetry without
+- **What June never does:** no account needed, no cloud sync, no telemetry without
   explicit opt-in, no silent network calls, no timer-driven proactivity, and no
   self-modification of its own harness core.
 - **Structural defenses:** untrusted fetched content is always framed as data;

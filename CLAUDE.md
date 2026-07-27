@@ -9,10 +9,10 @@ authoritative state page), `docs/product/overview.md` (what June is), or
 ## What June is
 
 June is a personal assistant whose center of gravity is the user, not the task:
-she remembers what matters, forgets what doesn't, tells the truth, knows when to
+it remembers what matters, forgets what doesn't, tells the truth, knows when to
 stay quiet, and never does anything the user can't see.
 
-The four inversions of a coding agent (ADR 0015) define her:
+The four inversions of a coding agent (ADR 0015) define June:
 1. **Defers, not verifies** — validates *with* the user; human-in-the-loop is core.
 2. **Continues, not completes** — tasks are standing intentions ("promises"), not terminating TODOs.
 3. **Forgets, not accumulates** — forgetting is first-class, conservative, reversible; the user is the source of truth.
@@ -72,6 +72,15 @@ the UI infer user-facing state from trace text.
 ## Conventions
 
 - No emojis in README or documentation.
+- **June is "June", or "it" — never "she".** June is software, and the name is
+  usually the better choice anyway; reach for the pronoun only when repeating
+  the name would read badly. Enforced across the product-voice surfaces by
+  `tools/check_doc_hygiene.py`, which runs in the gate. Source and tests are out
+  of that scope on purpose — they contain real people (a memory fixture, a
+  capability probe) and an English stop-word list.
+- **"No account needed", not "no account".** The claim is that June does not
+  require one, which is true and checkable; the bare phrasing reads as a promise
+  about the future.
 - Keep PRs focused; add/update tests for behavior changes in `packages/brain` and `packages/api`.
 - Document any privacy-boundary change explicitly.
 - Work in small validated slices: one slice -> `./tools/check.sh` green -> one commit -> push.
