@@ -14,20 +14,26 @@ archived). Updated as workstreams land.
   — the single plan of record: state, competitive position, phases, slices, and
   acceptance criteria. The separate execution plan was merged into it on
   2026-07-26; `JUNE_V02_BRIEF.md` and `v0.2-execution-plan.md` are superseded.
-- **Resume here next session:** **Phase 6.1 — ADR 0025, provenance-gated
-  memory writes.** Phase 5 is complete and Phase 6.0 is done: skill capability
-  contracts are enforced at dispatch rather than reported, all six bundled
-  skills declare one, and an "always allow" cannot waive a breach. Building it
-  corrected the [threat model](security/threat-model.md) — a *hostile* skill was
-  never stoppable by an action gate, since it runs as a subprocess and does not
-  need June to call it. Phase 5 shipped the injection heuristic
+- **Resume here next session:** **Phase 7 — launch.** Re-ordered 2026-07-27:
+  every phase since the last re-order was justified by "June needs something
+  worth showing," and that is now built and measured, so the justification has
+  expired. Phase 6's remaining provenance work serves users who do not exist
+  yet and moves behind launch. Two launch blockers come first: nothing tests the
+  packaged binary (7.0), and the published DMG is `v0.1.0`, cut before any of
+  the guard, MCP, or verification work the pitch is now about (7.1).
+  Phases 0-5 and slice 6.0 are done — injection detection
   ([measured](product/injection-benchmark.md) at 100% recall / 3% false
   positives, wired so a detection revokes standing approvals), `june-verify`
   with third-party [export verification](product/trust-ledger-verification.md),
-  and a gaps-first threat model.
-  Phases 0-3 are done: docs reconciled, a working release shipped, retrieval
-  measured ([results](product/retrieval-benchmark.md)), and a visual identity
-  built (social card, hero, nine architecture diagrams).
+  a gaps-first [threat model](security/threat-model.md), and skill capability
+  contracts enforced at dispatch.
+- **Audit, 2026-07-27:** all 540 tracked files read for dead content and wiring.
+  The codebase is clean — no unreferenced UI components, every API route has a
+  consumer, one TODO in 32k lines of Python and it is a false positive. Three
+  real findings, all now fixed or scheduled: inbound Telegram wrote to a table
+  nothing read (unreachable halves removed, consumer scheduled as 9.5), the
+  network-tools set was defined twice in two packages (collapsed to one), and
+  `tool_aliases.py` is 391 lines with no tests (scheduled as 9.4).
 - **The plan was re-ordered on 2026-07-26.** June has 0 stars and 0 downloads
   after 835 commits, and the local-first-open-source category now has a
   3.2M-user incumbent. The differentiator moves from *local-first* to **the agent
