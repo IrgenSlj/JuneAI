@@ -93,4 +93,21 @@ else
   echo "==> Retrieval benchmark skipped (set JUNE_CHECK_RETRIEVAL_BENCH=1 to report)"
 fi
 
+# Packaged-binary smoke test (Phase 7.2). Opt-in, like the retrieval benchmark,
+# and for the same reason in reverse: it costs ~15s of frozen-bundle cold start
+# against a 13s gate, and it only tells you anything at release time. CI runs it
+# on the release tag, before any DMG is published. Run it here when you have
+# touched packaging, the sidecar entrypoint, or the secret store.
+if [ "${JUNE_CHECK_SMOKE:-0}" = "1" ]; then
+  echo "==> Packaged-binary smoke test"
+  SIDECAR="apps/desktop/src-tauri/binaries/june-api/june-api"
+  if [ -x "$SIDECAR" ]; then
+    python3 tools/smoke_packaged.py --binary "$SIDECAR"
+  else
+    echo "    skipped: no frozen sidecar at $SIDECAR (build it with tools/packaging/build-sidecar.sh)"
+  fi
+else
+  echo "==> Packaged-binary smoke test skipped (set JUNE_CHECK_SMOKE=1 to run)"
+fi
+
 echo "==> Checks complete"

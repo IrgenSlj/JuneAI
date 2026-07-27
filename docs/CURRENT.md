@@ -16,10 +16,10 @@ archived). Updated as workstreams land.
   2026-07-26; `JUNE_V02_BRIEF.md` and `v0.2-execution-plan.md` are superseded.
 - **Resume here next session:** **Phase 7 — launch**, in the consolidated
   [plan](product/v0.3-development-plan.md). Launch is gated on five slices.
-  **7.1 (SSRF defence) is done.** Remaining: rewrite the 240MB `.git` history
-  while zero forks makes it cheap (7.0 — needs a quiet tree, it force-pushes
-  `main`), a smoke test that runs the packaged binary (7.2), cutting `v0.3.0`
-  (7.3), and an update channel (7.4). Announcing
+  **7.1 (SSRF defence) and 7.2 (packaged-binary
+  smoke test) are done.** Remaining: rewrite the 240MB `.git` history while zero
+  forks makes it cheap (7.0 — needs a quiet tree, it force-pushes `main`),
+  cutting `v0.3.0` (7.3), and an update channel (7.4). Announcing
   a security-positioned product with an untested binary, a stale build, an SSRF
   hole and no way to ship a fix would invert the pitch at the moment of maximum
   scrutiny. Phases 0-6 are done.

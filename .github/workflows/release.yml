@@ -170,6 +170,22 @@ jobs:
 
       # ── Artifacts ─────────────────────────────────────────────────────────
 
+      # ── Verify the artifact actually works ────────────────────────────────
+      #
+      # v0.1.0 shipped with a total chat hang that 986 green tests did not see,
+      # because the bug only existed in the frozen, ad-hoc-signed binary. The
+      # only thing that catches that class is running the artifact, so this runs
+      # it before a DMG is ever published. Every step is on a wall-clock budget:
+      # a hang is a timeout, not a traceback.
+      - name: Smoke test the packaged sidecar
+        run: |
+          BIN=apps/desktop/src-tauri/binaries/june-api/june-api
+          if [ ! -x "$BIN" ]; then
+            echo "::error::no frozen sidecar at $BIN — the build did not produce one"
+            exit 1
+          fi
+          python3 tools/smoke_packaged.py --binary "$BIN"
+
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
