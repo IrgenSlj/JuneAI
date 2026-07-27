@@ -51,6 +51,11 @@ shouldn't have to. Five principles are enforced in code, not just promised:
 
 - **No account needed.** June is installed, not subscribed to. No signup, no login, no
   cloud sync by default.
+- **One automatic network call, and it is logged.** June checks for a new
+  release at most once a day, so a security fix can reach you. It sends no user
+  data, appears in Receipts like any other egress, is blocked by local-only
+  mode, and can be turned off on its own ([ADR 0031](docs/decisions/0031-update-check-egress.md)).
+  Nothing else leaves unless you ask for it.
 - **No silent cloud calls.** Every cloud-routed model call and every external
   service call is surfaced in the UI. A privacy dial in settings can lock June
   to local-only.
@@ -360,7 +365,7 @@ June's threat model takes seriously that a personal agent with memory is a targe
 — including web-content prompt injection that tries to poison what June remembers.
 
 - **What June never does:** no account needed, no cloud sync, no telemetry without
-  explicit opt-in, no silent network calls, no timer-driven proactivity, and no
+  explicit opt-in, no unlogged network calls, no timer-driven proactivity, and no
   self-modification of its own harness core.
 - **Structural defenses:** untrusted fetched content is always framed as data;
   consequential and network actions are gated; secrets are redacted before they

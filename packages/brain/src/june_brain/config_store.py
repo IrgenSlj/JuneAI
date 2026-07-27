@@ -278,6 +278,40 @@ def set_privacy_dial(dial) -> Path:  # type: ignore[no-untyped-def]
 _SALIENCE_KEYS = ("rel", "rec", "freq")
 
 
+def get_setting(key: str) -> object | None:
+    """Read one arbitrary setting from config.json, or None when unset.
+
+    Deliberately separate from ``StoredConfig.extras``: extras are mapped onto
+    environment variables by ``to_env_patch``, and settings like the update-check
+    flag are not env vars and must not become them.
+    """
+    path = config_path()
+    if not path.exists():
+        return None
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return raw.get(key) if isinstance(raw, dict) else None
+
+
+def set_setting(key: str, value: object) -> Path:
+    """Persist one setting into config.json, merging with what is already there."""
+    path = config_path()
+    raw: dict[str, object] = {}
+    if path.exists():
+        try:
+            parsed = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(parsed, dict):
+                raw = parsed
+        except (OSError, json.JSONDecodeError):
+            raw = {}
+    raw[key] = value
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(raw, indent=2, sort_keys=True), encoding="utf-8")
+    return path
+
+
 def get_salience_weights() -> dict[str, float]:
     """Read runtime salience weights from config.json (empty when unset).
 

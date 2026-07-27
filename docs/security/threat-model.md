@@ -1,8 +1,10 @@
 # June — threat model
 
-**Version:** 1.2, 2026-07-27. Covers `main` at the time of writing.
-**Changed in 1.2:** SSRF defence added (§6); DNS rebinding recorded as a new
-residual (§2.7). **In 1.1:** §2.1 was partly wrong and is corrected there.
+**Version:** 1.3, 2026-07-27. Covers `main` at the time of writing.
+**Changed in 1.3:** a release check exists (§2.8, ADR 0031) — June's only
+automatic network call. **In 1.2:** SSRF defence added (§6); DNS rebinding
+recorded as a residual (§2.7). **In 1.1:** §2.1 was partly wrong and is
+corrected there.
 **Status:** June is alpha. Treat this as a description of a work in progress.
 
 June's positioning is that it can prove what it did. A claim like that earns
@@ -157,8 +159,13 @@ rather than rushed.
 
 The macOS DMG is ad-hoc signed, not Developer ID signed and not notarized. Users
 must bypass Gatekeeper to run it, which is exactly the habit an attacker
-distributing a fake June would want them to have. There is no update channel
-yet, so there is no mechanism to reach users with a security fix.
+distributing a fake June would want them to have.
+
+A release check now exists (ADR 0031), so a disclosed fix can *reach* an
+installed user. Nothing installs automatically: June reports that a new release
+exists and the user downloads it. That is deliberate — an unattended download of
+arbitrary code is a far larger trust decision than a version comparison — but it
+does mean a fix still depends on the user acting on the notice.
 
 ---
 
@@ -250,7 +257,8 @@ classification is structural, but its *input* is a name a skill chooses.
 | Approval fatigue (§2.5) | Medium | Partly mitigated: false-positive rate measured and published |
 | Unsandboxed skills (§2.6) | Medium | Open. Needs OS sandboxing |
 | DNS rebinding on outbound fetch (§2.7) | Low | Open. Needs connection pinning |
-| No notarization, no update channel (§2.8) | Medium | Phase 7 |
+| No notarization (§2.8) | Medium | Open question 3 |
+| Updates are reported, never installed (§2.8) | Low | Accepted. Automatic install is a much larger trust decision |
 | Secrets in file fallback (§2.6) | Low | Accepted; keychain preferred, fallback documented |
 
 ---

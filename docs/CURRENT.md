@@ -16,10 +16,11 @@ archived). Updated as workstreams land.
   2026-07-26; `JUNE_V02_BRIEF.md` and `v0.2-execution-plan.md` are superseded.
 - **Resume here next session:** **Phase 7 — launch**, in the consolidated
   [plan](product/v0.3-development-plan.md). Launch is gated on five slices.
-  **7.1 (SSRF defence) and 7.2 (packaged-binary
-  smoke test) are done.** Remaining: rewrite the 240MB `.git` history while zero
-  forks makes it cheap (7.0 — needs a quiet tree, it force-pushes `main`),
-  cutting `v0.3.0` (7.3), and an update channel (7.4). Announcing
+  **7.1 (SSRF defence), 7.2 (packaged-binary
+  smoke test) and 7.4 (release check, ADR 0031) are done.** Remaining: rewrite
+  the 240MB `.git` history while zero forks makes it cheap (7.0 — needs a quiet
+  tree, it force-pushes `main`) and cutting `v0.3.0` (7.3, blocked on repo
+  workflow permissions). Announcing
   a security-positioned product with an untested binary, a stale build, an SSRF
   hole and no way to ship a fix would invert the pitch at the moment of maximum
   scrutiny. Phases 0-6 are done.
@@ -40,7 +41,7 @@ archived). Updated as workstreams land.
   artifacts, and untested first-run paths.
 - **Reconciliation (brief vs. reality):** [`RECONCILIATION.md`](RECONCILIATION.md) — historical reference for v0.2.
 - **Durable worldview:** [`vision.md`](vision.md) (the four inversions; non-negotiable).
-- **Decision log:** [`decisions/`](decisions/) — ADRs 0001–0024 and 0030 accepted; index in [`decisions/README.md`](decisions/README.md).
+- **Decision log:** [`decisions/`](decisions/) — ADRs 0001–0024, 0030 and 0031 accepted; index in [`decisions/README.md`](decisions/README.md).
 
 ---
 
@@ -159,6 +160,9 @@ Everything lives under one versioned data directory (ADR 0019).
 ## Privacy posture (enforced in code, not promised)
 
 - No account needed, no signup, no cloud sync by default.
+- One automatic network call: a release check, at most daily, carrying no user
+  data, ledgered as egress, blocked by local-only, separately disableable
+  (ADR 0031). Everything else leaves only when the user asks.
 - No silent cloud calls — every cloud-routed model call is surfaced in the UI and
   written to the ledger. A privacy dial can lock June to local-only (provably
   blocks egress).

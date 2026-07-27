@@ -145,6 +145,9 @@ This is core to the product, not boilerplate.
 
 - **No account needed.** June is installed, not subscribed to. No signup, no login, no
   cloud sync by default.
+- **One automatic network call.** A daily-at-most release check, so a security
+  fix can reach an installed user. No user data, ledgered, blocked by local-only,
+  separately disableable (ADR 0031).
 - **No silent cloud calls.** Every cloud-routed model call and external service
   call is visible in the UI before and after.
 - **No third model.** Gemma 4 for local, Gemini for cloud. A new provider must
