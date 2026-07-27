@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from june_brain.guard.ssrf import SsrfBlocked, fetch_guarded
 from june_brain.skills.server import MCPStdioServer
 
 server = MCPStdioServer(name="june-files", version="0.1.0")
@@ -115,14 +116,17 @@ def read_webpage(url: str, max_chars: int = 6000) -> str:
         return "URL must start with http:// or https://"
     max_chars = max(500, min(int(max_chars or 6000), 30000))
 
+    # Destination guard (ADR 0021) — see the research skill for the reasoning.
     try:
-        response = httpx.get(
+        response = fetch_guarded(
+            httpx,
             url,
-            follow_redirects=True,
             timeout=15.0,
             headers={"User-Agent": "JuneAI/0.1 (+files-skill)"},
         )
         response.raise_for_status()
+    except SsrfBlocked as exc:
+        return f"Refused to fetch {url}: {exc}"
     except Exception as exc:  # noqa: BLE001
         return f"Failed to fetch {url}: {exc}"
 

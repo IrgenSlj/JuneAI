@@ -22,13 +22,17 @@ from .actions import (
 from .framing import UNTRUSTED_CONTENT_RULE, is_framed, wrap_untrusted
 from .injection import InjectionScan, scan, scan_all
 from .redaction import redact_secrets
+from .ssrf import SsrfBlocked, check_url, fetch_guarded
 
 __all__ = [
     "ActionClass",
     "InjectionScan",
+    "SsrfBlocked",
     "UNTRUSTED_CONTENT_RULE",
+    "check_url",
     "classify_action",
     "evaluate_call",
+    "fetch_guarded",
     "exceeds_declared_scopes",
     "is_framed",
     "is_network_capable",

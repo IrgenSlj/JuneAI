@@ -15,6 +15,7 @@ from html import unescape
 from typing import Any
 
 import httpx
+from june_brain.guard.ssrf import SsrfBlocked, fetch_guarded
 from june_brain.skills.server import MCPStdioServer
 
 server = MCPStdioServer(name="june-research", version="0.1.0")
@@ -91,14 +92,19 @@ def fetch_url(url: str, max_chars: int = 4000) -> str:
     if not url.startswith(("http://", "https://")):
         return "URL must start with http:// or https://"
     max_chars = max(500, min(int(max_chars or 4000), 20000))
+    # Destination guard (ADR 0021): the content that comes back is framed and
+    # scanned, but nothing used to check *where* June was pointed. Redirects are
+    # followed one hop at a time so a public URL cannot 302 into localhost.
     try:
-        response = httpx.get(
+        response = fetch_guarded(
+            httpx,
             url,
-            follow_redirects=True,
             timeout=15.0,
             headers={"User-Agent": _USER_AGENT},
         )
         response.raise_for_status()
+    except SsrfBlocked as exc:
+        return f"Refused to fetch {url}: {exc}"
     except Exception as exc:  # noqa: BLE001
         return f"Failed to fetch {url}: {exc}"
     text = _strip_html(response.text)
@@ -139,6 +145,9 @@ def _brave_search(query: str, count: int, api_key: str) -> str:
 
 
 def _ddg_search(query: str, count: int) -> str:
+    # Not routed through the SSRF guard on purpose: the destination is a module
+    # constant, not user input, so there is nothing for a caller to redirect.
+    # Redirects are followed because DuckDuckGo uses them normally.
     try:
         response = httpx.post(
             _DDG_ENDPOINT,

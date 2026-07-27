@@ -1,7 +1,8 @@
 # June — threat model
 
-**Version:** 1.1, 2026-07-27. Covers `main` at the time of writing.
-**Changed in 1.1:** §2.1 was partly wrong and is corrected — see the note there.
+**Version:** 1.2, 2026-07-27. Covers `main` at the time of writing.
+**Changed in 1.2:** SSRF defence added (§6); DNS rebinding recorded as a new
+residual (§2.7). **In 1.1:** §2.1 was partly wrong and is corrected there.
 **Status:** June is alpha. Treat this as a description of a work in progress.
 
 June's positioning is that it can prove what it did. A claim like that earns
@@ -141,7 +142,18 @@ keychain is unavailable or unresponsive (which happens in the packaged app —
 see `secret_store.py`). File-fallback secrets are protected by filesystem
 permissions alone.
 
-### 2.7 Distribution is not notarized
+### 2.7 DNS rebinding is not closed
+
+Outbound fetches now resolve the hostname, reject internal addresses, and
+re-check after every redirect (§6). What they do not do is *pin* the connection
+to the address that was validated: httpx resolves again when it connects, and a
+hostile resolver can answer differently the second time.
+
+Closing it means carrying the resolved address and the Host header through every
+call site. The window is narrow and the attack is loud, so it is recorded here
+rather than rushed.
+
+### 2.8 Distribution is not notarized
 
 The macOS DMG is ad-hoc signed, not Developer ID signed and not notarized. Users
 must bypass Gatekeeper to run it, which is exactly the habit an attacker
@@ -210,6 +222,7 @@ Each row names the code and the test, so the claim is checkable.
 | Malicious page hitting the API | Loopback bind, Host-header validation, CORS allow-list, loopback token | `api/app.py`, `middleware/auth.py` | `test_auth*.py` |
 | A skill crashing June | Subprocess isolation with respawn | `skills/supervisor.py` | `test_skill_supervisor*.py` |
 | A skill exceeding its permission contract | Declared scopes enforced at dispatch; "always allow" cannot waive a breach | `guard/actions.py` | `test_skill_scope_contracts.py` |
+| June pointed at the local network (SSRF) | Every outbound fetch resolves its host and refuses private, loopback, link-local, multicast and reserved addresses; redirects are followed one hop at a time and re-checked | `guard/ssrf.py` | `test_guard_ssrf.py` |
 
 ### The property worth stating separately
 
@@ -236,7 +249,8 @@ classification is structural, but its *input* is a name a skill chooses.
 | Ledger rewritten wholesale (§2.4) | Medium | Accepted. Out of scope per §1 |
 | Approval fatigue (§2.5) | Medium | Partly mitigated: false-positive rate measured and published |
 | Unsandboxed skills (§2.6) | Medium | Open. Needs OS sandboxing |
-| No notarization, no update channel (§2.7) | Medium | Phase 8 |
+| DNS rebinding on outbound fetch (§2.7) | Low | Open. Needs connection pinning |
+| No notarization, no update channel (§2.8) | Medium | Phase 7 |
 | Secrets in file fallback (§2.6) | Low | Accepted; keychain preferred, fallback documented |
 
 ---
