@@ -67,8 +67,6 @@ class TaskRuntime:
         try:
             events = await self._stream_events(task)
         except Exception as exc:  # noqa: BLE001
-            # Honour a cancel even when the loop raised — a cancelled task that
-            # errored after the cancel is still cancelled, not failed.
             if self._was_cancelled(task_id):
                 logger.info("task %s ended in cancelled state after stream error", task_id)
                 refreshed = self.store.get(task_id)
@@ -81,10 +79,6 @@ class TaskRuntime:
 
         try:
             outcome = self._record_trace(task_id, events)
-            # Cooperative cancel: if the user PATCHed status=cancelled while
-            # the loop was running, preserve that state instead of forcing
-            # the row to COMPLETED. The trace we just recorded still lands so
-            # the user can see how far the task got before being stopped.
             if self._was_cancelled(task_id):
                 logger.info("task %s cancelled mid-run; preserving cancelled state", task_id)
             elif outcome.blocked_reason:
@@ -109,6 +103,9 @@ class TaskRuntime:
                         MAX_TASK_ATTEMPTS,
                     )
                 else:
+                    # Save a checkpoint so the next attempt can resume
+                    # rather than starting from the goal.
+                    self._save_checkpoint(task_id)
                     self.store.set_blocked(
                         task_id,
                         reason=outcome.blocked_reason,
@@ -151,6 +148,42 @@ class TaskRuntime:
 
         return get_loop()
 
+    def _save_checkpoint(self, task_id: str) -> None:
+        """Build a summary of completed steps and save it as the task's checkpoint.
+
+        On the next execution, this checkpoint is injected as context so the
+        loop can continue from where it left off rather than re-running the goal.
+        """
+        task = self.store.get(task_id)
+        if task is None or not task.plan:
+            return
+
+        completed = [s for s in task.plan if s.status == TaskStepStatus.COMPLETED]
+        if not completed:
+            return
+
+        summary_parts: list[str] = []
+        for s in completed:
+            desc = s.description or f"Called {s.tool_name or 'unknown'}"
+            result = s.tool_result or ""
+            if result:
+                # Truncate long results to keep the checkpoint lean.
+                if len(str(result)) > 200:
+                    result = str(result)[:200] + "…"
+                desc = f"{desc} — {result}"
+            summary_parts.append(f"- {desc}")
+
+        checkpoint = (
+            "You previously completed these steps before being interrupted:\n"
+            + "\n".join(summary_parts)
+            + "\n\nContinue from where you left off. Do not re-do steps that "
+            "already have a result."
+        )
+        task.checkpoint_summary = checkpoint
+        task.updated_at = self._now()
+        self.store._update(task)
+        logger.info("task %s saved checkpoint with %d completed steps", task_id, len(completed))
+
     async def _stream_events(self, task: Task) -> list[Any]:
         """Drive the loop and collect every StreamEvent it emits."""
         from ..loop.interface import SessionState
@@ -162,7 +195,17 @@ class TaskRuntime:
             skill="default",
             approved_tools=set(task.approved_tools),
         )
-        user_msg = Message(role="user", content=task.goal)
+
+        # If this task has a checkpoint from a prior run, inject it as
+        # context so the loop continues from where it left off instead of
+        # starting from scratch.
+        if task.checkpoint_summary:
+            user_msg = Message(
+                role="user",
+                content=task.checkpoint_summary + "\n\n" + task.goal,
+            )
+        else:
+            user_msg = Message(role="user", content=task.goal)
         events: list[Any] = []
         async for ev in loop.stream_turn(session, user_msg):
             events.append(ev)

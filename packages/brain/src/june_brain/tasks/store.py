@@ -43,7 +43,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     is_recurring INTEGER DEFAULT 0,
     recurrence_rule TEXT DEFAULT '',
     parent_task_id TEXT,
-    attempts INTEGER NOT NULL DEFAULT 0
+    attempts INTEGER NOT NULL DEFAULT 0,
+    checkpoint_summary TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_user_status ON tasks(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_tasks_user_updated ON tasks(user_id, updated_at);
@@ -418,10 +419,10 @@ class TasksStore:
             """INSERT INTO tasks
                 (id, user_id, goal, status, plan, owner_skill, schedule, due_at, error,
                  blocked_reason, next_action, final_deliverable, approved_tools,
-                 blocked_kind,
+                 blocked_kind, checkpoint_summary,
                  created_at, updated_at, started_at, finished_at,
                  is_recurring, recurrence_rule, parent_task_id, attempts)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 task.id,
                 task.user_id,
@@ -437,6 +438,7 @@ class TasksStore:
                 task.final_deliverable,
                 json.dumps(list(task.approved_tools)),
                 task.blocked_kind,
+                task.checkpoint_summary,
                 task.created_at,
                 task.updated_at,
                 task.started_at,
@@ -454,7 +456,7 @@ class TasksStore:
             """UPDATE tasks SET
                 goal=?, status=?, plan=?, owner_skill=?, schedule=?, due_at=?, error=?,
                 blocked_reason=?, next_action=?, final_deliverable=?, approved_tools=?,
-                blocked_kind=?,
+                blocked_kind=?, checkpoint_summary=?,
                 updated_at=?, started_at=?, finished_at=?,
                 is_recurring=?, recurrence_rule=?, parent_task_id=?, attempts=?
                 WHERE id=? AND user_id=?""",
@@ -471,6 +473,7 @@ class TasksStore:
                 task.final_deliverable,
                 json.dumps(list(task.approved_tools)),
                 task.blocked_kind,
+                task.checkpoint_summary,
                 task.updated_at,
                 task.started_at,
                 task.finished_at,
@@ -567,4 +570,5 @@ def _row_to_task(row) -> Task:  # type: ignore[no-untyped-def]
         recurrence_rule=str(d.get("recurrence_rule", "")),
         parent_task_id=d.get("parent_task_id"),
         attempts=int(d.get("attempts") or 0),
+        checkpoint_summary=d.get("checkpoint_summary"),
     )

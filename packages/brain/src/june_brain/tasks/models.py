@@ -118,6 +118,9 @@ class Task:
     # without parsing reason text: "approval" (approve one action) or
     # "local_only" (change the privacy dial). None when not blocked.
     blocked_kind: str | None = None
+    # Checkpoint: a summary of completed steps so a resume can continue
+    # from where it left off rather than re-running the goal from scratch.
+    checkpoint_summary: str | None = None
     # Tools the user approved for this promise (the guard's per-promise
     # allow-list, ADR 0021 S6.2). Lets a retry run a previously approval-gated
     # action without re-blocking; taint-flagged network actions still ask.
@@ -146,6 +149,7 @@ class Task:
             "next_action": self.next_action,
             "final_deliverable": self.final_deliverable,
             "blocked_kind": self.blocked_kind,
+            "checkpoint_summary": self.checkpoint_summary,
             "approved_tools": list(self.approved_tools),
             "created_at": self.created_at,
             "updated_at": self.updated_at,
@@ -182,6 +186,7 @@ class Task:
             recurrence_rule=str(raw.get("recurrence_rule", "")),
             parent_task_id=raw.get("parent_task_id"),
             attempts=int(raw.get("attempts") or 0),
+            checkpoint_summary=raw.get("checkpoint_summary"),
         )
 
 
