@@ -640,21 +640,31 @@ def _salience_rerank(
     now = datetime.now()
     validity_now = datetime.now(UTC)
 
+    # Batch-fetch shadow-row data for all candidate fact_ids in one query,
+    # avoiding N round-trips to SQLite.
+    fact_ids = [str(v["fact_id"]) for v in raw_hits]
+    shadow_rows: dict[str, dict[str, Any]] = {}
+    try:
+        query = (
+            "SELECT fact_id, access_count, last_accessed, valid_to, valid_from "
+            "FROM semantic_facts WHERE user_id=? AND fact_id IN ({})".format(",".join("?" for _ in fact_ids))
+        )
+        for row in conn.execute(query, (user_id, *fact_ids)).fetchall():
+            shadow_rows[str(row["fact_id"])] = dict(row)
+    except Exception:  # noqa: BLE001
+        logger.exception("recall: batch shadow row fetch failed")
+
     scored: list[tuple[float, dict[str, float], dict[str, Any], float, float]] = []
     for v in raw_hits:
-        fact_id = v["fact_id"]
-        row = conn.execute(
-            "SELECT access_count, last_accessed, valid_to, valid_from FROM semantic_facts "
-            "WHERE user_id=? AND fact_id=?",
-            (user_id, fact_id),
-        ).fetchone()
+        fact_id = str(v["fact_id"])
+        row = shadow_rows.get(fact_id)
         if row:
-            if not _is_currently_valid(row["valid_to"], validity_now):
+            if not _is_currently_valid(row.get("valid_to"), validity_now):
                 continue
-            access_count: int = int(row["access_count"] or 0)
-            last_accessed_str: str = str(row["last_accessed"] or "")
-            time_score = _temporal_prior(row["valid_to"], validity_now, config)
-            valid_from_score = _valid_from_prior(row["valid_from"], validity_now, config)
+            access_count: int = int(row.get("access_count") or 0)
+            last_accessed_str: str = str(row.get("last_accessed") or "")
+            time_score = _temporal_prior(row.get("valid_to"), validity_now, config)
+            valid_from_score = _valid_from_prior(row.get("valid_from"), validity_now, config)
         else:
             access_count = 0
             last_accessed_str = ""
@@ -688,9 +698,6 @@ def _salience_rerank(
                 "text": v["text"],
                 "kind": str(v.get("metadata", {}).get("kind", "fact")),
                 "ref": v["fact_id"],
-                # Store distance-like (lower = more salient): recall()'s final rank
-                # sort is ascending and the feedback multipliers assume lower=better,
-                # so a raw (higher=better) salience here would invert the ordering.
                 "score": max(0.0, 1.0 - score),
                 "recency": components["recency"],
                 "frequency": components["frequency"],
