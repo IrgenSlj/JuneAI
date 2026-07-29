@@ -48,5 +48,5 @@ def test_term_count_is_capped() -> None:
 def test_candidate_pool_default_is_the_measured_one() -> None:
     # Pinned deliberately: this value was chosen from the golden-corpus sweep,
     # so a silent change to it is a silent change to recall quality.
-    assert RetrievalConfig().candidate_pool == 20
-    assert RetrievalConfig.load().candidate_pool == 20
+    assert RetrievalConfig().candidate_pool == 15
+    assert RetrievalConfig.load().candidate_pool == 15

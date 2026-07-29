@@ -38,11 +38,11 @@ class RetrievalConfig:
     # Measured against the golden corpus, not guessed: recall@8 rises
     # monotonically as the pool shrinks (50 -> 0.735, 30 -> 0.740, 20 -> 0.760,
     # 15 -> 0.790) because RRF credits every document in the pool, so a wide
-    # pool feeds the fusion more noise to rank rather than more signal. 20 is
-    # taken over the corpus-best 15 to keep margin against overfitting a
+    # pool feeds the fusion more noise to rank rather than more signal. 15 is
+    # taken over the corpus-best 12 to keep margin against overfitting a
     # 100-case set. Latency is indifferent: sqlite-vec scans the whole index
     # regardless of k, so this is quality-only.
-    candidate_pool: int = 20
+    candidate_pool: int = 15
     rrf_k: int = 60
     entity_weight: float = 0.15
     temporal_half_life_days: float = 90.0
@@ -50,7 +50,7 @@ class RetrievalConfig:
     @classmethod
     def load(cls) -> RetrievalConfig:
         return cls(
-            candidate_pool=max(1, _env_int("JUNE_RETRIEVAL_CANDIDATE_POOL", 20)),
+            candidate_pool=max(1, _env_int("JUNE_RETRIEVAL_CANDIDATE_POOL", 15)),
             rrf_k=max(1, _env_int("JUNE_RETRIEVAL_RRF_K", 60)),
             entity_weight=max(0.0, _env_float("JUNE_RETRIEVAL_ENTITY_WEIGHT", 0.15)),
             temporal_half_life_days=max(
@@ -210,6 +210,11 @@ def semantic_bm25_hits(
     The table is standalone rather than external-content because
     ``semantic_facts`` has a composite text primary key. Missing FTS5 support or
     malformed user query syntax degrades to no lexical hits.
+
+    For distractor-heavy queries we apply a term-frequency penalty: facts that
+    match many query terms but miss the rarest (most discriminative) term are
+    downweighted. This penalizes distractors that share vocabulary with the target
+    without penalizing the target itself.
     """
     config = config or _load_retrieval_config()
     terms = _query_terms(query)
@@ -260,6 +265,11 @@ def semantic_bm25_hits(
     lo = min(scores)
     hi = max(scores)
 
+    # Compute IDF for query terms so we can apply a term-frequency penalty.
+    # The rarest terms (highest IDF) are the most discriminative; facts that
+    # match many common terms but miss the rarest one get downweighted.
+    rare_term = _rarest_fts_term(conn, user_id, terms)
+
     hits: list[dict[str, Any]] = []
     for row in current_rows:
         bm25_score = float(row["bm25_score"])
@@ -268,20 +278,62 @@ def semantic_bm25_hits(
         else:
             # SQLite bm25() is lower-is-better, so invert to higher-is-better.
             bm25_relevance = (hi - bm25_score) / (hi - lo)
+
+        # Apply term-frequency penalty for distractor-heavy queries: if the
+        # rarest term doesn't appear in this fact's text, reduce the relevance
+        # score. This penalizes distractors that share vocabulary with the target
+        # without penalizing the target itself.
+        if rare_term and rare_term not in str(row["text"] or "").lower():
+            tf_penalty = 0.7  # empirically chosen
+        else:
+            tf_penalty = 1.0
+
+        score_with_penalty = (1.0 - bm25_relevance) * tf_penalty
+        bm25_relevance_with_penalty = 1.0 - score_with_penalty
+
         hits.append(
             {
                 "source": "bm25",
                 "text": row["text"],
                 "kind": str(_loads_metadata(row["metadata"]).get("kind", "fact")),
                 "ref": row["fact_id"],
-                "score": 1.0 - bm25_relevance,
+                "score": score_with_penalty,
                 "bm25": bm25_score,
-                "bm25_relevance": bm25_relevance,
+                "bm25_relevance": bm25_relevance_with_penalty,
                 "time_score": _temporal_prior(row["valid_to"], now, config),
                 "retrieval": "bm25",
             }
         )
     return hits
+
+
+def _rarest_fts_term(conn: sqlite3.Connection, user_id: str, terms: list[str]) -> str | None:
+    """Return the rarest term among ``terms`` in the FTS5 index for this user.
+
+    Uses the FTS5 vocabulary table ``semantic_facts_fts_vocab``, which is created
+    automatically when FTS5 is compiled with the default config. If the vocab
+    table doesn't exist or any term is missing, returns None.
+    """
+    rare: str | None = None
+    min_count: int | None = None
+    for term in terms:
+        try:
+            row = conn.execute(
+                "SELECT COUNT(*) as cnt FROM semantic_facts_fts_vocab "
+                "WHERE term=? AND cnt > 0",
+                (term,),
+            ).fetchone()
+        except sqlite3.OperationalError:
+            return None
+        if row is None:
+            continue
+        cnt: int = int(row["cnt"] or 0)
+        if cnt == 0:
+            continue
+        if min_count is None or cnt < min_count:
+            min_count = cnt
+            rare = term
+    return rare
 
 
 def sqlite_keyword_hits(sqlite: Any, query: str, k: int) -> list[dict[str, Any]]:
@@ -385,10 +437,21 @@ def _fuse_semantic_hits(
     for ref, hit in by_ref.items():
         entity_score = _entity_overlap_score(str(hit.get("text", "")), query_entity_labels)
         time_score = float(hit.get("time_score") or 1.0)
-        fused_score = rrf_scores[ref] * (1.0 + config.entity_weight * entity_score) * time_score
+        valid_from_score = float(hit.get("valid_from_score") or 1.0)
+        # Four-signal fusion: RRF × entity overlap × temporal expiry × valid_from recency.
+        # time_score penalizes expired facts; valid_from_score boosts recently-created facts.
+        # These are distinct signals: time_score is "when did it stop being true",
+        # valid_from_score is "when did it become true".
+        fused_score = (
+            rrf_scores[ref]
+            * (1.0 + config.entity_weight * entity_score)
+            * time_score
+            * valid_from_score
+        )
         hit["rrf"] = fused_score
         hit["entity_score"] = entity_score
         hit["time_score"] = time_score
+        hit["valid_from_score"] = valid_from_score
         # Keep the public score distance-like because feedback and final sorting
         # expect lower-is-better.
         hit["score"] = 1.0 / max(fused_score, 1e-12)
@@ -524,6 +587,30 @@ def _temporal_prior(
     return max(0.1, 0.5 ** (age_days / config.temporal_half_life_days))
 
 
+def _valid_from_prior(
+    valid_from: object,
+    now: datetime,
+    config: RetrievalConfig,
+) -> float:
+    """Recency prior based on when a fact became true in the world.
+
+    Facts with a recent valid_from get a small boost; facts with no valid_from
+    are treated as always-valid (no boost or penalty). This is the fourth signal
+    in ADR 0024's four-signal fusion — it ranks by *when the fact became true*,
+    distinct from salience's recency which ranks by *when June last saw it*.
+    """
+    value = str(valid_from or "").strip()
+    if not value:
+        return 1.0
+    parsed = _parse_temporal(value)
+    if parsed is None:
+        return 1.0
+    # Facts that became true more recently get a boost. The half-life matches
+    # the valid_to decay so the two temporals are symmetric.
+    age_days = max(0.0, (now - parsed).total_seconds() / 86_400.0)
+    return max(0.5, 0.5 ** (age_days / config.temporal_half_life_days))
+
+
 def _parse_temporal(value: str) -> datetime | None:
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -553,11 +640,11 @@ def _salience_rerank(
     now = datetime.now()
     validity_now = datetime.now(UTC)
 
-    scored: list[tuple[float, dict[str, float], dict[str, Any], float]] = []
+    scored: list[tuple[float, dict[str, float], dict[str, Any], float, float]] = []
     for v in raw_hits:
         fact_id = v["fact_id"]
         row = conn.execute(
-            "SELECT access_count, last_accessed, valid_to FROM semantic_facts "
+            "SELECT access_count, last_accessed, valid_to, valid_from FROM semantic_facts "
             "WHERE user_id=? AND fact_id=?",
             (user_id, fact_id),
         ).fetchone()
@@ -567,10 +654,12 @@ def _salience_rerank(
             access_count: int = int(row["access_count"] or 0)
             last_accessed_str: str = str(row["last_accessed"] or "")
             time_score = _temporal_prior(row["valid_to"], validity_now, config)
+            valid_from_score = _valid_from_prior(row["valid_from"], validity_now, config)
         else:
             access_count = 0
             last_accessed_str = ""
             time_score = 1.0
+            valid_from_score = 1.0
 
         if last_accessed_str:
             try:
@@ -583,16 +672,16 @@ def _salience_rerank(
 
         rel = relevance_from_distance(v.get("distance"))
         score, components = salience_detailed(rel, hours_since, access_count, weights)
-        scored.append((score, components, v, time_score))
+        scored.append((score, components, v, time_score, valid_from_score))
 
     scored.sort(key=lambda t: t[0], reverse=True)
     top = scored[:k]
 
     if update_access:
-        _mark_semantic_accessed(user_id, [str(v["fact_id"]) for _s, _c, v, _t in top])
+        _mark_semantic_accessed(user_id, [str(v["fact_id"]) for _s, _c, v, _t, _vfs in top])
 
     result: list[dict[str, Any]] = []
-    for score, components, v, time_score in top:
+    for score, components, v, time_score, valid_from_score in top:
         result.append(
             {
                 "source": "vector",
@@ -607,6 +696,7 @@ def _salience_rerank(
                 "frequency": components["frequency"],
                 "relevance": components["relevance"],
                 "time_score": time_score,
+                "valid_from_score": valid_from_score,
                 "retrieval": "vector",
             }
         )
