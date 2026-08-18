@@ -4,26 +4,30 @@
 planning doc disagrees with this one, this one wins (and that doc should be
 archived). Updated as workstreams land.
 
-- **Last updated:** 2026-07-27 (plan consolidated).
+- **Last updated:** 2026-08-18 (Stream D opened from the audit).
 - **Release status:** `v0.1.0` re-cut on 2026-07-25 and **verified working** — a
   45MB Apple Silicon DMG built by CI from the tag, with the frozen sidecar inside
   it, ad-hoc signed. The tag points at the code the artifact was built from. The
   previously published asset (2.7MB, no sidecar, cut before the packaging pipeline
   existed) has been deleted. Active target: **`v0.3.0`**.
-- **Active plan:** [`v0.3-development-plan.md`](product/v0.3-development-plan.md)
-  — the single plan of record: state, competitive position, phases, slices, and
-  acceptance criteria. The separate execution plan was merged into it on
-  2026-07-26; `JUNE_V02_BRIEF.md` and `v0.2-execution-plan.md` are superseded.
-- **Resume here next session:** **Phase 7 — launch**, in the consolidated
-  [plan](product/v0.3-development-plan.md). Launch is gated on five slices.
-  **7.1 (SSRF defence), 7.2 (packaged-binary
-  smoke test) and 7.4 (release check, ADR 0031) are done.** Remaining: rewrite
-  the 240MB `.git` history while zero forks makes it cheap (7.0 — needs a quiet
-  tree, it force-pushes `main`) and cutting `v0.3.0` (7.3, blocked on repo
-  workflow permissions). Announcing
-  a security-positioned product with an untested binary, a stale build, an SSRF
-  hole and no way to ship a fix would invert the pitch at the moment of maximum
-  scrutiny. Phases 0-6 are done.
+- **Active plan:** [`v0.4-development-plan.md`](product/v0.4-development-plan.md)
+  — the single plan of record. **Stream D** (correctness and coherence) is the
+  current work and displaces the remaining pre-launch items. `v0.3-development-plan.md`,
+  `JUNE_V02_BRIEF.md` and `v0.2-execution-plan.md` are superseded.
+- **Resume here next session:** **Stream D**, in the
+  [plan](product/v0.4-development-plan.md). Work the slices in order; each is
+  independently landable (one slice -> `check.sh` green -> one commit -> push),
+  and each slice's own **Status** line records where it stopped.
+  **D.1 (direction of record) is done.** Next up is **D.2** (one privacy
+  predicate, failing closed), then D.3, D.4a, D.4b, D.5a-d, D.6.
+  Launch (Phase 7) remains gated behind D: 7.1, 7.2 and 7.4 are done, and the
+  remaining blockers are the 240MB `.git` rewrite (7.0/B.1 — needs a quiet tree,
+  it force-pushes `main`) and cutting the release (7.3, blocked on repo workflow
+  permissions). The reasoning that gated Phase 7 on SSRF and the packaged binary
+  applies to Stream D unchanged: announcing a security-positioned product whose
+  live chat path can drop a tool call, and whose Local-only mode does not stop an
+  outbound write, would invert the pitch at the moment of maximum scrutiny.
+  Phases 0-6 are done.
 - **Four decisions taken 2026-07-27** (plan §9): OS geolocation asked once at
   point of use and coarsened to city level; all four launch blockers before
   announcing; rewrite git history before launch; monetization parked for v0.3.
@@ -36,9 +40,13 @@ archived). Updated as workstreams land.
   already are. Reach comes before polish: MCP server, then a checkable security
   claim, then launch. Rationale in
   [`v0.3-development-plan.md`](product/v0.3-development-plan.md) §2.
-- **Repo audit:** [`repo-audit-2026-07-26.md`](product/repo-audit-2026-07-26.md)
-  — the codebase is clean; the open items are a 240MB git history carrying v1
-  artifacts, and untested first-run paths.
+- **Repo audit:** [`repo-audit-2026-08-18.md`](product/repo-audit-2026-08-18.md)
+  — the source of Stream D. Three defects on the live chat path (two proven by
+  failing tests), and one structural problem larger than all of them: the v1
+  life-coach product was never deleted and still owns 30 of the 54 tools in
+  `JUNE_TOOLS` and all 24 in `JUNE_TOOLS_GEMMA`. The
+  [2026-07-26 audit](product/repo-audit-2026-07-26.md) still holds on its own
+  terms — the 240MB git history and untested first-run paths remain open.
 - **Reconciliation (brief vs. reality):** [`RECONCILIATION.md`](RECONCILIATION.md) — historical reference for v0.2.
 - **Durable worldview:** [`vision.md`](vision.md) (the four inversions; non-negotiable).
 - **Decision log:** [`decisions/`](decisions/) — ADRs 0001–0024, 0030 and 0031 accepted; index in [`decisions/README.md`](decisions/README.md).
@@ -78,8 +86,10 @@ Everything lives under one versioned data directory (ADR 0019).
   anchored compaction, and June's self-authored character with a fixed honesty +
   safety floor. Loop shape is fixed and never self-modified.
 
-- **Memory (`packages/brain/.../memory`).** One `june.db` behind one
-  `MemoryManager` facade over three stores: structured SQLite rows, a sqlite-vec
+- **Memory (`packages/brain/.../memory`).** One `june.db` over three stores,
+  reached through `memory/sqlite.py`. (`MemoryManager` is the highest-level
+  facade but not the only door: 18 modules open connections directly. See the
+  2026-08-18 audit.) The stores are: structured SQLite rows, a sqlite-vec
   `vec0` semantic index, and an entity graph (`graph_nodes`/`graph_edges`). Facts
   live in **`semantic_facts`** (composite PK `user_id`+`fact_id`, with bi-temporal
   validity columns). Recall (`recall.py::gather_hits`) fuses **four signals** —
@@ -117,6 +127,12 @@ Everything lives under one versioned data directory (ADR 0019).
   (content flowing from untrusted results back into new actions), gates
   `execute`/`write_network`/tainted-network behind approval, frames every tool
   result as untrusted content, and redacts secrets before they hit the ledger.
+  **Known gap (D.3):** the guard classifies correctly, but the loop's
+  `is_network_tool()` tests membership in the three-name read-network set rather
+  than calling `classify_action()`. Outbound writes are therefore not blocked by
+  Local-only mode and do not appear in `provenance.egress`. No shipped tool trips
+  this today — the only `send_` tool is in the Telegram skill, which is disabled
+  by default.
   Defense is primarily **structural** — the gates hold regardless of what the
   content says. A content heuristic (`guard/injection.py`) sits under it as
   defence in depth: it does not block, it *revokes standing approvals*, so an

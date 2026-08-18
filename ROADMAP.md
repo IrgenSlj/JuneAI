@@ -5,7 +5,7 @@ it remembers what matters, forgets what doesn't, tells the truth, knows when to
 stay quiet, and never does anything the user can't see.
 
 The full direction, invariants, and rationale live in the
-[vision](docs/vision.md), the [v0.3 development plan](docs/product/v0.3-development-plan.md), and
+[vision](docs/vision.md), the [v0.4 development plan](docs/product/v0.4-development-plan.md), and
 the [ADRs](docs/decisions/). June is built in tiers: **Tier 1** is the spine
 (the one-sentence vision, nothing more); **Tier 2** adds differentiators only once
 Tier 1 is shipped and *used*; **Tier 3** is the north star.
@@ -49,7 +49,9 @@ The discipline now: grow the product around the spine as a **Trusted Continuity
 Engine**. Chat stays the input surface; the product center is what June is holding:
 open promises, waiting approvals, memory state, degraded capabilities, skill
 permissions, and explicit time boundaries. The active checklist is
-`docs/product/v0.3-development-plan.md`.
+`docs/product/v0.4-development-plan.md`, where **Stream D** is the current work:
+correctness and coherence, including deleting the v1 domain layer that still owns
+most of the tool surface.
 
 ### Shipped on top of the spine (this work)
 

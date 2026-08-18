@@ -2,8 +2,8 @@
 
 Read this first, then the development plan. This file is the short, durable
 orientation for any agent working in this repo. Where it conflicts with
-`JUNE_V02_BRIEF.md` (the active v0.2 lead plan), `docs/CURRENT.md` (the
-authoritative state page), `docs/product/overview.md` (what June is), or
+`docs/product/v0.4-development-plan.md` (the plan of record), `docs/CURRENT.md`
+(the authoritative state page), `docs/product/overview.md` (what June is), or
 `docs/vision.md` (the durable worldview), those win (and fix this file).
 
 ## What June is
@@ -20,13 +20,16 @@ The four inversions of a coding agent (ADR 0015) define June:
 
 ## Canonical direction
 
-- `docs/product/v0.3-development-plan.md` — the single plan of record: state,
-  competitive position, phases with slices and acceptance criteria. Re-ordered
-  2026-07-26 around reach before polish (MCP server, checkable security claim,
-  launch); voice and Night Shift are deferred.
+- `docs/product/v0.4-development-plan.md` — the single plan of record.
+  **Stream D is the current work**: correctness and coherence, from the
+  2026-08-18 audit (`docs/product/repo-audit-2026-08-18.md`). Stream A landed.
+  Stream D is ordered general to specific — it fixes each rule before it fixes
+  the instances — and displaces the remaining pre-launch items, because
+  announcing "the agent that can prove what it did" while the live chat path can
+  drop a tool call would invert the pitch at the moment of maximum scrutiny.
   `docs/CURRENT.md` is the authoritative state page. Previous plans
-  (`JUNE_V02_BRIEF.md`, `v0.2-execution-plan.md`) are superseded — see
-  `docs/archive/README.md`.
+  (`JUNE_V02_BRIEF.md`, `v0.2-execution-plan.md`, `v0.3-development-plan.md`) are
+  superseded — see `docs/archive/README.md`.
 - `docs/product/overview.md` — the product truth: June is a trusted continuity
   engine, not primarily a chat app.
 - `docs/vision.md` — the durable product worldview (the four inversions, the non-negotiables).
@@ -37,7 +40,7 @@ The four inversions of a coding agent (ADR 0015) define June:
 
 ## Repo layout
 
-Monorepo. `packages/brain` (Python "Brain": loop, providers, memory, context, character, router, scheduler, skills), `packages/api` (FastAPI REST+SSE), `packages/ui` + `apps/web` (SvelteKit PWA), `apps/desktop` (Tauri shell), `skills/` (MCP servers). Stores: one SQLite `june.db` (structured rows + a sqlite-vec vector index + a graph) behind one `MemoryManager`, under `<datadir>/memory/` (ADR 0019); embeddings via local Ollama.
+Monorepo. `packages/brain` (Python "Brain": loop, providers, memory, context, character, router, scheduler, skills), `packages/api` (FastAPI REST+SSE), `packages/ui` + `apps/web` (SvelteKit PWA), `apps/desktop` (Tauri shell), `skills/` (MCP servers). Stores: one SQLite `june.db` (structured rows + a sqlite-vec vector index + a graph) under `<datadir>/memory/` (ADR 0019); embeddings via local Ollama. `MemoryManager` is the highest-level seam but **not the only one** — 18 modules open connections directly through `memory/sqlite.py`, so treat that module, not the manager, as the store boundary. Widening the manager into a real single seam is out of scope for v0.4; do not write new code that claims the manager mediates everything.
 
 The brain's harness loop lives in `packages/brain/src/june_brain/loop/`. The hand-written loop (`handwritten.py`) is the one engine and the live chat path (ADR 0018; the LangGraph engine and its flags were removed in the rebuild). Loop choices (tier, tools) flow as data through a fixed shape; the shape itself is never self-modified. Tools use June's own abstraction in `tools_base.py` (no LangChain).
 
@@ -56,6 +59,7 @@ the UI infer user-facing state from trace text.
 ## Invariants (do not break)
 
 - **Privacy is visible in code.** Every cloud/external call is surfaced in the UI before and after (the per-turn provenance frame). Local-only mode blocks egress. No silent network calls.
+  *Known gap, closing in D.3:* the loop asks `is_network_tool()`, which tests membership in the three-name read-network set instead of asking `classify_action()`. Outbound writes (`send_`, `post_`, `email_`, ...) are therefore neither blocked under Local-only nor listed in `provenance.egress`. Do not rely on this invariant for `write_network` until D.3 lands.
 - **Honesty is not adjustable.** Personalization shapes tone, never erodes candor into sycophancy.
 - **The harness core is fixed** and never self-modified; June evolves character/skills/tuning on top of it.
 - **No new dependency that can be implemented customly** (one exception: cryptography — always use vetted libraries, never hand-roll).
@@ -63,6 +67,11 @@ the UI infer user-facing state from trace text.
 - **Behavioral safety floor:** June is not a therapist/doctor/lawyer/financial advisor; responds to distress with care, not diagnosis; no engagement-maximizing metric; sensitive memories are surfaced by the user, not volunteered.
 
 ## Do NOT reintroduce (explicitly abandoned directions)
+
+Note the framing: for the domain features below, the risk is not reintroduction.
+They were never removed. The v1 life-coach product still owns 30 of the 54 tools
+in `JUNE_TOOLS` and all 24 in `JUNE_TOOLS_GEMMA` — deleting it is Stream D.5.
+Until that lands, "do not reintroduce" reads as "do not extend".
 
 - Heartbeat-as-cron / timer-driven proactivity / daily orchestration (ADR 0016). The scheduler exists only for user-requested, deterministic jobs.
 - Quick Capture / personal operating layer / event-ledger / capture->classify->approve pipeline (superseded by ADR 0015).
@@ -82,5 +91,6 @@ the UI infer user-facing state from trace text.
   require one, which is true and checkable; the bare phrasing reads as a promise
   about the future.
 - Keep PRs focused; add/update tests for behavior changes in `packages/brain` and `packages/api`.
+- **An invariant above is only real if something enforces it.** New invariants land with a test in `packages/brain/tests/unit_tests/test_invariants.py`, or a grep in `check.sh` where a test cannot express the rule. An invariant with no enforcement gets a "known gap" note naming the slice that closes it, as with Local-only egress above.
 - Document any privacy-boundary change explicitly.
 - Work in small validated slices: one slice -> `./tools/check.sh` green -> one commit -> push.
