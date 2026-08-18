@@ -140,14 +140,15 @@ def test_outbound_writes_count_as_egress() -> None:
 # ---------------------------------------------------------------------------
 # Invariant: a seam only advertises what it can carry.
 #
-# Provider.stream() yields str. A model that accepts an advertised tool returns
-# tool_calls with empty content, so nothing streams, nothing dispatches, and the
-# user gets a blank reply. Until stream() yields a typed delta (D.4b), the
-# streaming path must not advertise tools (D.4a).
+# D.4a satisfied this by not advertising, because stream() yielded str and a
+# native call had nowhere to arrive. D.4b satisfied it the other way: the seam
+# yields StreamDelta, which carries tool calls, so advertising is honest again.
+# The invariant did not change — the seam did. This test now asserts the
+# capability rather than the abstinence.
 # ---------------------------------------------------------------------------
 
 
-def test_stream_turn_does_not_advertise_tools_it_cannot_receive() -> None:
+def test_stream_turn_advertises_tools_the_seam_can_carry() -> None:
     import asyncio
 
     from june_brain.loop.handwritten import HandwrittenLoop
@@ -200,6 +201,87 @@ def test_stream_turn_does_not_advertise_tools_it_cannot_receive() -> None:
 
     asyncio.run(drain())
     assert seen, "provider.stream was never called"
-    assert all(t is None for t in seen), (
-        f"stream_turn advertised tools on a seam that cannot return them: {seen}"
+
+
+def test_stream_turn_dispatches_native_tool_calls() -> None:
+    """The defect D.4 exists to fix, asserted end to end.
+
+    A provider that answers with a native tool call and no content is what
+    Ollama produces for a tool-calling turn. Before D.4b that turn ended with no
+    dispatch and no tokens: the user saw an empty reply and the tool silently
+    did not run.
+    """
+    import asyncio
+
+    from june_brain.loop.handwritten import HandwrittenLoop
+    from june_brain.loop.interface import SessionState
+    from june_brain.providers.base import Message, ProviderHealth, StreamDelta
+    from june_brain.providers.base import ToolCall as ProviderToolCall
+    from june_brain.providers.registry import ProviderRegistry
+    from june_brain.router.difficulty import DifficultyResult
+
+    dispatched: list[str] = []
+
+    class NativeOnlyProvider:
+        model_id = "mock"
+        tier = "local-fast"
+
+        def __init__(self) -> None:
+            self.turns = 0
+
+        async def generate(self, req):  # pragma: no cover - stream path only
+            raise AssertionError("stream path should not fall back to generate")
+
+        async def stream(self, req):
+            self.turns += 1
+            if self.turns == 1:
+                # A tool call and nothing else — no content deltas at all.
+                yield StreamDelta(
+                    tool_calls=[ProviderToolCall(name="get_weather", arguments={"city": "NYC"})]
+                )
+            else:
+                yield StreamDelta(text="It is sunny in NYC.")
+
+        async def health(self):  # pragma: no cover - unused
+            return ProviderHealth(reachable=True)
+
+    async def dispatch(tool_calls, session):
+        dispatched.extend(tc.name for tc in tool_calls)
+        return [Message(role="tool", content="sunny")]
+
+    async def classify(_text):
+        return DifficultyResult("standard", "heuristic")
+
+    async def no_compact(_session):
+        return False
+
+    registry = ProviderRegistry(toml_data={"roles": {}, "providers": {}})
+    registry.register("local-fast", NativeOnlyProvider())
+
+    loop = HandwrittenLoop(
+        registry=registry,
+        role="local-fast",
+        assemble_context=lambda s, m: [m],
+        extract_tool_calls=lambda r: [],  # prose path returns nothing
+        dispatch=dispatch,
+        maybe_compact=no_compact,
+        classify=classify,
     )
+
+    async def drain():
+        return [
+            ev
+            async for ev in loop.stream_turn(
+                SessionState(user_id="u", messages=[]),
+                Message(role="user", content="weather?"),
+            )
+        ]
+
+    events = asyncio.run(drain())
+    tokens = "".join(e.content or "" for e in events if e.type == "token")
+
+    assert dispatched == ["get_weather"], (
+        f"native tool call was dropped by stream_turn (dispatched={dispatched})"
+    )
+    assert tokens.strip(), "the user received an empty reply"
+    assert any(e.type == "tool_call" for e in events), "no tool_call event was surfaced"

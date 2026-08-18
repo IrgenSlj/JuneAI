@@ -16,6 +16,8 @@ from .base import (
     GenerateResult,
     Message,
     ProviderHealth,
+    StreamDelta,
+    _assemble_tool_calls,
     parse_openai_tool_calls,
     tool_specs_to_openai,
 )
@@ -110,7 +112,7 @@ class GemmaProvider:
             tool_calls=tool_calls,
         )
 
-    async def stream(self, req: GenerateRequest) -> AsyncIterator[str]:
+    async def stream(self, req: GenerateRequest) -> AsyncIterator[StreamDelta]:
         client = self._client()
         kwargs: dict = {
             "model": self.model_id,
@@ -124,36 +126,38 @@ class GemmaProvider:
             kwargs["stop"] = req.stop
         if req.response_format == "json":
             kwargs["response_format"] = {"type": "json_object"}
-        # `req.tools` is deliberately NOT forwarded here (D.4a). This method
-        # yields `str`, so a native tool call has nowhere to go: the model
-        # returns tool_calls with empty content, nothing is yielded, and the
-        # caller sees a finished turn with no text and no dispatch — a blank
-        # reply and a tool that silently did not run. Advertising the tools is
-        # what invites that, so we stop advertising until the seam can carry
-        # them (D.4b makes stream() yield a typed delta). The prompt-advertised
-        # prose-JSON path in the loop is unaffected and remains the tool path
-        # for streaming.
+        # Advertised again as of D.4b: the seam yields StreamDelta, so a native
+        # tool call now has a channel to arrive on.
+        if req.tools:
+            kwargs["tools"] = tool_specs_to_openai(req.tools)
 
         response = await client.chat.completions.create(**kwargs)
-        in_think = False
+        # Tool-call fragments arrive spread across chunks (name in one, argument
+        # JSON in slices after it), keyed by index. Accumulate and emit once at
+        # end of stream, because a half-parsed call is not a call.
+        pending: dict[int, dict[str, str]] = {}
         async for chunk in response:
             if not chunk.choices:
                 continue
             delta = chunk.choices[0].delta
             reasoning = self._reasoning_of(delta)
-            content = delta.content
             if reasoning:
-                if not in_think:
-                    yield "<think>"
-                    in_think = True
-                yield reasoning
+                yield StreamDelta(reasoning=reasoning)
+            content = delta.content
             if content:
-                if in_think:
-                    yield "</think>"
-                    in_think = False
-                yield content
-        if in_think:
-            yield "</think>"
+                yield StreamDelta(text=content)
+            for frag in getattr(delta, "tool_calls", None) or []:
+                slot = pending.setdefault(
+                    getattr(frag, "index", 0) or 0, {"name": "", "args": ""}
+                )
+                fn = getattr(frag, "function", None)
+                if fn is not None:
+                    slot["name"] += getattr(fn, "name", "") or ""
+                    slot["args"] += getattr(fn, "arguments", "") or ""
+
+        calls = _assemble_tool_calls(pending)
+        if calls:
+            yield StreamDelta(tool_calls=calls)
 
     async def embed(self, texts: list[str], *, model: str) -> list[list[float]]:
         """Embed texts via Ollama's OpenAI-compatible embeddings endpoint.

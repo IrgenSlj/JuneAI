@@ -28,6 +28,35 @@ from june_brain.providers import (
 )
 from june_brain.providers.base import ToolSpec
 
+
+def _render(deltas):
+    """Flatten a typed delta stream to the string form these tests assert on.
+
+    stream() yields StreamDelta since D.4b. Reasoning is re-wrapped in <think>
+    tags so the existing expectations — which were written against the inline
+    form the provider used to emit — still describe the same observable output.
+    """
+    out = []
+    in_think = False
+    for d in deltas:
+        if isinstance(d, str):
+            out.append(d)
+            continue
+        if d.reasoning:
+            if not in_think:
+                out.append("<think>")
+                in_think = True
+            out.append(d.reasoning)
+        if d.text:
+            if in_think:
+                out.append("</think>")
+                in_think = False
+            out.append(d.text)
+    if in_think:
+        out.append("</think>")
+    return "".join(out)
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -265,7 +294,7 @@ def test_gemma_stream_yields_and_records_nothing() -> None:
         chunks = _collect(provider, _req())
 
     reset_cloud_call_recorder()
-    assert "".join(chunks) == "hello"
+    assert _render(chunks) == "hello"
     assert events == [], f"Gemma streaming must never emit cloud events but got: {events}"
 
 
@@ -280,7 +309,7 @@ def test_gemini_stream_records_start_and_end() -> None:
             chunks = _collect(provider, _req())
 
     reset_cloud_call_recorder()
-    assert "".join(chunks) == "ab"
+    assert _render(chunks) == "ab"
     assert [e.phase for e in events] == ["start", "end"]
 
 
@@ -303,7 +332,7 @@ def test_gemini_stream_forwards_tool_specs() -> None:
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
             chunks = _collect(provider, req)
 
-    assert "".join(chunks) == "ok"
+    assert _render(chunks) == "ok"
     kwargs = fake.chat.completions.create.call_args.kwargs
     assert kwargs["tools"] == [
         {

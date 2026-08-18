@@ -11,6 +11,35 @@ from june_brain.providers import GemmaProvider
 from june_brain.providers.base import GenerateRequest, Message, ToolSpec
 
 
+def _render(deltas):
+    """Flatten a typed delta stream to the string form these tests assert on.
+
+    stream() yields StreamDelta since D.4b. Reasoning is re-wrapped in <think>
+    tags so the existing expectations — which were written against the inline
+    form the provider used to emit — still describe the same observable output.
+    """
+    out = []
+    in_think = False
+    for d in deltas:
+        if isinstance(d, str):
+            out.append(d)
+            continue
+        if d.reasoning:
+            if not in_think:
+                out.append("<think>")
+                in_think = True
+            out.append(d.reasoning)
+        if d.text:
+            if in_think:
+                out.append("</think>")
+                in_think = False
+            out.append(d.text)
+    if in_think:
+        out.append("</think>")
+    return "".join(out)
+
+
+
 def _req() -> GenerateRequest:
     return GenerateRequest(messages=[Message(role="user", content="hi")], max_tokens=64)
 
@@ -43,7 +72,7 @@ def test_stream_surfaces_native_reasoning() -> None:
     fake.chat.completions.create = AsyncMock(return_value=_astream(chunks))
 
     async def drain() -> str:
-        return "".join([c async for c in provider.stream(_req())])
+        return _render([c async for c in provider.stream(_req())])
 
     with patch.object(GemmaProvider, "_client", return_value=fake):
         out = asyncio.run(drain())
@@ -94,14 +123,14 @@ def test_generate_without_reasoning_unchanged() -> None:
     assert result.text == "plain answer"
 
 
-def test_stream_withholds_tool_specs() -> None:
-    """stream() must not forward tools to the model (D.4a).
+def test_stream_forwards_tool_specs() -> None:
+    """stream() advertises tools again now that the seam can carry the answer.
 
-    generate() still does — it returns a GenerateResult that carries
-    `tool_calls`, so a native call has somewhere to go. stream() yields `str`
-    and reads only `delta.content`, so `delta.tool_calls` would be dropped: the
-    turn ends with no text and no dispatch. Until the seam is typed (D.4b),
-    not advertising is the honest position.
+    D.4a removed this because stream() yielded `str` and `delta.tool_calls` was
+    dropped, so a model that took the offer produced a blank turn. D.4b made the
+    seam yield StreamDelta, which has a tool_calls channel, so advertising is
+    honest again. The invariant never changed — a seam only advertises what it
+    can carry — but it is now satisfied by capability rather than abstinence.
     """
     provider = GemmaProvider(model_id="gemma4:e2b", base_url="http://x/v1", tier="local-fast")
     req = GenerateRequest(
@@ -119,13 +148,13 @@ def test_stream_withholds_tool_specs() -> None:
     fake.chat.completions.create = AsyncMock(return_value=_astream([_chunk(content="ok")]))
 
     async def drain() -> str:
-        return "".join([c async for c in provider.stream(req)])
+        return _render([c async for c in provider.stream(req)])
 
     with patch.object(GemmaProvider, "_client", return_value=fake):
         assert asyncio.run(drain()) == "ok"
 
     kwargs = fake.chat.completions.create.call_args.kwargs
-    assert "tools" not in kwargs
+    assert kwargs["tools"][0]["function"]["name"] == "get_weather"
 
 def test_stream_reasoning_splits_correctly_via_splitter() -> None:
     """End-to-end: stream output feeds through ReasoningSplitter and separates correctly."""
@@ -138,7 +167,7 @@ def test_stream_reasoning_splits_correctly_via_splitter() -> None:
     fake.chat.completions.create = AsyncMock(return_value=_astream(chunks))
 
     async def drain() -> str:
-        return "".join([c async for c in provider.stream(_req())])
+        return _render([c async for c in provider.stream(_req())])
 
     with patch.object(GemmaProvider, "_client", return_value=fake):
         raw = asyncio.run(drain())

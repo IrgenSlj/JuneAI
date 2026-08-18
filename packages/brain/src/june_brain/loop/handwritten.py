@@ -533,21 +533,51 @@ class HandwrittenLoop:
             buffered_head = ""
             splitter = ReasoningSplitter()
 
+            # Native tool calls arrive on their own channel of the delta and are
+            # collected here, then preferred over prose-JSON extraction below
+            # (D.4b). Before the seam was typed, they had nowhere to arrive and
+            # the turn ended blank.
+            native_tool_calls: list[ToolCall] = []
+
             try:
-                # No `tools=` on the streaming seam (D.4a): provider.stream()
-                # yields str, so a native tool call has nowhere to go and the
-                # turn ends blank with the tool never dispatched. The
-                # prompt-advertised prose-JSON path drives tools here until
-                # D.4b widens the seam to a typed delta.
-                async for delta in provider.stream(
+                async for raw_delta in provider.stream(
                     GenerateRequest(
                         messages=ctx,
                         max_tokens=_MAX_TOKENS,
+                        tools=self._tool_specs or None,
                     )
                 ):
+                    # A provider may yield a bare str (text delta) or a typed
+                    # StreamDelta. Normalise to the latter.
+                    if isinstance(raw_delta, str):
+                        text_part, reasoning_part = raw_delta, ""
+                    else:
+                        text_part = getattr(raw_delta, "text", "") or ""
+                        reasoning_part = getattr(raw_delta, "reasoning", "") or ""
+                        for call in getattr(raw_delta, "tool_calls", None) or []:
+                            native_tool_calls.append(
+                                ToolCall(name=call.name, args=dict(call.arguments))
+                            )
+
+                    # Reasoning arrives on its own channel now; feed it through
+                    # the splitter as a tagged block so downstream handling and
+                    # the trace stay identical to the inline <think> form.
+                    if reasoning_part:
+                        for seg_kind, seg_text in splitter.feed(
+                            f"<think>{reasoning_part}</think>"
+                        ):
+                            if seg_kind == "reasoning" and seg_text:
+                                reasoning_observed = True
+                                reasoning_accum += seg_text
+                                yield _emit(
+                                    StreamEvent(type="reasoning", content=seg_text)
+                                )
+                    if not text_part:
+                        continue
+
                     # Feed delta through the reasoning splitter first. Reasoning
                     # is observed for activity traces, but never streamed raw.
-                    segments = splitter.feed(delta)
+                    segments = splitter.feed(text_part)
                     for seg_kind, seg_text in segments:
                         if seg_kind == "reasoning":
                             if seg_text:
@@ -619,15 +649,19 @@ class HandwrittenLoop:
             except Exception:
                 # Stream failed — fall back to a single generate call
                 try:
-                    # Also no `tools=` (D.4a): this fallback reads only
-                    # result.text, so a native call would be dropped exactly as
-                    # it is on the stream above.
                     result = await provider.generate(
                         GenerateRequest(
                             messages=ctx,
                             max_tokens=_MAX_TOKENS,
+                            tools=self._tool_specs or None,
                         )
                     )
+                    # generate() carries tool_calls on the result; collect them
+                    # so a stream failure does not also lose the tool (D.4b).
+                    for call in getattr(result, "tool_calls", None) or []:
+                        native_tool_calls.append(
+                            ToolCall(name=call.name, args=dict(call.arguments))
+                        )
                     tokens.input_tokens += result.input_tokens
                     tokens.output_tokens += result.output_tokens
                     suppress_mode = False
@@ -656,7 +690,10 @@ class HandwrittenLoop:
                 tier=provider.tier,
             )
 
-            tool_calls = self._extract_tool_calls(pseudo_result)
+            # Native calls win when the provider produced them; the prose-JSON
+            # extractor stays as the fallback (invariant 6), which is what a
+            # model without function calling still uses.
+            tool_calls = native_tool_calls or self._extract_tool_calls(pseudo_result)
 
             # Record + stream this iteration's internals: cleaned model output
             # (including suppressed tool JSON, but excluding raw reasoning) and

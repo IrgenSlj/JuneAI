@@ -123,19 +123,15 @@ def test_stream_turn_yields_ordered_token_events() -> None:
     assert events[-2].type == "provenance"
 
 
-def test_stream_turn_withholds_tool_specs_from_provider_stream() -> None:
-    """Streaming requests must NOT advertise native tool specs (D.4a).
+def test_stream_turn_passes_tool_specs_to_provider_stream() -> None:
+    """Streaming requests advertise native tool specs (D.4b).
 
-    This test previously asserted the opposite — that stream_turn advertises the
-    same specs as run_turn. That symmetry was the bug. `Provider.stream()` yields
-    `str`, so a native tool call has nowhere to travel: the model returns
-    tool_calls with empty content, no delta is yielded, `_extract_tool_calls`
-    sees an empty string, the loop breaks, and the user gets a blank reply while
-    the tool silently never runs.
-
-    Advertising the tools is what invites the model to take that path, so the
-    streaming seam stops advertising until D.4b widens it to a typed delta. Tools
-    still work here through the prompt-advertised prose-JSON path.
+    The history is worth keeping: this asserted the same thing before D.4a, but
+    for the wrong reason — it justified the behaviour as symmetry with run_turn
+    while `Provider.stream()` yielded `str` and dropped every native call, so a
+    model that took the offer produced a blank turn. D.4a removed the
+    advertisement; D.4b typed the seam so it can carry a tool call, and the
+    advertisement came back on merit.
     """
     provider = MultiChunkProvider(chunks=["Hello"])
     reg = _registry_with("local-fast", provider)
@@ -159,7 +155,7 @@ def test_stream_turn_withholds_tool_specs_from_provider_stream() -> None:
     _collect_stream(loop.stream_turn(session, Message(role="user", content="hi")))
 
     assert provider.stream_requests
-    assert provider.stream_requests[0].tools is None
+    assert provider.stream_requests[0].tools == [spec]
 
 
 # ---------------------------------------------------------------------------

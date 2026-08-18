@@ -17,6 +17,8 @@ from .base import (
     GenerateResult,
     Message,
     ProviderHealth,
+    StreamDelta,
+    _assemble_tool_calls,
     parse_openai_tool_calls,
     tool_specs_to_openai,
 )
@@ -98,7 +100,9 @@ class GeminiProvider:
             kwargs["stop"] = req.stop
         if req.response_format == "json":
             kwargs["response_format"] = {"type": "json_object"}
-        # Not forwarded on the streaming path — see GemmaProvider.stream (D.4a).
+        # Advertised again as of D.4b — the seam yields StreamDelta.
+        if req.tools:
+            kwargs["tools"] = tool_specs_to_openai(req.tools)
 
         summary = self._payload_summary(req)
         record_cloud_call(CloudCallEvent(model_id=self.model_id, phase="start", payload_summary=summary))
@@ -122,7 +126,7 @@ class GeminiProvider:
             tool_calls=parse_openai_tool_calls(message),
         )
 
-    async def stream(self, req: GenerateRequest) -> AsyncIterator[str]:
+    async def stream(self, req: GenerateRequest) -> AsyncIterator[StreamDelta]:
         api_key = _resolve_api_key()
         if not api_key:
             raise ValueError(
@@ -150,10 +154,24 @@ class GeminiProvider:
         record_cloud_call(CloudCallEvent(model_id=self.model_id, phase="start", payload_summary=summary))
         try:
             response = await client.chat.completions.create(**kwargs)
+            pending: dict[int, dict[str, str]] = {}
             async for chunk in response:
-                delta = chunk.choices[0].delta.content if chunk.choices else None
-                if delta:
-                    yield delta
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    yield StreamDelta(text=delta.content)
+                for frag in getattr(delta, "tool_calls", None) or []:
+                    slot = pending.setdefault(
+                        getattr(frag, "index", 0) or 0, {"name": "", "args": ""}
+                    )
+                    fn = getattr(frag, "function", None)
+                    if fn is not None:
+                        slot["name"] += getattr(fn, "name", "") or ""
+                        slot["args"] += getattr(fn, "arguments", "") or ""
+            calls = _assemble_tool_calls(pending)
+            if calls:
+                yield StreamDelta(tool_calls=calls)
         finally:
             record_cloud_call(CloudCallEvent(model_id=self.model_id, phase="end", payload_summary=summary))
 

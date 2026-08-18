@@ -110,6 +110,55 @@ def parse_openai_tool_calls(message: Any) -> list[ToolCall]:
     return calls
 
 
+class StreamDelta(BaseModel):
+    """One increment of a streamed response.
+
+    ``stream()`` used to yield ``str``, which meant a native tool call had
+    nowhere to travel: providers advertised tools, models answered with
+    ``tool_calls`` and empty content, and the turn ended with no text and no
+    dispatch (D.4a/D.4b). A delta carries all three channels a provider can
+    produce, so the streaming path can see what the model actually said.
+
+    Exactly one channel is populated per delta in practice, but nothing depends
+    on that — the loop reads whichever fields are set.
+
+    A bare ``str`` is still accepted by the loop and means a text delta. That is
+    not deprecated: a text-only provider (and most test doubles) has no reason
+    to construct a model for every token.
+    """
+
+    text: str = ""
+    reasoning: str = ""
+    tool_calls: list[ToolCall] = Field(default_factory=list)
+
+
+def _assemble_tool_calls(pending: dict[int, dict[str, str]]) -> list[ToolCall]:
+    """Turn accumulated streaming tool-call fragments into ToolCalls.
+
+    Streaming delivers a call in pieces: the name in one chunk, the argument
+    JSON in slices after it, keyed by index. Callers accumulate into
+    ``{index: {"name": ..., "args": ...}}`` and hand the result here at end of
+    stream.
+
+    Tolerant in the same way as :func:`parse_openai_tool_calls`: a fragment with
+    no name, or arguments that never became valid JSON, is skipped rather than
+    raised. A malformed call degrades to no call, which the prose-JSON path can
+    still cover.
+    """
+    calls: list[ToolCall] = []
+    for _, slot in sorted(pending.items()):
+        name = slot.get("name", "").strip()
+        if not name:
+            continue
+        raw = slot.get("args", "") or ""
+        try:
+            args = json.loads(raw) if raw.strip() else {}
+        except (json.JSONDecodeError, TypeError, ValueError):
+            args = {}
+        calls.append(ToolCall(name=name, arguments=args if isinstance(args, dict) else {}))
+    return calls
+
+
 class ProviderHealth(BaseModel):
     reachable: bool
     loaded: bool = False
@@ -124,6 +173,6 @@ class Provider(Protocol):
 
     async def generate(self, req: GenerateRequest) -> GenerateResult: ...
 
-    def stream(self, req: GenerateRequest) -> AsyncIterator[str]: ...
+    def stream(self, req: GenerateRequest) -> AsyncIterator[StreamDelta | str]: ...
 
     async def health(self) -> ProviderHealth: ...
