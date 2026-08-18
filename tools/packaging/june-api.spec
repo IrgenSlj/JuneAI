@@ -47,10 +47,8 @@ for pkg in ("june_brain", "june_api"):
 # is excluded (disabled by default, needs an optional extra).
 for pkg in (
     "june_skill_calendar",
-    "june_skill_health",
     "june_skill_research",
     "june_skill_files",
-    "june_skill_daily",
 ):
     datas += collect_data_files(pkg)
     hiddenimports += collect_submodules(pkg)

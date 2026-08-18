@@ -190,9 +190,7 @@ def test_first_party_default_manifest_policies_are_intentional() -> None:
 
     assert DEFAULT_MANIFEST.entries["files"].model_policy == "local_only"
     assert DEFAULT_MANIFEST.entries["calendar"].model_policy == "cloud_allowed"
-    assert DEFAULT_MANIFEST.entries["health"].model_policy == "cloud_allowed"
     assert DEFAULT_MANIFEST.entries["research"].model_policy == "cloud_allowed"
-    assert DEFAULT_MANIFEST.entries["daily"].model_policy == "cloud_allowed"
 
 
 def test_skill_manifest_round_trips_non_default_policy(tmp_path: Path) -> None:
@@ -206,7 +204,7 @@ def test_skill_manifest_round_trips_non_default_policy(tmp_path: Path) -> None:
     reloaded = load_manifest(target)
     assert reloaded.entries["calendar"].model_policy == "cloud_required"
     # Other skills keep the default.
-    assert reloaded.entries["health"].model_policy == "cloud_allowed"
+    assert reloaded.entries["research"].model_policy == "cloud_allowed"
 
 
 def test_skill_manifest_invalid_policy_falls_back_to_default(tmp_path: Path) -> None:

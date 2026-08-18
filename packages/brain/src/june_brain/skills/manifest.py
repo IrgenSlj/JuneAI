@@ -138,14 +138,6 @@ DEFAULT_MANIFEST: SkillManifest = SkillManifest(
             description="Calendar events, reminders, and birthdays.",
             declared_scopes=["read_local", "write_local"],
         ),
-        "health": SkillManifestEntry(
-            key="health",
-            enabled=True,
-            command=sys.executable,
-            args=["-m", "june_skill_health"],
-            description="Body metrics, workouts, water, and habits.",
-            declared_scopes=["read_local", "write_local"],
-        ),
         "research": SkillManifestEntry(
             key="research",
             enabled=True,
@@ -171,14 +163,6 @@ DEFAULT_MANIFEST: SkillManifest = SkillManifest(
             # treated as one - which is what puts a path lifted out of a tool
             # result behind an approval prompt.
             declared_scopes=["read_local", "read_network"],
-        ),
-        "daily": SkillManifestEntry(
-            key="daily",
-            enabled=True,
-            command=sys.executable,
-            args=["-m", "june_skill_daily"],
-            description="Journaling, moods, goals, and chapter intake.",
-            declared_scopes=["write_local"],
         ),
         "telegram": SkillManifestEntry(
             key="telegram",

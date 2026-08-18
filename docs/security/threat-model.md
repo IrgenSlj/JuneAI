@@ -71,8 +71,9 @@ Two parts of the original concern *were* fixable, and are now fixed:
   (`exceeds_declared_scopes`), and an "always allow" cannot waive it. This
   closes the update attack: a skill granted `read_local` that ships a new
   version advertising `send_report` is blocked until the user widens the
-  contract deliberately. All six bundled skills now declare contracts, pinned by
-  `test_skill_scope_contracts.py`.
+  contract deliberately. All bundled skills declare contracts, pinned by
+  `test_skill_scope_contracts.py` (six at the time of writing; the `health` and
+  `daily` skills were deleted with the v1 domain layer in D.5, leaving four).
 - **Network reads hiding behind local-sounding names.** A tool named
   `get_page_content` that fetches URLs classifies as `read_local` and escaped
   taint gating entirely. Reads from a skill whose contract permits network

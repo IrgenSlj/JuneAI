@@ -42,9 +42,7 @@ echo "==> Installing Python workspace packages"
 "$VENV/bin/python" -m pip install -q -e "packages/api[dev]"
 "$VENV/bin/python" -m pip install -q \
   -e "skills/calendar" \
-  -e "skills/daily" \
   -e "skills/files" \
-  -e "skills/health" \
   -e "skills/research"
 
 if [ "${JUNE_SKIP_PNPM_INSTALL:-}" = "1" ] || [ "${JUNE_SKIP_PNPM_INSTALL:-}" = "true" ]; then

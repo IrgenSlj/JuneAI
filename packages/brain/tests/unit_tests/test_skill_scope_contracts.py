@@ -21,16 +21,8 @@ from june_brain.skills.manifest import DEFAULT_MANIFEST
 # revisiting the contract, and a runtime discovery would just silently agree.
 BUNDLED_TOOLS: dict[str, tuple[str, ...]] = {
     "calendar": ("save_calendar_item", "list_calendar_items", "update_calendar_item_status"),
-    "health": (
-        "log_body_metrics",
-        "log_water",
-        "log_workout_session",
-        "log_habit_completion",
-        "get_today_summary",
-    ),
     "research": ("web_search", "fetch_url"),
     "files": ("read_pdf", "read_webpage", "list_directory", "read_file", "search_files"),
-    "daily": ("log_mood", "save_journal_entry", "track_goal", "save_open_loop"),
     "telegram": ("send_telegram_message", "get_telegram_bot_status"),
 }
 

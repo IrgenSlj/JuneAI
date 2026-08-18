@@ -6,7 +6,7 @@ Two related concepts share this namespace:
    the skill the chat adopts for a given user query. Lives in
    :mod:`.prompts` and is re-exported here for backward compatibility.
 
-2. **MCP skill servers** (calendar/health/research/files/daily) —
+2. **MCP skill servers** (calendar/research/files/telegram) —
    external processes that expose tools via the Model Context Protocol.
    Lives in :mod:`.loader`, :mod:`.supervisor`, and :mod:`.manifest`.
 
