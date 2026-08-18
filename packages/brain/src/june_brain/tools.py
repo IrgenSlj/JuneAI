@@ -9,9 +9,7 @@ from typing import Annotated, Any
 from .config import apply_runtime_preset_switch
 from .context_intelligence import (
     build_active_commitments_summary,
-    build_recovery_readiness_summary,
     format_active_commitments_summary,
-    format_recovery_readiness_summary,
 )
 from .memory import Memory
 from .runtime_privacy import (
@@ -50,35 +48,6 @@ def _memory_for_state(state: AgentState) -> Memory:
     if state is None:
         raise ValueError("Tool execution requires injected agent state.")
     return Memory(state["user_id"])
-
-
-@tool
-def log_mood(
-    mood: str,
-    note: str = "",
-    state: InjectedAgentState = None,
-) -> str:
-    """Log the user's emotional state when they describe how they feel."""
-    memory = _memory_for_state(state)
-    memory.log_mood(mood, note)
-    return f"Noted your mood as '{mood}'."
-
-
-@tool
-def get_mood_history(
-    state: InjectedAgentState = None,
-) -> str:
-    """Retrieve recent mood history for pattern recognition."""
-    memory = _memory_for_state(state)
-    moods = memory.get_mood_history(10)
-    if not moods:
-        return "No mood history recorded yet."
-    lines = [
-        f"- {item['timestamp'][:10]}: {item['mood']}"
-        + (f" | {item['note']}" if item.get("note") else "")
-        for item in moods
-    ]
-    return "Recent mood history:\n" + "\n".join(lines)
 
 
 @tool
@@ -424,114 +393,6 @@ def list_favorites(
 
 
 @tool
-def save_gym_plan(
-    name: str,
-    schedule: str,
-    goal: str = "",
-    notes: str = "",
-    status: str = "active",
-    state: InjectedAgentState = None,
-) -> str:
-    """Save a workout schedule or gym program for the user."""
-    memory = _memory_for_state(state)
-    item = memory.save_gym_plan(
-        name=name,
-        schedule=schedule,
-        goal=goal,
-        notes=notes,
-        status=status,
-    )
-    return f"I've saved your gym plan '{item['name']}'."
-
-
-@tool
-def list_gym_plans(
-    status: str = "active",
-    state: InjectedAgentState = None,
-) -> str:
-    """List saved workout schedules and gym programs."""
-    memory = _memory_for_state(state)
-    plans = memory.get_gym_plans(status=status)
-    if not plans:
-        return f"No gym plans found for status '{status}'."
-    lines = []
-    for plan in plans:
-        line = f"- {plan['name']} [{plan['status']}] | Schedule: {plan['schedule']}"
-        if plan.get("goal"):
-            line += f" | Goal: {plan['goal']}"
-        if plan.get("notes"):
-            line += f" | Notes: {plan['notes']}"
-        lines.append(line)
-    return "Gym plans:\n" + "\n".join(lines)
-
-
-@tool
-def save_food_program(
-    name: str,
-    goal: str,
-    daily_structure: str,
-    notes: str = "",
-    status: str = "active",
-    state: InjectedAgentState = None,
-) -> str:
-    """Save a meal plan or nutrition program."""
-    memory = _memory_for_state(state)
-    item = memory.save_food_program(
-        name=name,
-        goal=goal,
-        daily_structure=daily_structure,
-        notes=notes,
-        status=status,
-    )
-    return f"I've saved your food program '{item['name']}'."
-
-
-@tool
-def list_food_programs(
-    status: str = "active",
-    state: InjectedAgentState = None,
-) -> str:
-    """List saved meal plans and nutrition programs."""
-    memory = _memory_for_state(state)
-    programs = memory.get_food_programs(status=status)
-    if not programs:
-        return f"No food programs found for status '{status}'."
-    lines = []
-    for program in programs:
-        line = (
-            f"- {program['name']} [{program['status']}] | Goal: {program['goal']}"
-            f" | Structure: {program['daily_structure']}"
-        )
-        if program.get("notes"):
-            line += f" | Notes: {program['notes']}"
-        lines.append(line)
-    return "Food programs:\n" + "\n".join(lines)
-
-
-@tool
-def summarize_progress(
-    state: InjectedAgentState = None,
-) -> str:
-    """Summarize the user's recent activity across assistant surfaces."""
-    memory = _memory_for_state(state)
-    snapshot = memory.get_progress_snapshot()
-    parts = [
-        f"Recent moods logged: {snapshot['mood_count']}",
-        f"Journal entries: {snapshot['journal_count']}",
-        f"Goals tracked: {snapshot['goal_count']}",
-        f"Open loops: {snapshot['open_loop_count']}",
-        f"Preferences saved: {snapshot['preference_count']}",
-        f"Calendar items: {snapshot['calendar_count']}",
-        f"Favorites saved: {snapshot['favorite_count']}",
-        f"Gym plans: {snapshot['gym_plan_count']}",
-        f"Food programs: {snapshot['food_program_count']}",
-    ]
-    if snapshot["latest_mood"]:
-        parts.insert(1, f"Latest mood: {snapshot['latest_mood']}")
-    return "Progress snapshot:\n- " + "\n- ".join(parts)
-
-
-@tool
 def get_runtime_privacy_status() -> str:
     """Get the current runtime and privacy mode for the active model configuration."""
     status = build_runtime_privacy_status()
@@ -561,26 +422,6 @@ def switch_runtime_preset(
 
 
 @tool
-def analyze_compatibility(person1_description: str, person2_description: str) -> str:
-    """Structure a compatibility analysis for two people."""
-    return (
-        "Compatibility analysis request:\n\n"
-        f"Person 1: {person1_description}\n\n"
-        f"Person 2: {person2_description}\n\n"
-        "Provide shared strengths, friction points, communication style, and a score out of 10."
-    )
-
-
-@tool
-def generate_conversation_starters(context: str) -> str:
-    """Generate specific conversation starters for the given context."""
-    return (
-        f"Generate 5 specific conversation starters for this context: {context}\n\n"
-        "Keep them natural, observant, and non-generic."
-    )
-
-
-@tool
 def draft_reply(
     recipient: str,
     context: str,
@@ -598,219 +439,6 @@ def draft_reply(
 
 
 @tool
-def plan_difficult_conversation(
-    person: str,
-    situation: str,
-    desired_outcome: str,
-) -> str:
-    """Plan a difficult conversation with structure and next steps."""
-    return (
-        f"Plan a difficult conversation with {person}.\n\n"
-        f"Situation: {situation}\n"
-        f"Desired outcome: {desired_outcome}\n\n"
-        "Provide key points, likely friction, what to avoid, and one strong opening line."
-    )
-
-
-@tool
-def log_workout_session(
-    plan_name: str,
-    exercises: str = "",
-    duration_min: int = 0,
-    notes: str = "",
-    energy_rating: int = 0,
-    state: InjectedAgentState = None,
-) -> str:
-    """Log a completed workout session with exercises and duration in minutes."""
-    memory = _memory_for_state(state)
-    item = memory.log_workout_session(
-        plan_name=plan_name,
-        exercises=exercises,
-        duration_min=duration_min,
-        notes=notes,
-        energy_rating=energy_rating,
-    )
-    return f"Logged your {item['plan_name']} session on {item['date']} ({item['duration_min']} min)."
-
-
-@tool
-def log_body_metrics(
-    weight_kg: float = 0.0,
-    sleep_hours: float = 0.0,
-    sleep_quality: int = 0,
-    energy: int = 0,
-    stress: int = 0,
-    soreness: int = 0,
-    resting_hr: int = 0,
-    steps: int = 0,
-    notes: str = "",
-    state: InjectedAgentState = None,
-) -> str:
-    """Log today's body metrics: recovery, strain, and activity signals."""
-    memory = _memory_for_state(state)
-    item = memory.log_body_metrics(
-        weight_kg=weight_kg,
-        sleep_hours=sleep_hours,
-        sleep_quality=sleep_quality,
-        energy=energy,
-        stress=stress,
-        soreness=soreness,
-        resting_hr=resting_hr,
-        steps=steps,
-        notes=notes,
-    )
-    parts = []
-    if item["weight_kg"]:
-        parts.append(f"weight {item['weight_kg']}kg")
-    if item["sleep_hours"]:
-        parts.append(f"sleep {item['sleep_hours']}h")
-    if item["sleep_quality"]:
-        parts.append(f"sleep quality {item['sleep_quality']}/5")
-    if item["energy"]:
-        parts.append(f"energy {item['energy']}/5")
-    if item["stress"]:
-        parts.append(f"stress {item['stress']}/5")
-    if item["soreness"]:
-        parts.append(f"soreness {item['soreness']}/5")
-    if item["resting_hr"]:
-        parts.append(f"resting HR {item['resting_hr']}")
-    if item["steps"]:
-        parts.append(f"steps {item['steps']}")
-    return f"Got it — logged {', '.join(parts) or 'your metrics'} for today."
-
-
-@tool
-def create_habit(
-    name: str,
-    category: str = "health",
-    target_days: str = "daily",
-    state: InjectedAgentState = None,
-) -> str:
-    """Create or update a tracked habit. Category: health, sport, focus, nutrition."""
-    memory = _memory_for_state(state)
-    item = memory.create_or_update_habit(name=name, category=category, target_days=target_days)
-    return f"I'm now tracking '{item['name']}' for you."
-
-
-@tool
-def log_habit_completion(
-    habit_name: str,
-    state: InjectedAgentState = None,
-) -> str:
-    """Mark a habit as completed for today. Auto-creates the habit if it does not exist."""
-    memory = _memory_for_state(state)
-    item = memory.log_habit_completion(habit_name=habit_name)
-    streak = item.get("streak", 0)
-    return f"'{item['name']}' done. {streak}-day streak." if streak > 1 else f"'{item['name']}' checked off."
-
-
-@tool
-def get_habits_with_streaks(
-    state: InjectedAgentState = None,
-) -> str:
-    """Get all tracked habits with current streaks and today's completion status."""
-    memory = _memory_for_state(state)
-    habits = memory.get_habits()
-    if not habits:
-        return "No habits tracked yet. Use create_habit to add one."
-    lines = []
-    for h in habits:
-        status = "done" if h.get("done_today") else "pending"
-        lines.append(
-            f"- {h['name']} [{status}] streak: {h.get('streak', 0)} days"
-            f" | {h.get('category', '')} | {h.get('target_days', '')}"
-        )
-    return "Habits:\n" + "\n".join(lines)
-
-
-@tool
-def log_nutrition(
-    meal: str,
-    description: str,
-    calories_est: int = 0,
-    protein_est: int = 0,
-    state: InjectedAgentState = None,
-) -> str:
-    """Log a meal. Meal should be: breakfast, lunch, dinner, or snack. Estimates in kcal/g."""
-    memory = _memory_for_state(state)
-    item = memory.log_nutrition(
-        meal=meal,
-        description=description,
-        calories_est=calories_est,
-        protein_est=protein_est,
-    )
-    return f"I've logged your {item['meal']}: {item['description']}."
-
-
-@tool
-def log_water(
-    glasses: int = 1,
-    state: InjectedAgentState = None,
-) -> str:
-    """Log glasses of water consumed today. Increments today's running count."""
-    memory = _memory_for_state(state)
-    total = memory.log_water(glasses)
-    return f"Water logged — {total} glass(es) today."
-
-
-@tool
-def get_today_summary(
-    state: InjectedAgentState = None,
-) -> str:
-    """Get a full summary of today: habits, workout, body metrics, water, and nutrition."""
-    memory = _memory_for_state(state)
-    s = memory.get_today_summary()
-    parts = [f"Today ({s['date']}):"]
-    if s["habits_total"] > 0:
-        parts.append(f"Habits: {s['habits_done']}/{s['habits_total']} done")
-        if s["habits_done_names"]:
-            parts.append(f"  Done: {', '.join(s['habits_done_names'])}")
-        if s["habits_pending_names"]:
-            parts.append(f"  Pending: {', '.join(s['habits_pending_names'])}")
-    parts.append(f"Water: {s['water_glasses']} glasses")
-    if s["body_metrics"]:
-        m = s["body_metrics"]
-        metric_parts = []
-        if m.get("weight_kg"):
-            metric_parts.append(f"weight {m['weight_kg']}kg")
-        if m.get("sleep_hours"):
-            metric_parts.append(f"sleep {m['sleep_hours']}h")
-        if m.get("sleep_quality"):
-            metric_parts.append(f"sleep quality {m['sleep_quality']}/5")
-        if m.get("energy"):
-            metric_parts.append(f"energy {m['energy']}/5")
-        if m.get("stress"):
-            metric_parts.append(f"stress {m['stress']}/5")
-        if m.get("soreness"):
-            metric_parts.append(f"soreness {m['soreness']}/5")
-        if m.get("resting_hr"):
-            metric_parts.append(f"resting HR {m['resting_hr']}")
-        if m.get("steps"):
-            metric_parts.append(f"steps {m['steps']}")
-        if metric_parts:
-            parts.append("Body: " + ", ".join(metric_parts))
-    else:
-        parts.append("Body metrics: not logged today")
-    if s["workout"]:
-        parts.append(f"Workout: {s['workout']['plan_name']} ({s['workout']['duration_min']} min)")
-    else:
-        parts.append("Workout: not logged today")
-    if s["meals_logged"] > 0:
-        parts.append(f"Nutrition: {s['meals_logged']} meals, ~{s['calories_est']} kcal, ~{s['protein_est']}g protein")
-    return "\n".join(parts)
-
-
-@tool
-def get_recovery_readiness_summary(
-    state: InjectedAgentState = None,
-) -> str:
-    """Get June's derived recovery and readiness summary."""
-    memory = _memory_for_state(state)
-    summary = build_recovery_readiness_summary(memory)
-    return format_recovery_readiness_summary(summary)
-
-
-@tool
 def get_active_commitments_summary(
     state: InjectedAgentState = None,
 ) -> str:
@@ -818,144 +446,6 @@ def get_active_commitments_summary(
     memory = _memory_for_state(state)
     summary = build_active_commitments_summary(memory)
     return format_active_commitments_summary(summary)
-
-
-@tool
-def check_chapter_completeness(
-    state: InjectedAgentState = None,
-) -> str:
-    """Check which of June's chapters have data and which are empty.
-
-    Use this at the start of a conversation or when deciding what to ask about next.
-    Chapters: Calendar, Gym Schedule, Food Schedule, Birthdays, Trips,
-    Goals & Plans, Dating/Love, Family, Habits, Body Metrics.
-    """
-    memory = _memory_for_state(state)
-    c = memory.get_chapter_completeness()
-    empty = memory.get_chapters_needing_attention()
-
-    rows = [
-        ("Calendar",       c["calendar"]),
-        ("Birthdays",      c["birthdays"]),
-        ("Trips",          c["trips"]),
-        ("Gym Schedule",   c["gym"]),
-        ("Food Schedule",  c["food"]),
-        ("Goals",          c["goals"]),
-        ("Open Loops",     c["open_loops"]),
-        ("Dating/Love",    c["dating"]),
-        ("Family",         c["family"]),
-        ("Habits",         c["habits"]),
-        ("Body Metrics",   c["body_metrics"]),
-        ("Workout Sessions", c["workout_sessions"]),
-    ]
-    lines = ["Chapter completeness:"]
-    for label, count in rows:
-        status = "EMPTY — needs data" if count == 0 else f"{count} item(s)"
-        lines.append(f"  {label}: {status}")
-
-    if empty:
-        lines.append(f"\nEmpty chapters: {', '.join(empty)}")
-        lines.append("Ask the user about these to keep their profile complete.")
-    else:
-        lines.append("\nAll chapters have at least some data.")
-    return "\n".join(lines)
-
-
-_CHAPTER_INTAKE_PROMPTS: dict[str, str] = {
-    "calendar": (
-        "Ask the user:\n"
-        "- What events, appointments, or commitments are coming up in the next 2-4 weeks?\n"
-        "- Any recurring weekly commitments (work, classes, regular plans)?\n"
-        "- Any important personal dates or annual events?\n"
-        "Save each confirmed item with save_calendar_item (date YYYY-MM-DD, title, details)."
-    ),
-    "gym": (
-        "Ask the user:\n"
-        "- What does your training week look like? (push/pull/legs, upper/lower, full body, etc.)\n"
-        "- How many days per week and which days?\n"
-        "- What is your main training goal? (strength, muscle, fat loss, endurance)\n"
-        "- Any specific program or methodology you follow?\n"
-        "Save the full weekly structure with save_gym_plan."
-    ),
-    "food": (
-        "Ask the user:\n"
-        "- What is your current nutrition approach? (high protein, deficit, maintenance, intuitive)\n"
-        "- What does a typical day of eating look like?\n"
-        "- Any dietary restrictions, intolerances, or foods you avoid?\n"
-        "- What are your main nutrition goals?\n"
-        "Save the structure and goal with save_food_program."
-    ),
-    "birthdays": (
-        "Ask the user:\n"
-        "- Whose birthdays do you want to remember? (family, partner, close friends)\n"
-        "- For each person: name, relationship, and birth date (MM-DD is fine if year unknown)\n"
-        "- Any anniversaries or recurring personal dates to add?\n"
-        "Save each with save_calendar_item — include 'birthday' in the title."
-    ),
-    "trips": (
-        "Ask the user:\n"
-        "- Any travel planned in the next 3-6 months?\n"
-        "- For each: destination, rough dates, and purpose (holiday, work, family visit)\n"
-        "- Any regular travel patterns for work or personal reasons?\n"
-        "Save each with save_calendar_item — include 'trip' or 'travel' in the details."
-    ),
-    "plans": (
-        "Ask the user:\n"
-        "- What are your 2-3 most important goals right now? (health, career, personal growth)\n"
-        "- What is the next concrete step for each goal?\n"
-        "- Is there anything you have been meaning to do or follow up on?\n"
-        "- Any decisions you are sitting on?\n"
-        "Save goals with track_goal (category, next_step). Save follow-ups with save_open_loop."
-    ),
-    "dating": (
-        "Ask the user:\n"
-        "- Are you currently in a relationship? If so, what context would help me support you?\n"
-        "- Are you dating? Any patterns, preferences, or situations worth remembering?\n"
-        "- Is there anything about your romantic life that affects your plans or emotional state?\n"
-        "Save with save_relationship_profile (relationship type: partner/dating/etc.)."
-    ),
-    "family": (
-        "Ask the user:\n"
-        "- Who are the key people in your family I should know about?\n"
-        "- For each: name, relationship (mother, brother, etc.), and any context?\n"
-        "- Any family situations or ongoing dynamics worth remembering?\n"
-        "Save each with save_relationship_profile."
-    ),
-    "habits": (
-        "Ask the user:\n"
-        "- What daily or weekly habits are you currently building or maintaining?\n"
-        "- Which ones are non-negotiable in your routine?\n"
-        "- Are there habits you want to start being consistent about?\n"
-        "For each habit: ask name, category (health/sport/focus/nutrition), and frequency.\n"
-        "Create each with create_habit."
-    ),
-    "body": (
-        "Ask the user:\n"
-        "- What is your current weight?\n"
-        "- How many hours of sleep are you getting, and how is the quality?\n"
-        "- How would you rate your energy, stress, and soreness this week (1 to 5)?\n"
-        "- If you know it, what are your resting heart rate and daily steps looking like?\n"
-        "Log with log_body_metrics."
-    ),
-}
-
-
-@tool
-def ask_about_chapter(
-    chapter: str,
-    state: InjectedAgentState = None,
-) -> str:
-    """Get a structured intake prompt to gather missing data for a specific chapter.
-
-    Valid chapters: calendar, gym, food, birthdays, trips, plans, dating, family, habits, body.
-    Use this when a chapter is empty or needs an update, then ask the user the listed questions.
-    """
-    key = chapter.strip().lower()
-    prompt = _CHAPTER_INTAKE_PROMPTS.get(key)
-    if not prompt:
-        available = ", ".join(_CHAPTER_INTAKE_PROMPTS.keys())
-        return f"Unknown chapter '{chapter}'. Valid options: {available}."
-    return f"Intake prompt for '{key}':\n\n{prompt}"
 
 
 @tool
@@ -1111,130 +601,6 @@ def get_personal_context(
 
 
 @tool
-def generate_weekly_summary(
-    state: InjectedAgentState = None,
-) -> str:
-    """Generate a personal weekly review covering workouts, habits, goals, body metrics, mood, and calendar.
-
-    Saves the result as a journal entry and returns a markdown-formatted summary.
-    Trigger when the user asks for a week summary, weekly review, or 'how was my week'.
-    """
-    from datetime import date, timedelta
-
-    memory = _memory_for_state(state)
-    today = date.today()
-    week_ago = today - timedelta(days=7)
-    sections: list[str] = [f"## Weekly Review — {week_ago.isoformat()} to {today.isoformat()}\n"]
-
-    # Workouts
-    sessions = memory.get_workout_sessions(limit=20)
-    recent_sessions = [s for s in sessions if s.get("date", "") >= week_ago.isoformat()]
-    if recent_sessions:
-        avg_energy = sum(s.get("energy_rating", 0) for s in recent_sessions) / len(recent_sessions)
-        types = list({s.get("plan_name", "session") for s in recent_sessions})
-        sections.append(
-            f"### Workouts\n{len(recent_sessions)} session(s): {', '.join(types)}. "
-            f"Avg energy: {avg_energy:.1f}/5."
-        )
-    else:
-        sections.append("### Workouts\nNo sessions logged this week.")
-
-    # Habits
-    habits = memory.get_habits()
-    if habits:
-        habit_lines = []
-        for h in habits:
-            completions = h.get("completions", [])
-            week_completions = [c for c in completions if c >= week_ago.isoformat()]
-            rate = int(len(week_completions) / 7 * 100)
-            habit_lines.append(f"- {h['name']}: {rate}% ({len(week_completions)}/7 days)")
-        sections.append("### Habits\n" + "\n".join(habit_lines))
-    else:
-        sections.append("### Habits\nNo habits tracked yet.")
-
-    # Goals
-    goals = memory.get_goals(status="active")
-    updated_goals = [g for g in goals if g.get("updated_at", "") >= week_ago.isoformat()]
-    if updated_goals:
-        g_lines = [f"- {g['title']} ({g.get('status', 'active')})" for g in updated_goals]
-        sections.append("### Goals progressed this week\n" + "\n".join(g_lines))
-    elif goals:
-        sections.append(f"### Goals\n{len(goals)} active goal(s), none updated this week.")
-    else:
-        sections.append("### Goals\nNo active goals.")
-
-    # Body metrics
-    metrics = memory.get_body_metrics(days=7)
-    if metrics:
-        def _avg(field: str) -> float | None:
-            vals = [m[field] for m in metrics if m.get(field)]
-            return sum(vals) / len(vals) if vals else None
-
-        body_parts = []
-        if _avg("sleep_hours") is not None:
-            body_parts.append(f"avg sleep {_avg('sleep_hours'):.1f}h")
-        if _avg("energy") is not None:
-            body_parts.append(f"avg energy {_avg('energy'):.1f}/5")
-        if _avg("stress") is not None:
-            body_parts.append(f"avg stress {_avg('stress'):.1f}/5")
-        if body_parts:
-            sections.append("### Body\n" + ", ".join(body_parts))
-    else:
-        sections.append("### Body\nNo body metrics logged this week.")
-
-    # Calendar highlights
-    cal_items = memory.get_calendar_items(limit=50)
-    week_events = [
-        c for c in cal_items
-        if week_ago.isoformat() <= c.get("date", "") <= today.isoformat()
-    ]
-    if week_events:
-        ev_lines = [f"- {e.get('title', '')} ({e.get('date', '')})" for e in week_events[:5]]
-        sections.append("### Calendar\n" + "\n".join(ev_lines))
-
-    # Mood
-    moods = memory.get_mood_history(limit=7)
-    if moods:
-        mood_vals = [m.get("mood", "") for m in moods if m.get("mood")]
-        if mood_vals:
-            sections.append("### Mood\n" + ", ".join(mood_vals[:5]))
-
-    summary_text = "\n\n".join(sections)
-
-    # Save as journal entry
-    try:
-        memory.save_journal(f"[Weekly Review]\n{summary_text}")
-    except Exception:
-        logger.exception("weekly summary journal save failed")
-
-    return summary_text
-
-
-JUNE_TOOLS_CORE = [
-    log_mood,
-    save_journal_entry,
-    track_goal,
-    update_goal_status,
-    save_open_loop,
-    update_open_loop_status,
-    save_calendar_item,
-    list_calendar_items,
-    update_calendar_item_status,
-    save_user_preference,
-    log_body_metrics,
-    log_workout_session,
-    log_habit_completion,
-    create_habit,
-    log_nutrition,
-    log_water,
-]
-
-# ---------------------------------------------------------------------------
-# Diagnostics
-# ---------------------------------------------------------------------------
-
-
-@tool
 def run_diagnostics() -> str:
     """Run system diagnostics: check providers, memory, tools, skills, router, and scheduler. Reports what works and what doesn't."""
     from june_brain.self_test import format_markdown, run_all
@@ -1248,7 +614,6 @@ def run_diagnostics() -> str:
 # Drops list_*, weekly_summary, and multi-step reasoning tools
 # that inflate the tool-schema tokens and hurt small-model reliability.
 JUNE_TOOLS_GEMMA = [
-    log_mood,
     save_journal_entry,
     save_relationship_profile,
     track_goal,
@@ -1258,16 +623,7 @@ JUNE_TOOLS_GEMMA = [
     save_calendar_item,
     update_calendar_item_status,
     save_user_preference,
-    save_gym_plan,
-    save_food_program,
     save_favorite_recommendation,
-    log_workout_session,
-    log_body_metrics,
-    create_habit,
-    log_habit_completion,
-    log_nutrition,
-    log_water,
-    get_today_summary,
     run_diagnostics,
 ]
 
@@ -1357,8 +713,6 @@ def delete_schedule(
     return f"Schedule {schedule_id} not found."
 
 JUNE_TOOLS = [
-    log_mood,
-    get_mood_history,
     save_journal_entry,
     get_journal,
     save_relationship_profile,
@@ -1376,32 +730,12 @@ JUNE_TOOLS = [
     update_calendar_item_status,
     save_favorite_recommendation,
     list_favorites,
-    save_gym_plan,
-    list_gym_plans,
-    save_food_program,
-    list_food_programs,
-    log_workout_session,
-    log_body_metrics,
-    create_habit,
-    log_habit_completion,
-    get_habits_with_streaks,
-    log_nutrition,
-    log_water,
-    get_today_summary,
-    get_recovery_readiness_summary,
     get_active_commitments_summary,
-    summarize_progress,
     get_runtime_privacy_status,
     preview_runtime_preset_switch,
     switch_runtime_preset,
-    analyze_compatibility,
-    generate_conversation_starters,
     draft_reply,
-    plan_difficult_conversation,
-    check_chapter_completeness,
-    ask_about_chapter,
     get_personal_context,
-    generate_weekly_summary,
     create_schedule,
     list_schedules,
     delete_schedule,

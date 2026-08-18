@@ -67,30 +67,6 @@ def test_track_goal_persists_to_sqlite(tmp_path):
     assert match["category"] == "fitness"
 
 
-def test_log_workout_session_persists_to_sqlite(tmp_path):
-    """A log_workout_session tool call is readable from a separate Memory instance."""
-    user_id = "workout_user"
-
-    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
-        _invoke(
-            "log_workout_session",
-            {
-                "plan_name": "Push Day",
-                "exercises": "Bench press 4x8, OHP 3x10, Tricep dips 3x12",
-                "duration_min": 55,
-                "energy_rating": 4,
-                "notes": "Felt strong today",
-            },
-            user_id,
-        )
-        mem = Memory(user_id)
-        sessions = mem.get_workout_sessions(limit=10)
-
-    assert sessions, "No workout session saved"
-    assert sessions[0]["plan_name"] == "Push Day"
-    assert sessions[0]["duration_min"] == 55
-    assert sessions[0]["energy_rating"] == 4
-
 
 def test_save_open_loop_persists_to_sqlite(tmp_path):
     """A save_open_loop tool call is readable from a separate Memory instance."""

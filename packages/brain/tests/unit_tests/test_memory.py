@@ -8,16 +8,9 @@ from june_brain.memory import Memory
 from june_brain.tools import (
     list_calendar_items,
     list_favorites,
-    list_food_programs,
-    list_gym_plans,
-    log_habit_completion,
-    log_mood,
     save_calendar_item,
     save_favorite_recommendation,
-    save_food_program,
-    save_gym_plan,
     save_user_preference,
-    summarize_progress,
     update_calendar_item_status,
     update_goal_status,
     update_open_loop_status,
@@ -74,15 +67,6 @@ def test_chat_history_is_durable_across_instances(memory_dir):
     assert history[0]["content"] == "hello"
 
 
-def test_log_and_get_mood(mem):
-    mem.log_mood("happy", "great day")
-    mem.log_mood("anxious", "big meeting")
-    moods = mem.get_mood_history()
-    assert len(moods) == 2
-    assert moods[0]["mood"] == "happy"
-    assert moods[1]["note"] == "big meeting"
-
-
 def test_save_calendar_items_are_sorted(mem):
     today = date.today()
     mem.save_calendar_item("Old item", (today - timedelta(days=30)).isoformat(), "09:00")
@@ -101,29 +85,6 @@ def test_save_preferences_and_favorites(mem):
     favorites = mem.get_favorites()
     assert preferences[0]["value"] == "literary fiction"
     assert favorites[0]["title"] == "Past Lives"
-
-
-def test_save_gym_and_food_programs(mem):
-    mem.save_gym_plan("Spring Split", "Mon push, Wed pull, Fri legs", goal="build muscle")
-    mem.save_food_program("Cut Phase", "fat loss", "High protein lunch and dinner")
-    gym_plans = mem.get_gym_plans()
-    food_programs = mem.get_food_programs()
-    assert gym_plans[0]["goal"] == "build muscle"
-    assert food_programs[0]["daily_structure"] == "High protein lunch and dinner"
-
-
-def test_progress_snapshot_includes_new_surfaces(mem):
-    mem.save_preference("movie", "slow cinema")
-    mem.save_calendar_item("Dentist", "2026-05-01")
-    mem.save_favorite("book", "The Neapolitan Novels")
-    mem.save_gym_plan("Base", "Tue and Thu full body")
-    mem.save_food_program("Maintenance", "energy", "3 meals and 1 snack")
-    snapshot = mem.get_progress_snapshot()
-    assert snapshot["preference_count"] == 1
-    assert snapshot["calendar_count"] == 1
-    assert snapshot["favorite_count"] == 1
-    assert snapshot["gym_plan_count"] == 1
-    assert snapshot["food_program_count"] == 1
 
 
 def test_daily_checkin_state(mem):
@@ -162,6 +123,19 @@ def test_status_transition_methods(mem):
     assert loop["status"] == "closed"
 
 
+@pytest.fixture
+def tool_state():
+    """Minimal AgentState for direct tool invocation.
+
+    ``ui_state`` went with the no-op workspace tools (D.5a); what remains is the
+    identity a tool needs to reach the right user's store.
+    """
+    return {
+        "messages": [],
+        "user_id": "test_user",
+        "skill": "assistant",
+    }
+
 def test_status_transition_tools(tool_state, mem):
     mem.save_calendar_item("Dentist", "2026-04-02")
     mem.save_goal("Write proposal")
@@ -190,62 +164,6 @@ def test_status_transition_tools(tool_state, mem):
     assert mem.get_calendar_items(status="completed")[0]["title"] == "Dentist"
     assert mem.get_goals(status="completed")[0]["title"] == "Write proposal"
     assert mem.get_open_loops(status="resolved")[0]["topic"] == "Book train"
-
-
-def test_habit_streak_is_reported_by_memory_and_tool(tool_state, mem):
-    yesterday = (date.today() - timedelta(days=1)).isoformat()
-    mem.log_habit_completion("Meditate", date_str=yesterday)
-
-    habit = mem.log_habit_completion("Meditate")
-    result = log_habit_completion.func(habit_name="Meditate", state=tool_state)
-
-    assert habit["streak"] == 2
-    assert "2" in result and ("streak" in result.lower() or "Streak" in result or "done" in result.lower())
-
-
-def test_body_metrics_store_detailed_fields(mem):
-    item = mem.log_body_metrics(
-        weight_kg=82.4,
-        sleep_hours=7.5,
-        sleep_quality=4,
-        energy=3,
-        stress=2,
-        soreness=1,
-        resting_hr=56,
-        steps=9876,
-        notes="Recovered better than expected.",
-    )
-
-    assert item["sleep_quality"] == 4
-    assert item["stress"] == 2
-    assert item["soreness"] == 1
-    assert item["resting_hr"] == 56
-    assert item["steps"] == 9876
-    assert mem.get_today_summary()["body_metrics"]["notes"] == "Recovered better than expected."
-
-
-@pytest.fixture
-def tool_state():
-    return {
-        "messages": [],
-        "user_id": "test_user",
-        "skill": "assistant",
-        "ui_state": {
-            "layout": "split",
-            "selected_chapter": "",
-            "focus_title": "Workspace",
-            "focus_body": "",
-            "checklist_title": "Next steps",
-            "checklist_items": [],
-            "notice": "",
-        },
-    }
-
-
-def test_log_mood_tool(tool_state, mem):
-    result = log_mood.func(mood="calm", note="quiet morning", state=tool_state)
-    assert "calm" in result
-    assert len(mem.get_mood_history()) == 1
 
 
 def test_preference_tool(tool_state, mem):
@@ -280,38 +198,4 @@ def test_calendar_and_favorites_tools(tool_state):
     assert "Perfect Days" in favorite_result or "movie" in favorite_result.lower()
     assert "Pick up dry cleaning" in calendar
     assert "Perfect Days" in favorites
-
-
-def test_wellness_tools(tool_state):
-    gym_result = save_gym_plan.func(
-        name="Lean Gain",
-        schedule="Mon upper, Wed lower, Sat full body",
-        goal="muscle",
-        state=tool_state,
-    )
-    food_result = save_food_program.func(
-        name="Workday Fuel",
-        goal="steady energy",
-        daily_structure="Protein breakfast, light lunch, solid dinner",
-        state=tool_state,
-    )
-    gym = list_gym_plans.func(state=tool_state)
-    food = list_food_programs.func(state=tool_state)
-    assert "Lean Gain" in gym_result or "gym plan" in gym_result.lower()
-    assert "Workday Fuel" in food_result or "food program" in food_result.lower()
-    assert "Lean Gain" in gym
-    assert "Workday Fuel" in food
-
-
-def test_summarize_progress_tool(tool_state, mem):
-    mem.log_mood("steady", "less reactive than last week")
-    mem.save_calendar_item("Design review", "2026-03-20")
-    mem.save_favorite("book", "Stoner")
-    result = summarize_progress.func(state=tool_state)
-    assert "Progress snapshot" in result
-    assert "Latest mood: steady" in result
-    assert "Calendar items: 1" in result
-
-
-
 

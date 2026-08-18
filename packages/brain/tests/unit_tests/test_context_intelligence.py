@@ -6,17 +6,11 @@ from unittest.mock import patch
 import pytest
 from june_brain.context_intelligence import (
     build_active_commitments_summary,
-    build_recovery_readiness_summary,
     format_active_commitments_summary,
-    format_recovery_readiness_summary,
 )
 from june_brain.memory import Memory
 from june_brain.skills import build_system_prompt
-from june_brain.tools import (
-    JUNE_TOOLS,
-    get_active_commitments_summary,
-    get_recovery_readiness_summary,
-)
+from june_brain.tools import JUNE_TOOLS, get_active_commitments_summary
 
 
 @pytest.fixture
@@ -49,45 +43,6 @@ def tool_state():
         },
     }
 
-
-def test_recovery_summary_uses_recent_body_and_daily_signals(mem):
-    mem.log_body_metrics(
-        weight_kg=82.4,
-        sleep_hours=7.5,
-        sleep_quality=4,
-        energy=4,
-        stress=1,
-        soreness=1,
-        resting_hr=56,
-        steps=9876,
-        notes="Recovered well.",
-    )
-    mem.log_workout_session(
-        plan_name="Upper",
-        exercises="Bench, row, press",
-        duration_min=45,
-        energy_rating=4,
-    )
-    mem.log_nutrition("breakfast", "eggs and oats", calories_est=450, protein_est=30)
-    mem.log_nutrition("dinner", "chicken and rice", calories_est=700, protein_est=50)
-    mem.log_water(6)
-    mem.create_or_update_habit("Walk", target_days="daily")
-    mem.log_habit_completion("Walk")
-    mem.create_or_update_habit("Read", target_days="daily")
-
-    summary = build_recovery_readiness_summary(mem)
-    text = format_recovery_readiness_summary(summary)
-
-    assert summary["readiness_label"] == "ready"
-    assert summary["readiness_score"] >= 75
-    assert summary["body_source"] == "today"
-    assert summary["water_glasses"] == 6
-    assert summary["habits_done"] == 1
-    assert summary["habits_pending"] == ["Read"]
-    assert "Recovery readiness" in text
-    assert "sleep 7.5h" in text
-    assert "Water: 6 glasses" in text
-    assert "Habits: 1/2 done" in text
 
 
 def test_commitments_summary_unifies_calendar_goals_loops_and_habits(mem):
@@ -128,20 +83,20 @@ def test_commitments_summary_unifies_calendar_goals_loops_and_habits(mem):
     assert "Habits pending today:" in text
 
 
-def test_tools_and_prompt_reference_new_summaries(mem, tool_state):
-    mem.log_body_metrics(sleep_hours=7.0, energy=4, stress=1, soreness=1, steps=8000)
+def test_commitments_tool_and_prompt_stay_wired(mem, tool_state):
+    """The recovery half of this test went with the health tools (D.5a).
+
+    Active commitments survives into tranche 2 pending a decision on the
+    calendar/goals/open-loops cluster, so its wiring is still asserted.
+    """
     mem.save_calendar_item("Standup", (date.today() + timedelta(days=1)).isoformat())
     mem.save_goal("Ship draft", next_step="Finish outline")
 
     tool_names = {tool.name for tool in JUNE_TOOLS}
-    assert "get_recovery_readiness_summary" in tool_names
     assert "get_active_commitments_summary" in tool_names
 
-    recovery_text = get_recovery_readiness_summary.func(state=tool_state)
     commitments_text = get_active_commitments_summary.func(state=tool_state)
     prompt = build_system_prompt("assistant")
 
-    assert "Recovery readiness" in recovery_text
     assert "Active commitments" in commitments_text
-    assert "get_recovery_readiness_summary" in prompt
     assert "get_active_commitments_summary" in prompt
