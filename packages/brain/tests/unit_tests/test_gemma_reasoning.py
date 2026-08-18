@@ -94,7 +94,15 @@ def test_generate_without_reasoning_unchanged() -> None:
     assert result.text == "plain answer"
 
 
-def test_stream_forwards_tool_specs() -> None:
+def test_stream_withholds_tool_specs() -> None:
+    """stream() must not forward tools to the model (D.4a).
+
+    generate() still does — it returns a GenerateResult that carries
+    `tool_calls`, so a native call has somewhere to go. stream() yields `str`
+    and reads only `delta.content`, so `delta.tool_calls` would be dropped: the
+    turn ends with no text and no dispatch. Until the seam is typed (D.4b),
+    not advertising is the honest position.
+    """
     provider = GemmaProvider(model_id="gemma4:e2b", base_url="http://x/v1", tier="local-fast")
     req = GenerateRequest(
         messages=[Message(role="user", content="hi")],
@@ -117,17 +125,7 @@ def test_stream_forwards_tool_specs() -> None:
         assert asyncio.run(drain()) == "ok"
 
     kwargs = fake.chat.completions.create.call_args.kwargs
-    assert kwargs["tools"] == [
-        {
-            "type": "function",
-            "function": {
-                "name": "get_weather",
-                "description": "Look up weather.",
-                "parameters": {"type": "object", "properties": {}},
-            },
-        }
-    ]
-
+    assert "tools" not in kwargs
 
 def test_stream_reasoning_splits_correctly_via_splitter() -> None:
     """End-to-end: stream output feeds through ReasoningSplitter and separates correctly."""

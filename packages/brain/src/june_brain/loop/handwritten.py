@@ -534,11 +534,15 @@ class HandwrittenLoop:
             splitter = ReasoningSplitter()
 
             try:
+                # No `tools=` on the streaming seam (D.4a): provider.stream()
+                # yields str, so a native tool call has nowhere to go and the
+                # turn ends blank with the tool never dispatched. The
+                # prompt-advertised prose-JSON path drives tools here until
+                # D.4b widens the seam to a typed delta.
                 async for delta in provider.stream(
                     GenerateRequest(
                         messages=ctx,
                         max_tokens=_MAX_TOKENS,
-                        tools=self._tool_specs or None,
                     )
                 ):
                     # Feed delta through the reasoning splitter first. Reasoning
@@ -615,11 +619,13 @@ class HandwrittenLoop:
             except Exception:
                 # Stream failed — fall back to a single generate call
                 try:
+                    # Also no `tools=` (D.4a): this fallback reads only
+                    # result.text, so a native call would be dropped exactly as
+                    # it is on the stream above.
                     result = await provider.generate(
                         GenerateRequest(
                             messages=ctx,
                             max_tokens=_MAX_TOKENS,
-                            tools=self._tool_specs or None,
                         )
                     )
                     tokens.input_tokens += result.input_tokens

@@ -18,8 +18,8 @@ archived). Updated as workstreams land.
   [plan](product/v0.4-development-plan.md). Work the slices in order; each is
   independently landable (one slice -> `check.sh` green -> one commit -> push),
   and each slice's own **Status** line records where it stopped.
-  **D.1, D.2 and D.3 are done.** Next up is **D.4a** (stop advertising tools on
-  a seam that cannot carry them), then D.4b, D.5a-d, D.6.
+  **D.1, D.2, D.3 and D.4a are done.** Next up is **D.4b** (typed stream delta;
+  retire `run_turn`), then D.5a-d and D.6.
   Launch (Phase 7) remains gated behind D: 7.1, 7.2 and 7.4 are done, and the
   remaining blockers are the 240MB `.git` rewrite (7.0/B.1 — needs a quiet tree,
   it force-pushes `main`) and cutting the release (7.3, blocked on repo workflow

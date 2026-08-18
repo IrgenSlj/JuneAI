@@ -124,8 +124,15 @@ class GemmaProvider:
             kwargs["stop"] = req.stop
         if req.response_format == "json":
             kwargs["response_format"] = {"type": "json_object"}
-        if req.tools:
-            kwargs["tools"] = tool_specs_to_openai(req.tools)
+        # `req.tools` is deliberately NOT forwarded here (D.4a). This method
+        # yields `str`, so a native tool call has nowhere to go: the model
+        # returns tool_calls with empty content, nothing is yielded, and the
+        # caller sees a finished turn with no text and no dispatch — a blank
+        # reply and a tool that silently did not run. Advertising the tools is
+        # what invites that, so we stop advertising until the seam can carry
+        # them (D.4b makes stream() yield a typed delta). The prompt-advertised
+        # prose-JSON path in the loop is unaffected and remains the tool path
+        # for streaming.
 
         response = await client.chat.completions.create(**kwargs)
         in_think = False

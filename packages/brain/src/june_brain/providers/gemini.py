@@ -98,8 +98,7 @@ class GeminiProvider:
             kwargs["stop"] = req.stop
         if req.response_format == "json":
             kwargs["response_format"] = {"type": "json_object"}
-        if req.tools:
-            kwargs["tools"] = tool_specs_to_openai(req.tools)
+        # Not forwarded on the streaming path — see GemmaProvider.stream (D.4a).
 
         summary = self._payload_summary(req)
         record_cloud_call(CloudCallEvent(model_id=self.model_id, phase="start", payload_summary=summary))

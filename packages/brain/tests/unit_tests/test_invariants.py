@@ -135,3 +135,71 @@ def test_outbound_writes_count_as_egress() -> None:
     assert is_network_tool("send_telegram_message") is True
     assert is_network_tool("email_summary") is True
     assert is_network_tool("save_journal_entry") is False
+
+
+# ---------------------------------------------------------------------------
+# Invariant: a seam only advertises what it can carry.
+#
+# Provider.stream() yields str. A model that accepts an advertised tool returns
+# tool_calls with empty content, so nothing streams, nothing dispatches, and the
+# user gets a blank reply. Until stream() yields a typed delta (D.4b), the
+# streaming path must not advertise tools (D.4a).
+# ---------------------------------------------------------------------------
+
+
+def test_stream_turn_does_not_advertise_tools_it_cannot_receive() -> None:
+    import asyncio
+
+    from june_brain.loop.handwritten import HandwrittenLoop
+    from june_brain.loop.interface import SessionState
+    from june_brain.providers.base import Message, ProviderHealth
+    from june_brain.providers.registry import ProviderRegistry
+    from june_brain.router.difficulty import DifficultyResult
+
+    seen: list[object] = []
+
+    class RecordingProvider:
+        model_id = "mock"
+        tier = "local-fast"
+
+        async def generate(self, req):  # pragma: no cover - not reached
+            raise AssertionError("stream path should not call generate")
+
+        async def stream(self, req):
+            seen.append(req.tools)
+            yield "done"
+
+        async def health(self):  # pragma: no cover - unused
+            return ProviderHealth(reachable=True)
+
+    async def classify(_text):
+        return DifficultyResult("standard", "heuristic")
+
+    async def no_compact(_session):
+        return False
+
+    registry = ProviderRegistry(toml_data={"roles": {}, "providers": {}})
+    registry.register("local-fast", RecordingProvider())
+
+    loop = HandwrittenLoop(
+        registry=registry,
+        role="local-fast",
+        assemble_context=lambda s, m: [m],
+        extract_tool_calls=lambda r: [],
+        dispatch=None,
+        maybe_compact=no_compact,
+        classify=classify,
+    )
+
+    async def drain():
+        async for _ in loop.stream_turn(
+            SessionState(user_id="u", messages=[]),
+            Message(role="user", content="hi"),
+        ):
+            pass
+
+    asyncio.run(drain())
+    assert seen, "provider.stream was never called"
+    assert all(t is None for t in seen), (
+        f"stream_turn advertised tools on a seam that cannot return them: {seen}"
+    )
