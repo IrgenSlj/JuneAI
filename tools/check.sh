@@ -56,6 +56,24 @@ echo "==> Ruff lint"
 echo "==> Doc hygiene (banned stale tokens in README.md, docs/CURRENT.md)"
 "$PYTHON_BIN" tools/check_doc_hygiene.py
 
+# One privacy predicate (D.2). `get_privacy_dial` is the raw config read; the
+# decision "may this leave the machine?" belongs to june_brain/privacy.py, which
+# fails closed. Three copies of that decision existed before and two of them had
+# drifted to fail *open* — the kind of divergence that does not show up where
+# anyone is looking. Reading the dial to *display* it is fine, so the settings
+# and system routes are allowed; anything else must go through privacy.py.
+echo "==> One privacy predicate (get_privacy_dial callers)"
+dial_callers="$(grep -rln 'get_privacy_dial' \
+  --include='*.py' packages/brain/src packages/api/src \
+  | grep -vE '(june_brain/privacy\.py|june_brain/config_store\.py|june_api/routes/settings\.py|june_api/routes/system\.py)$' \
+  || true)"
+if [ -n "$dial_callers" ]; then
+  echo "error: get_privacy_dial read outside june_brain/privacy.py:" >&2
+  echo "$dial_callers" >&2
+  echo "       use privacy.local_only() / egress_permitted() — it fails closed." >&2
+  exit 1
+fi
+
 if [ "${JUNE_CHECK_MYPY:-1}" = "1" ]; then
   # Narrow mypy gate: the codebase is not fully annotated, so a full strict run
   # is noisy (~270 errors, mostly missing generics). These two codes, however,

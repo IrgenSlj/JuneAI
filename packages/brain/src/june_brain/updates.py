@@ -106,13 +106,11 @@ def _record_check(now: float) -> None:
 
 
 def _local_only() -> bool:
-    try:
-        from .config_store import get_privacy_dial
-        from .routing import UserPrivacyDial
+    """A config failure must not open the gate — see ``june_brain.privacy``,
+    which now owns this rule for every caller."""
+    from .privacy import local_only
 
-        return get_privacy_dial() == UserPrivacyDial.LOCAL_ONLY
-    except Exception:  # noqa: BLE001 - a config failure must not open the gate
-        return True
+    return local_only()
 
 
 def _ledger(outcome: str, latest: str | None) -> None:

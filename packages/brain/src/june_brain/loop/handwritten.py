@@ -197,15 +197,15 @@ class HandwrittenLoop:
 
     @staticmethod
     def _egress_blocked() -> bool:
-        """True when the user's privacy dial is Local-only — networked tools are
-        blocked and the loop offers to switch instead of silently egressing."""
-        try:
-            from june_brain.config_store import get_privacy_dial
-            from june_brain.routing import UserPrivacyDial
+        """True when networked tools are blocked — the loop offers to switch
+        instead of silently egressing.
 
-            return get_privacy_dial() == UserPrivacyDial.LOCAL_ONLY
-        except Exception:
-            return False
+        Delegates to ``june_brain.privacy``, which owns the predicate and fails
+        closed when the dial cannot be read.
+        """
+        from june_brain.privacy import local_only
+
+        return local_only()
 
     @staticmethod
     def _render_prompt(ctx: list[Message]) -> str:

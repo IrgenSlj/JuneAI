@@ -36,24 +36,24 @@ class CloudEgressBlockedError(Exception):
 
 
 def _privacy_dial_value() -> str:
-    """Best-effort read of the active privacy dial, for the ledger payload."""
-    try:
-        from june_brain.config_store import get_privacy_dial
+    """The active privacy dial, for the ledger payload.
 
-        return get_privacy_dial().value
-    except Exception:  # noqa: BLE001 - never let a dial read break a model call
-        return "unknown"
+    Records "unknown" rather than guessing — see ``june_brain.privacy``.
+    """
+    from june_brain.privacy import dial_value
+
+    return dial_value()
 
 
 def _is_local_only() -> bool:
-    """Return True if the privacy dial is set to LOCAL_ONLY."""
-    try:
-        from june_brain.config_store import get_privacy_dial
-        from june_brain.routing import UserPrivacyDial
+    """Return True if the privacy dial is set to LOCAL_ONLY, or unreadable.
 
-        return get_privacy_dial() == UserPrivacyDial.LOCAL_ONLY
-    except Exception:  # noqa: BLE001
-        return False
+    Delegates to ``june_brain.privacy``, which owns the predicate and fails
+    closed: an unreadable dial blocks the call rather than waving it through.
+    """
+    from june_brain.privacy import local_only
+
+    return local_only()
 
 
 def _record_egress_to_ledger(event: CloudCallEvent) -> None:

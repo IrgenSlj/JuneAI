@@ -60,12 +60,26 @@ class TestRecordCloudCallEnforcement:
             with pytest.raises(CloudEgressBlockedError, match="Switch to private_by_default"):
                 record_cloud_call(event)
 
-    def test_import_error_falls_back_to_not_local_only(self):
-        """If config_store is unavailable, _is_local_only returns False."""
+    def test_unreadable_dial_blocks_the_call(self):
+        """If the dial cannot be read, the cloud call is refused (D.2).
+
+        This test previously asserted the opposite — that an unreadable config
+        let the call through, filed under graceful degradation. That was the
+        wrong invariant for this seam. Degradation applies to features: when a
+        model-judgment feature fails, June does less and says so. This is a
+        safety check, and a safety check that cannot evaluate itself has not
+        established that the action is permitted.
+
+        The user-visible cost of the two failure directions is not symmetric. A
+        false "blocked" is a turn that degrades and explains itself. A false
+        "permitted" is data leaving a machine whose owner set the dial to stop
+        exactly that, with a provenance frame that does not mention it.
+        """
         event = CloudCallEvent(model_id="gemini-2.0-flash", phase="start", payload_summary="test")
         with patch(
             "june_brain.config_store.get_privacy_dial",
             side_effect=ImportError("no config"),
         ):
             with patch("june_brain.providers.provenance._record_egress_to_ledger"):
-                record_cloud_call(event)  # should not raise — graceful degradation
+                with pytest.raises(CloudEgressBlockedError):
+                    record_cloud_call(event)
