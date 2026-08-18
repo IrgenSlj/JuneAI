@@ -613,68 +613,6 @@ def plan_difficult_conversation(
 
 
 @tool
-def set_ui_focus(
-    title: str,
-    body: str,
-    footer: str = "",
-    state: InjectedAgentState = None,
-) -> str:
-    """Update the workspace focus panel with a title and body."""
-    focus_title = title.strip() or "Workspace"
-    return f"Workspace focus updated to '{focus_title}'."
-
-
-@tool
-def set_ui_checklist(
-    title: str,
-    items: str,
-    state: InjectedAgentState = None,
-) -> str:
-    """Update the workspace checklist with newline-separated items."""
-    checklist_items = [
-        item.strip("- ").strip()
-        for item in items.splitlines()
-        if item.strip()
-    ]
-    return f"Workspace checklist updated with {len(checklist_items)} items."
-
-
-@tool
-def set_ui_layout(
-    layout: str,
-    notice: str = "",
-    state: InjectedAgentState = None,
-) -> str:
-    """Set the workspace layout mode. Allowed values: split, focus, chat."""
-    chosen = layout.strip().lower()
-    if chosen not in {"split", "focus", "chat"}:
-        chosen = "split"
-    return f"Workspace layout set to '{chosen}'."
-
-
-@tool
-def set_ui_chapter(
-    chapter: str = "",
-    notice: str = "",
-    state: InjectedAgentState = None,
-) -> str:
-    """Open a chapter in the single-page right panel, or clear it to return to workspace."""
-    chosen = chapter.strip().lower()
-    if chosen and chosen not in UI_CHAPTERS:
-        chosen = ""
-    label = chosen or "workspace"
-    return f"UI focus switched to '{label}'."
-
-
-@tool
-def clear_ui_workspace(
-    state: InjectedAgentState = None,
-) -> str:
-    """Reset the workspace panel to its default state."""
-    return "Workspace reset to its default state."
-
-
-@tool
 def log_workout_session(
     plan_name: str,
     exercises: str = "",
@@ -1289,10 +1227,6 @@ JUNE_TOOLS_CORE = [
     create_habit,
     log_nutrition,
     log_water,
-    set_ui_chapter,
-    set_ui_focus,
-    set_ui_checklist,
-    clear_ui_workspace,
 ]
 
 # ---------------------------------------------------------------------------
@@ -1334,9 +1268,6 @@ JUNE_TOOLS_GEMMA = [
     log_nutrition,
     log_water,
     get_today_summary,
-    set_ui_chapter,
-    set_ui_focus,
-    set_ui_layout,
     run_diagnostics,
 ]
 
@@ -1467,11 +1398,6 @@ JUNE_TOOLS = [
     generate_conversation_starters,
     draft_reply,
     plan_difficult_conversation,
-    set_ui_focus,
-    set_ui_checklist,
-    set_ui_layout,
-    set_ui_chapter,
-    clear_ui_workspace,
     check_chapter_completeness,
     ask_about_chapter,
     get_personal_context,

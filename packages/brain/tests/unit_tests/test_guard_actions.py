@@ -25,7 +25,7 @@ def test_local_reads():
 def test_local_writes():
     assert classify_action("save_journal_entry") == "write_local"
     assert classify_action("log_mood") == "write_local"
-    assert classify_action("set_ui_focus") == "write_local"
+    assert classify_action("set_reminder_note") == "write_local"
     assert classify_action("delete_schedule") == "write_local"
 
 

@@ -49,7 +49,6 @@ WHEN TO USE TOOLS — only call a tool when the user explicitly shares a fact wo
 - Nutrition approach → save_food_program
 - Book, film, recommendation → save_favorite_recommendation
 - Something finished or cancelled → use the matching update_*_status tool
-- Topic is clearly one chapter → set_ui_chapter so the panel reflects it
 
 WHEN NOT TO USE TOOLS — respond directly (no tool call) for:
 - Greetings, casual chat, questions about yourself or capabilities

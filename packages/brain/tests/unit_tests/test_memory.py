@@ -6,7 +6,6 @@ from unittest.mock import patch
 import pytest
 from june_brain.memory import Memory
 from june_brain.tools import (
-    clear_ui_workspace,
     list_calendar_items,
     list_favorites,
     list_food_programs,
@@ -18,10 +17,6 @@ from june_brain.tools import (
     save_food_program,
     save_gym_plan,
     save_user_preference,
-    set_ui_chapter,
-    set_ui_checklist,
-    set_ui_focus,
-    set_ui_layout,
     summarize_progress,
     update_calendar_item_status,
     update_goal_status,
@@ -265,13 +260,6 @@ def test_preference_tool(tool_state, mem):
     assert saved[0]["value"] == "lyrical fiction"
 
 
-def test_ui_chapter_tool(tool_state):
-    result = set_ui_chapter.func(
-        chapter="plans",
-        state=tool_state,
-    )
-    assert result == "UI focus switched to 'plans'."
-
 
 def test_calendar_and_favorites_tools(tool_state):
     calendar_result = save_calendar_item.func(
@@ -325,33 +313,5 @@ def test_summarize_progress_tool(tool_state, mem):
     assert "Calendar items: 1" in result
 
 
-def test_ui_tools_update_ui_state(tool_state):
-    result = set_ui_focus.func(
-        title="Weekly review",
-        body="Capture open loops, schedule priorities, and clear friction.",
-        footer="Return here after the next planning pass.",
-        state=tool_state,
-    )
-    assert result == "Workspace focus updated to 'Weekly review'."
 
 
-def test_ui_checklist_and_layout_tools(tool_state):
-    checklist_result = set_ui_checklist.func(
-        title="Next actions",
-        items="- Book trainer\n- Save meal rhythm\n- Add Friday dinner",
-        state=tool_state,
-    )
-    layout_result = set_ui_layout.func(
-        layout="focus",
-        notice="Surface the highest leverage moves.",
-        state=tool_state,
-    )
-    assert checklist_result == "Workspace checklist updated with 3 items."
-    assert layout_result == "Workspace layout set to 'focus'."
-
-
-def test_clear_ui_workspace_tool(tool_state):
-    result = clear_ui_workspace.func(
-        state=tool_state,
-    )
-    assert result == "Workspace reset to its default state."

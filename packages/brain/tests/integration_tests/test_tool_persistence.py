@@ -114,7 +114,7 @@ def test_save_open_loop_persists_to_sqlite(tmp_path):
 
 
 def test_two_tools_write_in_same_user(tmp_path):
-    """save_calendar_item and set_ui_chapter both fire for the same user."""
+    """Two writing tools both persist under the same user."""
     user_id = "combo_user"
 
     with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
@@ -123,13 +123,14 @@ def test_two_tools_write_in_same_user(tmp_path):
             {"title": "Team lunch", "date": "2026-05-20"},
             user_id,
         )
-        result = _invoke(
-            "set_ui_chapter",
-            {"chapter": "calendar"},
+        _invoke(
+            "save_open_loop",
+            {"topic": "Confirm the room", "next_step": "Ask on Monday"},
             user_id,
         )
         mem = Memory(user_id)
         items = mem.get_calendar_items(status="", limit=10)
+        loops = mem.get_open_loops(status="open", limit=10)
 
     assert any(i["title"] == "Team lunch" for i in items)
-    assert result == "UI focus switched to 'calendar'."
+    assert any(loop_item["topic"] == "Confirm the room" for loop_item in loops)

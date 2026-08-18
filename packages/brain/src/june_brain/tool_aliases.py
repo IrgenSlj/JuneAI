@@ -189,36 +189,8 @@ def _normalize_log_water(args: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _normalize_set_ui_focus(args: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "title": _best_of(args, "title", ["heading"]) or "Workspace",
-        "body": _best_of(args, "body", ["content", "text"]),
-        "footer": _best_of(args, "footer", ["notice"]),
-    }
 
 
-def _normalize_set_ui_checklist(args: dict[str, Any]) -> dict[str, Any]:
-    items = _best_of(args, "items", ["checklist", "lines"])
-    if isinstance(items, list):
-        items = "\n".join(str(item) for item in items)
-    return {
-        "title": _best_of(args, "title", ["heading"]) or "Next steps",
-        "items": items,
-    }
-
-
-def _normalize_set_ui_layout(args: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "layout": _best_of(args, "layout", ["mode"]) or "split",
-        "notice": args.get("notice") or "",
-    }
-
-
-def _normalize_set_ui_chapter(args: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "chapter": _best_of(args, "chapter", ["name", "section"]),
-        "notice": args.get("notice") or "",
-    }
 
 
 def _extract_json_payload(text: str) -> dict[str, Any] | None:
@@ -311,16 +283,6 @@ TOOL_ALIASES: dict[str, ToolAlias] = {
         param_map={"count": "glasses", "amount": "glasses"},
         normalizer=_normalize_log_water,
     ),
-    "set_ui_chapter": ToolAlias(
-        aliases=["set_chapter", "open_chapter"],
-        param_map={"section": "chapter"},
-        normalizer=_normalize_set_ui_chapter,
-    ),
-    "set_ui_focus": ToolAlias(
-        aliases=["focus_workspace", "update_workspace"],
-        param_map={"heading": "title", "content": "body", "text": "body", "notice": "footer"},
-        normalizer=_normalize_set_ui_focus,
-    ),
     "save_open_loop": ToolAlias(
         param_map={"deadline": "due_date", "action": "next_step"},
         normalizer=_normalize_save_open_loop,
@@ -348,14 +310,6 @@ TOOL_ALIASES: dict[str, ToolAlias] = {
     "log_habit_completion": ToolAlias(
         param_map={"habit": "habit_name"},
         normalizer=_normalize_log_habit_completion,
-    ),
-    "set_ui_checklist": ToolAlias(
-        param_map={"checklist": "items", "lines": "items"},
-        normalizer=_normalize_set_ui_checklist,
-    ),
-    "set_ui_layout": ToolAlias(
-        param_map={"mode": "layout"},
-        normalizer=_normalize_set_ui_layout,
     ),
     "save_journal_entry": ToolAlias(
         param_map={"entry": "entry"},
