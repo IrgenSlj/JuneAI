@@ -132,7 +132,12 @@ class StreamEvent:
 
 @runtime_checkable
 class HarnessLoop(Protocol):
-    """The one stable interface both engines must satisfy."""
+    """The interface a harness loop satisfies.
+
+    ``run_turn`` is a non-streaming convenience wrapper around ``stream_turn``,
+    not a second entry point into a second engine (ADR 0018, D.4c). It used to
+    be the latter, and the two had drifted.
+    """
 
     async def run_turn(self, session: SessionState, user_msg: Message) -> TurnResult: ...
 

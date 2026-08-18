@@ -28,6 +28,7 @@ from june_brain.providers.base import (
     GenerateResult,
     Message,
     ProviderHealth,
+    StreamDelta,
 )
 from june_brain.providers.registry import ProviderRegistry
 
@@ -450,8 +451,15 @@ def test_provenance_skills_called_populated(monkeypatch: pytest.MonkeyPatch) -> 
                 tier="local-fast",
             )
 
-        async def stream(self, req: GenerateRequest) -> AsyncIterator[str]:
-            yield ""
+        async def stream(self, req: GenerateRequest) -> AsyncIterator[StreamDelta]:
+            # Delegates to generate() so the double has one source of truth for
+            # what it says. run_turn drains stream_turn since D.4c, so a stubbed
+            # stream() would make the fake contradict itself.
+            result = await self.generate(req)
+            if result.tool_calls:
+                yield StreamDelta(tool_calls=list(result.tool_calls))
+            if result.text:
+                yield StreamDelta(text=result.text)
 
         async def health(self) -> ProviderHealth:
             return ProviderHealth(reachable=True)

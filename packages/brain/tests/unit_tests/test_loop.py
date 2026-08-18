@@ -28,6 +28,7 @@ from june_brain.providers.base import (
     GenerateResult,
     Message,
     ProviderHealth,
+    StreamDelta,
 )
 from june_brain.providers.registry import ProviderRegistry
 
@@ -108,8 +109,21 @@ def test_handwritten_local_reply() -> None:
     assert result.assistant_msg.content == "hello from mock"
     assert result.provenance.cloud_call is False
     assert result.provenance.tiers_used == ["local-fast"]
-    assert result.tokens.input_tokens == 12
-    assert result.tokens.output_tokens == 7
+
+    # Token counts are *estimates* on this path, not the provider's reported
+    # usage. run_turn drains stream_turn since D.4c, and a streamed response
+    # does not reliably carry a usage block, so the loop estimates from the
+    # rendered prompt and the accumulated answer. This test used to assert the
+    # provider's exact numbers (12/7) because run_turn called generate()
+    # directly — but nothing in production ever took that path, so those were
+    # never the numbers a user's Glass Box frame showed. Assert the property
+    # that matters instead: counts are populated and plausible.
+    assert result.tokens.input_tokens > 0
+    assert result.tokens.output_tokens > 0
+    assert result.tokens == TokenAccounting(
+        input_tokens=result.provenance.input_tokens,
+        output_tokens=result.provenance.output_tokens,
+    )
 
 
 def test_handwritten_cloud_provider_marks_cloud() -> None:
@@ -163,8 +177,15 @@ def test_tool_dispatch_called_once() -> None:
             call_counter[0] += 1
             return results_sequence[idx]
 
-        async def stream(self, req: GenerateRequest) -> AsyncIterator[str]:
-            yield ""
+        async def stream(self, req: GenerateRequest) -> AsyncIterator[StreamDelta]:
+            # Delegates to generate() so the double has one source of truth for
+            # what it says. run_turn drains stream_turn since D.4c, so a stubbed
+            # stream() would make the fake contradict itself.
+            result = await self.generate(req)
+            if result.tool_calls:
+                yield StreamDelta(tool_calls=list(result.tool_calls))
+            if result.text:
+                yield StreamDelta(text=result.text)
 
         async def health(self) -> ProviderHealth:
             return ProviderHealth(reachable=True)

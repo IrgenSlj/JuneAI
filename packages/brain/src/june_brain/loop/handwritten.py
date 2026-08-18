@@ -374,62 +374,65 @@ class HandwrittenLoop:
         )
 
     # ------------------------------------------------------------------
-    # run_turn — non-streaming path (used by CLEAR experiment and callers
-    # that don't need streaming)
+    # run_turn — the non-streaming convenience wrapper.
+    #
+    # ADR 0018 says there is one engine. Before D.4c this method WAS a second
+    # one: it duplicated routing, dispatch, compaction and token accounting, and
+    # the two copies had drifted — run_turn resolved provider-native tool calls
+    # while stream_turn dropped them. Every production caller uses stream_turn,
+    # so the drift lived in the path nobody ran, and the reliability harness
+    # measured that path.
+    #
+    # Now it drains stream_turn and reassembles the result. Non-streaming
+    # callers keep their ergonomics; there is exactly one implementation of a
+    # turn, so nothing can drift again.
     # ------------------------------------------------------------------
 
     async def run_turn(self, session: SessionState, user_msg: Message) -> TurnResult:
-        _start = time.monotonic()
+        answer_parts: list[str] = []
+        tool_calls: list[ToolCall] = []
+        provenance: TurnProvenance | None = None
+        compacted = False
 
-        self._reset_per_turn()
-        provider, chosen_role, difficulty = await self._route(user_msg)
-        self._apply_reason(difficulty.label)
+        async for ev in self.stream_turn(session, user_msg):
+            if ev.type == "prompt":
+                # A prompt event opens each iteration. Text from an earlier
+                # iteration was a preamble to a tool call, not the reply: a
+                # streaming client shows it as it arrives, but a non-streaming
+                # caller wants the answer the turn settled on. Keeping only the
+                # final iteration's text matches what run_turn returned when it
+                # was a separate engine (`last_result.text`), including when the
+                # loop exhausts max_iterations still calling tools.
+                answer_parts.clear()
+            elif ev.type == "token":
+                answer_parts.append(ev.content)
+            elif ev.type == "tool_call":
+                tool_calls.append(ToolCall(name=ev.tool_name, args=dict(ev.tool_args)))
+            elif ev.type == "compaction":
+                compacted = True
+            elif ev.type == "provenance":
+                provenance = ev.provenance
 
-        tokens = TokenAccounting()
-        all_tool_calls: list[ToolCall] = []
-        last_result: GenerateResult | None = None
-
-        for _ in range(self._max_iterations):
-            ctx = self._assemble_context(session, user_msg)
-            result = await provider.generate(
-                GenerateRequest(
-                    messages=ctx,
-                    max_tokens=_MAX_TOKENS,
-                    tools=self._tool_specs or None,
-                )
+        if provenance is None:
+            # stream_turn returns early without provenance only when no provider
+            # could be resolved. Keep the shape valid so callers do not have to
+            # special-case a failure they can already see in the empty answer.
+            provenance = TurnProvenance(
+                tiers_used=[], cloud_call=False, model_ids=[],
+                rationale="no provider available",
             )
-            last_result = result
-            tokens.input_tokens += result.input_tokens
-            tokens.output_tokens += result.output_tokens
-
-            tool_calls = self._resolve_tool_calls(result)
-            if tool_calls and self._dispatch is not None:
-                all_tool_calls.extend(tool_calls)
-                observations: list[Message] = await self._dispatch(tool_calls, session)
-                tool_turn = Message(role="assistant", content=result.text)
-                session.messages.append(tool_turn)
-                session.messages.extend(observations)
-            else:
-                break
-
-        assert last_result is not None
-        _compact_outcome = await self._maybe_compact(session)
-        compacted = bool(_compact_outcome)
-
-        provenance = self._build_provenance(
-            provider, chosen_role, all_tool_calls, _start, tokens, difficulty,
-            compacted=compacted,
-        )
-
-        _, answer_text = split_reasoning(last_result.text)
 
         return TurnResult(
-            assistant_msg=Message(role="assistant", content=answer_text),
-            tool_calls=all_tool_calls,
+            assistant_msg=Message(role="assistant", content="".join(answer_parts)),
+            tool_calls=tool_calls,
             provenance=provenance,
-            tokens=tokens,
-            compacted=compacted,
+            tokens=TokenAccounting(
+                input_tokens=provenance.input_tokens,
+                output_tokens=provenance.output_tokens,
+            ),
+            compacted=compacted or provenance.compacted,
         )
+
 
     # ------------------------------------------------------------------
     # stream_turn — true token-streaming path

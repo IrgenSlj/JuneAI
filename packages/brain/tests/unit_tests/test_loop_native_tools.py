@@ -95,8 +95,16 @@ class _NativeProvider:
             tier="local-fast",
         )
 
-    async def stream(self, req):  # pragma: no cover - unused
-        yield ""
+    async def stream(self, req):
+        # Mirrors generate(): run_turn drains stream_turn since D.4c, so the
+        # native tool call has to arrive on the stream to be dispatched.
+        from june_brain.providers.base import StreamDelta
+
+        result = await self.generate(req)
+        if result.tool_calls:
+            yield StreamDelta(tool_calls=list(result.tool_calls))
+        if result.text:
+            yield StreamDelta(text=result.text)
 
     async def health(self):  # pragma: no cover - unused
         from june_brain.providers.base import ProviderHealth

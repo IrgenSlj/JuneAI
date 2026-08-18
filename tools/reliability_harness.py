@@ -5,6 +5,13 @@ Runs representative tasks (recall, multi-step tool use, compaction) N times each
 against the live local model and reports the coefficient of variation (cv%) per
 metric. The S5 target is recall cv < 25% (baseline 75.6%, ADR 0018/0020).
 
+**Numbers recorded before 2026-08-18 describe a code path no user reached.**
+`run_turn` was a second engine that duplicated routing, dispatch and token
+accounting, and every production caller used `stream_turn`. D.4c made `run_turn`
+a drain of `stream_turn`, so this harness now measures the live path. Expect the
+baseline to move; the new numbers are the real ones. Token counts in particular
+are estimates on the streaming path rather than provider-reported usage.
+
 Requires a running Ollama with the chat model pulled. Record the printed numbers
 in docs/experiments/baseline-2026-06.md next to the baseline.
 
