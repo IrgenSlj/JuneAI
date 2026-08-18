@@ -77,3 +77,61 @@ def test_recorded_dial_value_does_not_guess() -> None:
         side_effect=RuntimeError("config unreadable"),
     ):
         assert dial_value() == "unknown"
+
+
+# ---------------------------------------------------------------------------
+# Invariant: the loop's notion of "this reaches the network" is the guard's.
+#
+# The guard owns classification. Before D.3 the loop tested membership in
+# NETWORK_TOOLS — the read-network set — so every outbound write was neither
+# blocked by Local-only nor listed in provenance.egress.
+# ---------------------------------------------------------------------------
+
+
+def test_loop_and_guard_agree_on_what_reaches_the_network() -> None:
+    from june_brain.guard.actions import classify_action
+    from june_brain.loop.wiring import is_network_tool
+
+    probes = [
+        # write_network, via the guard's _NETWORK_WRITE_PREFIXES
+        "send_telegram_message",
+        "post_update",
+        "publish_note",
+        "email_summary",
+        "notify_user",
+        "sms_alert",
+        "tweet_status",
+        # read_network, via NETWORK_TOOLS
+        "web_search",
+        "fetch_url",
+        "read_webpage",
+        # local — must not be flagged
+        "save_journal_entry",
+        "list_goals",
+        "log_water",
+    ]
+
+    disagree = [
+        name
+        for name in probes
+        if (classify_action(name) in ("read_network", "write_network"))
+        != is_network_tool(name)
+    ]
+    assert disagree == [], (
+        "the loop's egress predicate disagrees with the guard's classifier on: "
+        f"{disagree}. These calls are not blocked by Local-only mode and do not "
+        "appear in provenance.egress."
+    )
+
+
+def test_outbound_writes_count_as_egress() -> None:
+    """The direction that matters most, asserted on its own.
+
+    guard/actions.py names write_network as the primary exfiltration vector. A
+    regression that reverted D.3 would still pass a read-only egress test.
+    """
+    from june_brain.loop.wiring import is_network_tool
+
+    assert is_network_tool("send_telegram_message") is True
+    assert is_network_tool("email_summary") is True
+    assert is_network_tool("save_journal_entry") is False

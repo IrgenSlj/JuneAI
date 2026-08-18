@@ -59,7 +59,7 @@ the UI infer user-facing state from trace text.
 ## Invariants (do not break)
 
 - **Privacy is visible in code.** Every cloud/external call is surfaced in the UI before and after (the per-turn provenance frame). Local-only mode blocks egress. No silent network calls.
-  *Known gap, closing in D.3:* the loop asks `is_network_tool()`, which tests membership in the three-name read-network set instead of asking `classify_action()`. Outbound writes (`send_`, `post_`, `email_`, ...) are therefore neither blocked under Local-only nor listed in `provenance.egress`. Do not rely on this invariant for `write_network` until D.3 lands.
+  Enforced by `test_invariants.py` and the `get_privacy_dial` caller check in `check.sh`. Both directions count as egress: `is_network_tool()` delegates to the guard's `classify_action()`, so outbound writes (`send_`, `post_`, `email_`, ...) are blocked under Local-only and listed in `provenance.egress` (D.3).
 - **Honesty is not adjustable.** Personalization shapes tone, never erodes candor into sycophancy.
 - **The harness core is fixed** and never self-modified; June evolves character/skills/tuning on top of it.
 - **No new dependency that can be implemented customly** (one exception: cryptography — always use vetted libraries, never hand-roll).

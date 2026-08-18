@@ -18,8 +18,8 @@ archived). Updated as workstreams land.
   [plan](product/v0.4-development-plan.md). Work the slices in order; each is
   independently landable (one slice -> `check.sh` green -> one commit -> push),
   and each slice's own **Status** line records where it stopped.
-  **D.1 (direction of record) is done.** Next up is **D.2** (one privacy
-  predicate, failing closed), then D.3, D.4a, D.4b, D.5a-d, D.6.
+  **D.1, D.2 and D.3 are done.** Next up is **D.4a** (stop advertising tools on
+  a seam that cannot carry them), then D.4b, D.5a-d, D.6.
   Launch (Phase 7) remains gated behind D: 7.1, 7.2 and 7.4 are done, and the
   remaining blockers are the 240MB `.git` rewrite (7.0/B.1 — needs a quiet tree,
   it force-pushes `main`) and cutting the release (7.3, blocked on repo workflow
@@ -127,12 +127,9 @@ Everything lives under one versioned data directory (ADR 0019).
   (content flowing from untrusted results back into new actions), gates
   `execute`/`write_network`/tainted-network behind approval, frames every tool
   result as untrusted content, and redacts secrets before they hit the ledger.
-  **Known gap (D.3):** the guard classifies correctly, but the loop's
-  `is_network_tool()` tests membership in the three-name read-network set rather
-  than calling `classify_action()`. Outbound writes are therefore not blocked by
-  Local-only mode and do not appear in `provenance.egress`. No shipped tool trips
-  this today — the only `send_` tool is in the Telegram skill, which is disabled
-  by default.
+  The loop's `is_network_tool()` delegates to `classify_action()` (D.3), so the
+  Local-only partition and `provenance.egress` cover outbound writes and not only
+  the three named read-network tools.
   Defense is primarily **structural** — the gates hold regardless of what the
   content says. A content heuristic (`guard/injection.py`) sits under it as
   defence in depth: it does not block, it *revokes standing approvals*, so an

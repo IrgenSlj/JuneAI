@@ -10,20 +10,35 @@ from __future__ import annotations
 
 from typing import Any
 
-# NETWORK_TOOLS is re-exported from the guard, which owns the definition. This
-# module used to keep a second copy of the same three names, so adding a
-# networked tool to one list and not the other left it either ungated or
-# unsurfaced - and in opposite directions, which is the worst way for two lists
-# to disagree.
-from june_brain.guard.actions import NETWORK_TOOLS
+# The guard owns classification. This module used to keep a second copy of the
+# three network-tool names; that copy is gone, but re-exporting the set was only
+# half the fix - the set holds the *read*-network tools, while
+# `classify_action` also derives write_network from a prefix table. Testing
+# membership answered "is this one of three named read tools" when the caller
+# meant "does this reach the network", so every outbound write was invisible
+# here. Ask the classifier instead (D.3).
+from june_brain.guard.actions import classify_action
 from june_brain.providers.base import Message
 
 from .interface import SessionState, ToolCall
 
+# Both directions count as egress. read_network pulls bytes onto the machine;
+# write_network pushes them off it, which guard/actions.py names as the primary
+# exfiltration vector.
+_EGRESS_CLASSES = frozenset({"read_network", "write_network"})
+
 
 def is_network_tool(name: str) -> bool:
-    """True when invoking ``name`` reaches the network (egress)."""
-    return name in NETWORK_TOOLS
+    """True when invoking ``name`` reaches the network (egress).
+
+    Delegates to the guard's classifier so this predicate and the guard cannot
+    disagree. Two callers depend on it: the Local-only partition in
+    ``stream_turn`` - which is the only local-only gate for tools anywhere in
+    the loop, guard, or dispatch layers - and ``provenance.egress``, which is
+    what the per-turn frame shows the user. A tool missing from either is a
+    call that left the machine without being blocked or reported.
+    """
+    return classify_action(name) in _EGRESS_CLASSES
 
 
 def _record_action_to_ledger(tool_name: str, action_class: str, *, tainted: bool) -> None:
