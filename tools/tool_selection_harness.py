@@ -23,6 +23,27 @@ import os
 import tempfile
 
 
+def _seed_memories(user_id: str) -> None:
+    """Store the memories the `forget` cases refer to.
+
+    Same fixture error the promises had, found the same way: without these the
+    corpus asks June to forget things that were never stored, so a model that
+    answers "I have nothing about your old address" is behaving correctly and is
+    scored as a miss. That measures the fixture, not the model.
+    """
+    from june_brain.memory import MemoryManager
+
+    manager = MemoryManager(user_id)
+    for text in (
+        "The user's old address is 14 Oak Street.",
+        "The user works at Acme as a systems engineer.",
+        "The user's coffee order is a flat white.",
+        "The user's ex-partner is called Sam.",
+        "The user's sister is called Mira.",
+    ):
+        manager.write({"kind": "fact", "fields": {"text": text}}, source="tool:remember")
+
+
 def _seed_promises(user_id: str) -> None:
     from june_brain.tasks.store import TasksStore
 
@@ -47,12 +68,13 @@ async def _run(args: argparse.Namespace) -> int:
     from june_brain.loop.interface import SessionState
     from june_brain.providers.base import Message
 
-    # Seed the promises the `update_promise` cases refer to. Without them the
+    # Seed the state the corpus refers to. Without it the
     # store is empty, and a model that answers "the passport renewal is done"
     # by calling `list_promises` first is not wrong — it cannot name a promise
     # id it has never seen. Benchmarking that as a selection failure would
     # measure the fixture, not the model.
     _seed_promises("tool-selection-bench")
+    _seed_memories("tool-selection-bench")
 
     loop = get_loop()
     report = SelectionReport()
