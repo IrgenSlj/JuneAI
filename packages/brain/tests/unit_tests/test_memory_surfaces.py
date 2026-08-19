@@ -1,7 +1,10 @@
 """Unit tests for memory surfaces not covered in test_memory.py.
 
-Covers: nutrition, water, workout sessions, journal, relationship profiles,
-recovery/commitment context summaries, and chapter completeness.
+Covers journal and relationship profiles — the two structured stores that
+still have both a writer and a reader. Nutrition, water, workout sessions,
+commitment summaries and chapter completeness went with the health cluster
+(D.5b): their tables remain so existing rows stay exportable, but no code
+reads or writes them any more.
 """
 
 from __future__ import annotations
@@ -21,91 +24,6 @@ def memory_dir(tmp_path):
 @pytest.fixture
 def mem(memory_dir):
     return Memory("test_user")
-
-
-# ---------------------------------------------------------------------------
-# Nutrition
-# ---------------------------------------------------------------------------
-
-def test_log_nutrition_stores_meal(mem):
-    mem.log_nutrition("lunch", "Chicken and rice", calories_est=520, protein_est=45)
-    meals = mem.get_nutrition_today()
-    assert meals, "Expected at least one meal"
-    assert meals[0]["description"] == "Chicken and rice"
-    assert meals[0]["calories_est"] == 520
-    assert meals[0]["protein_est"] == 45
-
-
-def test_log_multiple_meals_today(mem):
-    mem.log_nutrition("breakfast", "Oats with berries", calories_est=320, protein_est=12)
-    mem.log_nutrition("dinner", "Steak and potatoes", calories_est=680, protein_est=52)
-    meals = mem.get_nutrition_today()
-    assert len(meals) == 2
-    descriptions = {m["description"] for m in meals}
-    assert "Oats with berries" in descriptions
-    assert "Steak and potatoes" in descriptions
-
-
-def test_nutrition_recent_returns_correct_limit(mem):
-    for i in range(5):
-        mem.log_nutrition(f"meal{i}", f"Food item {i}", calories_est=400)
-    recent = mem.get_nutrition_recent(limit=3)
-    assert len(recent) == 3
-
-
-# ---------------------------------------------------------------------------
-# Water
-# ---------------------------------------------------------------------------
-
-def test_log_water_increments(mem):
-    initial = mem.get_water_today()
-    mem.log_water(2)
-    assert mem.get_water_today() == initial + 2
-
-
-def test_set_water_overrides_count(mem):
-    mem.log_water(3)
-    mem.set_water(5)
-    assert mem.get_water_today() == 5
-
-
-def test_water_starts_at_zero_for_new_user(mem):
-    assert mem.get_water_today() == 0
-
-
-# ---------------------------------------------------------------------------
-# Workout sessions
-# ---------------------------------------------------------------------------
-
-def test_log_workout_session_stores_fields(mem):
-    session = mem.log_workout_session(
-        plan_name="Pull Day",
-        exercises="Deadlift 4x5, Rows 4x8, Curls 3x12",
-        duration_min=50,
-        energy_rating=3,
-        notes="Grip was the limiting factor",
-    )
-    assert session["plan_name"] == "Pull Day"
-    assert session["duration_min"] == 50
-    assert session["energy_rating"] == 3
-    assert session["notes"] == "Grip was the limiting factor"
-
-
-def test_get_today_workout_returns_latest(mem):
-    mem.log_workout_session("Push Day", "Bench 4x8", duration_min=45, energy_rating=4)
-    workout = mem.get_today_workout()
-    assert workout is not None
-    assert workout["plan_name"] == "Push Day"
-
-
-def test_workout_sessions_returns_both_sessions(mem):
-    mem.log_workout_session("Session A", "Squats", duration_min=40)
-    mem.log_workout_session("Session B", "Rows", duration_min=35)
-    sessions = mem.get_workout_sessions(limit=10)
-    names = {s["plan_name"] for s in sessions}
-    assert "Session A" in names
-    assert "Session B" in names
-    assert len(sessions) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -155,26 +73,3 @@ def test_relationship_profile_upserts(mem):
 
 
 # ---------------------------------------------------------------------------
-# Chapter completeness
-# ---------------------------------------------------------------------------
-
-def test_chapter_completeness_starts_at_zero(mem):
-    completeness = mem.get_chapter_completeness()
-    assert all(v == 0 for v in completeness.values()), (
-        f"Expected all chapters empty, got {completeness}"
-    )
-
-
-def test_chapter_completeness_reflects_saves(mem):
-    mem.save_calendar_item("Birthday party", "2026-06-01")
-    mem.create_or_update_habit("Morning walk", "health", "daily")
-    completeness = mem.get_chapter_completeness()
-    assert completeness.get("calendar", 0) > 0
-    assert completeness.get("habits", 0) > 0
-
-
-def test_chapters_needing_attention_shrinks_as_data_fills(mem):
-    empty_before = mem.get_chapters_needing_attention()
-    mem.save_gym_plan("Spring Split", "Mon/Wed/Fri", goal="strength")
-    empty_after = mem.get_chapters_needing_attention()
-    assert len(empty_after) < len(empty_before)

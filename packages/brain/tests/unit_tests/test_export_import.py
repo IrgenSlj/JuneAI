@@ -20,11 +20,28 @@ def mem(memory_dir):
     return Memory("test_user")
 
 
+def _seed_v1_mood(mem: Memory, mood: str = "happy", note: str = "") -> None:
+    """Insert a `moods` row the way an upgraded install already has one.
+
+    The v1 writer is gone (D.5b) but the table stays, which is the whole point
+    of the "leave the tables, remove the code" decision: a user who used June
+    before the cleanup keeps their rows, and export has to keep carrying them.
+    Writing the row directly is not a shortcut here — it is the exact state
+    these tests exist to cover.
+    """
+    conn = mem._conn
+    conn.execute(
+        "INSERT INTO moods (user_id, mood, note, timestamp) VALUES (?,?,?,?)",
+        (mem.user_id, mood, note, "2026-01-15T09:00:00"),
+    )
+    conn.commit()
+
+
 def test_export_roundtrip(mem, tmp_path):
     """Export memory, verify JSON structure, re-import."""
     mem.save_message("user", "hello")
     mem.save_message("assistant", "hi there")
-    mem.log_mood("happy", "great day")
+    _seed_v1_mood(mem, "happy", "great day")
 
     export_path = tmp_path / "export.json"
     archive = export_memory("test_user", output_path=str(export_path))
@@ -50,7 +67,7 @@ def test_import_into_empty_db(memory_dir, tmp_path):
     """Import data into a fresh database."""
     # First create some data in one DB
     mem1 = Memory("user_a")
-    mem1.log_mood("happy")
+    _seed_v1_mood(mem1)
     mem1.save_preference("test", "value")
 
     export_path = tmp_path / "export.json"

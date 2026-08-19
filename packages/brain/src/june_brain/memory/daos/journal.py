@@ -28,22 +28,6 @@ class JournalDAO:
         self._conn = conn
         self.user_id = user_id
 
-    def log_mood(self, mood: str, note: str = "") -> dict:
-        entry = {"mood": mood.strip(), "note": note.strip(), "timestamp": _now()}
-        self._conn.execute(
-            "INSERT INTO moods (user_id, mood, note, timestamp) VALUES (?,?,?,?)",
-            (self.user_id, entry["mood"], entry["note"], entry["timestamp"]),
-        )
-        self._conn.commit()
-        return entry
-
-    def get_mood_history(self, limit: int = 10) -> list:
-        rows = self._conn.execute(
-            "SELECT mood, note, timestamp FROM moods WHERE user_id=? ORDER BY id DESC LIMIT ?",
-            (self.user_id, limit),
-        ).fetchall()
-        return [dict(r) for r in reversed(rows)]
-
     def save_journal(self, entry: str) -> dict:
         item = {"entry": entry.strip(), "timestamp": _now()}
         self._conn.execute(

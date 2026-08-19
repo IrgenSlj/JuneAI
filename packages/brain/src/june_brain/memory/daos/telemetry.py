@@ -93,18 +93,6 @@ class TelemetryDAO:
     # Habit snapshot helper (inlined for progress_snapshot)
     # ------------------------------------------------------------------
 
-    def _habit_snapshot(self, habit: dict) -> dict:
-        name = habit.get("name", "")
-        rows = self._conn.execute(
-            "SELECT completion_date FROM habit_completions WHERE user_id=? AND lower(habit_name)=lower(?)",
-            (self.user_id, name),
-        ).fetchall()
-        completions = {r["completion_date"] for r in rows}
-        today = _today()
-        done_today = today.isoformat() in completions
-        return {**habit, "completions": sorted(completions), "done_today": done_today,
-                "streak": _habit_streak(completions, today)}
-
     # ------------------------------------------------------------------
     # Telemetry events
     # ------------------------------------------------------------------
@@ -277,112 +265,6 @@ class TelemetryDAO:
                 })
         notifications.sort(key=lambda i: (i["days_until"], i["when"], i["title"]))
         return notifications[:limit]
-
-    def get_progress_snapshot(self) -> dict:
-        rows = self._conn.execute(
-            "SELECT mood, note, timestamp FROM moods WHERE user_id=? ORDER BY id DESC LIMIT 10",
-            (self.user_id,),
-        ).fetchall()
-        moods = [dict(r) for r in reversed(rows)]
-
-        rows = self._conn.execute(
-            "SELECT id, entry, timestamp FROM journal WHERE user_id=? ORDER BY id DESC LIMIT 5",
-            (self.user_id,),
-        ).fetchall()
-        journal = [dict(r) for r in reversed(rows)]
-
-        rows = self._conn.execute(
-            "SELECT title,category,target_date,next_step,status,updated_at "
-            "FROM goals WHERE user_id=? ORDER BY rowid DESC LIMIT 20",
-            (self.user_id,),
-        ).fetchall()
-        goals = [dict(r) for r in reversed(rows)]
-
-        rows = self._conn.execute(
-            "SELECT topic,next_step,due_date,status,updated_at "
-            "FROM open_loops WHERE user_id=? ORDER BY rowid DESC LIMIT 20",
-            (self.user_id,),
-        ).fetchall()
-        open_loops = [dict(r) for r in reversed(rows)]
-
-        rows = self._conn.execute(
-            "SELECT person,relationship,summary,user_needs,cautions,updated_at FROM relationships WHERE user_id=?",
-            (self.user_id,),
-        ).fetchall()
-        relationships = [dict(r) for r in rows]
-
-        rows = self._conn.execute(
-            "SELECT category,value,context,updated_at FROM preferences WHERE user_id=? ORDER BY rowid DESC LIMIT 50",
-            (self.user_id,),
-        ).fetchall()
-        preferences = [dict(r) for r in reversed(rows)]
-
-        rows = self._conn.execute(
-            "SELECT title,date,time,details,status,source,updated_at FROM calendar_items WHERE user_id=?",
-            (self.user_id,),
-        ).fetchall()
-        calendar_items = [dict(r) for r in rows]
-
-        rows = self._conn.execute(
-            "SELECT category,title,reason,creator,status,updated_at FROM favorites WHERE user_id=? ORDER BY rowid DESC LIMIT 50",
-            (self.user_id,),
-        ).fetchall()
-        favorites = [dict(r) for r in reversed(rows)]
-
-        rows = self._conn.execute(
-            "SELECT name,schedule,goal,notes,status,updated_at FROM gym_plans WHERE user_id=? ORDER BY rowid DESC LIMIT 20",
-            (self.user_id,),
-        ).fetchall()
-        gym_plans = [dict(r) for r in reversed(rows)]
-
-        rows = self._conn.execute(
-            "SELECT name,goal,daily_structure,notes,status,updated_at FROM food_programs WHERE user_id=? ORDER BY rowid DESC LIMIT 20",
-            (self.user_id,),
-        ).fetchall()
-        food_programs = [dict(r) for r in reversed(rows)]
-
-        rows = self._conn.execute(
-            "SELECT name,category,target_days,created_at FROM habits WHERE user_id=?",
-            (self.user_id,),
-        ).fetchall()
-        habits = []
-        for row in rows:
-            habits.append(self._habit_snapshot(dict(row)))
-
-        active_goals = [g for g in goals if g.get("status") == "active"]
-        unresolved = [loop for loop in open_loops if loop.get("status", "open") == "open"]
-
-        row = self._conn.execute(
-            "SELECT glasses FROM water_logs WHERE user_id=? AND date=?",
-            (self.user_id, _today().isoformat()),
-        ).fetchone()
-        water_today = int(row["glasses"]) if row else 0
-
-        rows = self._conn.execute(
-            "SELECT date,plan_name,exercises,duration_min,notes,energy_rating,timestamp "
-            "FROM workout_sessions WHERE user_id=? ORDER BY id DESC LIMIT 50",
-            (self.user_id,),
-        ).fetchall()
-        workout_sessions = [dict(r) for r in reversed(rows)]
-
-        return {
-            "mood_count": len(moods),
-            "latest_mood": moods[-1]["mood"] if moods else "",
-            "journal_count": len(journal),
-            "relationship_count": len(relationships),
-            "goal_count": len(goals),
-            "active_goal_count": len(active_goals),
-            "open_loop_count": len(unresolved),
-            "preference_count": len(preferences),
-            "calendar_count": len(calendar_items),
-            "favorite_count": len(favorites),
-            "gym_plan_count": len(gym_plans),
-            "food_program_count": len(food_programs),
-            "habit_count": len(habits),
-            "habits_done_today": len([h for h in habits if h.get("done_today")]),
-            "water_today": water_today,
-            "workout_session_count": len(workout_sessions),
-        }
 
     # ------------------------------------------------------------------
     # JSON migration (one-time, on first init with existing data)

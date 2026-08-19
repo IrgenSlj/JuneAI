@@ -47,14 +47,20 @@ def test_extract_json_payload_handles_embedded_json():
     assert result == {"name": "log_water", "args": {}}
 
 
-def test_empty_mood_history_returns_empty_list(tmp_path):
-    """get_mood_history returns [] when no moods have been logged."""
+def test_empty_structured_reads_return_empty_lists(tmp_path):
+    """A fresh user's structured reads return [], not None and not a crash.
+
+    Previously asserted through get_mood_history, which went with the health
+    cluster (D.5b). The property is about the empty-store path, so it now uses
+    the structured stores that still have readers.
+    """
     with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
         from june_brain.memory import Memory
         mem = Memory("fresh_user")
-        result = mem.get_mood_history()
+        results = [mem.get_journal(), mem.get_goals(), mem.get_open_loops(),
+                   mem.get_preferences(), mem.get_relationship_profiles()]
 
-    assert result == []
+    assert results == [[], [], [], [], []]
 
 
 def test_config_gemini_raises_without_api_key():

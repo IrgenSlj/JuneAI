@@ -24,7 +24,6 @@ from .daos import (
     FeedbackDAO,
     FitnessDAO,
     GoalDAO,
-    HabitDAO,
     JournalDAO,
     PreferenceDAO,
     RelationshipDAO,
@@ -597,7 +596,6 @@ class Memory:
         self._preference_dao = PreferenceDAO(conn, user_id)
         self._calendar_dao = CalendarDAO(conn, user_id)
         self._fitness_dao = FitnessDAO(conn, user_id)
-        self._habit_dao = HabitDAO(conn, user_id)
         self._telemetry_dao = TelemetryDAO(conn, user_id)
         self._feedback_dao = FeedbackDAO(conn, user_id)
 
@@ -621,22 +619,6 @@ class Memory:
     # ------------------------------------------------------------------
     # Mood
     # ------------------------------------------------------------------
-
-    def log_mood(self, mood: str, note: str = "") -> dict:
-        entry = {"mood": mood.strip(), "note": note.strip(), "timestamp": self._now()}
-        self._conn.execute(
-            "INSERT INTO moods (user_id, mood, note, timestamp) VALUES (?,?,?,?)",
-            (self.user_id, entry["mood"], entry["note"], entry["timestamp"]),
-        )
-        self._conn.commit()
-        return entry
-
-    def get_mood_history(self, limit: int = 10) -> list:
-        rows = self._conn.execute(
-            "SELECT mood, note, timestamp FROM moods WHERE user_id=? ORDER BY id DESC LIMIT ?",
-            (self.user_id, limit),
-        ).fetchall()
-        return [dict(r) for r in reversed(rows)]
 
     # ------------------------------------------------------------------
     # Journal
@@ -1121,140 +1103,9 @@ class Memory:
     # Wellness plans
     # ------------------------------------------------------------------
 
-    def save_gym_plan(
-        self,
-        name: str,
-        schedule: str,
-        goal: str = "",
-        notes: str = "",
-        status: str = "active",
-    ) -> dict:
-        item = {
-            "name": name.strip(),
-            "schedule": schedule.strip(),
-            "goal": goal.strip(),
-            "notes": notes.strip(),
-            "status": status.strip() or "active",
-            "updated_at": self._now(),
-        }
-        self._conn.execute(
-            """INSERT INTO gym_plans (user_id,name,schedule,goal,notes,status,updated_at)
-               VALUES (?,?,?,?,?,?,?)
-               ON CONFLICT(user_id,name) DO UPDATE SET
-                 schedule=excluded.schedule, goal=excluded.goal,
-                 notes=excluded.notes, status=excluded.status,
-                 updated_at=excluded.updated_at""",
-            (self.user_id, item["name"], item["schedule"], item["goal"],
-             item["notes"], item["status"], item["updated_at"]),
-        )
-        self._conn.commit()
-        return item
-
-    def get_gym_plans(self, status: str = "", limit: int = 10) -> list:
-        if status.strip():
-            rows = self._conn.execute(
-                "SELECT name,schedule,goal,notes,status,updated_at FROM gym_plans "
-                "WHERE user_id=? AND lower(status)=lower(?) ORDER BY rowid DESC LIMIT ?",
-                (self.user_id, status.strip(), limit),
-            ).fetchall()
-        else:
-            rows = self._conn.execute(
-                "SELECT name,schedule,goal,notes,status,updated_at FROM gym_plans "
-                "WHERE user_id=? ORDER BY rowid DESC LIMIT ?",
-                (self.user_id, limit),
-            ).fetchall()
-        return [dict(r) for r in reversed(rows)]
-
-    def save_food_program(
-        self,
-        name: str,
-        goal: str,
-        daily_structure: str,
-        notes: str = "",
-        status: str = "active",
-    ) -> dict:
-        item = {
-            "name": name.strip(),
-            "goal": goal.strip(),
-            "daily_structure": daily_structure.strip(),
-            "notes": notes.strip(),
-            "status": status.strip() or "active",
-            "updated_at": self._now(),
-        }
-        self._conn.execute(
-            """INSERT INTO food_programs (user_id,name,goal,daily_structure,notes,status,updated_at)
-               VALUES (?,?,?,?,?,?,?)
-               ON CONFLICT(user_id,name) DO UPDATE SET
-                 goal=excluded.goal, daily_structure=excluded.daily_structure,
-                 notes=excluded.notes, status=excluded.status,
-                 updated_at=excluded.updated_at""",
-            (self.user_id, item["name"], item["goal"], item["daily_structure"],
-             item["notes"], item["status"], item["updated_at"]),
-        )
-        self._conn.commit()
-        return item
-
-    def get_food_programs(self, status: str = "", limit: int = 10) -> list:
-        if status.strip():
-            rows = self._conn.execute(
-                "SELECT name,goal,daily_structure,notes,status,updated_at FROM food_programs "
-                "WHERE user_id=? AND lower(status)=lower(?) ORDER BY rowid DESC LIMIT ?",
-                (self.user_id, status.strip(), limit),
-            ).fetchall()
-        else:
-            rows = self._conn.execute(
-                "SELECT name,goal,daily_structure,notes,status,updated_at FROM food_programs "
-                "WHERE user_id=? ORDER BY rowid DESC LIMIT ?",
-                (self.user_id, limit),
-            ).fetchall()
-        return [dict(r) for r in reversed(rows)]
-
     # ------------------------------------------------------------------
     # Workout sessions
     # ------------------------------------------------------------------
-
-    def log_workout_session(
-        self,
-        plan_name: str,
-        exercises: str = "",
-        duration_min: int = 0,
-        notes: str = "",
-        energy_rating: int = 0,
-    ) -> dict:
-        item = {
-            "date": _today().isoformat(),
-            "plan_name": plan_name.strip(),
-            "exercises": exercises.strip(),
-            "duration_min": max(0, int(duration_min)),
-            "notes": notes.strip(),
-            "energy_rating": max(0, min(5, int(energy_rating))),
-            "timestamp": self._now(),
-        }
-        self._conn.execute(
-            """INSERT INTO workout_sessions
-               (user_id,date,plan_name,exercises,duration_min,notes,energy_rating,timestamp)
-               VALUES (?,?,?,?,?,?,?,?)""",
-            (self.user_id, item["date"], item["plan_name"], item["exercises"],
-             item["duration_min"], item["notes"], item["energy_rating"], item["timestamp"]),
-        )
-        self._conn.commit()
-        return item
-
-    def get_workout_sessions(self, limit: int = 10) -> list:
-        rows = self._conn.execute(
-            "SELECT date,plan_name,exercises,duration_min,notes,energy_rating,timestamp "
-            "FROM workout_sessions WHERE user_id=? ORDER BY id DESC LIMIT ?",
-            (self.user_id, limit),
-        ).fetchall()
-        return [dict(r) for r in reversed(rows)]
-
-    def get_today_workout(self) -> dict | None:
-        row = self._conn.execute(
-            "SELECT date,plan_name,exercises,duration_min,notes,energy_rating,timestamp "
-            "FROM workout_sessions WHERE user_id=? AND date=? ORDER BY id DESC LIMIT 1",
-            (self.user_id, _today().isoformat()),
-        ).fetchone()
-        return dict(row) if row else None
 
     # ------------------------------------------------------------------
     # Body metrics
@@ -1358,210 +1209,21 @@ class Memory:
     # Habits
     # ------------------------------------------------------------------
 
-    def create_or_update_habit(
-        self,
-        name: str,
-        category: str = "health",
-        target_days: str = "daily",
-    ) -> dict:
-        now = self._now()
-        self._conn.execute(
-            """INSERT INTO habits (user_id,name,category,target_days,created_at)
-               VALUES (?,?,?,?,?)
-               ON CONFLICT(user_id,name) DO UPDATE SET
-                 category=excluded.category, target_days=excluded.target_days""",
-            (self.user_id, name.strip(), category.strip() or "health",
-             target_days.strip() or "daily", now),
-        )
-        self._conn.commit()
-        row = self._conn.execute(
-            "SELECT name,category,target_days,created_at FROM habits WHERE user_id=? AND lower(name)=lower(?)",
-            (self.user_id, name.strip()),
-        ).fetchone()
-        return self._habit_snapshot(dict(row))
-
-    def log_habit_completion(self, habit_name: str, date_str: str = "") -> dict:
-        target_date = date_str.strip() if date_str.strip() else _today().isoformat()
-        name = habit_name.strip()
-        # Auto-create if missing
-        self._conn.execute(
-            "INSERT OR IGNORE INTO habits (user_id,name,category,target_days,created_at) VALUES (?,?,?,?,?)",
-            (self.user_id, name, "health", "daily", self._now()),
-        )
-        self._conn.execute(
-            "INSERT OR IGNORE INTO habit_completions (user_id,habit_name,completion_date) VALUES (?,?,?)",
-            (self.user_id, name, target_date),
-        )
-        self._conn.commit()
-        row = self._conn.execute(
-            "SELECT name,category,target_days,created_at FROM habits WHERE user_id=? AND lower(name)=lower(?)",
-            (self.user_id, name),
-        ).fetchone()
-        return self._habit_snapshot(dict(row))
-
-    def get_habits(self) -> list:
-        rows = self._conn.execute(
-            "SELECT name,category,target_days,created_at FROM habits WHERE user_id=?",
-            (self.user_id,),
-        ).fetchall()
-        result = []
-        for row in rows:
-            result.append(self._habit_snapshot(dict(row)))
-        return result
-
     # ------------------------------------------------------------------
     # Nutrition
     # ------------------------------------------------------------------
-
-    def log_nutrition(
-        self,
-        meal: str,
-        description: str,
-        calories_est: int = 0,
-        protein_est: int = 0,
-        notes: str = "",
-    ) -> dict:
-        item = {
-            "date": _today().isoformat(),
-            "meal": meal.strip().lower(),
-            "description": description.strip(),
-            "calories_est": max(0, int(calories_est)),
-            "protein_est": max(0, int(protein_est)),
-            "notes": notes.strip(),
-            "timestamp": self._now(),
-        }
-        self._conn.execute(
-            """INSERT INTO nutrition_logs
-               (user_id,date,meal,description,calories_est,protein_est,notes,timestamp)
-               VALUES (?,?,?,?,?,?,?,?)""",
-            (self.user_id, item["date"], item["meal"], item["description"],
-             item["calories_est"], item["protein_est"], item["notes"], item["timestamp"]),
-        )
-        self._conn.commit()
-        return item
-
-    def get_nutrition_today(self) -> list:
-        rows = self._conn.execute(
-            "SELECT date,meal,description,calories_est,protein_est,notes,timestamp "
-            "FROM nutrition_logs WHERE user_id=? AND date=? ORDER BY id",
-            (self.user_id, _today().isoformat()),
-        ).fetchall()
-        return [dict(r) for r in rows]
-
-    def get_nutrition_recent(self, limit: int = 28) -> list:
-        rows = self._conn.execute(
-            "SELECT date,meal,description,calories_est,protein_est,notes,timestamp "
-            "FROM nutrition_logs WHERE user_id=? ORDER BY id DESC LIMIT ?",
-            (self.user_id, limit),
-        ).fetchall()
-        return [dict(r) for r in reversed(rows)]
 
     # ------------------------------------------------------------------
     # Water
     # ------------------------------------------------------------------
 
-    def log_water(self, glasses: int = 1) -> int:
-        today = _today().isoformat()
-        self._conn.execute(
-            """INSERT INTO water_logs (user_id,date,glasses) VALUES (?,?,?)
-               ON CONFLICT(user_id,date) DO UPDATE SET glasses=glasses+?""",
-            (self.user_id, today, max(0, int(glasses)), max(0, int(glasses))),
-        )
-        self._conn.commit()
-        return self.get_water_today()
-
-    def set_water(self, glasses: int) -> int:
-        today = _today().isoformat()
-        self._conn.execute(
-            """INSERT INTO water_logs (user_id,date,glasses) VALUES (?,?,?)
-               ON CONFLICT(user_id,date) DO UPDATE SET glasses=?""",
-            (self.user_id, today, max(0, int(glasses)), max(0, int(glasses))),
-        )
-        self._conn.commit()
-        return self.get_water_today()
-
-    def get_water_today(self) -> int:
-        row = self._conn.execute(
-            "SELECT glasses FROM water_logs WHERE user_id=? AND date=?",
-            (self.user_id, _today().isoformat()),
-        ).fetchone()
-        return int(row["glasses"]) if row else 0
-
     # ------------------------------------------------------------------
     # Chapter completeness
     # ------------------------------------------------------------------
 
-    def get_chapter_completeness(self) -> dict:
-        calendar_all = self.get_calendar_items(limit=200)
-
-        def _text(item: dict) -> str:
-            return " ".join(str(item.get(f, "")).lower() for f in ("title", "details", "source"))
-
-        return {
-            "calendar": len(calendar_all),
-            "birthdays": len([i for i in calendar_all if "birthday" in _text(i)]),
-            "trips": len([i for i in calendar_all if any(k in _text(i) for k in ("trip", "travel", "flight"))]),
-            "gym": len(self.get_gym_plans(limit=100)),
-            "food": len(self.get_food_programs(limit=100)),
-            "goals": len(self.get_goals(status="", limit=100)),
-            "open_loops": len(self.get_open_loops(status="", limit=100)),
-            "dating": len([
-                p for p in self.get_relationship_profiles()
-                if any(t in p.get("relationship", "").lower()
-                       for t in ("dating", "love", "partner", "girlfriend", "boyfriend", "romantic", "spouse"))
-            ]),
-            "family": len([
-                p for p in self.get_relationship_profiles()
-                if any(t in p.get("relationship", "").lower()
-                       for t in ("family", "mother", "father", "mom", "dad", "brother",
-                                 "sister", "parent", "child", "cousin", "uncle", "aunt"))
-            ]),
-            "habits": len(self.get_habits()),
-            "body_metrics": len(self.get_body_metrics(days=30)),
-            "workout_sessions": len(self.get_workout_sessions(limit=50)),
-        }
-
-    def get_chapters_needing_attention(self) -> list:
-        c = self.get_chapter_completeness()
-        chapter_checks = [
-            ("habits",     "Habits",         c["habits"]),
-            ("gym",        "Gym Schedule",   c["gym"]),
-            ("food",       "Food Schedule",  c["food"]),
-            ("calendar",   "Calendar",       c["calendar"]),
-            ("birthdays",  "Birthdays",      c["birthdays"]),
-            ("family",     "Family",         c["family"]),
-            ("plans",      "Goals & Plans",  c["goals"] + c["open_loops"]),
-            ("trips",      "Trips",          c["trips"]),
-            ("dating",     "Dating/Love",    c["dating"]),
-        ]
-        return [label for _, label, count in chapter_checks if count == 0]
-
     # ------------------------------------------------------------------
     # Today summary
     # ------------------------------------------------------------------
-
-    def get_today_summary(self) -> dict:
-        today_metrics = self.get_today_body_metrics()
-        today_workout = self.get_today_workout()
-        today_nutrition = self.get_nutrition_today()
-        habits = self.get_habits()
-        water = self.get_water_today()
-        habits_done = [h for h in habits if h.get("done_today")]
-        habits_pending = [h for h in habits if not h.get("done_today")]
-        return {
-            "date": _today().isoformat(),
-            "body_metrics": today_metrics,
-            "recent_body_metrics": self.get_body_metrics(days=7),
-            "workout": today_workout,
-            "habits_total": len(habits),
-            "habits_done": len(habits_done),
-            "habits_done_names": [h["name"] for h in habits_done],
-            "habits_pending_names": [h["name"] for h in habits_pending],
-            "water_glasses": water,
-            "meals_logged": len(today_nutrition),
-            "calories_est": sum(e.get("calories_est", 0) for e in today_nutrition),
-            "protein_est": sum(e.get("protein_est", 0) for e in today_nutrition),
-        }
 
     # ------------------------------------------------------------------
     # Telemetry
@@ -1730,39 +1392,6 @@ class Memory:
     # ------------------------------------------------------------------
     # Progress snapshot
     # ------------------------------------------------------------------
-
-    def get_progress_snapshot(self) -> dict:
-        moods = self.get_mood_history(10)
-        journal = self.get_journal(5)
-        goals = self.get_goals(limit=20)
-        open_loops = self.get_open_loops(status="", limit=20)
-        relationships = self.get_relationship_profiles()
-        preferences = self.get_preferences(limit=50)
-        calendar_items = self.get_calendar_items(limit=50)
-        favorites = self.get_favorites(limit=50)
-        gym_plans = self.get_gym_plans(limit=20)
-        food_programs = self.get_food_programs(limit=20)
-        habits = self.get_habits()
-        active_goals = [g for g in goals if g.get("status") == "active"]
-        unresolved = [loop for loop in open_loops if loop.get("status", "open") == "open"]
-        return {
-            "mood_count": len(moods),
-            "latest_mood": moods[-1]["mood"] if moods else "",
-            "journal_count": len(journal),
-            "relationship_count": len(relationships),
-            "goal_count": len(goals),
-            "active_goal_count": len(active_goals),
-            "open_loop_count": len(unresolved),
-            "preference_count": len(preferences),
-            "calendar_count": len(calendar_items),
-            "favorite_count": len(favorites),
-            "gym_plan_count": len(gym_plans),
-            "food_program_count": len(food_programs),
-            "habit_count": len(habits),
-            "habits_done_today": len([h for h in habits if h.get("done_today")]),
-            "water_today": self.get_water_today(),
-            "workout_session_count": len(self.get_workout_sessions(limit=50)),
-        }
 
     # ------------------------------------------------------------------
     # JSON migration (one-time, on first init with existing data)
