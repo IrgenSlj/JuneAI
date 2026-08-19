@@ -119,27 +119,28 @@ def test_the_caller_s_dict_is_not_mutated() -> None:
 
 def test_a_model_s_alternate_key_names_are_accepted() -> None:
     """The entire reason this table exists: small local models rename things."""
-    _, out = resolve_tool_call("save_goal", {"goal": "Run a marathon", "deadline": "2026-12-01"})
-    assert out["title"] == "Run a marathon"
-    assert out["target_date"] == "2026-12-01"
+    _, out = resolve_tool_call("save_reminder", {"event": "Dentist", "when": "2026-08-03"})
+    assert out["title"] == "Dentist"
+    assert out["date"] == "2026-08-03"
 
 
 def test_the_canonical_key_wins_over_an_alternate() -> None:
     """When the model supplies both, the one the tool actually declares is right."""
-    _, out = resolve_tool_call("save_goal", {"title": "Canonical", "goal": "Alternate"})
+    _, out = resolve_tool_call("save_calendar_item", {"title": "Canonical", "event": "Alternate"})
     assert out["title"] == "Canonical"
 
 
 def test_an_empty_canonical_value_falls_back_to_the_alternate() -> None:
     """An empty string is the model failing to fill a field, not a deliberate blank."""
-    _, out = resolve_tool_call("save_goal", {"title": "", "goal": "Real goal"})
-    assert out["title"] == "Real goal"
+    _, out = resolve_tool_call("save_calendar_item", {"title": "", "event": "Real event"})
+    assert out["title"] == "Real event"
 
 
-def test_defaults_are_applied_where_the_tool_expects_one() -> None:
-    _, out = resolve_tool_call("save_goal", {"goal": "x"})
-    assert out["status"] == "active"
-    assert out["category"] == "personal"
+def test_an_unfilled_field_normalizes_to_an_empty_string() -> None:
+    """The tool's schema declares defaults for these; the table must not send None."""
+    _, out = resolve_tool_call("save_calendar_item", {"event": "x", "when": "2026-08-03"})
+    assert out["details"] == ""
+    assert out["time"] == ""
 
 
 @pytest.mark.parametrize(
@@ -147,8 +148,8 @@ def test_defaults_are_applied_where_the_tool_expects_one() -> None:
     [
         ("save_calendar_item", {"event": "Dentist", "when": "2026-08-03"}, "title", "Dentist"),
         ("save_calendar_item", {"event": "Dentist", "when": "2026-08-03"}, "date", "2026-08-03"),
-        ("save_open_loop", {"name": "Tax return", "next": "call accountant"}, "topic", "Tax return"),
-        ("save_relationship_profile", {"name": "Sam", "relation": "brother"}, "person", "Sam"),
+        ("save_birthday", {"name": "Sam", "day": "2026-09-01"}, "title", "Sam"),
+        ("save_trip", {"title": "Lisbon", "date": "2026-10-02", "note": "flights booked"}, "details", "flights booked"),
     ],
 )
 def test_alternate_keys_across_the_table(
@@ -158,41 +159,32 @@ def test_alternate_keys_across_the_table(
     assert out[field] == expected
 
 
-# -- rerouting ----------------------------------------------------------
+# -- what the table no longer does --------------------------------------
 
 
-def test_a_journal_entry_carrying_a_dated_event_reroutes_to_the_calendar() -> None:
-    """A normalizer may return (name, args) and send the call somewhere else.
+def test_a_retired_tool_name_is_not_rewritten_into_a_live_one() -> None:
+    """`save_journal_entry` used to reroute a dated JSON blob to the calendar.
 
-    Small models emit a JSON blob inside a journal entry rather than calling the
-    calendar tool. This is the one place the table changes which tool runs.
+    That normalizer went with the tool (ADR 0032). What matters now is that the
+    name passes through untouched rather than being quietly turned into a call
+    the model did not make: the merge denylist is what stops a retired name, and
+    it can only stop a name the table did not already rewrite.
     """
+    from june_brain.tools import RETIRED_TOOL_NAMES
+
     entry = '{"title": "Dentist", "date": "2026-08-03"}'
     name, out = resolve_tool_call("save_journal_entry", {"entry": entry})
-    assert name == "save_calendar_item"
-    assert out["title"] == "Dentist"
-    assert out["date"] == "2026-08-03"
-
-
-def test_an_ordinary_journal_entry_stays_a_journal_entry() -> None:
-    """The reroute must be the exception, not the behaviour."""
-    name, out = resolve_tool_call(
-        "save_journal_entry", {"entry": "Felt good after the run today."}
-    )
     assert name == "save_journal_entry"
-    assert out["entry"] == "Felt good after the run today."
+    assert name in RETIRED_TOOL_NAMES
+    assert out == {"entry": entry}
 
 
-def test_a_json_entry_without_a_date_is_not_rerouted() -> None:
-    """A calendar item with no date is not a calendar item."""
-    name, _out = resolve_tool_call("save_journal_entry", {"entry": '{"title": "no date"}'})
-    assert name == "save_journal_entry"
+def test_no_alias_resolves_to_a_retired_tool() -> None:
+    """An alias pointing at a deleted tool is a call that can only fail."""
+    from june_brain.tools import RETIRED_TOOL_NAMES
 
-
-def test_a_non_string_entry_does_not_crash_the_reroute() -> None:
-    name, out = resolve_tool_call("save_journal_entry", {"entry": {"not": "a string"}})
-    assert name == "save_journal_entry"
-    assert out["entry"] == {"not": "a string"}
+    leaked = sorted(set(TOOL_ALIASES) & RETIRED_TOOL_NAMES)
+    assert leaked == [], f"the alias table still routes to retired tools: {leaked}"
 
 
 # -- the ordering the guard depends on ----------------------------------

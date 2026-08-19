@@ -80,13 +80,6 @@ def test_coerce_picks_tool_name_when_name_is_missing() -> None:
 # -------------------------------------------------------------------- normalize
 
 
-def test_normalize_aliases_save_goal_to_track_goal() -> None:
-    name, args = _normalize_tool_call("save_goal", {"title": "Run 5k"})
-    assert name == "track_goal"
-    assert args["title"] == "Run 5k"
-    assert args["status"] == "active"  # defaults filled in
-
-
 def test_normalize_calendar_collects_synonyms_into_canonical_shape() -> None:
     """The model may use `event`/`day`/`note` instead of title/date/details."""
     name, args = _normalize_tool_call(
@@ -102,15 +95,6 @@ def test_normalize_calendar_collects_synonyms_into_canonical_shape() -> None:
     }
 
 
-def test_normalize_track_goal_fills_required_defaults() -> None:
-    name, args = _normalize_tool_call("track_goal", {"goal": "lose 5kg"})
-    assert name == "track_goal"
-    # `goal` is a recognized synonym for `title`.
-    assert args["title"] == "lose 5kg"
-    assert args["category"] == "personal"
-    assert args["status"] == "active"
-
-
 def test_normalize_passes_unknown_tool_through_untouched() -> None:
     name, args = _normalize_tool_call("not_a_known_tool", {"foo": 1})
     assert name == "not_a_known_tool"
@@ -120,13 +104,13 @@ def test_normalize_passes_unknown_tool_through_untouched() -> None:
 def test_normalize_handles_none_args() -> None:
     """A model may emit no args; the helper must coerce to a dict, not crash.
 
-    Previously asserted through log_water's "default to 1 glass" behaviour;
-    that tool was retired with the v1 domain layer (D.5a). The property under
-    test is the coercion, not the default, so it now uses a surviving tool with
-    an alias entry.
+    Previously asserted through log_water's "default to 1 glass" behaviour, then
+    through save_open_loop; both were retired with the v1 domain layer (D.5a and
+    ADR 0032). The property under test is the coercion, not the default, so it
+    tracks whichever tool still has an alias entry.
     """
-    name, args = _normalize_tool_call("save_open_loop", None)  # type: ignore[arg-type]
-    assert name == "save_open_loop"
+    name, args = _normalize_tool_call("save_calendar_item", None)  # type: ignore[arg-type]
+    assert name == "save_calendar_item"
     assert isinstance(args, dict)
 
 

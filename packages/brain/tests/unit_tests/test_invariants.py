@@ -346,6 +346,94 @@ def test_no_bundled_skill_readvertises_a_v1_domain_tool() -> None:
     )
 
 
+def test_a_handoff_actually_hands_off() -> None:
+    """A name in SKILL_OWNED_TOOL_NAMES must be served by a bundled skill.
+
+    Deleting a native tool unshadows any skill copy of the name. D.5c found that
+    as a bug — skills/health and skills/daily silently resurrected six deleted
+    capabilities — and D.5a uses it deliberately for calendar, whose skill is the
+    better home for the name. The two cases are one line apart in the source and
+    opposite in intent, so the difference has to be checked, not commented.
+    """
+    import importlib.util
+    import pathlib as _pathlib
+
+    from june_brain.tools import RETIRED_TOOL_NAMES, SKILL_OWNED_TOOL_NAMES
+
+    overlap = sorted(RETIRED_TOOL_NAMES & SKILL_OWNED_TOOL_NAMES)
+    assert overlap == [], (
+        f"{overlap} is both retired and handed off. The denylist wins at merge "
+        "time, so the skill's tool would be silently dropped."
+    )
+
+    spec = importlib.util.spec_from_file_location(
+        "_scope_contracts",
+        _pathlib.Path(__file__).with_name("test_skill_scope_contracts.py"),
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    advertised = {name for tools in module.BUNDLED_TOOLS.values() for name in tools}
+
+    orphaned = sorted(SKILL_OWNED_TOOL_NAMES - advertised)
+    assert orphaned == [], (
+        f"{orphaned} was handed off to a skill that does not advertise it. The "
+        "capability is gone, not moved."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Invariant: the system prompt may only name tools that exist.
+#
+# D.6 found `_BASE_INSTRUCTIONS` telling the model to call tools tranche 1 had
+# deleted, rewrote it, and still left `get_recovery_readiness_summary` named
+# twice in the persona instructions below it. A prompt that advertises a
+# missing tool spends the model's attention on a call that can only fail, and
+# the Glass Box shows the user the failure.
+# ---------------------------------------------------------------------------
+
+
+def test_the_system_prompt_only_names_tools_that_exist() -> None:
+    import re
+
+    from june_brain.skills import SKILLS, build_system_prompt
+    from june_brain.skills.manifest import DEFAULT_MANIFEST
+    from june_brain.tools import JUNE_TOOLS, JUNE_TOOLS_GEMMA, SKILL_OWNED_TOOL_NAMES
+
+    known = (
+        {t.name for t in JUNE_TOOLS}
+        | {t.name for t in JUNE_TOOLS_GEMMA}
+        | set(SKILL_OWNED_TOOL_NAMES)
+    )
+    # Bundled skills' tools are legitimate to name too.
+    import importlib.util
+    import pathlib as _pathlib
+
+    spec = importlib.util.spec_from_file_location(
+        "_scope_contracts",
+        _pathlib.Path(__file__).with_name("test_skill_scope_contracts.py"),
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    known |= {name for tools in module.BUNDLED_TOOLS.values() for name in tools}
+    assert set(DEFAULT_MANIFEST.entries)  # the manifest is what makes them reachable
+
+    # Tool-shaped tokens: snake_case identifiers with a verb-ish leading segment.
+    pattern = re.compile(
+        r"\b((?:save|get|list|update|create|delete|log|track|set|clear|remember|forget|"
+        r"switch|preview|draft|run|check|analyze|generate|plan|ask|summarize|web|fetch|read|search|send)"
+        r"_[a-z_]+)\b"
+    )
+    for key in SKILLS:
+        prompt = build_system_prompt(key)
+        named = set(pattern.findall(prompt))
+        unknown = sorted(named - known)
+        assert unknown == [], (
+            f"the '{key}' system prompt names tools that do not exist: {unknown}"
+        )
+
+
 # ---------------------------------------------------------------------------
 # Invariant: the Glass Box reports what happened, once.
 #

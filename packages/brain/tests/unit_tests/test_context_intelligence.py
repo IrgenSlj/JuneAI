@@ -1,4 +1,10 @@
-"""Tests for derived context intelligence summaries."""
+"""Tests for derived context intelligence summaries.
+
+The tool-wiring half is gone: `get_active_commitments_summary` and
+`get_personal_context` read goals, open loops and gym tables whose writers were
+deleted in D.5a, so they advertised knowledge June could no longer acquire. The
+module itself is still exercised here until D.5b removes it.
+"""
 
 from datetime import date, timedelta
 from unittest.mock import patch
@@ -9,8 +15,6 @@ from june_brain.context_intelligence import (
     format_active_commitments_summary,
 )
 from june_brain.memory import Memory
-from june_brain.skills import build_system_prompt
-from june_brain.tools import JUNE_TOOLS, get_active_commitments_summary
 
 
 @pytest.fixture
@@ -24,25 +28,6 @@ def memory_dir(tmp_path):
 def mem(memory_dir):
     """Memory instance backed by a temporary directory."""
     return Memory("test_user")
-
-
-@pytest.fixture
-def tool_state():
-    return {
-        "messages": [],
-        "user_id": "test_user",
-        "skill": "assistant",
-        "ui_state": {
-            "layout": "split",
-            "selected_chapter": "",
-            "focus_title": "Workspace",
-            "focus_body": "",
-            "checklist_title": "Next steps",
-            "checklist_items": [],
-            "notice": "",
-        },
-    }
-
 
 
 def test_commitments_summary_unifies_calendar_goals_loops_and_habits(mem):
@@ -81,22 +66,3 @@ def test_commitments_summary_unifies_calendar_goals_loops_and_habits(mem):
     assert "Goals:" in text
     assert "Open loops:" in text
     assert "Habits pending today:" in text
-
-
-def test_commitments_tool_and_prompt_stay_wired(mem, tool_state):
-    """The recovery half of this test went with the health tools (D.5a).
-
-    Active commitments survives into tranche 2 pending a decision on the
-    calendar/goals/open-loops cluster, so its wiring is still asserted.
-    """
-    mem.save_calendar_item("Standup", (date.today() + timedelta(days=1)).isoformat())
-    mem.save_goal("Ship draft", next_step="Finish outline")
-
-    tool_names = {tool.name for tool in JUNE_TOOLS}
-    assert "get_active_commitments_summary" in tool_names
-
-    commitments_text = get_active_commitments_summary.func(state=tool_state)
-    prompt = build_system_prompt("assistant")
-
-    assert "Active commitments" in commitments_text
-    assert "get_active_commitments_summary" in prompt

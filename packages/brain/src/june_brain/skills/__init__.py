@@ -38,7 +38,6 @@ from .prompts import (
     SKILLS,
     SkillDefinition,
     build_system_prompt,
-    infer_skill_from_text,
 )
 
 __all__ = [
@@ -47,7 +46,6 @@ __all__ = [
     "SKILLS",
     "SkillDefinition",
     "build_system_prompt",
-    "infer_skill_from_text",
     # MCP skills
     "DEFAULT_MANIFEST",
     "SkillManifest",

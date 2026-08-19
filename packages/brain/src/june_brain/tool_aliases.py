@@ -5,7 +5,12 @@ Each tool has:
 - ``param_map`` — mapping from non-canonical param names to canonical ones
 - ``normalizer`` — optional callable that reshapes the entire args dict
 
-This replaces the 200-line if/elif chain in ``graph.py:_normalize_tool_call``.
+It replaced a 200-line if/elif chain, and D.5a shrank it again: the table exists
+because small local models miss on tool names and parameter shapes, so an entry
+only earns its lines while the tool it points at is still advertised. After the
+v1 domain writers went (ADR 0032) one entry is left, and it points at a name the
+calendar *skill* serves rather than a native tool. D.5d re-measures selection
+accuracy against the new surface to decide whether even that is still needed.
 """
 
 from __future__ import annotations
@@ -50,11 +55,6 @@ def _best_of(args: dict[str, Any], canonical: str, alt_keys: list[str]) -> Any:
     return _first_of(args, canonical, *alt_keys)
 
 
-def _merge_optional(args: dict[str, Any], field: str, *alt_keys: str) -> Any:
-    """Prefer the canonical field, fall back to alternatives."""
-    return _first_of(args, field, *alt_keys)
-
-
 # ---------------------------------------------------------------------------
 # Individual normalizer functions for tools with complex mapping
 # ---------------------------------------------------------------------------
@@ -69,139 +69,14 @@ def _normalize_save_calendar_item(args: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _normalize_track_goal(args: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "title": _best_of(args, "title", ["goal", "name"]),
-        "category": _best_of(args, "category", ["area"]) or "personal",
-        "target_date": _best_of(args, "target_date", ["deadline", "date"]),
-        "next_step": _best_of(args, "next_step", ["next", "action"]),
-        "status": args.get("status") or "active",
-    }
-
-
-def _normalize_save_open_loop(args: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "topic": _best_of(args, "topic", ["title", "name"]),
-        "next_step": _best_of(args, "next_step", ["next", "action"]),
-        "due_date": _best_of(args, "due_date", ["deadline", "date"]),
-        "status": args.get("status") or "open",
-    }
-
-
-def _normalize_save_relationship_profile(args: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "person": _best_of(args, "person", ["name"]),
-        "relationship": _best_of(args, "relationship", ["relation"]),
-        "summary": _best_of(args, "summary", ["context", "details"]),
-        "user_needs": _best_of(args, "user_needs", ["needs"]),
-        "cautions": _best_of(args, "cautions", ["warnings"]),
-    }
-
-
-def _normalize_save_user_preference(args: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "category": _best_of(args, "category", ["type"]) or "general",
-        "value": _best_of(args, "value", ["preference", "title"]),
-        "context": _best_of(args, "context", ["details", "reason"]),
-    }
-
-
-def _normalize_save_favorite_recommendation(args: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "category": _best_of(args, "category", ["type"]) or "general",
-        "title": _best_of(args, "title", ["name"]),
-        "reason": _best_of(args, "reason", ["details"]),
-        "creator": _best_of(args, "creator", ["author", "artist"]),
-        "status": args.get("status") or "saved",
-    }
-
-
-def _extract_json_payload(text: str) -> dict[str, Any] | None:
-    """Heuristic: extract first JSON-like object from ``text``."""
-    import json
-
-    idx = text.find("{")
-    if idx == -1:
-        return None
-    text = text[idx:]
-    depth = 0
-    for i, ch in enumerate(text):
-        if ch == "{":
-            depth += 1
-        elif ch == "}":
-            depth -= 1
-            if depth == 0:
-                try:
-                    return json.loads(text[: i + 1])
-                except (json.JSONDecodeError, ValueError):
-                    return None
-    return None
-
-
-def _normalize_save_journal_entry(args: dict[str, Any]) -> dict[str, Any] | tuple[str, dict[str, Any]]:
-    """Extracts JSON payload from the entry string; may reroute to save_calendar_item."""
-    entry = args.get("entry", "")
-    if not isinstance(entry, str):
-        return args
-    payload = _extract_json_payload(entry)
-    if payload is None:
-        return args
-    date = str(payload.get("date", "")).strip()
-    if not date:
-        return args
-    title = str(
-        payload.get("title")
-        or payload.get("event")
-        or payload.get("name")
-        or "Saved reminder"
-    ).strip()
-    details = str(payload.get("details") or payload.get("note") or "").strip()
-    blob = " ".join(str(value).lower() for value in payload.values())
-    if "birthday" in blob and "birthday" not in title.lower():
-        title = f"{title} birthday"
-    return "save_calendar_item", {
-        "title": title,
-        "date": date,
-        "details": details,
-        "source": "conversation",
-    }
-
-
 # ---------------------------------------------------------------------------
 # The master table
 # ---------------------------------------------------------------------------
 
 TOOL_ALIASES: dict[str, ToolAlias] = {
-    "track_goal": ToolAlias(
-        aliases=["save_goal", "create_goal", "add_goal"],
-        param_map={"goal": "title", "name": "title", "area": "category", "deadline": "target_date", "next": "next_step"},
-        normalizer=_normalize_track_goal,
-    ),
     "save_calendar_item": ToolAlias(
         aliases=["save_reminder", "add_calendar_item", "create_calendar_item", "save_trip", "save_birthday"],
         normalizer=_normalize_save_calendar_item,
-    ),
-    "save_user_preference": ToolAlias(
-        aliases=["save_preference"],
-        param_map={"type": "category", "preference": "value", "reason": "context"},
-        normalizer=_normalize_save_user_preference,
-    ),
-    "save_favorite_recommendation": ToolAlias(
-        aliases=["save_favorite", "add_favorite"],
-        param_map={"type": "category", "name": "title", "author": "creator", "artist": "creator"},
-        normalizer=_normalize_save_favorite_recommendation,
-    ),
-    "save_open_loop": ToolAlias(
-        param_map={"deadline": "due_date", "action": "next_step"},
-        normalizer=_normalize_save_open_loop,
-    ),
-    "save_relationship_profile": ToolAlias(
-        param_map={"relation": "relationship", "context": "summary", "needs": "user_needs", "warnings": "cautions"},
-        normalizer=_normalize_save_relationship_profile,
-    ),
-    "save_journal_entry": ToolAlias(
-        param_map={"entry": "entry"},
-        normalizer=_normalize_save_journal_entry,
     ),
 }
 

@@ -1,16 +1,45 @@
-"""Integration: native memory-writing tools persist to SQLite.
+"""Integration: June's memory tools persist across store instances.
 
-Each test invokes a native tool directly with an injected ``state`` carrying
-the user_id. After the call we read back from a fresh Memory instance
-(different object, same db file) to confirm the write really landed.
+Each test invokes a native tool directly with an injected ``state`` carrying the
+user_id, then reads back through a *fresh* store object against the same db
+file. A tool that reported success while writing nothing would pass a unit test
+built on a shared in-process object and fail here — which is the point, because
+a tool result the model relays to the user is a claim about durable state.
+
+Rewritten for the four tools of ADR 0032; it previously covered the v1 domain
+writers those replaced.
 """
 
 from __future__ import annotations
 
+import hashlib
 from unittest.mock import patch
 
-from june_brain.memory import Memory
+from june_brain.memory import MemoryManager
+from june_brain.memory import vector as vector_module
+from june_brain.tasks.models import TaskStatus
+from june_brain.tasks.store import TasksStore
 from june_brain.tools import JUNE_TOOLS
+
+
+class _HashEmbedder:
+    """Deterministic 64-dim embedder so these tests need no Ollama.
+
+    Declared here rather than imported from unit_tests/test_vector_store.py:
+    the two test directories are not one package, and a sys.path hop to share
+    ten lines would cost more than it saves.
+    """
+
+    @staticmethod
+    def _vec(text: str) -> list[float]:
+        digest = hashlib.sha256(text.encode("utf-8")).digest()
+        return [(digest[i % len(digest)] / 255.0) * 2.0 - 1.0 for i in range(64)]
+
+    def embed(self, texts):
+        return [self._vec(t) for t in texts]
+
+    def embed_one(self, text):
+        return self._vec(text)
 
 _TOOLS = {t.name: t for t in JUNE_TOOLS}
 
@@ -19,94 +48,72 @@ def _invoke(name: str, args: dict, user_id: str):
     return _TOOLS[name].invoke({**args, "state": {"user_id": user_id}})
 
 
-def test_save_calendar_item_persists_to_sqlite(tmp_path):
-    """A calendar save tool call is readable afterwards."""
-    user_id = "cal_user"
+def test_remember_persists_and_is_recallable(tmp_path, monkeypatch):
+    user_id = "remember_user"
 
     with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
-        _invoke(
-            "save_calendar_item",
-            {
-                "title": "Doctor appointment",
-                "date": "2026-05-15",
-                "time": "10:00",
-                "details": "Annual check-up",
-            },
-            user_id,
-        )
-        mem = Memory(user_id)
-        items = mem.get_calendar_items(status="", limit=10)
+        vector_module.reset_singletons()
+        monkeypatch.setattr(vector_module, "_default_embedder", _HashEmbedder())
 
-    assert any(item["title"] == "Doctor appointment" for item in items)
-    match = next(i for i in items if i["title"] == "Doctor appointment")
-    assert match["date"] == "2026-05-15"
-    assert match["time"] == "10:00"
+        result = _invoke("remember", {"text": "The user's dog is called Otto."}, user_id)
+        hits = MemoryManager(user_id).recall("The user's dog is called Otto.", k=5)
+        vector_module.reset_singletons()
+
+    assert "Remembered" in result
+    assert any("Otto" in h.get("text", "") for h in hits)
 
 
-def test_track_goal_persists_to_sqlite(tmp_path):
-    """A track_goal tool call is readable from a separate Memory instance."""
-    user_id = "goal_user"
+def test_forget_persists_the_removal(tmp_path, monkeypatch):
+    user_id = "forget_user"
 
     with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
-        _invoke(
-            "track_goal",
-            {
-                "title": "Run a half marathon",
-                "next_step": "Sign up for a local 5k first",
-                "target_date": "2026-09-01",
-                "category": "fitness",
-            },
-            user_id,
-        )
-        mem = Memory(user_id)
-        goals = mem.get_goals(status="", limit=10)
+        vector_module.reset_singletons()
+        monkeypatch.setattr(vector_module, "_default_embedder", _HashEmbedder())
 
-    assert any(g["title"] == "Run a half marathon" for g in goals)
-    match = next(g for g in goals if g["title"] == "Run a half marathon")
-    assert match["next_step"] == "Sign up for a local 5k first"
-    assert match["category"] == "fitness"
+        _invoke("remember", {"text": "The user is allergic to penicillin."}, user_id)
+        result = _invoke("forget", {"description": "allergic to penicillin"}, user_id)
+        hits = MemoryManager(user_id).recall("allergic to penicillin", k=5)
+        vector_module.reset_singletons()
+
+    assert "Forgotten" in result
+    assert not any("penicillin" in h.get("text", "") for h in hits)
 
 
-
-def test_save_open_loop_persists_to_sqlite(tmp_path):
-    """A save_open_loop tool call is readable from a separate Memory instance."""
-    user_id = "stats_user"
+def test_update_promise_persists_the_status(tmp_path):
+    user_id = "promise_user"
 
     with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
-        _invoke(
-            "save_open_loop",
-            {
-                "topic": "Follow up with landlord",
-                "next_step": "Send email by Friday",
-            },
-            user_id,
-        )
-        mem = Memory(user_id)
-        loops = mem.get_open_loops(status="", limit=10)
+        task = TasksStore(user_id=user_id).create(goal="Renew the passport")
+        result = _invoke("update_promise", {"promise_id": task.id, "status": "completed"}, user_id)
+        reread = TasksStore(user_id=user_id).get(task.id)
 
-    assert any(loop_item["topic"] == "Follow up with landlord" for loop_item in loops)
-    match = next(loop_item for loop_item in loops if loop_item["topic"] == "Follow up with landlord")
-    assert match["next_step"] == "Send email by Friday"
+    assert "completed" in result
+    assert reread is not None
+    assert reread.status == TaskStatus.COMPLETED
 
 
-def test_two_tools_write_in_same_user(tmp_path):
-    """Two writing tools both persist under the same user."""
-    user_id = "combo_user"
+def test_list_promises_reads_what_another_store_wrote(tmp_path):
+    user_id = "list_user"
 
     with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
-        _invoke(
-            "save_calendar_item",
-            {"title": "Team lunch", "date": "2026-05-20"},
-            user_id,
-        )
-        _invoke(
-            "save_open_loop",
-            {"topic": "Confirm the room", "next_step": "Ask on Monday"},
-            user_id,
-        )
-        mem = Memory(user_id)
-        items = mem.get_calendar_items(status="", limit=10)
-        loops = mem.get_open_loops(status="open", limit=10)
+        TasksStore(user_id=user_id).create(goal="Find a dentist")
+        result = _invoke("list_promises", {}, user_id)
 
-    assert any(i["title"] == "Team lunch" for i in items)
-    assert any(loop_item["topic"] == "Confirm the room" for loop_item in loops)
+    assert "Find a dentist" in result
+
+
+def test_a_tool_writes_only_to_its_own_user(tmp_path, monkeypatch):
+    """The injected state is the whole isolation boundary between users."""
+    with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
+        vector_module.reset_singletons()
+        monkeypatch.setattr(vector_module, "_default_embedder", _HashEmbedder())
+
+        _invoke("remember", {"text": "Alice's favourite colour is green."}, "alice")
+        TasksStore(user_id="alice").create(goal="Alice's promise")
+
+        bob_hits = MemoryManager("bob").recall("favourite colour", k=5)
+        bob_promises = _invoke("list_promises", {}, "bob")
+        vector_module.reset_singletons()
+
+    assert not any("Alice" in h.get("text", "") for h in bob_hits)
+    assert bob_promises == "No open promises."

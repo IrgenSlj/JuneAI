@@ -1,20 +1,16 @@
-"""Unit tests for the Memory class and tool functions."""
+"""Unit tests for the Memory class.
+
+The tool half went with the v1 domain writers (D.5a / ADR 0032). The store
+methods stay: existing rows still feed recall through its keyword channel, so
+they are live until D.5b decides the store layer's fate. The four tools that
+replaced them are covered in `test_memory_tools.py`.
+"""
 
 from datetime import date, timedelta
 from unittest.mock import patch
 
 import pytest
 from june_brain.memory import Memory
-from june_brain.tools import (
-    list_calendar_items,
-    list_favorites,
-    save_calendar_item,
-    save_favorite_recommendation,
-    save_user_preference,
-    update_calendar_item_status,
-    update_goal_status,
-    update_open_loop_status,
-)
 
 
 @pytest.fixture
@@ -121,81 +117,3 @@ def test_status_transition_methods(mem):
     assert calendar_item["status"] == "completed"
     assert goal["status"] == "paused"
     assert loop["status"] == "closed"
-
-
-@pytest.fixture
-def tool_state():
-    """Minimal AgentState for direct tool invocation.
-
-    ``ui_state`` went with the no-op workspace tools (D.5a); what remains is the
-    identity a tool needs to reach the right user's store.
-    """
-    return {
-        "messages": [],
-        "user_id": "test_user",
-        "skill": "assistant",
-    }
-
-def test_status_transition_tools(tool_state, mem):
-    mem.save_calendar_item("Dentist", "2026-04-02")
-    mem.save_goal("Write proposal")
-    mem.save_open_loop("Book train")
-
-    calendar_result = update_calendar_item_status.func(
-        title="Dentist",
-        status="completed",
-        date="2026-04-02",
-        state=tool_state,
-    )
-    goal_result = update_goal_status.func(
-        title="Write proposal",
-        status="completed",
-        state=tool_state,
-    )
-    loop_result = update_open_loop_status.func(
-        topic="Book train",
-        status="resolved",
-        state=tool_state,
-    )
-
-    assert "completed" in calendar_result
-    assert "completed" in goal_result
-    assert "resolved" in loop_result
-    assert mem.get_calendar_items(status="completed")[0]["title"] == "Dentist"
-    assert mem.get_goals(status="completed")[0]["title"] == "Write proposal"
-    assert mem.get_open_loops(status="resolved")[0]["topic"] == "Book train"
-
-
-def test_preference_tool(tool_state, mem):
-    result = save_user_preference.func(
-        category="books",
-        value="lyrical fiction",
-        context="likes reflective novels",
-        state=tool_state,
-    )
-    saved = mem.get_preferences("books")
-    assert "books" in result.lower() or "remember" in result.lower()
-    assert saved[0]["value"] == "lyrical fiction"
-
-
-
-def test_calendar_and_favorites_tools(tool_state):
-    calendar_result = save_calendar_item.func(
-        title="Pick up dry cleaning",
-        date="2026-03-18",
-        time="18:00",
-        state=tool_state,
-    )
-    favorite_result = save_favorite_recommendation.func(
-        category="movie",
-        title="Perfect Days",
-        reason="quiet observational drama",
-        state=tool_state,
-    )
-    calendar = list_calendar_items.func(state=tool_state)
-    favorites = list_favorites.func(state=tool_state)
-    assert "Pick up dry cleaning" in calendar_result or "calendar" in calendar_result.lower()
-    assert "Perfect Days" in favorite_result or "movie" in favorite_result.lower()
-    assert "Pick up dry cleaning" in calendar
-    assert "Perfect Days" in favorites
-
