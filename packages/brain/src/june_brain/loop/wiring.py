@@ -153,11 +153,13 @@ def make_recall_fn(
 def make_tools_block() -> str:
     """Build the system-prompt section that advertises callable tools.
 
-    The handwritten loop extracts tool calls from the model's *text* (it does
-    not bind structured tools through the provider API), so the model must be
-    told, in the prompt, which tools exist and the exact JSON it should emit
-    to call one. Without this block the model has no way to know a tool like
-    ``web_search`` is available.
+    The loop binds structured tools through the provider API as well
+    (``make_tool_specs``, D.4b), but the prose-JSON path remains the fallback
+    for models without function calling — and it is the only path when the
+    provider ignores ``tools``. So the model is still told, in the prompt,
+    which tools exist and the exact JSON it should emit to call one. Without
+    this block a model with no native tool support has no way to know a tool
+    like ``web_search`` is available.
 
     Returns "" on any failure or when no tools are available — graceful
     degradation: the loop still runs, just without tool access.

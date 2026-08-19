@@ -351,3 +351,74 @@ def test_no_bundled_skill_readvertises_a_v1_domain_tool() -> None:
         f"a bundled skill still advertises v1 domain tools: {leaked}. Removing the "
         "native copy unshadows the skill's, so the capability survives the deletion."
     )
+
+
+# ---------------------------------------------------------------------------
+# Invariant: the Glass Box reports what happened, once.
+#
+# When stream() raised, stream_turn fell back to generate() and added the
+# provider's reported usage, then added an *estimate* of the same content on
+# the way out — roughly doubling the counts the user is shown.
+# ---------------------------------------------------------------------------
+
+
+def test_generate_fallback_does_not_double_count_tokens() -> None:
+    import asyncio
+
+    from june_brain.loop.handwritten import HandwrittenLoop
+    from june_brain.loop.interface import SessionState
+    from june_brain.providers.base import GenerateResult, Message, ProviderHealth
+    from june_brain.providers.registry import ProviderRegistry
+    from june_brain.router.difficulty import DifficultyResult
+
+    REPORTED_IN, REPORTED_OUT = 137, 41
+
+    class BrokenStreamProvider:
+        model_id = "mock"
+        tier = "local-fast"
+
+        async def generate(self, req):
+            return GenerateResult(
+                text="recovered answer",
+                input_tokens=REPORTED_IN,
+                output_tokens=REPORTED_OUT,
+                latency_ms=1,
+                model_id="mock",
+                tier="local-fast",
+            )
+
+        async def stream(self, req):
+            raise RuntimeError("stream unavailable")
+            yield  # pragma: no cover - defines the async generator
+
+        async def health(self):  # pragma: no cover - unused
+            return ProviderHealth(reachable=True)
+
+    async def classify(_text):
+        return DifficultyResult("standard", "heuristic")
+
+    async def no_compact(_session):
+        return False
+
+    registry = ProviderRegistry(toml_data={"roles": {}, "providers": {}})
+    registry.register("local-fast", BrokenStreamProvider())
+
+    loop = HandwrittenLoop(
+        registry=registry,
+        role="local-fast",
+        assemble_context=lambda s, m: [m],
+        extract_tool_calls=lambda r: [],
+        dispatch=None,
+        maybe_compact=no_compact,
+        classify=classify,
+    )
+
+    result = asyncio.run(
+        loop.run_turn(SessionState(user_id="u", messages=[]),
+                      Message(role="user", content="hi"))
+    )
+
+    assert result.tokens.input_tokens == REPORTED_IN, (
+        "the fallback added the provider's usage AND an estimate of the same turn"
+    )
+    assert result.tokens.output_tokens == REPORTED_OUT

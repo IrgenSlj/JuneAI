@@ -22,7 +22,6 @@ from june_brain.providers.base import GenerateRequest, GenerateResult, Message
 from june_brain.providers.registry import ProviderRegistry, get_registry
 
 from .interface import (
-    HarnessLoop,
     SessionState,
     StreamEvent,
     TokenAccounting,
@@ -82,6 +81,67 @@ def _format_recall_detail(recall_hits: list) -> str:
         rel_part = f" rel {relevance:.2f}" if isinstance(relevance, (int, float)) else ""
         lines.append(f"{score_part}{rec_part}{freq_part}{rel_part} · {text}")
     return "\n".join(lines)
+
+
+class _AnswerGate:
+    """Withholds the head of an answer until it is clear it is prose, not tool JSON.
+
+    A model may answer in prose or emit a tool call as bare JSON, and the first
+    token does not say which. So the head is buffered until one character
+    decides: ``{`` or ``[`` means tool JSON and the answer is suppressed (the
+    loop parses it as a tool call instead), anything else means prose and the
+    buffer is released. A leading ``` fence is stripped before deciding, since a
+    model that wraps its JSON in a code block is still calling a tool.
+
+    This lived twice — once in the streaming loop, once in the end-of-stream
+    flush — and the copies had already drifted on one branch. They are not
+    identical by nature, though: mid-stream an unterminated fence means "wait
+    for more deltas", and at end-of-stream there are no more, so the text has to
+    be released rather than dropped. That is the ``final`` flag, which makes the
+    difference deliberate instead of accidental.
+    """
+
+    def __init__(self) -> None:
+        self.emit = False
+        self.suppress = False
+        self._head = ""
+
+    def feed(self, delta: str, *, final: bool = False) -> str:
+        """Return the text to emit for this delta (empty string for none)."""
+        if not delta:
+            return ""
+        if self.emit:
+            return delta
+        if self.suppress:
+            return ""
+
+        self._head += delta
+        candidate = self._head.lstrip()
+
+        if candidate.startswith("```"):
+            newline_pos = candidate.find("\n")
+            if newline_pos != -1:
+                candidate = candidate[newline_pos + 1:].lstrip()
+            elif not final:
+                # Fence not terminated yet; more deltas are coming.
+                return ""
+            # At end-of-stream an unterminated fence is all we will ever get,
+            # so fall through and let it be judged as-is rather than dropped.
+
+        if not candidate:
+            return ""
+        if candidate[0] in ("{", "["):
+            self.suppress = True
+            return ""
+
+        self.emit = True
+        out, self._head = self._head, ""
+        return out
+
+    def reset(self) -> None:
+        self.emit = False
+        self.suppress = False
+        self._head = ""
 
 
 class HandwrittenLoop:
@@ -529,11 +589,10 @@ class HandwrittenLoop:
             reasoning_observed = False
 
             # --- stream the provider response ---
+            usage_reported = False
             answer_accum = ""
             reasoning_accum = ""
-            suppress_mode = False
-            emit_mode = False
-            buffered_head = ""
+            gate = _AnswerGate()
             splitter = ReasoningSplitter()
 
             # Native tool calls arrive on their own channel of the delta and are
@@ -588,35 +647,14 @@ class HandwrittenLoop:
                                 reasoning_accum += seg_text
                                 yield _emit(StreamEvent(type="reasoning", content=seg_text))
                         else:
-                            # seg_kind == "answer": pass through the
-                            # tool-call-suppression gate exactly as before.
+                            # seg_kind == "answer": through the suppression gate.
                             answer_delta = seg_text
                             if not answer_delta:
                                 continue
                             answer_accum += answer_delta
-
-                            if not emit_mode and not suppress_mode:
-                                buffered_head += answer_delta
-                                stripped = buffered_head.lstrip()
-
-                                candidate = stripped
-                                if candidate.startswith("```"):
-                                    newline_pos = candidate.find("\n")
-                                    if newline_pos != -1:
-                                        candidate = candidate[newline_pos + 1:].lstrip()
-                                    else:
-                                        continue
-
-                                if candidate:
-                                    if candidate[0] in ("{", "["):
-                                        suppress_mode = True
-                                    else:
-                                        emit_mode = True
-                                        if buffered_head:
-                                            yield _emit(StreamEvent(type="token", content=buffered_head))
-                                        buffered_head = ""
-                            elif emit_mode:
-                                yield _emit(StreamEvent(type="token", content=answer_delta))
+                            out = gate.feed(answer_delta)
+                            if out:
+                                yield _emit(StreamEvent(type="token", content=out))
 
                 # Flush any residual reasoning/answer at end-of-stream.
                 for seg_kind, seg_text in splitter.flush():
@@ -630,24 +668,9 @@ class HandwrittenLoop:
                         if not answer_delta:
                             continue
                         answer_accum += answer_delta
-                        if not emit_mode and not suppress_mode:
-                            buffered_head += answer_delta
-                            stripped = buffered_head.lstrip()
-                            candidate = stripped
-                            if candidate.startswith("```"):
-                                newline_pos = candidate.find("\n")
-                                if newline_pos != -1:
-                                    candidate = candidate[newline_pos + 1:].lstrip()
-                            if candidate:
-                                if candidate[0] in ("{", "["):
-                                    suppress_mode = True
-                                else:
-                                    emit_mode = True
-                                    if buffered_head:
-                                        yield _emit(StreamEvent(type="token", content=buffered_head))
-                                    buffered_head = ""
-                        elif emit_mode:
-                            yield _emit(StreamEvent(type="token", content=answer_delta))
+                        out = gate.feed(answer_delta, final=True)
+                        if out:
+                            yield _emit(StreamEvent(type="token", content=out))
 
             except Exception:
                 # Stream failed — fall back to a single generate call
@@ -665,10 +688,15 @@ class HandwrittenLoop:
                         native_tool_calls.append(
                             ToolCall(name=call.name, args=dict(call.arguments))
                         )
+                    # The provider reported real usage; prefer it over the
+                    # estimate below rather than adding both (which is what this
+                    # path used to do, roughly doubling every fallback turn's
+                    # count in the Glass Box frame).
                     tokens.input_tokens += result.input_tokens
                     tokens.output_tokens += result.output_tokens
-                    suppress_mode = False
-                    emit_mode = True
+                    usage_reported = True
+                    gate.emit = True
+                    gate.suppress = False
                     fallback_reasoning, fallback_answer = split_reasoning(result.text)
                     reasoning_observed = reasoning_observed or bool(fallback_reasoning)
                     answer_accum = fallback_answer
@@ -679,15 +707,22 @@ class HandwrittenLoop:
                 except Exception:
                     answer_accum = ""
 
-            # Accumulate token estimates for the streamed response
-            tokens.input_tokens += estimate_tokens(" ".join(m.content for m in ctx))
-            tokens.output_tokens += estimate_tokens(answer_accum)
+            # Estimate the streamed response's tokens. A streamed reply does not
+            # reliably carry a usage block, so estimation is the normal path —
+            # but when the generate() fallback ran it already contributed the
+            # provider's real numbers, and adding these on top would count the
+            # same turn twice.
+            est_in = estimate_tokens(" ".join(m.content for m in ctx))
+            est_out = estimate_tokens(answer_accum)
+            if not usage_reported:
+                tokens.input_tokens += est_in
+                tokens.output_tokens += est_out
 
             # Build a GenerateResult-like object for tool-call extraction
             pseudo_result = GenerateResult(
                 text=answer_accum,
-                input_tokens=estimate_tokens(" ".join(m.content for m in ctx)),
-                output_tokens=estimate_tokens(answer_accum),
+                input_tokens=est_in,
+                output_tokens=est_out,
                 latency_ms=0,
                 model_id=provider.model_id,
                 tier=provider.tier,
@@ -815,13 +850,11 @@ class HandwrittenLoop:
                 session.messages.append(tool_turn)
                 session.messages.extend(observations)
                 # Reset classification state for next iteration
-                suppress_mode = False
-                emit_mode = False
-                buffered_head = ""
+                gate.reset()
             else:
                 # No tool calls — if we suppressed (looked like JSON but wasn't a real
                 # tool call), emit the accumulated text now so the user sees something
-                if suppress_mode and answer_accum:
+                if gate.suppress and answer_accum:
                     yield _emit(StreamEvent(type="token", content=answer_accum))
                 break
 
@@ -882,7 +915,3 @@ class HandwrittenLoop:
         self._trace_store.write(trace)
         yield _emit(StreamEvent(type="done"))
 
-
-# Satisfy the Protocol at import time (runtime_checkable check in tests).
-def _assert_protocol() -> None:
-    assert isinstance(HandwrittenLoop(), HarnessLoop)

@@ -80,7 +80,7 @@ if [ "${JUNE_CHECK_MYPY:-1}" = "1" ]; then
   # are the real-bug classes — operator misuse (e.g. str / "x") and missing
   # required call args. They must stay at zero. Intentionally NOT gating
   # arg-type/valid-type/attr-defined: those still carry false positives
-  # (LangGraph ToolNode state typing; list-named store methods) until a focused
+  # (list-named store methods, untyped tool decorators) until a focused
   # typing-cleanup pass. mypy has no "only these codes" flag, so we grep.
   echo "==> Mypy real-bug gate (operator, call-arg)"
   mypy_out="$("$PYTHON_BIN" -m mypy packages/brain/src packages/api/src --no-error-summary 2>&1 || true)"
