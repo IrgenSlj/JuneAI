@@ -22,6 +22,8 @@ import threading
 import urllib.request
 from collections.abc import Generator
 
+from .failure import degrade_quietly
+
 # Approximate compressed download sizes in GB for the Gemma 4 family.
 MODEL_SIZE_GB: dict[str, float] = {
     "gemma4:e2b": 7.2,
@@ -110,7 +112,7 @@ def list_local_models(base_url: str) -> list[str]:
             data = json.loads(resp.read())
             return [m["name"] for m in data.get("models", [])]
     except Exception:
-        pass
+        degrade_quietly("Ollama process probe")
 
     # Fallback: CLI
     ollama_bin = _find_ollama_bin()
@@ -129,7 +131,7 @@ def list_local_models(base_url: str) -> list[str]:
                     models.append(parts[0])
             return models
         except Exception:
-            pass
+            degrade_quietly("Ollama process probe")
 
     return []
 
@@ -263,7 +265,7 @@ def start_pull_with_progress(model_name: str) -> tuple[subprocess.Popen[str] | N
                 else:
                     buf += char
         except Exception:
-            pass
+            degrade_quietly("Ollama model listing")
         # Final write on process exit
         if pct == 100 or "done" in status.lower():
             _write_progress(path, 100, "Done")
@@ -278,7 +280,7 @@ def _write_progress(path: str, pct: int, status: str) -> None:
         with open(path, "w") as f:
             f.write(f"{pct}|{status}")
     except Exception:
-        pass
+        degrade_quietly("Ollama model listing")
 
 
 def read_pull_progress(progress_file: str) -> tuple[int, str]:
@@ -295,7 +297,7 @@ def read_pull_progress(progress_file: str) -> tuple[int, str]:
             pct_str, status = raw.split("|", 1)
             return min(int(pct_str), 100), status
     except Exception:
-        pass
+        degrade_quietly("Ollama shutdown")
     return 0, "Downloading"
 
 
@@ -305,7 +307,7 @@ def cleanup_progress_file(progress_file: str) -> None:
         if progress_file and os.path.exists(progress_file):
             os.remove(progress_file)
     except Exception:
-        pass
+        degrade_quietly("Ollama shutdown")
 
 
 # ---------------------------------------------------------------------------

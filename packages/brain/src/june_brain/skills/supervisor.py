@@ -38,6 +38,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from ..failure import degrade_quietly
 from ..tools_base import Tool
 from .manifest import (
     DEFAULT_RESPONSE_TIMEOUT_SECONDS,
@@ -395,7 +396,7 @@ class SkillSupervisor:
                     if pipe is not None:
                         pipe.close()
                 except Exception:  # noqa: BLE001
-                    pass
+                    degrade_quietly("skill shutdown")
         skill.proc = None
 
     # ------------------------------------------------------------------ JSON-RPC

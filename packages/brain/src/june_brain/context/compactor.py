@@ -22,6 +22,8 @@ from june_brain.context.tokens import estimate_tokens
 from june_brain.providers.base import GenerateRequest, Message
 from june_brain.providers.registry import ProviderRegistry, get_registry
 
+from ..failure import degrade_quietly
+
 
 @dataclass
 class CompactionOutcome:
@@ -181,7 +183,7 @@ class Compactor:
                     latency_ms=result.latency_ms,
                 )
             except Exception:  # noqa: BLE001
-                pass
+                degrade_quietly("conversation compaction")
 
         # Fallback: drop oldest turns by salience ascending (or oldest-first).
         # No model call was made on this path — metadata fields stay None.

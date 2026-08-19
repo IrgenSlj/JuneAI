@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from june_brain.activity import ActivityLog
+from june_brain.failure import degrade_quietly
 from june_brain.loop.interface import HarnessLoop, SessionState, TurnProvenance, TurnResult
 from june_brain.memory import Memory, MemoryManager
 from june_brain.providers.base import Message
@@ -260,7 +261,7 @@ async def _iter_harness_events(
                                 )
                             )
                         except Exception:
-                            pass
+                            degrade_quietly("chat stream cleanup")
                 if hits:
                     yield _event_to_sse(ChatEvent(type="recall", recall_hits=hits, turn_id=ev.turn_id))
             elif ev.type == "provenance" and ev.provenance is not None:

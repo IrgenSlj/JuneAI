@@ -20,6 +20,7 @@ from typing import Any
 from june_brain.guard.actions import classify_action
 from june_brain.providers.base import Message
 
+from ..failure import degrade_quietly
 from .interface import SessionState, ToolCall
 
 # Both directions count as egress. read_network pulls bytes onto the machine;
@@ -339,7 +340,7 @@ def make_dispatch_fn(
                 if "user_id" in schema and not args.get("user_id"):
                     args["user_id"] = getattr(session, "user_id", "") or ""
             except Exception:
-                pass
+                degrade_quietly("tool-result ledger write")
 
             from june_brain.guard import (
                 evaluate_call,

@@ -12,6 +12,7 @@ import time
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING
 
+from ..failure import degrade_quietly
 from .base import (
     GenerateRequest,
     GenerateResult,
@@ -42,7 +43,7 @@ def _resolve_api_key() -> str | None:
         if stored and stored.strip():
             return stored.strip()
     except Exception:  # noqa: BLE001
-        pass
+        degrade_quietly("Gemini key lookup")
     return None
 
 

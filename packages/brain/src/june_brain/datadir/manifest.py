@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from ..failure import degrade_quietly
 from .layout import EXPECTED_CONTENTS, ensure_layout, manifest_path
 
 SCHEMA_VERSION = 2
@@ -105,7 +106,7 @@ def _migrate_1_to_2(manifest: Manifest) -> Manifest:
 
         archive_chroma_dir()
     except Exception:  # noqa: BLE001 — migration must never crash startup
-        pass
+        degrade_quietly("datadir manifest write")
     return manifest
 
 

@@ -7,6 +7,8 @@ import os
 import subprocess
 from pathlib import Path
 
+from .failure import degrade_quietly
+
 
 @functools.lru_cache(maxsize=1)
 def build_version() -> str:
@@ -34,7 +36,7 @@ def build_version() -> str:
         if out.returncode == 0 and sha:
             return sha
     except Exception:  # noqa: BLE001
-        pass
+        degrade_quietly("build stamp read")
     return "unknown"
 
 

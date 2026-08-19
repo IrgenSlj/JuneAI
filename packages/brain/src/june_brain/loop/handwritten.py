@@ -21,6 +21,7 @@ from june_brain.context.tokens import estimate_tokens
 from june_brain.providers.base import GenerateRequest, GenerateResult, Message
 from june_brain.providers.registry import ProviderRegistry, get_registry
 
+from ..failure import degrade_quietly
 from .interface import (
     SessionState,
     StreamEvent,
@@ -195,7 +196,7 @@ class HandwrittenLoop:
                 block = load_or_seed()
                 character_block = block.to_block() + "\n\n" + shaping_section(block)
             except Exception:
-                pass
+                degrade_quietly("local model availability check")
 
             from .wiring import make_recall_fn, make_tool_specs, make_tools_block
 

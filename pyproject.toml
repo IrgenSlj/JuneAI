@@ -13,18 +13,28 @@ members = [
 
 [tool.ruff]
 line-length = 100
-lint.select = ["E", "F", "I", "UP", "T201"]
+lint.select = ["E", "F", "I", "UP", "T201", "S110"]
+# S110 (try-except-pass): a swallowed failure is a turn whose Glass Box trace is
+# quietly incomplete, and the Glass Box is the product. Use
+# june_brain.failure.degrade_quietly() instead — same control flow, one log line.
+# The 29 sites that predated this rule were converted in D.7.
 # UP006/UP007/UP035/UP045 defer typing-module -> builtin/PEP-604 rewrites
 # until a focused repo-wide modernization pass. The runtime baseline is Python
 # 3.13, but style churn should not be mixed into feature PRs.
 lint.ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/*" = ["D", "UP"]
+# S110 there too: a swallowed failure in a fixture is test hygiene, not a
+# degraded turn, and there is no Glass Box trace to leave incomplete.
+"**/tests/*" = ["D", "UP", "S110"]
+"**/conftest.py" = ["S110"]
 "**/scripts/*" = ["T201"]
 # tools/ holds operator-facing CLI scripts (seed_demo, retrieval_bench,
 # svg_light_variant) where print is the intended UI, not stray debug output.
 "tools/*" = ["T201"]
+# The PyInstaller runtime hook runs before june_brain is importable, so it
+# cannot reach degrade_quietly — and it must never break a frozen boot.
+"tools/packaging/rthook_*.py" = ["T201", "S110"]
 # Same reasoning, but this one ships inside the package because it is a console
 # -script entry point (`june-mcp`): its stdout is the user interface for
 # granting and revoking MCP access.

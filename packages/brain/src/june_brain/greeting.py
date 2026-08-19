@@ -11,6 +11,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from .failure import degrade_quietly
+
 
 def _time_of_day(hour: int) -> str:
     if hour < 12:
@@ -41,7 +43,7 @@ def build_greeting(user_id: str, name: str = "") -> dict[str, Any]:
             newest = max(facts, key=lambda f: str(f.get("created_at", "")))
             reference = str(newest.get("text", "")).strip()[:120]
     except Exception:  # noqa: BLE001 — greeting is best-effort, never fatal
-        pass
+        degrade_quietly("greeting personalisation")
 
     if reference:
         body = f'{opener} Last time, you mentioned: “{reference}” What’s on your mind?'

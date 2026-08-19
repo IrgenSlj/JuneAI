@@ -17,6 +17,8 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from ..failure import degrade_quietly
+
 Difficulty = Literal["trivial", "standard", "hard", "creative"]
 ClassifierSource = Literal["model", "heuristic", "cache"]
 
@@ -201,7 +203,7 @@ async def classify_difficulty_detailed(
                 latency_ms=gen_result.latency_ms if gen_result is not None else None,
             )
     except Exception:  # noqa: BLE001 — timeout or any failure degrades to heuristic
-        pass
+        degrade_quietly("difficulty classifier cache")
 
     return DifficultyResult(heuristic_difficulty(text), "heuristic")
 

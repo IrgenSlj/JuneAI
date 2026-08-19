@@ -17,6 +17,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from june_brain.activity import ActivityLog
 from june_brain.config_store import apply_stored_config_to_env
+from june_brain.failure import degrade_quietly
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .middleware.auth import api_key_middleware, loopback_token_middleware
@@ -143,7 +144,7 @@ def _maybe_backfill_vectors() -> None:
 
         maybe_backfill_on_start()
     except Exception:  # noqa: BLE001
-        pass
+        degrade_quietly("startup task")
 
 
 def _raise_fd_limit() -> None:

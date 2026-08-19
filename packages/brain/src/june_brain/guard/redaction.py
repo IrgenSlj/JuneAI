@@ -18,6 +18,8 @@ from __future__ import annotations
 import os
 import re
 
+from ..failure import degrade_quietly
+
 REDACTED = "[REDACTED]"
 
 # Env vars that hold secrets. Kept in one place so new keys are easy to add.
@@ -58,7 +60,7 @@ def _known_secret_values() -> list[str]:
             if len(value) >= _MIN_SECRET_LEN:
                 values.append(value)
     except Exception:  # noqa: BLE001 — redaction must never raise
-        pass
+        degrade_quietly("secret-store redaction sweep")
     # Longest first, so a key that contains another substring is replaced whole.
     return sorted(set(values), key=len, reverse=True)
 

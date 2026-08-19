@@ -17,6 +17,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from ..config import MEMORY_DIR as _IMPORTED_MEMORY_DIR
+from ..failure import degrade_quietly
 from .daos import (
     CalendarDAO,
     ChatDAO,
@@ -183,7 +184,7 @@ def _move_aside(path: Path, stamp: str) -> None:
         try:
             path.unlink(missing_ok=True)
         except Exception:  # noqa: BLE001
-            pass
+            degrade_quietly("moving a corrupt database aside")
 
 
 def _recover_corrupt_db(path_str: str) -> None:
@@ -234,7 +235,7 @@ def _check_and_recover_if_corrupt(path_str: str) -> None:
             try:
                 probe.close()
             except Exception:  # noqa: BLE001
-                pass
+                degrade_quietly("corrupt-database recovery")
 
     if is_corrupt:
         _recover_corrupt_db(path_str)

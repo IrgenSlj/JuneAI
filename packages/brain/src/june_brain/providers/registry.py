@@ -13,6 +13,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+from ..failure import degrade_quietly
 from .base import Provider
 from .gemini import GeminiProvider
 from .gemma import GemmaProvider
@@ -76,7 +77,7 @@ class ProviderRegistry:
             if user_path.exists():
                 return _load_toml(user_path)
         except Exception:  # noqa: BLE001
-            pass
+            degrade_quietly("provider registration")
         return _packaged_toml()
 
     def get(self, role: str) -> Provider:

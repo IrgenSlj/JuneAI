@@ -22,6 +22,8 @@ import os
 import time
 from dataclasses import asdict, dataclass, field
 
+from ..failure import degrade_quietly
+
 # Keep at most this many trace files. Traces hold sensitive prompts, so they are
 # capped and pruned oldest-first rather than allowed to grow without bound —
 # "forgets, not accumulates". Override with JUNE_TRACE_MAX (0 disables capture).
@@ -145,7 +147,7 @@ class TraceStore:
                 except Exception:
                     continue
         except Exception:
-            pass
+            degrade_quietly("trace pruning")
 
     def clear(self) -> int:
         """Delete all persisted traces. Returns the count removed (best-effort)."""
@@ -161,7 +163,7 @@ class TraceStore:
                 except Exception:
                     continue
         except Exception:
-            pass
+            degrade_quietly("trace deletion")
         return removed
 
     def read(self, turn_id: str) -> TurnTrace | None:

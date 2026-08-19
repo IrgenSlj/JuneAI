@@ -12,6 +12,8 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import Literal
 
+from ..failure import degrade_quietly
+
 logger = logging.getLogger(__name__)
 
 Verdict = Literal["good", "weak", "poor"]
@@ -137,7 +139,7 @@ async def run_probe(*, registry=None, role: str = "local-fast") -> CapabilityPro
         text = await _run_task(provider, req)
         sum_verdict = _score_summarization(text)
     except Exception:  # noqa: BLE001
-        pass
+        degrade_quietly("capability probe")
 
     # --- structured output ---
     struct_verdict: Verdict = "poor"
@@ -161,7 +163,7 @@ async def run_probe(*, registry=None, role: str = "local-fast") -> CapabilityPro
         text = await _run_task(provider, req)
         struct_verdict = _score_structured_output(text)
     except Exception:  # noqa: BLE001
-        pass
+        degrade_quietly("capability probe")
 
     # --- long context ---
     lc_verdict: Verdict = "poor"
@@ -185,7 +187,7 @@ async def run_probe(*, registry=None, role: str = "local-fast") -> CapabilityPro
         text = await _run_task(provider, req)
         lc_verdict = _score_long_context(text)
     except Exception:  # noqa: BLE001
-        pass
+        degrade_quietly("capability probe")
 
     # --- relevance scoring ---
     rel_verdict: Verdict = "poor"
@@ -212,7 +214,7 @@ async def run_probe(*, registry=None, role: str = "local-fast") -> CapabilityPro
         text = await _run_task(provider, req)
         rel_verdict = _score_relevance(text)
     except Exception:  # noqa: BLE001
-        pass
+        degrade_quietly("capability probe")
 
     profile = CapabilityProfile(
         summarization=sum_verdict,
@@ -235,7 +237,7 @@ def _persist_profile(profile: CapabilityProfile) -> None:
         path = cfg / "capability_profile.json"
         path.write_text(json.dumps(profile.to_dict(), indent=2))
     except Exception:  # noqa: BLE001
-        pass
+        degrade_quietly("capability probe")
 
 
 # Module-level cache — None means never probed; access via get_capability_profile().

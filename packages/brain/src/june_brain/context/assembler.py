@@ -15,6 +15,7 @@ from datetime import datetime
 
 from june_brain.providers.base import Message
 
+from ..failure import degrade_quietly
 from .temporal import build_temporal_block
 from .tokens import estimate_tokens
 
@@ -112,7 +113,7 @@ class ContextAssembler:
                     Message(role="system", content=build_temporal_block(self._clock()))
                 )
             except Exception:
-                pass
+                degrade_quietly("temporal context")
 
         # Section 4 — recalled memory (optional)
         if self._recall is not None:
