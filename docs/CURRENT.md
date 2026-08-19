@@ -4,7 +4,7 @@
 planning doc disagrees with this one, this one wins (and that doc should be
 archived). Updated as workstreams land.
 
-- **Last updated:** 2026-08-19 (Stream D: D.5 and D.9 complete).
+- **Last updated:** 2026-08-20 (Stream D complete; B.3 e2e specs landed).
 - **Release status:** `v0.1.0` re-cut on 2026-07-25 and **verified working** — a
   45MB Apple Silicon DMG built by CI from the tag, with the frozen sidecar inside
   it, ad-hoc signed. The tag points at the code the artifact was built from. The
