@@ -219,6 +219,44 @@ export const SKILLS_POPULATED_FIXTURE = {
   count: 2,
 };
 
+/** GET /skills/registry — one installed entry, one not, one unverified.
+ *
+ * The registry is where a third-party MCP server gets installed into June, so
+ * the fixture carries the two signals a user needs before doing that: whether
+ * the entry is verified, and what model policy it declares. */
+export const REGISTRY_FIXTURE = {
+  schema_version: 1,
+  source: "bundled",
+  updated_at: "2026-08-01T00:00:00Z",
+  entries: [
+    {
+      key: "research",
+      name: "Research",
+      description: "Web search via Brave Search or DuckDuckGo.",
+      homepage: "https://example.invalid/research",
+      publisher: "June",
+      verified: true,
+      model_policy: "local_ok",
+      install: {},
+      tools_preview: ["web_search", "fetch_url"],
+      installed: true,
+    },
+    {
+      key: "weather",
+      name: "Weather",
+      description: "Current conditions and forecasts.",
+      homepage: "https://example.invalid/weather",
+      publisher: "Third Party",
+      verified: false,
+      model_policy: "local_ok",
+      install: {},
+      tools_preview: ["get_forecast"],
+      installed: false,
+    },
+  ],
+  count: 2,
+};
+
 /** POST /skills/{key}/toggle — accepted. */
 export const SKILL_TOGGLE_FIXTURE = {
   ok: true,
@@ -250,6 +288,7 @@ export interface MockApiOverrides {
   forgotten?: Partial<typeof FORGOTTEN_FIXTURE>;
   skills?: Partial<typeof SKILLS_FIXTURE>;
   settings?: Partial<typeof SETTINGS_FIXTURE>;
+  registry?: Partial<typeof REGISTRY_FIXTURE>;
 }
 
 // ---------------------------------------------------------------------------
@@ -346,20 +385,27 @@ export async function mockApi(page: Page, overrides: MockApiOverrides = {}): Pro
     route.fulfill(jsonReply({ ...CAPABILITY_FIXTURE, ...overrides.capability })),
   );
 
-  // /skills/{key}/toggle — Skills page. Registered before the /skills
-  // wildcard so the more-specific path wins; without it a toggle would be
-  // answered with the skills *list*, and the spec would pass on a lie.
+  // /skills and its sub-paths.
+  //
+  // The list route is anchored rather than ordered. Playwright matches routes
+  // last-registered-first, so an unanchored `/skills` swallows
+  // `/skills/registry` and `/skills/{key}/toggle` no matter where it sits — the
+  // registry request comes back as the installed-skills list, the page renders
+  // empty, and a spec that only checked the heading would pass on it.
+  await page.route(new RegExp(`${esc}/skills(\\?|$)`), (route) =>
+    route.fulfill(jsonReply({ ...SKILLS_FIXTURE, ...overrides.skills })),
+  );
+
+  await page.route(new RegExp(`${esc}/skills/registry(\\?|$)`), (route) =>
+    route.fulfill(jsonReply({ ...REGISTRY_FIXTURE, ...overrides.registry })),
+  );
+
   await page.route(new RegExp(`${esc}/skills/[^/?]+/toggle`), (route) =>
     route.fulfill(jsonReply(SKILL_TOGGLE_FIXTURE)),
   );
 
-  // /skills — Trust page + Skills page.
-  await page.route(new RegExp(`${esc}/skills`), (route) =>
-    route.fulfill(jsonReply({ ...SKILLS_FIXTURE, ...overrides.skills })),
-  );
-
-  // /settings/privacy-dial — Settings page (PUT). Before the /settings
-  // wildcard, same reason as the skill toggle above.
+  // /settings/privacy-dial — Settings page (PUT). The /settings route below is
+  // anchored, so this is not order-dependent.
   await page.route(new RegExp(`${esc}/settings/privacy-dial`), (route) =>
     route.fulfill(jsonReply(PRIVACY_DIAL_FIXTURE)),
   );
