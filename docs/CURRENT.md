@@ -4,7 +4,7 @@
 planning doc disagrees with this one, this one wins (and that doc should be
 archived). Updated as workstreams land.
 
-- **Last updated:** 2026-08-19 (Stream D: D.5a complete, memory surface landed).
+- **Last updated:** 2026-08-19 (Stream D: D.5a-D.5c complete; D.5d is next).
 - **Release status:** `v0.1.0` re-cut on 2026-07-25 and **verified working** — a
   45MB Apple Silicon DMG built by CI from the tag, with the frozen sidecar inside
   it, ad-hoc signed. The tag points at the code the artifact was built from. The
@@ -18,15 +18,19 @@ archived). Updated as workstreams land.
   [plan](product/v0.4-development-plan.md). Work the slices in order; each is
   independently landable (one slice -> `check.sh` green -> one commit -> push),
   and each slice's own **Status** line records where it stopped.
-  **D.1 through D.4c, D.5a (both tranches), D.5b (partial), D.5c, D.6, D.7,
-  D.8 (bar the Svelte pages) and D.9 (in progress) are done.**
+  **D.1 through D.4c, D.5a, D.5b, D.5c, D.6, D.7, D.8 (bar the Svelte pages)
+  and D.9 (in progress) are done.**
 
-  Next is **D.5b** — `context_intelligence.py`, the `Memory` domain methods in
-  `memory/sqlite.py` and their DAOs — which is no longer blocked, and **D.5d**,
-  the re-measure of tool-selection accuracy against the new surface. D.5b owns
-  the decision the D.5 acceptance criteria require in writing: export the rows in
-  the dropped tables through `memory/export.py`, or leave the tables and remove
-  only the code.
+  Next is **D.5d** — the re-measure of tool-selection accuracy against the new
+  five-tool surface, which decides how much of `tool_aliases.py` still earns its
+  lines (it is down to one entry, and that one points at a name the calendar
+  *skill* serves rather than a native tool).
+
+  **The D.5b export decision, taken 2026-08-19: leave the tables, remove only
+  the code.** `export_memory` enumerates `sqlite_master` rather than a fixed
+  list, so every surviving table is already exported; dropping them is
+  irreversible with no migration-down; and recall's keyword channel still reads
+  the structured rows, so a pre-cleanup user's data keeps reaching them.
 
   **The tranche 2 decision was taken on 2026-08-19** ([ADR 0032](decisions/0032-model-callable-memory-surface.md)):
   option (b). The seven v1 domain writers are gone and June's model-callable
@@ -39,7 +43,7 @@ archived). Updated as workstreams land.
   to its MCP skill rather than retired, and `SKILL_OWNED_TOOL_NAMES` plus
   `test_a_handoff_actually_hands_off` keep that distinct from retirement.
 
-  Three items are parked. Re-running the reliability baseline needs a live
+  Two items are parked. Re-running the reliability baseline needs a live
   Ollama (the numbers on file describe the pre-D.4c path no user reached). The
   tool surface with skills actually running is still untested, because
   `check.sh` sets `JUNE_SKILLS_DISABLED=1` — the merge logic is now covered, the
