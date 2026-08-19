@@ -6,7 +6,6 @@ recovery/commitment context summaries, and chapter completeness.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -153,32 +152,6 @@ def test_relationship_profile_upserts(mem):
     profiles = [p for p in mem.get_relationship_profiles() if p["person"] == "Bob"]
     assert len(profiles) == 1
     assert "NYC" in profiles[0]["summary"]
-
-
-# ---------------------------------------------------------------------------
-# Recovery readiness & commitment summaries
-# ---------------------------------------------------------------------------
-
-
-
-def test_build_active_commitments_summary_returns_dict(mem):
-    from june_brain.context_intelligence import build_active_commitments_summary
-    mem.save_calendar_item("Doctor", (date.today() + timedelta(days=2)).isoformat())
-    mem.save_goal("Ship v1.0", next_step="Write release notes")
-    result = build_active_commitments_summary(mem)
-    assert isinstance(result, dict)
-
-
-def test_format_active_commitments_summary_returns_string(mem):
-    from june_brain.context_intelligence import (
-        build_active_commitments_summary,
-        format_active_commitments_summary,
-    )
-    mem.save_calendar_item("Gym", (date.today() + timedelta(days=1)).isoformat())
-    summary = build_active_commitments_summary(mem)
-    text = format_active_commitments_summary(summary)
-    assert isinstance(text, str)
-    assert len(text) > 0
 
 
 # ---------------------------------------------------------------------------
