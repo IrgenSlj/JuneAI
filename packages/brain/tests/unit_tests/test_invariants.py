@@ -285,3 +285,69 @@ def test_stream_turn_dispatches_native_tool_calls() -> None:
     )
     assert tokens.strip(), "the user received an empty reply"
     assert any(e.type == "tool_call" for e in events), "no tool_call event was surfaced"
+
+
+# ---------------------------------------------------------------------------
+# Invariant: the v1 domain layer is gone from the surface the model sees.
+#
+# Deleting a native tool does not remove the capability. _select_tools_for_runtime
+# filters skill tools by `t.name not in native_names`, so a native tool shadows
+# the skill's copy and removing the native copy UNSHADOWS it. During D.5a that
+# turned a deletion into a change of implementation: log_mood, log_water and
+# four others stayed advertised, served by skills/health and skills/daily.
+#
+# check.sh exports JUNE_SKILLS_DISABLED=1, so no test observes the assembled
+# list with skills running. This asserts over the static union instead — the
+# native registry plus what each bundled skill declares in its contract — which
+# is what the model would be offered.
+# ---------------------------------------------------------------------------
+
+V1_DOMAIN_TOOLS = frozenset({
+    # health and fitness
+    "save_gym_plan", "list_gym_plans", "save_food_program", "list_food_programs",
+    "log_workout_session", "log_body_metrics", "create_habit",
+    "log_habit_completion", "get_habits_with_streaks", "log_nutrition",
+    "log_water", "get_today_summary", "get_recovery_readiness_summary",
+    "summarize_progress",
+    # mood — the behavioral floor says June is not a therapist
+    "log_mood", "get_mood_history",
+    # chapters
+    "check_chapter_completeness", "ask_about_chapter", "generate_weekly_summary",
+    # conversation coaching
+    "analyze_compatibility", "generate_conversation_starters",
+    "plan_difficult_conversation",
+    # the no-op workspace panel
+    "set_ui_focus", "set_ui_checklist", "set_ui_layout", "set_ui_chapter",
+    "clear_ui_workspace",
+})
+
+
+def test_no_v1_domain_tool_is_offered_to_the_model() -> None:
+    from june_brain.tools import JUNE_TOOLS, JUNE_TOOLS_GEMMA
+
+    native = {t.name for t in JUNE_TOOLS} | {t.name for t in JUNE_TOOLS_GEMMA}
+    leaked = sorted(native & V1_DOMAIN_TOOLS)
+    assert leaked == [], f"v1 domain tools still in the native registry: {leaked}"
+
+
+def test_no_bundled_skill_readvertises_a_v1_domain_tool() -> None:
+    """The unshadowing case, which the native check above cannot see."""
+    import importlib.util
+    import pathlib as _pathlib
+
+    spec = importlib.util.spec_from_file_location(
+        "_scope_contracts",
+        _pathlib.Path(__file__).with_name("test_skill_scope_contracts.py"),
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    BUNDLED_TOOLS = module.BUNDLED_TOOLS
+
+    leaked = sorted(
+        {name for tools in BUNDLED_TOOLS.values() for name in tools} & V1_DOMAIN_TOOLS
+    )
+    assert leaked == [], (
+        f"a bundled skill still advertises v1 domain tools: {leaked}. Removing the "
+        "native copy unshadows the skill's, so the capability survives the deletion."
+    )

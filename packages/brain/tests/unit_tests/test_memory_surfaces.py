@@ -159,22 +159,6 @@ def test_relationship_profile_upserts(mem):
 # Recovery readiness & commitment summaries
 # ---------------------------------------------------------------------------
 
-def test_build_recovery_readiness_summary_returns_dict(mem):
-    from june_brain.context_intelligence import build_recovery_readiness_summary
-    result = build_recovery_readiness_summary(mem)
-    assert isinstance(result, dict)
-    assert "score" in result or "readiness" in result or isinstance(result, dict)
-
-
-def test_format_recovery_readiness_summary_returns_string(mem):
-    from june_brain.context_intelligence import (
-        build_recovery_readiness_summary,
-        format_recovery_readiness_summary,
-    )
-    summary = build_recovery_readiness_summary(mem)
-    text = format_recovery_readiness_summary(summary)
-    assert isinstance(text, str)
-    assert len(text) > 0
 
 
 def test_build_active_commitments_summary_returns_dict(mem):
