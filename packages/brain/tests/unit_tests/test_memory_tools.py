@@ -206,3 +206,42 @@ def test_update_promise_needs_something_to_do() -> None:
     assert "Nothing to update" in update_promise.invoke(
         {"promise_id": task.id, "state": STATE}
     )
+
+
+# ---------------------------------------------------------------------------
+# scheduler tools — identity, not a default
+# ---------------------------------------------------------------------------
+
+
+def test_a_schedule_cannot_be_deleted_across_users() -> None:
+    """`ScheduleStore.delete` is not user-scoped; the caller must check.
+
+    The /schedules route always did. The tool did not, and it never read the
+    user at all, so a schedule id was enough to delete someone else's job.
+    """
+    from june_brain.memory.sqlite import _get_connection, db_path
+    from june_brain.scheduler.models import _SCHEDULES_TABLE_SQL
+    from june_brain.scheduler.models import Schedule as _Schedule
+    from june_brain.scheduler.store import ScheduleStore
+    from june_brain.tools import delete_schedule
+
+    conn = _get_connection(db_path())
+    conn.executescript(_SCHEDULES_TABLE_SQL)
+    conn.commit()
+    store = ScheduleStore(conn)
+    theirs = store.create(_Schedule(user_id="someone_else", name="Their job"))
+
+    result = delete_schedule.invoke(
+        {"schedule_id": theirs.id, "state": {"user_id": "attacker"}}
+    )
+
+    assert "not found" in result
+    assert store.get(theirs.id) is not None, "another user's schedule was deleted"
+
+
+def test_a_scheduler_tool_without_state_raises_rather_than_guessing() -> None:
+    """A missing identity is a bug to surface, not a partition to guess."""
+    from june_brain.tools import list_schedules
+
+    with pytest.raises(ValueError, match="injected agent state"):
+        list_schedules.func(state=None)

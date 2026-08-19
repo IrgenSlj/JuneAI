@@ -18,6 +18,19 @@ from .tools_memory import forget, list_promises, remember, update_promise
 
 logger = logging.getLogger(__name__)
 
+
+def _user_id(state: AgentState) -> str:
+    """The session's user, or an error — never a guess.
+
+    The scheduler tools used to read ``(state or {}).get("user_id", "default")``.
+    With the dispatcher not injecting state (fixed in D.5d) that wrote one user's
+    schedules into another's partition, and did it silently, because a plausible
+    default is indistinguishable from a correct one at the call site.
+    """
+    if not state or not state.get("user_id"):
+        raise ValueError("Tool execution requires injected agent state.")
+    return str(state["user_id"])
+
 type AgentPayload = dict[str, Any]
 type AgentState = dict[str, Any] | None
 InjectedAgentState = Annotated[AgentState, Inject]
@@ -113,7 +126,7 @@ def create_schedule(
     from june_brain.scheduler.models import Schedule as _Schedule
     from june_brain.scheduler.store import ScheduleStore
 
-    user_id = (state or {}).get("user_id", "default")
+    user_id = _user_id(state)
     conn = _get_connection(db_path())
     from june_brain.scheduler.models import _SCHEDULES_TABLE_SQL
 
@@ -146,7 +159,7 @@ def list_schedules(
     from june_brain.scheduler.models import _SCHEDULES_TABLE_SQL
     from june_brain.scheduler.store import ScheduleStore
 
-    user_id = (state or {}).get("user_id", "default")
+    user_id = _user_id(state)
     conn = _get_connection(db_path())
     conn.executescript(_SCHEDULES_TABLE_SQL)
     conn.commit()
@@ -170,13 +183,20 @@ def delete_schedule(
     from june_brain.scheduler.models import _SCHEDULES_TABLE_SQL
     from june_brain.scheduler.store import ScheduleStore
 
+    user_id = _user_id(state)
     conn = _get_connection(db_path())
     conn.executescript(_SCHEDULES_TABLE_SQL)
     conn.commit()
     store = ScheduleStore(conn)
-    if store.delete(schedule_id):
-        return f"Schedule {schedule_id} deleted."
-    return f"Schedule {schedule_id} not found."
+    # `ScheduleStore.delete` is not user-scoped — it deletes by id alone. The
+    # /schedules route checks ownership before calling it; this tool did not,
+    # so the model could delete another user's schedule given its id. Same
+    # check, same layer that has the identity.
+    sched = store.get(schedule_id)
+    if sched is None or sched.user_id != user_id:
+        return f"Schedule {schedule_id} not found."
+    store.delete(schedule_id)
+    return f"Schedule {schedule_id} deleted."
 
 # Tool names retired with the v1 domain layer (D.5a). Kept as a denylist because
 # deleting a tool does not durably remove the capability: `_select_tools_for_runtime`

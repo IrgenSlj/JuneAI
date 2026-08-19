@@ -331,16 +331,30 @@ def make_dispatch_fn(
                     )
                 )
                 continue
-            # Inject the session user_id when the tool requires it and the model
-            # didn't supply one — the model can't know the partition key, and
-            # most native/skill tools key their writes on it.
+            # Inject the session identity. The model cannot know the partition
+            # key, and it is never asked to: skill tools declare `user_id` as an
+            # ordinary argument, native tools declare `state` as
+            # `Annotated[AgentState, Inject]` and it is excluded from the
+            # advertised schema. Both are filled here.
+            #
+            # Only the first half existed before D.5d, so every native tool with
+            # an injected `state` was dispatched without one. The two failure
+            # shapes were not equally visible: the memory tools raise and the
+            # user sees an error, while the scheduler tools read
+            # `(state or {}).get("user_id", "default")` and so wrote one user's
+            # schedules into another's partition, silently. Found by the
+            # tool-selection harness, which is the first thing to dispatch a
+            # zero-argument native tool against a live model.
             args = dict(tc.args)
+            session_user = getattr(session, "user_id", "") or ""
             try:
                 schema = getattr(tool, "args", {}) or {}
                 if "user_id" in schema and not args.get("user_id"):
-                    args["user_id"] = getattr(session, "user_id", "") or ""
+                    args["user_id"] = session_user
+                if "state" in (getattr(tool, "injected", ()) or ()):
+                    args["state"] = {"user_id": session_user}
             except Exception:
-                degrade_quietly("tool-result ledger write")
+                degrade_quietly("tool identity injection")
 
             from june_brain.guard import (
                 evaluate_call,

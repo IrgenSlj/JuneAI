@@ -383,6 +383,83 @@ def test_a_handoff_actually_hands_off() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Invariant: a dispatched tool knows which user it is acting for.
+#
+# The model is never told the partition key and must not be. Skill tools declare
+# `user_id` as an ordinary argument; native tools declare `state` as
+# `Annotated[AgentState, Inject]`, excluded from the advertised schema. Only the
+# first was injected before D.5d, so seven of the twelve native tools ran
+# without one — and the two failure shapes had very different visibility. The
+# memory tools raise, so the user sees an error. The scheduler tools read
+# `(state or {}).get("user_id", "default")`, so one user's schedules landed in
+# another user's partition with nothing to see.
+# ---------------------------------------------------------------------------
+
+
+def test_a_dispatched_native_tool_receives_the_session_identity() -> None:
+    import asyncio
+
+    from june_brain.loop.interface import SessionState, ToolCall
+    from june_brain.loop.wiring import make_dispatch_fn
+    from june_brain.tools_base import Tool
+
+    seen: dict[str, object] = {}
+
+    def _probe(state=None):  # type: ignore[no-untyped-def]
+        seen["state"] = state
+        return "ok"
+
+    # Built directly rather than through @tool: this module uses
+    # `from __future__ import annotations`, so the decorator's get_type_hints
+    # would have to resolve `Inject` from module globals. The shape being tested
+    # is a tool with no advertised args and an injected `state`.
+    probe_zero_arg_tool = Tool(
+        name="probe_zero_arg_tool",
+        description="A native tool the model calls with no arguments at all.",
+        args={},
+        func=_probe,
+        injected=("state",),
+    )
+
+    dispatch = make_dispatch_fn(dispatched_names=[])
+    session = SessionState(user_id="alice", messages=[])
+    with patch(
+        "june_brain.loop.agent_helpers._select_tools_for_runtime",
+        return_value=[probe_zero_arg_tool],
+    ):
+        asyncio.run(dispatch([ToolCall(name="probe_zero_arg_tool", args={})], session))
+
+    assert seen.get("state") is not None, (
+        "the tool was dispatched without injected state; a zero-argument native "
+        "tool has no other way to learn who it is acting for"
+    )
+    assert seen["state"]["user_id"] == "alice"  # type: ignore[index]
+
+
+def test_no_native_tool_silently_defaults_its_user() -> None:
+    """Failing loudly is recoverable; guessing "default" is a cross-user write."""
+    import inspect
+
+    from june_brain.tools import JUNE_TOOLS
+
+    guessing = []
+    for t in JUNE_TOOLS:
+        if "state" not in (t.injected or ()):
+            continue
+        try:
+            source = inspect.getsource(t.func)
+        except (OSError, TypeError):  # pragma: no cover - source always available here
+            continue
+        if '"user_id", "default"' in source or "'user_id', 'default'" in source:
+            guessing.append(t.name)
+
+    assert guessing == [], (
+        f"{guessing} fall back to the 'default' user when state is missing. A "
+        "missing identity is a bug to surface, not a partition to guess."
+    )
+
+
+# ---------------------------------------------------------------------------
 # Invariant: the system prompt may only name tools that exist.
 #
 # D.6 found `_BASE_INSTRUCTIONS` telling the model to call tools tranche 1 had
