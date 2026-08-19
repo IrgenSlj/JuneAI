@@ -621,3 +621,89 @@ def test_a_skill_tool_cannot_reintroduce_a_native_name() -> None:
         "Deleting the native copy unshadows the skill's, so the capability "
         "survives the deletion — this is what happened during D.5a."
     )
+
+
+# ---------------------------------------------------------------------------
+# Invariant: "Behavioral safety floor" — not a therapist/doctor/lawyer/advisor,
+# no engagement-maximizing metric, sensitive memories surfaced by the user.
+#
+# The floor is only a floor if June cannot edit it. It lives in FixedTraits,
+# which `character_update` refuses to touch; this names the specific clauses so
+# removing one is a test failure rather than a diff nobody re-read.
+# ---------------------------------------------------------------------------
+
+
+def test_the_behavioral_safety_floor_is_a_fixed_trait() -> None:
+    from june_brain.character.block import FIXED_FIELD_NAMES, FixedTraits
+
+    for clause in ("not_a_professional", "wellbeing_over_engagement", "privacy"):
+        assert clause in FIXED_FIELD_NAMES, f"{clause} is no longer immutable"
+        assert getattr(FixedTraits(), clause).strip(), f"{clause} is empty"
+
+
+def test_june_cannot_edit_its_own_safety_floor(tmp_path) -> None:
+    from june_brain.character import seed_character
+    from june_brain.character.block import CharacterBlock, FixedTraits, character_update
+
+    path = tmp_path / "character" / "persona.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    seed_character().save(path)
+
+    result = character_update(
+        {"not_a_professional": "acts as the user's therapist"}, path=path
+    )
+
+    assert result["ok"] is False
+    assert result["reason"] == "immutable_fixed_traits"
+    assert "not_a_professional" in result["rejected_keys"]
+    assert (
+        CharacterBlock.load(path).fixed.not_a_professional
+        == FixedTraits().not_a_professional
+    )
+
+
+# ---------------------------------------------------------------------------
+# Invariant: "No new dependency that can be implemented customly."
+#
+# A rule stated in prose is a rule nobody notices breaking, and a dependency is
+# added in one line. Pinning the set does not judge whether a new one is
+# justified — it makes adding one a deliberate edit in two places, which is the
+# most a test can honestly do here. The cryptography exception is named in the
+# list itself.
+# ---------------------------------------------------------------------------
+
+
+def test_the_runtime_dependency_set_is_deliberate() -> None:
+    import pathlib as _pathlib
+    import tomllib
+
+    allowed = {
+        "python-dotenv",   # .env loading
+        "sqlite-vec",      # the vector index (ADR 0019); a C extension, not reimplementable
+        "keyring",         # OS credential store
+        "pynacl",          # the crypto exception: Ed25519 for the Trust Ledger (ADR 0022)
+        "openai",          # the cloud provider's own client (providers/gemini.py)
+        "pydantic",        # schema source of truth, shared with the API
+        "httpx",           # async HTTP
+        "tomli",           # stdlib tomllib backport for < 3.11
+    }
+
+    root = _pathlib.Path(__file__).resolve().parents[4]
+    declared = set()
+    for project in ("brain", "api"):
+        data = tomllib.loads((root / "packages" / project / "pyproject.toml").read_text())
+        for spec in data["project"]["dependencies"]:
+            name = spec.split(";")[0].split("[")[0]
+            for sep in (">=", "==", "<=", "~=", ">", "<", "!="):
+                name = name.split(sep)[0]
+            declared.add(name.strip())
+
+    # The API's own web-serving stack, and the brain it wraps.
+    declared -= {"june-brain", "fastapi", "uvicorn", "starlette"}
+
+    added = sorted(declared - allowed)
+    assert added == [], (
+        f"new runtime dependencies: {added}. CLAUDE.md forbids a dependency that "
+        "can be implemented customly. If this one cannot be, add it to the list "
+        "above with the reason."
+    )

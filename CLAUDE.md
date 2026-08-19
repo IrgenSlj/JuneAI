@@ -61,10 +61,15 @@ the UI infer user-facing state from trace text.
 - **Privacy is visible in code.** Every cloud/external call is surfaced in the UI before and after (the per-turn provenance frame). Local-only mode blocks egress. No silent network calls.
   Enforced by `test_invariants.py` and the `get_privacy_dial` caller check in `check.sh`. Both directions count as egress: `is_network_tool()` delegates to the guard's `classify_action()`, so outbound writes (`send_`, `post_`, `email_`, ...) are blocked under Local-only and listed in `provenance.egress` (D.3).
 - **Honesty is not adjustable.** Personalization shapes tone, never erodes candor into sycophancy.
-- **The harness core is fixed** and never self-modified; June evolves character/skills/tuning on top of it.
-- **No new dependency that can be implemented customly** (one exception: cryptography — always use vetted libraries, never hand-roll).
-- **Graceful degradation ships in the same change** as any model-judgment feature (compaction, salience, shaping, tool dispatch, classification).
+  Enforced by `character/block.py`: candor and care are `FixedTraits`, which `character_update` refuses to write. Pinned by `test_character.py::test_update_fixed_trait_refused` and `::test_sycophancy_drift_cannot_erode_fixed_traits`.
 - **Behavioral safety floor:** June is not a therapist/doctor/lawyer/financial advisor; responds to distress with care, not diagnosis; no engagement-maximizing metric; sensitive memories are surfaced by the user, not volunteered.
+  Same mechanism, named clause by clause: `test_invariants.py::test_the_behavioral_safety_floor_is_a_fixed_trait` and `::test_june_cannot_edit_its_own_safety_floor`.
+- **No new dependency that can be implemented customly** (one exception: cryptography — always use vetted libraries, never hand-roll).
+  Enforced by `test_invariants.py::test_the_runtime_dependency_set_is_deliberate`, which pins the brain's and API's runtime dependencies to a list carrying the reason for each. The test does not judge whether a new dependency is justified — it makes adding one a deliberate edit in two places instead of one line nobody reviews.
+- **The harness core is fixed** and never self-modified; June evolves character/skills/tuning on top of it.
+  **Partly enforced.** The self-edit surface is `character_update`, and it can only write `LearnedTraits` (tests above). Nothing mechanically prevents a *future* code path from writing to `loop/`; that stays a review-time rule.
+- **Graceful degradation ships in the same change** as any model-judgment feature (compaction, salience, shaping, tool dispatch, classification).
+  **Not mechanically enforced, and not claimed to be** — no test can tell a degradation path from an empty `except`. What the gate does check is the *shape*: ruff `S110` forbids a silent `pass`, so a swallowed failure has to say what did not happen (`degrade_quietly`) or fail closed (`fail_closed`). See `june_brain/failure.py`.
 
 ## Do NOT reintroduce (explicitly abandoned directions)
 
