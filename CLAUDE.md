@@ -68,10 +68,15 @@ the UI infer user-facing state from trace text.
 
 ## Do NOT reintroduce (explicitly abandoned directions)
 
-Note the framing: for the domain features below, the risk is not reintroduction.
-They were never removed. The v1 life-coach product still owns 30 of the 54 tools
-in `JUNE_TOOLS` and all 24 in `JUNE_TOOLS_GEMMA` — deleting it is Stream D.5.
-Until that lands, "do not reintroduce" reads as "do not extend".
+The v1 life-coach tool surface **is now gone** (D.5a, 2026-08-19): `JUNE_TOOLS`
+is 12 tools and `JUNE_TOOLS_GEMMA` is 5, and June's model-callable memory surface
+is the four deliberate tools of ADR 0032 (`remember`, `forget`, `list_promises`,
+`update_promise`). `tools.RETIRED_TOOL_NAMES` is a denylist the tool merge
+enforces, so a retired name stays retired even when a skill advertises it —
+**add to it whenever you retire a tool rather than replacing it.** Its sibling
+`SKILL_OWNED_TOOL_NAMES` is the opposite case: a name deleted natively *so that*
+a bundled skill can serve it. The store layer those tools wrote to is still
+present pending D.5b.
 
 - Heartbeat-as-cron / timer-driven proactivity / daily orchestration (ADR 0016). The scheduler exists only for user-requested, deterministic jobs.
 - Quick Capture / personal operating layer / event-ledger / capture->classify->approve pipeline (superseded by ADR 0015).

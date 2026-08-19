@@ -4,7 +4,7 @@
 planning doc disagrees with this one, this one wins (and that doc should be
 archived). Updated as workstreams land.
 
-- **Last updated:** 2026-08-18 (Stream D opened from the audit).
+- **Last updated:** 2026-08-19 (Stream D: D.5a complete, memory surface landed).
 - **Release status:** `v0.1.0` re-cut on 2026-07-25 and **verified working** — a
   45MB Apple Silicon DMG built by CI from the tag, with the frozen sidecar inside
   it, ad-hoc signed. The tag points at the code the artifact was built from. The
@@ -18,16 +18,26 @@ archived). Updated as workstreams land.
   [plan](product/v0.4-development-plan.md). Work the slices in order; each is
   independently landable (one slice -> `check.sh` green -> one commit -> push),
   and each slice's own **Status** line records where it stopped.
-  **D.1 through D.4c, D.5a (tranche 1), D.5b (partial), D.5c, D.6, D.7, D.8 (bar
-  the Svelte pages) and D.9 (in progress) are done.**
+  **D.1 through D.4c, D.5a (both tranches), D.5b (partial), D.5c, D.6, D.7,
+  D.8 (bar the Svelte pages) and D.9 (in progress) are done.**
 
-  Next is the **tranche 2 decision** in D.5a — whether preferences,
-  relationships, goals, open loops, calendar, journal and favorites are June's
-  memory-write surface, or are replaced by a deliberate one (`remember`,
-  `forget`, `list_promises`, `update_promise`). That is a product call, not a
-  cleanup, and D.5b and D.5d both wait on it. Related, and part of the same
-  decision: **June has no model-callable memory tools at all** — recall is
-  automatic in `ContextAssembler` and Promises are managed through `/tasks`.
+  Next is **D.5b** — `context_intelligence.py`, the `Memory` domain methods in
+  `memory/sqlite.py` and their DAOs — which is no longer blocked, and **D.5d**,
+  the re-measure of tool-selection accuracy against the new surface. D.5b owns
+  the decision the D.5 acceptance criteria require in writing: export the rows in
+  the dropped tables through `memory/export.py`, or leave the tables and remove
+  only the code.
+
+  **The tranche 2 decision was taken on 2026-08-19** ([ADR 0032](decisions/0032-model-callable-memory-surface.md)):
+  option (b). The seven v1 domain writers are gone and June's model-callable
+  memory surface is four deliberate tools — `remember`, `forget`,
+  `list_promises`, `update_promise` — on the existing `MemoryManager` and
+  `TasksStore` seams. Before this June had *no* model-callable memory tools at
+  all, so the product's two headline capabilities were things it could not do on
+  purpose when asked. `JUNE_TOOLS` is 54 -> 12 and `JUNE_TOOLS_GEMMA` 24 -> 5,
+  with every remaining tool one the product describes. Calendar was **handed off**
+  to its MCP skill rather than retired, and `SKILL_OWNED_TOOL_NAMES` plus
+  `test_a_handoff_actually_hands_off` keep that distinct from retirement.
 
   Three items are parked. Re-running the reliability baseline needs a live
   Ollama (the numbers on file describe the pre-D.4c path no user reached). The
@@ -65,7 +75,7 @@ archived). Updated as workstreams land.
   terms — the 240MB git history and untested first-run paths remain open.
 - **Reconciliation (brief vs. reality):** [`RECONCILIATION.md`](RECONCILIATION.md) — historical reference for v0.2.
 - **Durable worldview:** [`vision.md`](vision.md) (the four inversions; non-negotiable).
-- **Decision log:** [`decisions/`](decisions/) — ADRs 0001–0024, 0030 and 0031 accepted; index in [`decisions/README.md`](decisions/README.md).
+- **Decision log:** [`decisions/`](decisions/) — ADRs 0001–0024 and 0030–0032 accepted; index in [`decisions/README.md`](decisions/README.md).
 
 ---
 
