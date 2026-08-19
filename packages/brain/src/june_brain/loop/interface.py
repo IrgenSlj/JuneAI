@@ -53,6 +53,11 @@ class TurnProvenance:
     cloud_call: bool
     model_ids: list[str]
     memories_recalled: int = 0
+    # Memories June *wrote* this turn, reported by the tools that wrote them
+    # rather than inferred from which tools ran. Recall has always been shown;
+    # writes were not, so June could add to or delete from the user's memory
+    # without the turn saying so.
+    memories_written: int = 0
     skills_called: list[str] = field(default_factory=list)
     rationale: str = ""
     latency_ms: int = 0

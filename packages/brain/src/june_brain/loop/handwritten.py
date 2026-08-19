@@ -232,6 +232,11 @@ class HandwrittenLoop:
         # Structured records for those blocks, so the loop can surface a
         # first-class approval event rather than leaking the block as trace text.
         self._blocked_details: list[dict[str, Any]] = []
+        # Tools that reported actually changing the user's stored memory this
+        # turn. June has always told the user what it *read* from memory and
+        # never what it wrote, so a memory write was the one action the Glass
+        # Box could not see.
+        self._memory_writes: list[str] = []
         if dispatch is not None:
             self._dispatch: Callable[[list[ToolCall], SessionState], Awaitable[list[Message]]] | None = dispatch
         else:
@@ -239,7 +244,10 @@ class HandwrittenLoop:
 
             self._dispatched_names = []
             self._dispatch = make_dispatch_fn(
-                self._dispatched_names, self._blocked_names, self._blocked_details
+                self._dispatched_names,
+                self._blocked_names,
+                self._blocked_details,
+                self._memory_writes,
             )
 
         # --- compaction ---
@@ -283,6 +291,7 @@ class HandwrittenLoop:
         self._network_calls.clear()
         self._blocked_names.clear()
         self._blocked_details.clear()
+        self._memory_writes.clear()
         self._recall_state["memories_recalled"] = 0
         self._recall_state["recall_hits"] = []
         self._degrade_note = ""
@@ -387,6 +396,7 @@ class HandwrittenLoop:
         difficulty_source = getattr(difficulty, "source", "") or ""
         memories_recalled = self._recall_state.get("memories_recalled", 0)
         skills_called = list(self._dispatched_names)
+        memories_written = len(self._memory_writes)
         egress = list(dict.fromkeys(self._network_calls))  # de-dupe, keep order
         is_cloud = provider.tier == "cloud-capable"
 
@@ -422,6 +432,7 @@ class HandwrittenLoop:
             cloud_call=is_cloud,
             model_ids=[provider.model_id],
             memories_recalled=memories_recalled,
+            memories_written=memories_written,
             skills_called=skills_called,
             latency_ms=max(0, int((time.monotonic() - start_time) * 1000)),
             rationale=rationale,

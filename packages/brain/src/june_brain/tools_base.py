@@ -48,6 +48,38 @@ def _type_name(annotation: Any) -> str:
     return getattr(annotation, "__name__", str(annotation))
 
 
+class ToolOutcome(str):
+    """A tool result that is a string, and also reports what it changed.
+
+    Tools normally return a plain string and nothing needs this. It exists for
+    the ones whose *effect* the Glass Box has to show: June told the user what
+    it read from memory (`memories_recalled`) and never what it wrote, so a tool
+    that stored or deleted one of the user's memories did so invisibly.
+
+    Sniffing the result text for "Remembered:" would be the cheap alternative
+    and the wrong one — a frame that claims a write happened when it did not is
+    the exact failure this closes. The tool is the only thing that knows, so the
+    tool says so.
+
+    It subclasses ``str`` rather than wrapping one so it is a drop-in: the
+    model, the untrusted-content wrapper, the trace, and every caller that
+    slices or searches a tool result keep working unchanged. Only code that
+    asks for ``wrote_memory`` sees any difference.
+    """
+
+    wrote_memory: bool
+
+    def __new__(cls, text: str, *, wrote_memory: bool = False) -> ToolOutcome:
+        obj = super().__new__(cls, text)
+        obj.wrote_memory = wrote_memory
+        return obj
+
+
+def wrote_memory(result: Any) -> bool:
+    """Did this tool result report a memory write? False for a plain string."""
+    return bool(getattr(result, "wrote_memory", False))
+
+
 @dataclass
 class Tool:
     """A callable tool with an advertised schema and an ``invoke`` entrypoint."""

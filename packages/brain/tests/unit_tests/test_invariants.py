@@ -707,3 +707,100 @@ def test_the_runtime_dependency_set_is_deliberate() -> None:
         "can be implemented customly. If this one cannot be, add it to the list "
         "above with the reason."
     )
+
+
+# ---------------------------------------------------------------------------
+# Invariant: June shows what it wrote to memory, not only what it read.
+#
+# The turn frame carried `memories_recalled` from the start and had no
+# counterpart for writes, so storing or deleting one of the user's memories was
+# the one action the Glass Box could not see. The count is reported by the tool
+# that did the writing — inferring it from which tools ran would make the frame
+# claim a write whenever `forget` matched nothing, which is the failure it
+# exists to close.
+# ---------------------------------------------------------------------------
+
+
+def test_a_memory_write_is_reported_only_when_it_happened() -> None:
+    import asyncio
+
+    from june_brain.loop.interface import SessionState, ToolCall
+    from june_brain.loop.wiring import make_dispatch_fn
+    from june_brain.tools_base import Tool, ToolOutcome
+
+    wrote = Tool(
+        name="probe_wrote",
+        description="stores something",
+        args={},
+        func=lambda: ToolOutcome("Remembered: a thing", wrote_memory=True),
+    )
+    found_nothing = Tool(
+        name="probe_no_match",
+        description="forgets nothing",
+        args={},
+        func=lambda: "No stored memory matches that, so nothing was forgotten.",
+    )
+
+    writes: list[str] = []
+    dispatch = make_dispatch_fn(dispatched_names=[], memory_writes=writes)
+    session = SessionState(user_id="u", messages=[])
+    with patch(
+        "june_brain.loop.agent_helpers._select_tools_for_runtime",
+        return_value=[wrote, found_nothing],
+    ):
+        asyncio.run(
+            dispatch(
+                [ToolCall(name="probe_wrote", args={}),
+                 ToolCall(name="probe_no_match", args={})],
+                session,
+            )
+        )
+
+    assert writes == ["probe_wrote"], (
+        "a tool that changed nothing was counted as a memory write"
+    )
+
+
+def test_a_tool_outcome_is_a_drop_in_string() -> None:
+    """Every existing caller slices, searches and stringifies tool results."""
+    from june_brain.tools_base import ToolOutcome, wrote_memory
+
+    out = ToolOutcome("Remembered: her sister is called Mira.", wrote_memory=True)
+
+    assert isinstance(out, str)
+    assert str(out) == "Remembered: her sister is called Mira."
+    assert "Mira" in out
+    assert out[:10] == "Remembered"
+    assert wrote_memory(out) is True
+    assert wrote_memory("a plain string") is False
+
+
+def test_the_memory_tools_report_writes_truthfully() -> None:
+    """The two tools the count is built on, at both outcomes."""
+    from june_brain.memory import Memory
+    from june_brain.memory import vector as vector_module
+    from june_brain.tools_base import wrote_memory
+    from june_brain.tools_memory import forget, remember
+
+    from .test_vector_store import _HashEmbedder
+
+    user = "write_report_user"
+    state = {"user_id": user}
+    vector_module.reset_singletons()
+    try:
+        vector_module._default_embedder = _HashEmbedder()
+        Memory(user)
+
+        stored = remember.invoke({"text": "The user's cat is called Otto.", "state": state})
+        assert wrote_memory(stored) is True
+
+        rejected = remember.invoke({"text": "   ", "state": state})
+        assert wrote_memory(rejected) is False
+
+        removed = forget.invoke({"description": "the cat called Otto", "state": state})
+        assert wrote_memory(removed) is True
+
+        nothing = forget.invoke({"description": "a memory never stored", "state": state})
+        assert wrote_memory(nothing) is False
+    finally:
+        vector_module.reset_singletons()

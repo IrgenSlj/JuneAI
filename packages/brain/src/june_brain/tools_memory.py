@@ -20,7 +20,7 @@ import logging
 import re
 from typing import Annotated, Any
 
-from .tools_base import Inject, tool
+from .tools_base import Inject, ToolOutcome, tool
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ def remember(
     if not result.get("written"):
         detail = result.get("error") or "the memory store rejected it"
         return f"Could not store that memory — {detail}."
-    return f"Remembered: {text}"
+    return ToolOutcome(f"Remembered: {text}", wrote_memory=True)
 
 
 @tool
@@ -118,7 +118,10 @@ def forget(
 
     if not removed:
         return f"Found '{text}' but could not forget it — it may already be gone."
-    return f"Forgotten: {text}. It can be restored if this was a mistake."
+    return ToolOutcome(
+        f"Forgotten: {text}. It can be restored if this was a mistake.",
+        wrote_memory=True,
+    )
 
 
 def _too_close_to_call(first: dict[str, Any], second: dict[str, Any]) -> bool:

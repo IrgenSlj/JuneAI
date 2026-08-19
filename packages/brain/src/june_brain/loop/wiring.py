@@ -21,6 +21,7 @@ from june_brain.guard.actions import classify_action
 from june_brain.providers.base import Message
 
 from ..failure import degrade_quietly
+from ..tools_base import wrote_memory as _wrote_memory
 from .interface import SessionState, ToolCall
 
 # Both directions count as egress. read_network pulls bytes onto the machine;
@@ -279,6 +280,7 @@ def make_dispatch_fn(
     dispatched_names: list[str],
     blocked_names: list[str] | None = None,
     blocked_details: list[dict[str, Any]] | None = None,
+    memory_writes: list[str] | None = None,
 ) -> Any:
     """Return an async callable that executes ToolCalls via the tool registry.
 
@@ -291,6 +293,13 @@ def make_dispatch_fn(
     blocked pending user approval (ADR 0021, S6.2), so the loop can surface them.
     The per-conversation allow-list is read from ``session.approved_tools``.
 
+    ``memory_writes`` (optional, caller-owned) collects the name of each tool
+    whose result reported that it actually changed the user's stored memory, so
+    the loop can surface it in the per-turn frame. Reported by the tool rather
+    than inferred from its name: dispatching ``forget`` is not the same as
+    forgetting something, and a frame that says otherwise is the failure the
+    field exists to close.
+
     ``blocked_details`` (optional, caller-owned) collects one structured record
     per blocked call — ``{"index", "name", "action_class", "reason"}`` — so the
     loop can emit a first-class ``tool_blocked`` approval event instead of
@@ -299,6 +308,8 @@ def make_dispatch_fn(
     """
     if blocked_names is None:
         blocked_names = []
+    if memory_writes is None:
+        memory_writes = []
 
     # Build the tool map once at construction time (lazy import)
     _tool_map: dict[str, Any] | None = None
@@ -424,6 +435,8 @@ def make_dispatch_fn(
                 raw = str(result)[:4000]
                 content = wrap_untrusted(_annotate_injection(raw))
                 dispatched_names.append(tc.name)
+                if _wrote_memory(result):
+                    memory_writes.append(tc.name)
                 # A gated action that reached here ran only because the user
                 # already approved it (allow-list). Record it in the tamper-evident
                 # ledger (ADR 0022) — the consequential act, centrally, so a skill

@@ -117,6 +117,7 @@ def _turn_provenance_dict(prov: TurnProvenance) -> dict[str, Any]:
         "cloud_call": prov.cloud_call,
         "cloud_payload_summary": prov.cloud_payload_summary,
         "memories_recalled": prov.memories_recalled,
+        "memories_written": getattr(prov, "memories_written", 0),
         "skills_called": list(prov.skills_called),
         "rationale": prov.rationale,
         "egress": list(getattr(prov, "egress", []) or []),

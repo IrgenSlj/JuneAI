@@ -216,6 +216,11 @@ function handleEvent(event: ChatEvent, assistantId: string) {
       const isCloud = !!p?.cloud_call;
       const modelPart = p?.model ?? "";
       const recalledPart = p?.memories_recalled ? ` · ${p.memories_recalled} recalled` : "";
+      // Writes are shown as well as reads. June has always said what it took
+      // out of memory and never what it put in, so storing or deleting one of
+      // the user's memories was the one action the turn frame could not see.
+      const written = (p as { memories_written?: number })?.memories_written ?? 0;
+      const writtenPart = written ? ` · ${written} remembered` : "";
       const latencyPart = p?.latency_ms ? ` · ${p.latency_ms}ms` : "";
       const egress = (p as { egress?: string[] })?.egress ?? [];
       const egressPart = egress.length ? ` · egress: ${egress.join(", ")}` : "";
@@ -228,7 +233,7 @@ function handleEvent(event: ChatEvent, assistantId: string) {
         kind: "provenance",
         cloud: isCloud,
         network: egress.length > 0,
-        label: `${isCloud ? "cloud" : "local"} · ${modelPart}${recalledPart}${latencyPart}${tokenPart}${egressPart}`,
+        label: `${isCloud ? "cloud" : "local"} · ${modelPart}${recalledPart}${writtenPart}${latencyPart}${tokenPart}${egressPart}`,
         detail: p?.rationale != null ? String(p.rationale) : undefined,
       });
       break;

@@ -27,7 +27,7 @@
      */
     onVote?: (ref: string, vote: "up" | "down" | "clear") => void | Promise<void>;
     /** Model provenance for this assistant turn. */
-    provenance?: { provider?: string; model?: string; tier?: string; latency_ms?: number; cloud_call?: boolean; cloud_payload_summary?: string; memories_recalled?: number; skills_called?: string[]; rationale?: string; difficulty?: string; difficulty_source?: string };
+    provenance?: { provider?: string; model?: string; tier?: string; latency_ms?: number; cloud_call?: boolean; cloud_payload_summary?: string; memories_recalled?: number; memories_written?: number; skills_called?: string[]; rationale?: string; difficulty?: string; difficulty_source?: string };
   }
 
   const {
