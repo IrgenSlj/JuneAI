@@ -74,3 +74,71 @@ def test_only_the_telegram_skill_may_send_data_off_the_device() -> None:
 def test_no_bundled_skill_may_execute_code() -> None:
     for key, entry in DEFAULT_MANIFEST.entries.items():
         assert "execute" not in entry.declared_scopes, key
+
+
+# ---------------------------------------------------------------------------
+# The manifest on disk outlives the code that wrote it.
+# ---------------------------------------------------------------------------
+
+
+def _load(tmp_path, body: str):
+    from june_brain.skills.manifest import load_manifest
+
+    target = tmp_path / "skills.toml"
+    target.write_text(body)
+    return load_manifest(target)
+
+
+_RESEARCH_NO_SCOPES = (
+    "[skill.research]\n"
+    "enabled = true\n"
+    'command = "python"\n'
+    'args = ["-m", "june_skill_research"]\n'
+    'description = "Web search."\n'
+)
+
+
+def test_a_manifest_predating_declared_scopes_still_gets_the_contract(tmp_path) -> None:
+    """The bug this catches disarmed the contract check on every upgraded install.
+
+    `declared_scopes` was added after the manifest format shipped. Every other
+    field falls back to DEFAULT_MANIFEST when the file omits it; this one did
+    not, so it loaded empty — and `exceeds_declared_scopes` treats empty as "no
+    contract to violate". calendar, files and research all ran ungoverned.
+    """
+    manifest = _load(tmp_path, _RESEARCH_NO_SCOPES)
+
+    assert manifest.entries["research"].declared_scopes == ["read_network"]
+
+
+def test_an_explicit_empty_contract_is_respected(tmp_path) -> None:
+    """Omitting the field means "not stated"; writing [] means "stated as none"."""
+    manifest = _load(tmp_path, _RESEARCH_NO_SCOPES + "declared_scopes = []\n")
+
+    assert manifest.entries["research"].declared_scopes == []
+
+
+def test_a_retired_skill_in_a_persisted_manifest_is_not_spawned(tmp_path) -> None:
+    """D.5c deleted skills/health and skills/daily; installs kept spawning them."""
+    from june_brain.skills.manifest import RETIRED_SKILL_KEYS
+
+    manifest = _load(
+        tmp_path,
+        "[skill.health]\n"
+        "enabled = true\n"
+        'command = "python"\n'
+        'args = ["-m", "june_skill_health"]\n'
+        "\n" + _RESEARCH_NO_SCOPES,
+    )
+
+    assert "health" in RETIRED_SKILL_KEYS
+    assert "health" not in manifest.entries
+    assert "research" in manifest.entries
+
+
+def test_no_retired_skill_is_also_a_default_skill() -> None:
+    """A key in both sets would be dropped on load and re-added right after."""
+    from june_brain.skills.manifest import DEFAULT_MANIFEST, RETIRED_SKILL_KEYS
+
+    overlap = sorted(RETIRED_SKILL_KEYS & set(DEFAULT_MANIFEST.entries))
+    assert overlap == [], f"{overlap} is both retired and bundled"

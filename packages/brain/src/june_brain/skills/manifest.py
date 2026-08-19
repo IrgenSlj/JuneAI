@@ -128,6 +128,12 @@ class SkillManifest:
 
 # The five Week-5 skills. Each assumes the skill package is installed in the
 # same venv as the brain, so we invoke it as "python -m <module>".
+# Skill keys removed from the product. A persisted manifest that still names one
+# is ignored rather than spawned. Add a key here when a bundled skill is retired
+# rather than replaced; the manifest file is cleaned the next time it is saved.
+RETIRED_SKILL_KEYS = frozenset({"health", "daily"})
+
+
 DEFAULT_MANIFEST: SkillManifest = SkillManifest(
     entries={
         "calendar": SkillManifestEntry(
@@ -302,6 +308,14 @@ def load_manifest(path: Path | None = None) -> SkillManifest:
     for key, raw in skill_block.items():
         if not isinstance(raw, dict):
             continue
+        if key in RETIRED_SKILL_KEYS:
+            # The user's manifest outlives the code. Removing a bundled skill
+            # from DEFAULT_MANIFEST does not remove it from an install that
+            # already wrote it to disk, so June kept trying to spawn `health`
+            # and `daily` after D.5c deleted them and logged a failure every
+            # session. Same shape as tools.RETIRED_TOOL_NAMES, same reason.
+            logger.info("skills: dropping retired skill %r from the manifest", key)
+            continue
         default = DEFAULT_MANIFEST.entries.get(key)
         raw_policy = str(raw.get("model_policy") or "").strip().lower()
         if raw_policy not in _VALID_MODEL_POLICIES:
@@ -317,9 +331,22 @@ def load_manifest(path: Path | None = None) -> SkillManifest:
                 if default
                 else DEFAULT_RESPONSE_TIMEOUT_SECONDS
             )
-        raw_declared = raw.get("declared_scopes") or []
+        raw_declared = raw.get("declared_scopes")
+        if raw_declared is None and default is not None:
+            # Fall back to the bundled contract, exactly as command/args/
+            # description/model_policy/timeout already do. Without this an
+            # entry written before `declared_scopes` existed loaded with an
+            # empty contract, and `exceeds_declared_scopes` treats empty as
+            # "no contract to violate" — deliberately, so a third-party skill
+            # nobody has vetted is not blocked outright. The two cases are not
+            # the same: a bundled skill whose contract the manifest simply
+            # predates is not an unknown skill, and silently dropping its
+            # contract disarms the check ADR 0021 says is enforced. Every
+            # install upgraded across the declared_scopes field was running
+            # calendar, files and research ungoverned.
+            raw_declared = list(default.declared_scopes)
         declared_scopes = [
-            str(s) for s in raw_declared if str(s) in _VALID_ACTION_CLASSES
+            str(s) for s in (raw_declared or []) if str(s) in _VALID_ACTION_CLASSES
         ]
         manifest.entries[key] = SkillManifestEntry(
             key=key,
