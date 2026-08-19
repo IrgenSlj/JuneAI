@@ -178,19 +178,16 @@ def _normalize_recall_hit(hit: dict[str, Any]) -> dict[str, Any]:
 
     ``MemoryManager.recall`` returns vector hits with bare ``fact_id`` and
     graph hits with bare ``node_id``; the memory snapshot route emits
-    those as ``semantic:<id>`` and ``node:<id>``. We normalize here so the
-    UI can deep-link recalled memories into the browser without each
-    surface re-implementing the prefix logic.
+    those as ``semantic:<id>`` and ``node:<id>``. The prefix rule itself lives
+    in ``memory.recall.prefixed_ref`` so the UI, the feedback table and the
+    ``forget`` tool cannot drift apart; this only reshapes the hit around it.
     """
+    from ..memory.recall import prefixed_ref
+
     source = hit.get("source")
-    ref = hit.get("ref", "")
     kind = hit.get("kind", "")
-    if source == "vector":
-        ref = f"semantic:{ref}"
-    elif source == "graph":
-        ref = f"edge:{ref}" if kind.startswith("edge:") else f"node:{ref}"
     return {
-        "ref": ref,
+        "ref": prefixed_ref(hit),
         "text": hit.get("text", ""),
         "source": str(source or ""),
         "kind": str(kind or ""),

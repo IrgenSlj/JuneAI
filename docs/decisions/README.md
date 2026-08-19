@@ -48,6 +48,8 @@ Status progression:
 | [0023](0023-silence-model.md) | Silence Model: local rules-first surface-vs-defer policy | Accepted; v1 in progress |
 | [0024](0024-retrieval-v2-fusion-bitemporal.md) | Retrieval v2: multi-signal fusion and bi-temporal facts | Accepted; shipped and measured (+29% recall@8) |
 | [0030](0030-june-as-mcp-memory-server.md) | June as an MCP memory server (read-only, consent-gated, ledgered) | Accepted |
+| [0031](0031-update-check-egress.md) | Update check: the one automatic network call, ledgered and blockable | Accepted |
+| [0032](0032-model-callable-memory-surface.md) | June's model-callable memory surface is four deliberate tools | Accepted |
 
 ## Planned for v0.2
 

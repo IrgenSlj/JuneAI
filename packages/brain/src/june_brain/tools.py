@@ -19,6 +19,7 @@ from .runtime_privacy import (
     format_runtime_privacy_status,
 )
 from .tools_base import Inject, tool
+from .tools_memory import forget, list_promises, remember, update_promise
 
 logger = logging.getLogger(__name__)
 
@@ -609,11 +610,17 @@ def run_diagnostics() -> str:
     return format_markdown(results)
 
 
-# Trimmed tool set for small local models (gemma4 4B, etc.).
-# Keeps write-heavy capture tools and one summary read.
-# Drops list_*, weekly_summary, and multi-step reasoning tools
-# that inflate the tool-schema tokens and hurt small-model reliability.
+# Trimmed tool set for small local models (gemma4 4B, etc.). Fewer tools, and
+# fewer tools whose descriptions overlap, is the whole reliability story here:
+# a small model picking between near-synonyms is where wrong calls come from.
+# The four memory tools (ADR 0032) lead because they are what the product is;
+# `list_*` and multi-step reads stay out because they inflate the schema without
+# adding a capability the model needs to reach on its own.
 JUNE_TOOLS_GEMMA = [
+    remember,
+    forget,
+    list_promises,
+    update_promise,
     save_journal_entry,
     save_relationship_profile,
     track_goal,
@@ -743,6 +750,10 @@ RETIRED_TOOL_NAMES = frozenset({
 
 
 JUNE_TOOLS = [
+    remember,
+    forget,
+    list_promises,
+    update_promise,
     save_journal_entry,
     get_journal,
     save_relationship_profile,

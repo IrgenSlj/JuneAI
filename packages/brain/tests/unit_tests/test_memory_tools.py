@@ -1,0 +1,208 @@
+"""The four model-callable memory tools (ADR 0032).
+
+These replace the seven v1 domain writers. The behaviour worth pinning is not
+that they write — it is what they do when they are *unsure*, because that is
+where the inversions live: `forget` must not resolve a near-tie by ranking, and
+`update_promise` must not be able to claim work the runtime did not do.
+"""
+
+from __future__ import annotations
+
+import pytest
+from june_brain.memory import Memory, MemoryManager
+from june_brain.memory import vector as vector_module
+from june_brain.tasks.models import TaskStatus
+from june_brain.tasks.store import TasksStore
+from june_brain.tools_memory import (
+    _too_close_to_call,
+    forget,
+    list_promises,
+    remember,
+    update_promise,
+)
+
+from .test_vector_store import _HashEmbedder
+
+USER = "tools_memory_user"
+STATE = {"user_id": USER}
+
+
+@pytest.fixture(autouse=True)
+def _local_embedder(monkeypatch):
+    """Make the real MemoryManager path work without Ollama."""
+    vector_module.reset_singletons()
+    monkeypatch.setattr(vector_module, "_default_embedder", _HashEmbedder())
+    Memory(USER)  # create tables
+    yield
+    vector_module.reset_singletons()
+
+
+# ---------------------------------------------------------------------------
+# remember
+# ---------------------------------------------------------------------------
+
+
+def test_remember_stores_a_recallable_fact() -> None:
+    result = remember.invoke({"text": "Her sister is called Mira.", "state": STATE})
+
+    assert "Remembered" in result
+    hits = MemoryManager(USER).recall("Her sister is called Mira.", k=5)
+    assert any("Mira" in h.get("text", "") for h in hits)
+
+
+def test_remember_rejects_empty_text_without_writing() -> None:
+    assert "Nothing to remember" in remember.invoke({"text": "   ", "state": STATE})
+
+
+def test_remember_reports_a_write_failure_instead_of_claiming_success(monkeypatch) -> None:
+    """A Glass Box rule: a tool result may not assert something that did not happen."""
+
+    class _Boom:
+        def write(self, *_args, **_kwargs):
+            raise RuntimeError("disk full")
+
+    monkeypatch.setattr("june_brain.memory.MemoryManager", lambda *_a, **_k: _Boom())
+    result = remember.invoke({"text": "something durable", "state": STATE})
+
+    assert "Could not store" in result
+    assert "Remembered" not in result
+
+
+# ---------------------------------------------------------------------------
+# forget
+# ---------------------------------------------------------------------------
+
+
+def test_forget_removes_a_single_clear_match() -> None:
+    remember.invoke({"text": "The user is allergic to penicillin.", "state": STATE})
+
+    result = forget.invoke({"description": "allergic to penicillin", "state": STATE})
+
+    assert "Forgotten" in result
+    assert "restored" in result  # reversibility is stated, not implied
+    remaining = MemoryManager(USER).recall("allergic to penicillin", k=5)
+    assert not any("penicillin" in h.get("text", "") for h in remaining)
+
+
+def test_forget_says_so_when_nothing_matches() -> None:
+    result = forget.invoke({"description": "a memory never stored", "state": STATE})
+    assert "nothing was forgotten" in result
+
+
+def test_forget_refuses_to_choose_between_near_ties(monkeypatch) -> None:
+    """Inversion 1: the one place being confidently wrong destroys user data."""
+    deleted: list[str] = []
+
+    class _Ambiguous:
+        def recall(self, _query, k=5):
+            return [
+                {"source": "vector", "ref": "a", "text": "Coffee order is a flat white.", "score": 0.40},
+                {"source": "vector", "ref": "b", "text": "Coffee order is a cortado.", "score": 0.41},
+            ]
+
+        def forget(self, ref):
+            deleted.append(ref)
+            return True
+
+    monkeypatch.setattr("june_brain.memory.MemoryManager", lambda *_a, **_k: _Ambiguous())
+    result = forget.invoke({"description": "my coffee order", "state": STATE})
+
+    assert deleted == [], "a near-tie was resolved by ranking instead of by asking"
+    assert "nothing was forgotten" in result
+    assert "flat white" in result and "cortado" in result
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        ({"source": "vector", "score": None}, {"source": "vector", "score": 0.4}),
+        ({"source": "vector", "score": 0.4}, {"source": "sqlite", "score": 0.4}),
+        ({"source": "vector", "score": 0.0}, {"source": "vector", "score": 0.0}),
+    ],
+)
+def test_ambiguity_check_fails_toward_asking(first, second) -> None:
+    """Missing scores and cross-source comparisons are ambiguous, not decidable."""
+    assert _too_close_to_call(first, second) is True
+
+
+def test_a_clear_winner_is_not_ambiguous() -> None:
+    assert _too_close_to_call(
+        {"source": "vector", "score": 0.9}, {"source": "vector", "score": 0.2}
+    ) is False
+
+
+# ---------------------------------------------------------------------------
+# promises
+# ---------------------------------------------------------------------------
+
+
+def test_list_promises_renders_blocked_state_explicitly() -> None:
+    store = TasksStore(user_id=USER)
+    task = store.create(goal="Book the flight to Lisbon")
+    store.set_blocked(
+        task.id,
+        reason="Needs the travel dates.",
+        next_action="Ask the user which week.",
+    )
+
+    result = list_promises.invoke({"state": STATE})
+
+    assert "Book the flight to Lisbon" in result
+    assert "Needs the travel dates." in result
+    assert "Ask the user which week." in result
+
+
+def test_list_promises_is_honest_about_having_none() -> None:
+    assert list_promises.invoke({"state": STATE}) == "No open promises."
+
+
+def test_update_promise_completes_by_short_id() -> None:
+    store = TasksStore(user_id=USER)
+    task = store.create(goal="Send the contract")
+
+    result = update_promise.invoke(
+        {"promise_id": task.id[:8], "status": "completed", "state": STATE}
+    )
+
+    assert "completed" in result
+    assert store.get(task.id).status == TaskStatus.COMPLETED
+
+
+def test_update_promise_cannot_set_running() -> None:
+    """`running` means the runtime is executing it; a tool must not assert that."""
+    store = TasksStore(user_id=USER)
+    task = store.create(goal="Draft the announcement")
+
+    result = update_promise.invoke(
+        {"promise_id": task.id, "status": "running", "state": STATE}
+    )
+
+    assert "not a status June can set" in result
+    assert store.get(task.id).status != TaskStatus.RUNNING
+
+
+def test_update_promise_rejects_an_unknown_id() -> None:
+    result = update_promise.invoke(
+        {"promise_id": "deadbeef", "status": "completed", "state": STATE}
+    )
+    assert "No open promise matches" in result
+
+
+def test_update_promise_records_a_next_action_without_a_status() -> None:
+    store = TasksStore(user_id=USER)
+    task = store.create(goal="Renew the domain")
+
+    result = update_promise.invoke(
+        {"promise_id": task.id, "next_action": "Confirm the registrar login.", "state": STATE}
+    )
+
+    assert "Confirm the registrar login." in result
+    assert store.get(task.id).next_action == "Confirm the registrar login."
+
+
+def test_update_promise_needs_something_to_do() -> None:
+    store = TasksStore(user_id=USER)
+    task = store.create(goal="Nothing to change")
+    assert "Nothing to update" in update_promise.invoke(
+        {"promise_id": task.id, "state": STATE}
+    )

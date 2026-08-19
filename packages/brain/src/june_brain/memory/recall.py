@@ -722,11 +722,15 @@ def salience_recall(user_id: str, query: str, k: int = 5) -> list[dict[str, Any]
     return mm.recall(query, k=k)
 
 
-def _hit_lookup_ref(hit: dict[str, Any]) -> str:
-    """Build the prefixed ref the feedback table is keyed by, given a raw recall hit.
+def prefixed_ref(hit: dict[str, Any]) -> str:
+    """The prefixed ref for a raw recall hit — the one implementation of the rule.
 
-    Vector and graph hits arrive with bare ids; sqlite hits arrive
-    already prefixed (``goal:...``). Mirrors graph._normalize_recall_hit.
+    Vector and graph hits arrive from their stores with bare ids; sqlite hits
+    arrive already prefixed (``goal:...``). Every surface that hands a recalled
+    memory onward — the feedback table, the loop's UI disclosure, the ``forget``
+    tool — needs the same prefix scheme ``/memory`` uses, so they all call this
+    rather than restating it. It had three copies before D.5a; one of them
+    already carried a docstring pointing at a module that did not have it.
     """
     source = hit.get("source")
     raw = hit.get("ref", "") or ""
@@ -736,6 +740,11 @@ def _hit_lookup_ref(hit: dict[str, Any]) -> str:
     if source == "graph":
         return f"edge:{raw}" if kind.startswith("edge:") else f"node:{raw}"
     return raw
+
+
+def _hit_lookup_ref(hit: dict[str, Any]) -> str:
+    """Back-compat alias for :func:`prefixed_ref`; the feedback table keys on it."""
+    return prefixed_ref(hit)
 
 
 def _multiply_score(score: Any, factor: float) -> float:
