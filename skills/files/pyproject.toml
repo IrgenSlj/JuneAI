@@ -7,8 +7,15 @@ requires-python = ">=3.10"
 dependencies = [
     "june-brain",
     "httpx>=0.27.0",
-    "pypdf>=5.0.0",
+    # Security floors, not feature floors (B.5, 2026-08-20). This skill parses
+    # input the user did not write — a PDF or a web page someone else made —
+    # which is precisely the untrusted surface the guard layer exists for, so a
+    # parser CVE here is reachable in a way most dependency advisories are not.
+    # pip-audit found 13 advisories against pypdf 6.10.2 and one against
+    # lxml-html-clean 0.4.4 (pulled in by trafilatura).
+    "pypdf>=6.15.0",
     "trafilatura>=1.12.0",
+    "lxml-html-clean>=0.4.5",
 ]
 
 [build-system]

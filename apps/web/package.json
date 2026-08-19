@@ -14,18 +14,18 @@
   "dependencies": {
     "@june/design": "workspace:*",
     "@june/ui": "workspace:*",
-    "sharp": "^0.34.5"
+    "sharp": "^0.35.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
     "@sveltejs/adapter-static": "^3.0.0",
-    "@sveltejs/kit": "^2.8.0",
+    "@sveltejs/kit": "^2.70.3",
     "@sveltejs/vite-plugin-svelte": "^6.2.0",
     "@vite-pwa/sveltekit": "^1.1.0",
     "svelte": "^5.0.0",
     "svelte-check": "^4.0.0",
     "typescript": "^5.6.0",
-    "vite": "^7.0.0",
+    "vite": "^7.3.6",
     "workbox-window": "^7.4.0"
   }
 }

@@ -13,8 +13,11 @@ dependencies = [
     "uvicorn[standard]>=0.32.0",
     "pydantic>=2.9.0",
     # Imported directly (app.py, routes/chat.py) rather than only via FastAPI's
-    # re-exports; declared so the dep graph is honest. Floor defers to FastAPI's pin.
-    "starlette>=0.37.0",
+    # re-exports; declared so the dep graph is honest.
+    # Security floor (B.5, 2026-08-20): 7 advisories against 1.0.0, including
+    # PYSEC-2026-248/249. FastAPI pulls starlette in, but the floor is declared
+    # here so a fresh bootstrap cannot resolve back to a vulnerable one.
+    "starlette>=1.3.1",
 ]
 
 [project.optional-dependencies]
