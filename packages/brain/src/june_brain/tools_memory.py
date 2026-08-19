@@ -17,6 +17,7 @@ not terminating TODOs).
 from __future__ import annotations
 
 import logging
+import re
 from typing import Annotated, Any
 
 from .tools_base import Inject, tool
@@ -175,21 +176,21 @@ def list_promises(
 
 @tool
 def update_promise(
-    promise_id: str,
+    promise: str,
     status: str = "",
     next_action: str = "",
     state: InjectedAgentState = None,
 ) -> str:
-    """Update one of the user's promises. promise_id is the short id from list_promises. status may be 'completed', 'cancelled' or 'paused'. next_action records what the promise is waiting on. Only report a promise completed when the user says it is done."""
+    """Update one of the user's promises. Name the promise the way the user refers to it, e.g. 'the passport renewal' — an id is not needed. status may be 'completed', 'cancelled' or 'paused'. next_action records what the promise is waiting on. If several promises match, June lists them and changes nothing, so ask the user which one they meant. Only report a promise completed when the user says it is done."""
     from .tasks.models import TaskStatus
     from .tasks.store import TasksStore
 
-    promise_id = (promise_id or "").strip()
+    promise = (promise or "").strip()
     status = (status or "").strip().lower()
     next_action = (next_action or "").strip()
 
-    if not promise_id:
-        return "No promise id was given."
+    if not promise:
+        return "No promise was named."
     if not status and not next_action:
         return "Nothing to update — give a status or a next action."
     if status and status not in _MODEL_SETTABLE_STATUSES:
@@ -198,9 +199,15 @@ def update_promise(
 
     try:
         store = TasksStore(user_id=_user_id(state))
-        target = _resolve_promise(store, promise_id)
+        target, candidates = _resolve_promise(store, promise)
         if target is None:
-            return f"No open promise matches id '{promise_id}'."
+            if candidates:
+                listed = "\n".join(f"- {p.goal}" for p in candidates[:4])
+                return (
+                    f"Several promises match '{promise}', so nothing was changed. "
+                    f"Ask which one is meant:\n{listed}"
+                )
+            return f"No open promise matches '{promise}'."
 
         if status:
             updated = store.set_status(
@@ -209,7 +216,7 @@ def update_promise(
                 next_action=next_action or None,
             )
             if updated is None:
-                return f"Promise '{promise_id}' could not be updated."
+                return f"Promise '{target.goal}' could not be updated."
             return f"Promise '{updated.goal}' is now {status}."
 
         updated = store.set_blocked(
@@ -219,24 +226,80 @@ def update_promise(
             final_deliverable=target.final_deliverable,
         )
         if updated is None:
-            return f"Promise '{promise_id}' could not be updated."
+            return f"Promise '{target.goal}' could not be updated."
         return f"Promise '{updated.goal}' is waiting on: {next_action}"
     except Exception as exc:  # noqa: BLE001
-        logger.exception("update_promise: update failed for id=%s", promise_id)
+        logger.exception("update_promise: update failed for %r", promise)
         return f"Could not update that promise: {exc}"
 
 
-def _resolve_promise(store: Any, promise_id: str) -> Any:
-    """Find a promise by full id or by the short prefix list_promises renders.
+def _resolve_promise(store: Any, reference: str) -> tuple[Any, list[Any]]:
+    """Find the promise a user means. Returns (match, candidates_when_ambiguous).
 
-    A prefix that matches more than one promise resolves to nothing rather than
-    to the first — the same refusal-to-guess `forget` makes, for the same reason.
+    Taking an id alone was measured at 0/12 on the local model (D.5d): the id
+    only exists in a `list_promises` result, so `update_promise` could not be
+    reached without chaining two calls, and a 2B model does not chain reliably.
+    Requiring the model to produce a handle it has never seen is a design
+    defect, not a model failing. So a promise may also be named the way the
+    user names it, and June does the matching — the same shape as `forget`,
+    including the refusal to break a tie by ranking.
     """
-    exact = store.get(promise_id)
+    exact = store.get(reference)
     if exact is not None:
-        return exact
-    matches = [p for p in store.active() if p.id.startswith(promise_id)]
-    return matches[0] if len(matches) == 1 else None
+        return exact, []
+
+    active = store.active()
+    prefix = [p for p in active if p.id.startswith(reference)]
+    if len(prefix) == 1:
+        return prefix[0], []
+    if len(prefix) > 1:
+        return None, prefix
+
+    scored = [(p, _goal_overlap(reference, p.goal)) for p in active]
+    hits = sorted(
+        [(p, n) for p, n in scored if n > 0], key=lambda item: item[1], reverse=True
+    )
+    if not hits:
+        return None, []
+    if len(hits) > 1 and hits[0][1] == hits[1][1]:
+        return None, [p for p, _ in hits]
+    return hits[0][0], []
+
+
+def _content_words(text: str) -> set[str]:
+    """Lowercased content words, function words dropped.
+
+    Reuses recall's stop-word list rather than starting a second one; the two
+    are answering the same question about the same user's English.
+    """
+    from .memory.recall import _STOPWORDS
+
+    return {
+        w
+        for w in re.findall(r"[a-z][a-z'-]{2,}", text.lower())
+        if w.strip("'-") not in _STOPWORDS
+    }
+
+
+def _goal_overlap(reference: str, goal: str) -> int:
+    """How many content words the reference and the promise's goal share.
+
+    Prefix-matched at four characters so "renewal"/"renew" and
+    "booking"/"book" count — a user says a promise is done in different words
+    than the promise was written in, which is the whole case for matching text
+    rather than demanding an id.
+    """
+    ref, target = _content_words(reference), _content_words(goal)
+    if not ref or not target:
+        return 0
+    score = 0
+    for a in ref:
+        if a in target or any(
+            (a.startswith(b[:4]) or b.startswith(a[:4])) and min(len(a), len(b)) >= 4
+            for b in target
+        ):
+            score += 1
+    return score
 
 
 JUNE_MEMORY_TOOLS = [remember, forget, list_promises, update_promise]

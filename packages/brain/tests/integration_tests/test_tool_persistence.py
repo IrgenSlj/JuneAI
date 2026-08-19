@@ -84,7 +84,7 @@ def test_update_promise_persists_the_status(tmp_path):
 
     with patch("june_brain.memory.MEMORY_DIR", str(tmp_path)):
         task = TasksStore(user_id=user_id).create(goal="Renew the passport")
-        result = _invoke("update_promise", {"promise_id": task.id, "status": "completed"}, user_id)
+        result = _invoke("update_promise", {"promise": task.id, "status": "completed"}, user_id)
         reread = TasksStore(user_id=user_id).get(task.id)
 
     assert "completed" in result

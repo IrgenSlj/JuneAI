@@ -161,7 +161,7 @@ def test_update_promise_completes_by_short_id() -> None:
     task = store.create(goal="Send the contract")
 
     result = update_promise.invoke(
-        {"promise_id": task.id[:8], "status": "completed", "state": STATE}
+        {"promise": task.id[:8], "status": "completed", "state": STATE}
     )
 
     assert "completed" in result
@@ -174,7 +174,7 @@ def test_update_promise_cannot_set_running() -> None:
     task = store.create(goal="Draft the announcement")
 
     result = update_promise.invoke(
-        {"promise_id": task.id, "status": "running", "state": STATE}
+        {"promise": task.id, "status": "running", "state": STATE}
     )
 
     assert "not a status June can set" in result
@@ -183,7 +183,7 @@ def test_update_promise_cannot_set_running() -> None:
 
 def test_update_promise_rejects_an_unknown_id() -> None:
     result = update_promise.invoke(
-        {"promise_id": "deadbeef", "status": "completed", "state": STATE}
+        {"promise": "deadbeef", "status": "completed", "state": STATE}
     )
     assert "No open promise matches" in result
 
@@ -193,7 +193,7 @@ def test_update_promise_records_a_next_action_without_a_status() -> None:
     task = store.create(goal="Renew the domain")
 
     result = update_promise.invoke(
-        {"promise_id": task.id, "next_action": "Confirm the registrar login.", "state": STATE}
+        {"promise": task.id, "next_action": "Confirm the registrar login.", "state": STATE}
     )
 
     assert "Confirm the registrar login." in result
@@ -204,7 +204,7 @@ def test_update_promise_needs_something_to_do() -> None:
     store = TasksStore(user_id=USER)
     task = store.create(goal="Nothing to change")
     assert "Nothing to update" in update_promise.invoke(
-        {"promise_id": task.id, "state": STATE}
+        {"promise": task.id, "state": STATE}
     )
 
 
@@ -245,3 +245,53 @@ def test_a_scheduler_tool_without_state_raises_rather_than_guessing() -> None:
 
     with pytest.raises(ValueError, match="injected agent state"):
         list_schedules.func(state=None)
+
+
+def test_update_promise_matches_the_words_the_user_uses() -> None:
+    """Requiring an id measured 0/12 on the local model (D.5d).
+
+    The id exists only inside a `list_promises` result, so the tool could not
+    be reached without chaining two calls, and a 2B model does not chain
+    reliably. A user also says a promise is done in different words than the
+    promise was written in — "the passport renewal" for "Renew the passport" —
+    so the match is on content words, prefix-tolerant.
+    """
+    store = TasksStore(user_id=USER)
+    store.create(goal="Renew the passport")
+    store.create(goal="File the tax return")
+
+    result = update_promise.invoke(
+        {"promise": "the passport renewal", "status": "completed", "state": STATE}
+    )
+
+    assert "Renew the passport" in result
+    done = [t for t in store.list() if t.goal == "Renew the passport"][0]
+    assert done.status == TaskStatus.COMPLETED
+
+
+def test_update_promise_refuses_to_choose_between_matches() -> None:
+    """Same refusal as `forget`: a tie is asked about, not ranked."""
+    store = TasksStore(user_id=USER)
+    store.create(goal="Book the flight to Lisbon")
+    store.create(goal="Book a dentist appointment")
+
+    result = update_promise.invoke(
+        {"promise": "the booking", "status": "cancelled", "state": STATE}
+    )
+
+    assert "nothing was changed" in result
+    assert "Lisbon" in result and "dentist" in result
+    assert all(t.status != TaskStatus.CANCELLED for t in store.list())
+
+
+def test_update_promise_ignores_a_promise_that_is_not_open() -> None:
+    """Matching runs over active promises, so a finished one is not re-opened."""
+    store = TasksStore(user_id=USER)
+    finished = store.create(goal="Post the letter")
+    store.set_status(finished.id, TaskStatus.COMPLETED)
+
+    result = update_promise.invoke(
+        {"promise": "the letter", "status": "cancelled", "state": STATE}
+    )
+
+    assert "No open promise matches" in result
