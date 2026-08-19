@@ -89,13 +89,6 @@ def _paraphrase_body_metric(row: dict[str, Any]) -> str:
     return f"{head}: {', '.join(parts)}."
 
 
-def _paraphrase_mood(row: dict[str, Any]) -> str:
-    mood = str(row.get("mood", "")).strip()
-    if not mood:
-        return ""
-    note = str(row.get("note", "")).strip()
-    return f"Mood: {mood}. {note}".strip() if note else f"Mood: {mood}."
-
 
 def _format_node(node: dict[str, Any]) -> str:
     desc = node.get("props", {}).get("description", "")

@@ -87,50 +87,6 @@
         }
       }
     },
-    "/demo/seed": {
-      "post": {
-        "tags": [
-          "demo"
-        ],
-        "summary": "Seed Demo",
-        "description": "Populate a user profile with rich demo data across all memory stores.\n\nCreates goals, calendar events, journal entries, open loops, body\nmetrics, semantic facts, and entity nodes. After seeding, switch to\nthis user in Settings and explore /memory, /skills, and the chat.",
-        "operationId": "seed_demo_demo_seed_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DemoSeedRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Seed Demo Demo Seed Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/greeting/{user_id}": {
       "get": {
         "tags": [
@@ -2665,18 +2621,6 @@
         ],
         "title": "ChatRequest",
         "description": "A single user turn submitted to POST /chat."
-      },
-      "DemoSeedRequest": {
-        "properties": {
-          "user_id": {
-            "type": "string",
-            "title": "User Id",
-            "description": "User ID to seed data into.",
-            "default": "demo"
-          }
-        },
-        "type": "object",
-        "title": "DemoSeedRequest"
       },
       "EntitlementView": {
         "properties": {

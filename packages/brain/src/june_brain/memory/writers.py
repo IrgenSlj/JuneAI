@@ -14,7 +14,6 @@ from .paraphrase import (
     _paraphrase_calendar,
     _paraphrase_goal,
     _paraphrase_journal,
-    _paraphrase_mood,
     _paraphrase_open_loop,
 )
 
@@ -233,6 +232,14 @@ def write_journal(mgr: Any, fields: dict[str, Any], source: str) -> dict[str, An
 
 
 def write_body_metric(mgr: Any, fields: dict[str, Any], source: str) -> dict[str, Any]:
+    """No tool reaches this, but `restore_structured` does.
+
+    Reversible forget replays the original write through ``mgr.write``, so a
+    body-metric row the user deleted in the memory browser can only come back
+    while this handler exists. Removing it with the v1 tools would have made
+    forgetting irreversible for one kind — inversion 3 broken by a deletion that
+    looked like dead-code cleanup. It goes when the table goes, not before.
+    """
     return write_structured(
         mgr,
         "body_metric",
@@ -254,21 +261,6 @@ def write_body_metric(mgr: Any, fields: dict[str, Any], source: str) -> dict[str
         paraphrase=lambda row: _paraphrase_body_metric(row),
     )
 
-
-def write_mood(mgr: Any, fields: dict[str, Any], source: str) -> dict[str, Any]:
-    mood = str(fields.get("mood", "")).strip()
-    if not mood:
-        return {"written": False, "kind": "mood", "ref": None, "stores": []}
-    note = str(fields.get("note", ""))
-    # Mood rows are append-only; the timestamp returned by log_mood is
-    # the stable identifier for any future ref-based lookup.
-    row = mgr.sqlite.log_mood(mood, note)
-    ref = f"mood:{row.get('timestamp', '')}"
-    text = _paraphrase_mood(row)
-    stores = ["sqlite"]
-    if sync_structured_vector(mgr, "mood", ref, text, source):
-        stores.append("vector")
-    return {"written": True, "kind": "mood", "ref": ref, "stores": stores}
 
 
 def list_forgotten_all(mgr: Any, limit: int) -> list[dict[str, Any]]:
@@ -604,5 +596,4 @@ WRITE_HANDLERS: dict[str, Callable[..., dict[str, Any]]] = {
     "calendar": write_calendar,
     "journal": write_journal,
     "body_metric": write_body_metric,
-    "mood": write_mood,
 }

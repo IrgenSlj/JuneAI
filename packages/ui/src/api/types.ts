@@ -44,30 +44,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/demo/seed": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Seed Demo
-         * @description Populate a user profile with rich demo data across all memory stores.
-         *
-         *     Creates goals, calendar events, journal entries, open loops, body
-         *     metrics, semantic facts, and entity nodes. After seeding, switch to
-         *     this user in Settings and explore /memory, /skills, and the chat.
-         */
-        post: operations["seed_demo_demo_seed_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/greeting/{user_id}": {
         parameters: {
             query?: never;
@@ -1161,15 +1137,6 @@ export interface components {
              * @description Tool names the user has approved for this conversation (the guard's per-conversation allow-list, ADR 0021 S6.2). Sent by the client so a previously approved consequential action runs without asking again. Taint-flagged network actions always ask regardless.
              */
             approved_tools?: string[];
-        };
-        /** DemoSeedRequest */
-        DemoSeedRequest: {
-            /**
-             * User Id
-             * @description User ID to seed data into.
-             * @default demo
-             */
-            user_id: string;
         };
         /**
          * EntitlementView
@@ -3222,41 +3189,6 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    seed_demo_demo_seed_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DemoSeedRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
                 };
             };
             /** @description Validation Error */

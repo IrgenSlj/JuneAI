@@ -178,7 +178,6 @@ def create_app() -> FastAPI:
     _raise_fd_limit()
     from .routes import (
         chat,
-        demo,
         greeting,
         home,
         memory,
@@ -260,7 +259,6 @@ def create_app() -> FastAPI:
             logger.exception("activity log write failed")
 
     app.include_router(chat.router)
-    app.include_router(demo.router)
     app.include_router(greeting.router)
     app.include_router(home.router)
     app.include_router(memory.router)

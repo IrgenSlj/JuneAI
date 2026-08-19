@@ -837,6 +837,36 @@ def test_forget_body_metric_is_reversible(manager):
     assert not any(t["ref"] == ref for t in manager.list_forgotten())
 
 
+def test_every_forgettable_structured_kind_can_be_restored(manager):
+    """Reversible forget replays the original write through `mgr.write`.
+
+    So a write handler is load-bearing for *restore* even when no tool calls it,
+    and deleting one as dead code makes forgetting irreversible for that kind —
+    inversion 3 broken by a cleanup that looks safe. D.5b nearly removed
+    `write_body_metric` on exactly that reasoning. This asserts the coupling
+    directly rather than leaving it to be rediscovered.
+    """
+    from june_brain.memory.writers import WRITE_HANDLERS
+
+    seeds = {
+        "goal": {"title": "learn to sail", "next_step": "book a lesson"},
+        "open_loop": {"topic": "renew passport", "next_step": "find the form"},
+        "calendar": {"title": "Dentist", "date": "2026-04-02"},
+        "journal": {"entry": "A quiet, useful day."},
+        "body_metric": {"date": "2026-01-15", "weight_kg": 75.5},
+    }
+    for kind, fields in seeds.items():
+        assert kind in WRITE_HANDLERS, (
+            f"'{kind}' can be forgotten but has no write handler, so restoring it "
+            "silently returns None"
+        )
+        ref = manager.write({"kind": kind, "fields": fields}, source="manual")["ref"]
+        assert manager.forget(ref) is True, kind
+        assert manager.restore(ref) is not None, (
+            f"restoring a forgotten '{kind}' failed — its write handler is gone"
+        )
+
+
 def test_forget_goal_excludes_from_recall_until_restored(manager):
     result = manager.write(
         {"kind": "goal", "fields": {"title": "climb Kilimanjaro", "next_step": "book guide"}},
