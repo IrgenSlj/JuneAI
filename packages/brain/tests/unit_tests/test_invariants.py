@@ -804,3 +804,50 @@ def test_the_memory_tools_report_writes_truthfully() -> None:
         assert wrote_memory(nothing) is False
     finally:
         vector_module.reset_singletons()
+
+
+# ---------------------------------------------------------------------------
+# Invariant: the rule the model is judged by is the rule it was given.
+#
+# `build_system_prompt` carried careful "when to call a tool" instructions and
+# has exactly one production caller — the scheduler. The live chat path builds
+# its own context through ContextAssembler and never read a word of it, so the
+# model was handed fifteen tools and no criterion. It answered "I have
+# remembered that you are vegetarian" and called nothing (D.5d): a true-sounding
+# sentence about a write that never happened.
+#
+# The guidance now has one definition and both paths take it from there.
+# ---------------------------------------------------------------------------
+
+
+def test_the_live_chat_path_is_told_when_to_call_a_tool() -> None:
+    from june_brain.loop.wiring import make_tools_block
+    from june_brain.skills.prompts import TOOL_USE_GUIDANCE
+
+    block = make_tools_block()
+    assert block, "the tools block is empty; the model is told about no tools at all"
+    assert TOOL_USE_GUIDANCE in block, (
+        "the live path advertises tools without saying when to use one. That is "
+        "the state that produced a model claiming to remember things it never "
+        "stored."
+    )
+
+
+def test_both_prompt_paths_share_one_copy_of_the_rule() -> None:
+    """Two copies is how the live path came to be missing it in the first place."""
+    from june_brain.loop.wiring import make_tools_block
+    from june_brain.skills.prompts import TOOL_USE_GUIDANCE, build_system_prompt
+
+    scheduler_prompt = build_system_prompt("assistant")
+    assert TOOL_USE_GUIDANCE in scheduler_prompt
+    assert TOOL_USE_GUIDANCE in make_tools_block()
+    assert "__TOOL_USE__" not in scheduler_prompt, "the placeholder was not substituted"
+
+
+def test_the_model_is_told_not_to_claim_a_write_it_did_not_make() -> None:
+    """The Glass Box rule, stated to the model rather than only enforced after."""
+    from june_brain.skills.prompts import TOOL_USE_GUIDANCE
+
+    lowered = TOOL_USE_GUIDANCE.lower()
+    assert "never claim" in lowered
+    assert "remembered" in lowered

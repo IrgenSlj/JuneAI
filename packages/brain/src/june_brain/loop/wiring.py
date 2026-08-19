@@ -191,6 +191,16 @@ def make_tools_block() -> str:
             arg_names = ""
         lines.append(f"- {name}({arg_names}): {desc}")
 
+    # The rule for *when* to call one, not just the list. Without it the model
+    # was given fifteen tools and no criterion, and answered "I have remembered
+    # that you are vegetarian" while calling nothing (D.5d).
+    try:
+        from june_brain.skills.prompts import TOOL_USE_GUIDANCE  # noqa: PLC0415
+
+        lines.append("\n" + TOOL_USE_GUIDANCE)
+    except Exception:
+        degrade_quietly("tool-use guidance in the tools block")
+
     lines.append(
         "\nTo call a tool, reply with ONLY this JSON and nothing else:\n"
         '{"tool_calls": [{"name": "<tool_name>", "args": {<arguments>}}]}\n'
