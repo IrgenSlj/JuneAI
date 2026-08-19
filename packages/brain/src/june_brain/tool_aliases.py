@@ -88,26 +88,6 @@ def _normalize_save_open_loop(args: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _normalize_save_gym_plan(args: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "name": _best_of(args, "name", ["title", "plan_name"]) or "Gym Plan",
-        "schedule": _best_of(args, "schedule", ["split", "routine"]),
-        "goal": _best_of(args, "goal", ["focus"]),
-        "notes": _best_of(args, "notes", ["details"]),
-        "status": args.get("status") or "active",
-    }
-
-
-def _normalize_save_food_program(args: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "name": _best_of(args, "name", ["title", "program_name"]) or "Food Program",
-        "goal": _best_of(args, "goal", ["focus"]),
-        "daily_structure": _best_of(args, "daily_structure", ["structure", "meal_structure", "plan"]),
-        "notes": _best_of(args, "notes", ["details"]),
-        "status": args.get("status") or "active",
-    }
-
-
 def _normalize_save_relationship_profile(args: dict[str, Any]) -> dict[str, Any]:
     return {
         "person": _best_of(args, "person", ["name"]),
@@ -134,63 +114,6 @@ def _normalize_save_favorite_recommendation(args: dict[str, Any]) -> dict[str, A
         "creator": _best_of(args, "creator", ["author", "artist"]),
         "status": args.get("status") or "saved",
     }
-
-
-def _normalize_log_workout_session(args: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "plan_name": _best_of(args, "plan_name", ["name", "title"]) or "Workout",
-        "exercises": _best_of(args, "exercises", ["workout", "details"]),
-        "duration_min": args.get("duration_min") or args.get("duration") or 0,
-        "notes": args.get("notes") or "",
-        "energy_rating": args.get("energy_rating") or args.get("energy") or 0,
-    }
-
-
-def _normalize_log_body_metrics(args: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "weight_kg": args.get("weight_kg") or args.get("weight") or 0.0,
-        "sleep_hours": args.get("sleep_hours") or args.get("sleep") or 0.0,
-        "sleep_quality": args.get("sleep_quality") or args.get("sleep_score") or 0,
-        "energy": args.get("energy") or args.get("energy_rating") or 0,
-        "stress": args.get("stress") or args.get("stress_level") or 0,
-        "soreness": args.get("soreness") or args.get("muscle_soreness") or 0,
-        "resting_hr": args.get("resting_hr") or args.get("heart_rate") or args.get("rest_hr") or 0,
-        "steps": args.get("steps") or args.get("step_count") or 0,
-        "notes": args.get("notes") or "",
-    }
-
-
-def _normalize_create_habit(args: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "name": _best_of(args, "name", ["habit", "title"]),
-        "category": args.get("category") or "health",
-        "target_days": _best_of(args, "target_days", ["frequency"]) or "daily",
-    }
-
-
-def _normalize_log_habit_completion(args: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "habit_name": _best_of(args, "habit_name", ["name", "habit"]),
-    }
-
-
-def _normalize_log_nutrition(args: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "meal": _best_of(args, "meal", ["meal_type"]) or "meal",
-        "description": _best_of(args, "description", ["details", "food"]),
-        "calories_est": args.get("calories_est") or args.get("calories") or 0,
-        "protein_est": args.get("protein_est") or args.get("protein") or 0,
-    }
-
-
-def _normalize_log_water(args: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "glasses": _best_of(args, "glasses", ["count", "amount"]) or 1,
-    }
-
-
-
-
 
 
 def _extract_json_payload(text: str) -> dict[str, Any] | None:
@@ -268,48 +191,13 @@ TOOL_ALIASES: dict[str, ToolAlias] = {
         param_map={"type": "category", "name": "title", "author": "creator", "artist": "creator"},
         normalizer=_normalize_save_favorite_recommendation,
     ),
-    "log_workout_session": ToolAlias(
-        aliases=["save_workout", "record_workout"],
-        param_map={"workout": "exercises", "duration": "duration_min", "energy": "energy_rating"},
-        normalizer=_normalize_log_workout_session,
-    ),
-    "log_nutrition": ToolAlias(
-        aliases=["save_meal", "record_meal"],
-        param_map={"meal_type": "meal", "food": "description", "calories": "calories_est", "protein": "protein_est"},
-        normalizer=_normalize_log_nutrition,
-    ),
-    "log_water": ToolAlias(
-        aliases=["record_water"],
-        param_map={"count": "glasses", "amount": "glasses"},
-        normalizer=_normalize_log_water,
-    ),
     "save_open_loop": ToolAlias(
         param_map={"deadline": "due_date", "action": "next_step"},
         normalizer=_normalize_save_open_loop,
     ),
-    "save_gym_plan": ToolAlias(
-        param_map={"split": "schedule", "routine": "schedule", "focus": "goal"},
-        normalizer=_normalize_save_gym_plan,
-    ),
-    "save_food_program": ToolAlias(
-        param_map={"structure": "daily_structure", "meal_structure": "daily_structure", "plan": "daily_structure", "focus": "goal"},
-        normalizer=_normalize_save_food_program,
-    ),
     "save_relationship_profile": ToolAlias(
         param_map={"relation": "relationship", "context": "summary", "needs": "user_needs", "warnings": "cautions"},
         normalizer=_normalize_save_relationship_profile,
-    ),
-    "log_body_metrics": ToolAlias(
-        param_map={"weight": "weight_kg", "sleep": "sleep_hours", "sleep_score": "sleep_quality", "energy_rating": "energy", "stress_level": "stress", "muscle_soreness": "soreness", "heart_rate": "resting_hr", "rest_hr": "resting_hr", "step_count": "steps"},
-        normalizer=_normalize_log_body_metrics,
-    ),
-    "create_habit": ToolAlias(
-        param_map={"habit": "name", "frequency": "target_days"},
-        normalizer=_normalize_create_habit,
-    ),
-    "log_habit_completion": ToolAlias(
-        param_map={"habit": "habit_name"},
-        normalizer=_normalize_log_habit_completion,
     ),
     "save_journal_entry": ToolAlias(
         param_map={"entry": "entry"},

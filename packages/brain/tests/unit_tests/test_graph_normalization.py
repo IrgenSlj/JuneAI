@@ -118,11 +118,16 @@ def test_normalize_passes_unknown_tool_through_untouched() -> None:
 
 
 def test_normalize_handles_none_args() -> None:
-    """A model may emit no args; the helper must coerce to defaults, not crash."""
-    name, args = _normalize_tool_call("log_water", None)  # type: ignore[arg-type]
-    assert name == "log_water"
-    # log_water has a sensible default of 1 glass when no count is given.
-    assert args == {"glasses": 1}
+    """A model may emit no args; the helper must coerce to a dict, not crash.
+
+    Previously asserted through log_water's "default to 1 glass" behaviour;
+    that tool was retired with the v1 domain layer (D.5a). The property under
+    test is the coercion, not the default, so it now uses a surviving tool with
+    an alias entry.
+    """
+    name, args = _normalize_tool_call("save_open_loop", None)  # type: ignore[arg-type]
+    assert name == "save_open_loop"
+    assert isinstance(args, dict)
 
 
 def test_normalize_unknown_tool_handles_none_args() -> None:

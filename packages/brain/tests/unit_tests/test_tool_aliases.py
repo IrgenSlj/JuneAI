@@ -148,7 +148,6 @@ def test_defaults_are_applied_where_the_tool_expects_one() -> None:
         ("save_calendar_item", {"event": "Dentist", "when": "2026-08-03"}, "title", "Dentist"),
         ("save_calendar_item", {"event": "Dentist", "when": "2026-08-03"}, "date", "2026-08-03"),
         ("save_open_loop", {"name": "Tax return", "next": "call accountant"}, "topic", "Tax return"),
-        ("save_gym_plan", {"split": "push/pull/legs"}, "schedule", "push/pull/legs"),
         ("save_relationship_profile", {"name": "Sam", "relation": "brother"}, "person", "Sam"),
     ],
 )

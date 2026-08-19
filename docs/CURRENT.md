@@ -18,16 +18,24 @@ archived). Updated as workstreams land.
   [plan](product/v0.4-development-plan.md). Work the slices in order; each is
   independently landable (one slice -> `check.sh` green -> one commit -> push),
   and each slice's own **Status** line records where it stopped.
-  **D.1 through D.4c, D.5a (tranche 1), D.5b (partial), D.5c, D.6 and D.8 (bar
-  the Svelte pages) are done.** Next is the **tranche 2 decision** in D.5a —
-  whether preferences, relationships, goals, open loops, calendar, journal and
-  favorites are June's memory-write surface or are replaced by a deliberate one.
-  That is a product call, not a cleanup, and D.5b/D.5d wait on it.
+  **D.1 through D.4c, D.5a (tranche 1), D.5b (partial), D.5c, D.6, D.7, D.8 (bar
+  the Svelte pages) and D.9 (in progress) are done.**
 
-  Two items are parked: re-running the reliability baseline needs a live Ollama
-  (the numbers on file describe the pre-D.4c path that no user reached), and the
-  tool surface the model actually receives is untested because `check.sh` sets
-  `JUNE_SKILLS_DISABLED=1`.
+  Next is the **tranche 2 decision** in D.5a — whether preferences,
+  relationships, goals, open loops, calendar, journal and favorites are June's
+  memory-write surface, or are replaced by a deliberate one (`remember`,
+  `forget`, `list_promises`, `update_promise`). That is a product call, not a
+  cleanup, and D.5b and D.5d both wait on it. Related, and part of the same
+  decision: **June has no model-callable memory tools at all** — recall is
+  automatic in `ContextAssembler` and Promises are managed through `/tasks`.
+
+  Three items are parked. Re-running the reliability baseline needs a live
+  Ollama (the numbers on file describe the pre-D.4c path no user reached). The
+  tool surface with skills actually running is still untested, because
+  `check.sh` sets `JUNE_SKILLS_DISABLED=1` — the merge logic is now covered, the
+  spawning is not. And the two fat Svelte admin pages
+  (`system/+page.svelte` 1515 lines, `skills/+page.svelte` 1335) were never
+  decomposed into `packages/ui` the way chat was.
   Launch (Phase 7) remains gated behind D: 7.1, 7.2 and 7.4 are done, and the
   remaining blockers are the 240MB `.git` rewrite (7.0/B.1 — needs a quiet tree,
   it force-pushes `main`) and cutting the release (7.3, blocked on repo workflow
