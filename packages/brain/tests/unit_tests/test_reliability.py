@@ -80,3 +80,34 @@ def test_config_gemini_raises_without_api_key():
             os.environ["GEMINI_API_KEY"] = saved_gemini
         if saved_llm is not None:
             os.environ["LLM_API_KEY"] = saved_llm
+
+
+def test_a_prose_answer_does_not_log_the_user_s_content(caplog) -> None:
+    """Two papercuts in one line, both on the ordinary path.
+
+    `_extract_json_payload` runs on every turn to test for a tool call, so
+    "no JSON here" is what a normal answer looks like — and a markdown list
+    reaches the failure branch, because `[` and `]` parse as an array opener.
+    It logged that at WARNING, with 120 characters of the model's reply, which
+    is the answer given to the user and carries whatever was recalled into the
+    turn. The ledger already follows "shape, never content" for injection
+    reports; so does this now.
+    """
+    import logging
+
+    from june_brain.loop.agent_helpers import _extract_json_payload
+
+    answer = (
+        "You have the following open promises:\n"
+        "- [0f506320] Find a dentist and book a check-up\n"
+        "- [6a1b2c3d] Renew the passport"
+    )
+    with caplog.at_level(logging.DEBUG):
+        assert _extract_json_payload(answer) is None
+
+    assert not [r for r in caplog.records if r.levelno >= logging.WARNING], (
+        "an ordinary prose answer logged at WARNING or above"
+    )
+    assert "dentist" not in caplog.text and "passport" not in caplog.text, (
+        "the model's answer text reached the log"
+    )

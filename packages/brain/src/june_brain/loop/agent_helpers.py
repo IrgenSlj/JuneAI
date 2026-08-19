@@ -18,6 +18,8 @@ from html import unescape
 from json import JSONDecodeError
 from typing import Any
 
+logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------------------------------
 # Text + JSON extraction (local models emit tool calls as prose JSON)
 # ---------------------------------------------------------------------------
@@ -96,10 +98,18 @@ def _extract_json_payload(text: str) -> Any | None:
         except JSONDecodeError:
             continue
 
-    logging.warning(
-        "_extract_json_payload: all JSON strategies failed. Raw (first 120 chars): %s",
-        text[:120],
-    )
+    # Debug, and shape only. This function runs on *every* turn to test whether
+    # the model emitted a tool call, so "no JSON here" is the ordinary outcome
+    # for an ordinary prose answer — and a prose answer containing a markdown
+    # list reaches this line, because `[` and `]` look like an array. Logging it
+    # at WARNING made the normal case the loudest thing in the log.
+    #
+    # The raw text is not logged. It is the model's answer to the user, so it
+    # carries whatever was recalled into that turn; writing 120 characters of it
+    # into a log file on every bracketed reply put user memories in the log for
+    # a non-event. Same rule the ledger already follows for injection reports:
+    # shape, never content.
+    logger.debug("_extract_json_payload: no JSON payload in %d chars of text", len(text))
     return None
 
 
@@ -219,7 +229,7 @@ def _recall_with_hits(
         manager = MemoryManager(user_id)
         hits = manager.recall(query, k=k)
     except Exception:
-        logging.exception("recall block failed for user=%s", user_id)
+        logger.exception("recall block failed for user=%s", user_id)
         return "", []
     return manager.format_for_prompt(hits), [_normalize_recall_hit(h) for h in hits]
 
@@ -260,14 +270,14 @@ def _select_tools_for_runtime(runtime: Any) -> list[Any]:
                 # Shadowing alone is not enough: it only holds while a native
                 # tool of the same name exists, so deleting one hands the name
                 # to whatever skill declares it. A retired name stays retired.
-                logging.warning(
+                logger.warning(
                     "skill tool %r ignored: the name was retired with the v1 "
                     "domain layer", t.name,
                 )
                 continue
             skill_tools.append(t)
     except Exception:
-        logging.exception("Failed to load skill tools")
+        logger.exception("Failed to load skill tools")
         skill_tools = []
 
     return list(native) + skill_tools
