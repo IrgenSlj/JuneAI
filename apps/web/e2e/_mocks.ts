@@ -159,6 +159,75 @@ export const SKILLS_FIXTURE = {
   count: 0,
 };
 
+/** GET /settings — Gemma preset, local-only dial, no cloud key. */
+export const SETTINGS_FIXTURE = {
+  provider: "gemma",
+  model: "gemma4:e2b",
+  gemma_model: "",
+  gemini_model: "",
+  ollama_base_url: "",
+  ollama_reachable: true,
+  ollama_has_model: true,
+  api_key_present: false,
+  key_storage: "none",
+  key_storage_label: "No key stored",
+  privacy_dial: "local_only",
+};
+
+/** PUT /settings/privacy-dial — accepted. */
+export const PRIVACY_DIAL_FIXTURE = {
+  ok: true,
+  privacy_dial: "private_by_default",
+  label: "Private by default",
+};
+
+/** GET /skills — two skills, one of them declaring a sensitive scope.
+ *
+ * The Skills page is where a user decides what June may do on their behalf, so
+ * the fixture has to carry a real capability contract: a skill with
+ * "sends data off device" is the case the page exists to make visible. */
+export const SKILLS_POPULATED_FIXTURE = {
+  skills: [
+    {
+      key: "research",
+      description: "Web search via Brave Search or DuckDuckGo.",
+      enabled: true,
+      status: "running",
+      error: "",
+      model_policy: "local_ok",
+      tools: [
+        { name: "web_search", description: "Search the web.", enabled: true, input_schema: {} },
+        { name: "fetch_url", description: "Fetch a URL.", enabled: true, input_schema: {} },
+      ],
+      scopes: ["sends data off device"],
+      scope_drift: { undeclared: [], unused: [], has_drift: false },
+    },
+    {
+      key: "calendar",
+      description: "Calendar events, reminders, and birthdays.",
+      enabled: false,
+      status: "stopped",
+      error: "",
+      model_policy: "local_ok",
+      tools: [
+        { name: "save_calendar_item", description: "Save an item.", enabled: true, input_schema: {} },
+      ],
+      scopes: ["reads local data", "writes local data"],
+      scope_drift: { undeclared: [], unused: [], has_drift: false },
+    },
+  ],
+  count: 2,
+};
+
+/** POST /skills/{key}/toggle — accepted. */
+export const SKILL_TOGGLE_FIXTURE = {
+  ok: true,
+  key: "research",
+  enabled: false,
+  status: "stopped",
+  error: "",
+};
+
 // ---------------------------------------------------------------------------
 // Override surface
 // ---------------------------------------------------------------------------
@@ -180,6 +249,7 @@ export interface MockApiOverrides {
   memoryStats?: Partial<typeof MEMORY_STATS_FIXTURE>;
   forgotten?: Partial<typeof FORGOTTEN_FIXTURE>;
   skills?: Partial<typeof SKILLS_FIXTURE>;
+  settings?: Partial<typeof SETTINGS_FIXTURE>;
 }
 
 // ---------------------------------------------------------------------------
@@ -276,9 +346,27 @@ export async function mockApi(page: Page, overrides: MockApiOverrides = {}): Pro
     route.fulfill(jsonReply({ ...CAPABILITY_FIXTURE, ...overrides.capability })),
   );
 
-  // /skills — Trust page.
+  // /skills/{key}/toggle — Skills page. Registered before the /skills
+  // wildcard so the more-specific path wins; without it a toggle would be
+  // answered with the skills *list*, and the spec would pass on a lie.
+  await page.route(new RegExp(`${esc}/skills/[^/?]+/toggle`), (route) =>
+    route.fulfill(jsonReply(SKILL_TOGGLE_FIXTURE)),
+  );
+
+  // /skills — Trust page + Skills page.
   await page.route(new RegExp(`${esc}/skills`), (route) =>
     route.fulfill(jsonReply({ ...SKILLS_FIXTURE, ...overrides.skills })),
+  );
+
+  // /settings/privacy-dial — Settings page (PUT). Before the /settings
+  // wildcard, same reason as the skill toggle above.
+  await page.route(new RegExp(`${esc}/settings/privacy-dial`), (route) =>
+    route.fulfill(jsonReply(PRIVACY_DIAL_FIXTURE)),
+  );
+
+  // /settings — Settings page.
+  await page.route(new RegExp(`${esc}/settings(\\?|$)`), (route) =>
+    route.fulfill(jsonReply({ ...SETTINGS_FIXTURE, ...overrides.settings })),
   );
 
   // /memory/{user_id}/stats — Memory page.
