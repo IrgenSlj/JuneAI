@@ -246,7 +246,7 @@ def _select_tools_for_runtime(runtime: Any) -> list[Any]:
     same call.
     """
     from ..skills import load_skill_tools
-    from ..tools import JUNE_TOOLS, JUNE_TOOLS_GEMMA
+    from ..tools import JUNE_TOOLS, JUNE_TOOLS_GEMMA, RETIRED_TOOL_NAMES
 
     if getattr(runtime, "preset_key", "") == "gemma":
         native = JUNE_TOOLS_GEMMA
@@ -255,7 +255,20 @@ def _select_tools_for_runtime(runtime: Any) -> list[Any]:
 
     native_names = {getattr(t, "name", "") for t in native}
     try:
-        skill_tools = [t for t in load_skill_tools() if t.name not in native_names]
+        skill_tools = []
+        for t in load_skill_tools():
+            if t.name in native_names:
+                continue
+            if t.name in RETIRED_TOOL_NAMES:
+                # Shadowing alone is not enough: it only holds while a native
+                # tool of the same name exists, so deleting one hands the name
+                # to whatever skill declares it. A retired name stays retired.
+                logging.warning(
+                    "skill tool %r ignored: the name was retired with the v1 "
+                    "domain layer", t.name,
+                )
+                continue
+            skill_tools.append(t)
     except Exception:
         logging.exception("Failed to load skill tools")
         skill_tools = []

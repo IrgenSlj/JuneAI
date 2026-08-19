@@ -302,28 +302,19 @@ def test_stream_turn_dispatches_native_tool_calls() -> None:
 # is what the model would be offered.
 # ---------------------------------------------------------------------------
 
-V1_DOMAIN_TOOLS = frozenset({
-    # health and fitness
-    "save_gym_plan", "list_gym_plans", "save_food_program", "list_food_programs",
-    "log_workout_session", "log_body_metrics", "create_habit",
-    "log_habit_completion", "get_habits_with_streaks", "log_nutrition",
-    "log_water", "get_today_summary", "get_recovery_readiness_summary",
-    "summarize_progress",
-    # mood — the behavioral floor says June is not a therapist
-    "log_mood", "get_mood_history",
-    # chapters
-    "check_chapter_completeness", "ask_about_chapter", "generate_weekly_summary",
-    # conversation coaching
-    "analyze_compatibility", "generate_conversation_starters",
-    "plan_difficult_conversation",
-    # the no-op workspace panel
-    "set_ui_focus", "set_ui_checklist", "set_ui_layout", "set_ui_chapter",
-    "clear_ui_workspace",
-})
+# The source of truth is the denylist the merge enforces (june_brain.tools).
+# Duplicating it here would recreate exactly the drift this stream exists to
+# remove, so it is imported at use rather than restated.
 
 
 def test_no_v1_domain_tool_is_offered_to_the_model() -> None:
-    from june_brain.tools import JUNE_TOOLS, JUNE_TOOLS_GEMMA
+    from june_brain.tools import (
+        JUNE_TOOLS,
+        JUNE_TOOLS_GEMMA,
+    )
+    from june_brain.tools import (
+        RETIRED_TOOL_NAMES as V1_DOMAIN_TOOLS,
+    )
 
     native = {t.name for t in JUNE_TOOLS} | {t.name for t in JUNE_TOOLS_GEMMA}
     leaked = sorted(native & V1_DOMAIN_TOOLS)
@@ -334,6 +325,8 @@ def test_no_bundled_skill_readvertises_a_v1_domain_tool() -> None:
     """The unshadowing case, which the native check above cannot see."""
     import importlib.util
     import pathlib as _pathlib
+
+    from june_brain.tools import RETIRED_TOOL_NAMES as V1_DOMAIN_TOOLS
 
     spec = importlib.util.spec_from_file_location(
         "_scope_contracts",
@@ -422,3 +415,44 @@ def test_generate_fallback_does_not_double_count_tokens() -> None:
         "the fallback added the provider's usage AND an estimate of the same turn"
     )
     assert result.tokens.output_tokens == REPORTED_OUT
+
+
+def test_a_skill_tool_cannot_reintroduce_a_native_name() -> None:
+    """The merge itself, not just the declarations.
+
+    _select_tools_for_runtime drops skill tools whose name matches a native one,
+    so a native tool shadows the skill's copy. The failure mode this pins is the
+    inverse: when the native copy is deleted, whatever the skill declares takes
+    its place silently. Exercised against a stubbed loader so no MCP subprocess
+    is needed — the merge is the part that was wrong, not the spawning.
+    """
+    from june_brain.loop import agent_helpers
+
+    class _FakeTool:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+    class _Runtime:
+        preset_key = "gemma"
+
+    original = agent_helpers.__dict__.get("load_skill_tools")
+    try:
+        import june_brain.skills as skills_mod
+
+        saved = skills_mod.load_skill_tools
+        skills_mod.load_skill_tools = lambda: [  # type: ignore[assignment]
+            _FakeTool("log_water"),          # a v1 name, as skills/health used to
+            _FakeTool("web_search"),         # legitimate
+        ]
+        selected = {t.name for t in agent_helpers._select_tools_for_runtime(_Runtime())}
+    finally:
+        skills_mod.load_skill_tools = saved  # type: ignore[assignment]
+        if original is not None:
+            agent_helpers.__dict__["load_skill_tools"] = original
+
+    assert "web_search" in selected, "a legitimate skill tool was dropped"
+    assert "log_water" not in selected, (
+        "a skill re-advertised a v1 domain tool and the merge accepted it. "
+        "Deleting the native copy unshadows the skill's, so the capability "
+        "survives the deletion — this is what happened during D.5a."
+    )

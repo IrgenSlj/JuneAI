@@ -712,6 +712,36 @@ def delete_schedule(
         return f"Schedule {schedule_id} deleted."
     return f"Schedule {schedule_id} not found."
 
+# Tool names retired with the v1 domain layer (D.5a). Kept as a denylist because
+# deleting a tool does not durably remove the capability: `_select_tools_for_runtime`
+# drops a skill's tool only when a *native* tool shadows the name, so removing the
+# native copy unshadows whatever a skill declares. That is not hypothetical — it
+# happened during D.5a, where skills/health and skills/daily silently took over
+# six names the native registry had just dropped.
+#
+# A name here stays gone no matter who advertises it. Add to this set whenever a
+# tool is retired rather than replaced; remove from it only when the name is
+# deliberately brought back.
+RETIRED_TOOL_NAMES = frozenset({
+    # health and fitness
+    "save_gym_plan", "list_gym_plans", "save_food_program", "list_food_programs",
+    "log_workout_session", "log_body_metrics", "create_habit",
+    "log_habit_completion", "get_habits_with_streaks", "log_nutrition",
+    "log_water", "get_today_summary", "get_recovery_readiness_summary",
+    "summarize_progress",
+    # mood tracking — the behavioral floor says June is not a therapist
+    "log_mood", "get_mood_history",
+    # chapters
+    "check_chapter_completeness", "ask_about_chapter", "generate_weekly_summary",
+    # conversation coaching
+    "analyze_compatibility", "generate_conversation_starters",
+    "plan_difficult_conversation",
+    # the no-op workspace panel
+    "set_ui_focus", "set_ui_checklist", "set_ui_layout", "set_ui_chapter",
+    "clear_ui_workspace",
+})
+
+
 JUNE_TOOLS = [
     save_journal_entry,
     get_journal,
