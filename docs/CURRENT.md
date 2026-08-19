@@ -4,7 +4,7 @@
 planning doc disagrees with this one, this one wins (and that doc should be
 archived). Updated as workstreams land.
 
-- **Last updated:** 2026-08-19 (Stream D: D.5a-D.5c complete; D.5d is next).
+- **Last updated:** 2026-08-19 (Stream D: D.5 and D.9 complete).
 - **Release status:** `v0.1.0` re-cut on 2026-07-25 and **verified working** — a
   45MB Apple Silicon DMG built by CI from the tag, with the frozen sidecar inside
   it, ad-hoc signed. The tag points at the code the artifact was built from. The
@@ -18,13 +18,17 @@ archived). Updated as workstreams land.
   [plan](product/v0.4-development-plan.md). Work the slices in order; each is
   independently landable (one slice -> `check.sh` green -> one commit -> push),
   and each slice's own **Status** line records where it stopped.
-  **D.1 through D.4c, D.5a, D.5b, D.5c, D.6, D.7, D.8 (bar the Svelte pages)
-  and D.9 (in progress) are done.**
+  **All of Stream D is done** — D.1 through D.9 — bar the two fat Svelte admin
+  pages noted under D.8.
 
-  Next is **D.5d** — the re-measure of tool-selection accuracy against the new
-  five-tool surface, which decides how much of `tool_aliases.py` still earns its
-  lines (it is down to one entry, and that one points at a name the calendar
-  *skill* serves rather than a native tool).
+  **D.5d measured the new surface** ([results](experiments/tool-selection-2026-08.md)):
+  wrong-tool errors are 6% of tool turns and spurious calls are zero, so D.5a's
+  argument held both ways. `tool_aliases.py` never fired in 144 turns. The open
+  finding is the other direction — **June under-calls**: 21 of 24 failures are
+  turns where it answered in prose and stored nothing, so a user who asks it to
+  remember something gets a warm reply and no write, with nothing in the
+  interface saying so. That is a Glass Box gap and the first thing to pick up
+  next.
 
   **The D.5b export decision, taken 2026-08-19: leave the tables, remove only
   the code.** `export_memory` enumerates `sqlite_master` rather than a fixed
@@ -43,11 +47,12 @@ archived). Updated as workstreams land.
   to its MCP skill rather than retired, and `SKILL_OWNED_TOOL_NAMES` plus
   `test_a_handoff_actually_hands_off` keep that distinct from retirement.
 
-  Two items are parked. Re-running the reliability baseline needs a live
-  Ollama (the numbers on file describe the pre-D.4c path no user reached). The
-  tool surface with skills actually running is still untested, because
-  `check.sh` sets `JUNE_SKILLS_DISABLED=1` — the merge logic is now covered, the
-  spawning is not. And the two fat Svelte admin pages
+  One item is parked, and one closed. Re-running the reliability baseline still
+  needs attention (the numbers on file describe the pre-D.4c path no user
+  reached). **The tool surface with skills running is no longer untested**: the
+  D.5d harness exercises it, which `check.sh` cannot (`JUNE_SKILLS_DISABLED=1`),
+  and it is 15 tools on a default install rather than 5. Reading its log is what
+  found the skill-contract defect. Still open: the two fat Svelte admin pages
   (`system/+page.svelte` 1515 lines, `skills/+page.svelte` 1335) were never
   decomposed into `packages/ui` the way chat was.
   Launch (Phase 7) remains gated behind D: 7.1, 7.2 and 7.4 are done, and the

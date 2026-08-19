@@ -88,6 +88,20 @@ async def _run(args: argparse.Namespace) -> int:
                 {
                     "summary": report.summary(),
                     "confusions": report.confusions(),
+                    # Every call of every turn, so a later reader can tell a
+                    # two-step answer from a stall without re-running an hour
+                    # of local inference.
+                    "cases": [
+                        {
+                            "utterance": r.case.utterance,
+                            "expected": r.case.expected,
+                            "called": r.called,
+                            "all_called": list(r.all_called),
+                            "correct": r.correct,
+                            "reached": r.reached,
+                        }
+                        for r in report.results
+                    ],
                 },
                 fh,
                 indent=2,

@@ -47,7 +47,7 @@ Take option (b). June's model-callable memory surface is **four tools**:
 | `remember(text)` | `MemoryManager.write({"kind": "fact"}, source="tool:remember")` | 3 — the user decides what is kept |
 | `forget(description)` | `MemoryManager.forget(ref)` (tombstone, restorable) | 3 — forgetting is first-class |
 | `list_promises()` | `TasksStore.active()` | 2 — standing intentions, not TODOs |
-| `update_promise(promise_id, status, note)` | `TasksStore.set_status` / `set_blocked` | 2 |
+| `update_promise(promise, status, next_action)` | `TasksStore.set_status` / `set_blocked` | 2 |
 
 Three properties are load-bearing, not incidental:
 
@@ -73,6 +73,14 @@ promise to `completed`, `cancelled` or `paused`, and may set a next action. It
 may **not** set `running` — that status means the runtime is executing the
 promise, and a tool that wrote it would make the Promises view assert work that
 nobody started.
+
+**Amended 2026-08-19 by measurement.** `update_promise` first took a
+`promise_id` and scored 0/12 on the local model: that id exists only inside a
+`list_promises` result, so the tool could not be reached without chaining two
+calls, which a 2B model does not do reliably. A promise is now named the way the
+user names it and June matches it over open promises — the same resolution
+`forget` does, including the refusal to break a tie by ranking. See
+[`experiments/tool-selection-2026-08.md`](../experiments/tool-selection-2026-08.md).
 
 ## Consequences
 
