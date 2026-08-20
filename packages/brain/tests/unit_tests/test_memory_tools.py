@@ -295,3 +295,38 @@ def test_update_promise_ignores_a_promise_that_is_not_open() -> None:
     )
 
     assert "No open promise matches" in result
+
+
+def test_a_schedule_with_no_time_is_refused_not_confirmed() -> None:
+    """A tool result may not assert something that did not happen.
+
+    Neither a cron nor an interval is not a schedule: `compute_next_run` treats
+    it as a one-shot due immediately and finished, so the row existed, never
+    usefully ran, and the tool answered "Scheduled 'X' with cron ''." — a
+    confirmation of a recurring job that was never created. The same shape as
+    the no-op UI tools D.5a deleted, where every layer is honest about a lie it
+    was handed.
+    """
+    from june_brain.tools import create_schedule, list_schedules
+
+    result = create_schedule.invoke({"name": "Water the plants", "state": STATE})
+
+    assert "Cannot schedule" in result
+    assert "Scheduled" not in result
+    assert list_schedules.invoke({"state": STATE}) == "No schedules."
+
+
+def test_a_schedule_with_a_time_still_works() -> None:
+    from june_brain.tools import create_schedule, list_schedules
+
+    by_cron = create_schedule.invoke(
+        {"name": "Morning brief", "cron_expression": "0 8 * * *", "state": STATE}
+    )
+    by_interval = create_schedule.invoke(
+        {"name": "Ping", "interval_seconds": 3600, "state": STATE}
+    )
+
+    assert "Morning brief" in by_cron and "0 8 * * *" in by_cron
+    assert "every 3600s" in by_interval
+    listed = list_schedules.invoke({"state": STATE})
+    assert "Morning brief" in listed and "Ping" in listed

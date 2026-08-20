@@ -121,12 +121,27 @@ def create_schedule(
     action_prompt: str = "",
     state: InjectedAgentState = None,
 ) -> str:
-    """Create a recurring or one-shot schedule. Use cron (e.g., '0 8 * * *') or interval_seconds for recurring schedules."""
+    """Create a recurring schedule. Requires either cron_expression (e.g. '0 8 * * *') or interval_seconds. If the user has not said when, ask them before calling this."""
     from june_brain.memory.sqlite import _get_connection, db_path
     from june_brain.scheduler.models import Schedule as _Schedule
     from june_brain.scheduler.store import ScheduleStore
 
     user_id = _user_id(state)
+
+    # Neither a cron nor an interval is not a schedule. `compute_next_run`
+    # treats it as a one-shot due immediately and finished, so the row exists,
+    # never usefully runs, and the tool used to answer "Scheduled 'X' with cron
+    # ''." — a confirmation of a recurring job that was never created, which the
+    # model then relays to the user in good faith. Same shape as the no-op UI
+    # tools D.5a deleted: every layer honest about a lie it was handed.
+    cron_expression = (cron_expression or "").strip()
+    interval_seconds = int(interval_seconds or 0)
+    if not cron_expression and interval_seconds <= 0:
+        return (
+            f"Cannot schedule '{name}': no time was given. Ask the user when it "
+            "should run, then pass cron_expression (e.g. '0 8 * * *' for 8am "
+            "daily) or interval_seconds."
+        )
     conn = _get_connection(db_path())
     from june_brain.scheduler.models import _SCHEDULES_TABLE_SQL
 
@@ -147,7 +162,9 @@ def create_schedule(
         action_config={"prompt": action_prompt} if action_prompt else {},
     )
     store.create(sched)
-    return f"Scheduled '{name}' to run every {interval_seconds}s." if interval_seconds else f"Scheduled '{name}' with cron '{cron_expression}'."
+    if interval_seconds > 0:
+        return f"Scheduled '{name}' to run every {interval_seconds}s."
+    return f"Scheduled '{name}' with cron '{cron_expression}'."
 
 
 @tool
