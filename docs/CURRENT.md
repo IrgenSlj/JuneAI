@@ -36,10 +36,19 @@ archived). Updated as workstreams land.
 
   **Still open, and the top item:** `remember` sits at 60% across all four runs
   and two prompt interventions, so two of every five "remember this" requests
-  store nothing — and the reply still claims otherwise, because a 2B model does
-  not reliably obey an instruction not to. The structural answer is the turn
-  frame's new `memories_written` count; closing the gap between what June says
-  and what June did is the next piece of work.
+  store nothing — and the reply still claims otherwise. **`gemma4:e4b` is not
+  better** (50% on the same corpus), so escalating memory instructions to
+  `local-deep` is not the fix; that was measured, not assumed. The remaining gap
+  is neither model capacity at this scale nor wording.
+
+  The honesty backstop is structural and has landed: the turn frame reports
+  `memories_written`, so a turn that stored nothing looks different from one
+  that did. Worth knowing when picking this up — `forget` and `update_promise`
+  report their no-match cases truthfully, so **June tells the truth whenever a
+  tool actually runs**; the false claim appears only when no tool ran. It is a
+  call-rate problem, not a lying-model problem. The unmeasured lever is the
+  cloud tier (`--role cloud-capable`), which needs a key and egress and so is
+  the founder's call.
 
   **The D.5b export decision, taken 2026-08-19: leave the tables, remove only
   the code.** `export_memory` enumerates `sqlite_master` rather than a fixed

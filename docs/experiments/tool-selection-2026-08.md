@@ -119,14 +119,44 @@ cannot be the guarantee. This is the guard layer's own thesis applied to
 honesty rather than to safety — *defence is primarily structural; the gates hold
 regardless of what the content says.*
 
+## The deeper local model is not the answer either
+
+`--role local-deep` runs the same corpus against `gemma4:e4b`. n=48 (two
+passes), against e2b's n=72:
+
+| | `gemma4:e2b` | `gemma4:e4b` |
+|---|---|---|
+| first-call accuracy | 72.2% | 68.8% |
+| reached-tool accuracy | 77.8% | 75.0% |
+| tool-turn accuracy | 60.8% | 55.9% |
+| abstention accuracy | 100% | 100% |
+| `remember` | 60% | 50% |
+| `forget` | 67% | 62% |
+
+**Doubling the model does not help.** Every number is flat-to-worse — within
+noise at these sample sizes, but nowhere near the improvement that would justify
+routing memory instructions to `local-deep`. That idea is dead, and this is the
+measurement that killed it rather than an opinion about it.
+
+Which locates the remaining gap: it is not model capacity at this scale, and two
+prompt interventions have taken it as far as prompting seems to go (the second
+was worth +7.8 points, the first worth nothing). A materially better number
+needs a different mechanism, not a bigger local model or more wording.
+
 ## Open, in priority order
 
 1. **The gap between what June says and what June did.** The frame reports it;
-   the sentence the user actually reads still overstates. Worth a structural
-   answer — a turn that claims a memory and wrote none is detectable in the
-   places both facts are already known.
-2. **Re-measure on `gemma4:e4b`** (`local-deep`). Every number here is the 2B
-   model; the router sends harder turns to 4B and that path is unmeasured.
+   the sentence the user reads still overstates. Note the useful asymmetry found
+   while auditing: `forget` and `update_promise` report their no-match cases
+   truthfully, so **June tells the truth whenever a tool actually runs** — the
+   false claim appears only on turns where no tool ran. That makes this a
+   call-rate problem with an honesty backstop, not a lying-model problem, and it
+   is why the structural half (`memories_written` in the turn frame) is the part
+   that holds.
+2. **Try the cloud tier** (`--role cloud-capable`). Unmeasured here because it
+   needs a key and egress, both of which are the user's call. If cloud is near
+   100% the ceiling is model quality, and "a memory write is worth a cloud call
+   when the user permits it" becomes a real product option.
 3. `tool_aliases.py` is one entry serving one skill tool. Decide whether it
    survives as a module or folds into the calendar skill.
 
