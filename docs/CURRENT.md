@@ -73,15 +73,14 @@ archived). Updated as workstreams land.
   D.5d harness exercises it, which `check.sh` cannot (`JUNE_SKILLS_DISABLED=1`),
   and it is 15 tools on a default install rather than 5. Reading its log is what
   found the skill-contract defect. Still open: the two fat Svelte admin pages
-  (`system/+page.svelte` 1515 lines, `skills/+page.svelte` 1335) were never
-  decomposed into `packages/ui` the way chat was.
-  Launch (Phase 7) remains gated behind D: 7.1, 7.2 and 7.4 are done, and the
-  remaining blockers are the 240MB `.git` rewrite (7.0/B.1 — needs a quiet tree,
-  it force-pushes `main`) and cutting the release (7.3, blocked on repo workflow
-  permissions). The reasoning that gated Phase 7 on SSRF and the packaged binary
-  applies to Stream D unchanged: announcing a security-positioned product whose
-  live chat path can drop a tool call, and whose Local-only mode does not stop an
-  outbound write, would invert the pitch at the moment of maximum scrutiny.
+  (`system/+page.svelte` 1515 lines, `skills/+page.svelte` 1064 after the
+  registry came out) are still only partly decomposed into `packages/ui`.
+  Launch (Phase 7): 7.0, 7.1, 7.2 and 7.4 are done. **The `.git` rewrite landed
+  2026-08-20** — a fresh clone is 6.1MB of `.git` (from 242MB) with every tracked
+  file byte-identical, verified by tree hash. The one remaining blocker is
+  cutting the release (7.3, needs repo workflow permissions). The reasoning that
+  gated Phase 7 on SSRF and the packaged binary held for Stream D too, and that
+  stream is now complete.
   Phases 0-6 are done.
 - **Four decisions taken 2026-07-27** (plan §9): OS geolocation asked once at
   point of use and coarsened to city level; all four launch blockers before
@@ -100,8 +99,10 @@ archived). Updated as workstreams land.
   failing tests), and one structural problem larger than all of them: the v1
   life-coach product was never deleted and still owns 30 of the 54 tools in
   `JUNE_TOOLS` and all 24 in `JUNE_TOOLS_GEMMA`. The
-  [2026-07-26 audit](product/repo-audit-2026-07-26.md) still holds on its own
-  terms — the 240MB git history and untested first-run paths remain open.
+  [2026-07-26 audit](product/repo-audit-2026-07-26.md) is now closed on its own
+  terms too: the git history was rewritten on 2026-08-20 (242MB -> 6.1MB) and
+  `/setup`, `/settings`, `/skills` and `/help/ollama` have e2e coverage (B.2,
+  B.3).
 - **Reconciliation (brief vs. reality):** [`RECONCILIATION.md`](RECONCILIATION.md) — historical reference for v0.2.
 - **Durable worldview:** [`vision.md`](vision.md) (the four inversions; non-negotiable).
 - **Decision log:** [`decisions/`](decisions/) — ADRs 0001–0024 and 0030–0032 accepted; index in [`decisions/README.md`](decisions/README.md).
