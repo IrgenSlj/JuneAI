@@ -9,8 +9,20 @@ It replaced a 200-line if/elif chain, and D.5a shrank it again: the table exists
 because small local models miss on tool names and parameter shapes, so an entry
 only earns its lines while the tool it points at is still advertised. After the
 v1 domain writers went (ADR 0032) one entry is left, and it points at a name the
-calendar *skill* serves rather than a native tool. D.5d re-measures selection
-accuracy against the new surface to decide whether even that is still needed.
+calendar *skill* serves rather than a native tool.
+
+**Measured, D.5d (2026-08-20).** Across 288 corpus turns the table never fired
+once, and a targeted probe of calendar utterances found the model emitting the
+canonical `save_calendar_item` on 7 of 7 calls with canonical parameter names on
+all of them — no alias, no `param_map` hit. The reason is not subtle: the tools
+block now names 15 tools canonically and the model copies what it is shown,
+where the table was built when it was choosing among 54 with v1's odd names.
+
+Kept anyway, on one condition. The measurement says the aliases are unused, not
+that they are harmful, and n=7 is thin evidence on which to delete a fallback
+that costs nothing when it does not fire. What the probe *did* find was the
+normalizer silently dropping arguments, which is fixed below. Revisit deletion
+if a later measurement covers more of the calendar path and still sees nothing.
 """
 
 from __future__ import annotations
@@ -61,12 +73,25 @@ def _best_of(args: dict[str, Any], canonical: str, alt_keys: list[str]) -> Any:
 
 
 def _normalize_save_calendar_item(args: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "title": _best_of(args, "title", ["event", "name"]),
-        "date": _best_of(args, "date", ["day", "when"]),
-        "details": _best_of(args, "details", ["note", "description"]),
-        "time": _best_of(args, "time", ["at"]),
-    }
+    """Fold the model's alternate key names onto the canonical ones.
+
+    Merges rather than rebuilds. It used to `return {...}` a fixed four-key
+    dict, which silently dropped every other argument the model supplied —
+    measurably `status` and `source` on real calls (D.5d). `source` is the
+    provenance tag the memory browser uses to say where a saved item came from,
+    so a normalizer whose whole job is repairing the model's arguments was
+    quietly discarding valid ones instead.
+    """
+    out = dict(args)
+    out["title"] = _best_of(args, "title", ["event", "name"])
+    out["date"] = _best_of(args, "date", ["day", "when"])
+    out["details"] = _best_of(args, "details", ["note", "description"])
+    out["time"] = _best_of(args, "time", ["at"])
+    # The alternates have been folded in; leaving them would hand the tool two
+    # spellings of the same field.
+    for alt in ("event", "name", "day", "when", "note", "description", "at"):
+        out.pop(alt, None)
+    return out
 
 
 # ---------------------------------------------------------------------------

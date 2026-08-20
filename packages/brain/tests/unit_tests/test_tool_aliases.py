@@ -221,3 +221,41 @@ def test_no_alias_reaches_a_networked_or_executing_tool() -> None:
         if classify_action(canonical) in ("write_network", "execute")
     }
     assert escalating == set()
+
+
+def test_the_normalizer_does_not_drop_arguments_it_does_not_know_about() -> None:
+    """A repair pass that discards valid input is worse than no repair pass.
+
+    `_normalize_save_calendar_item` rebuilt a fixed four-key dict, so every
+    other argument the model supplied vanished. Measured on real calls (D.5d):
+    `status` and `source` were dropped every time. `source` is the provenance
+    tag the memory browser uses to say where a saved item came from, so the
+    normalizer was quietly degrading the record it exists to improve.
+    """
+    supplied = {
+        "title": "Dentist",
+        "date": "2026-09-03",
+        "time": "09:00",
+        "status": "planned",
+        "source": "conversation",
+    }
+    _, out = resolve_tool_call("save_calendar_item", dict(supplied))
+
+    for key, value in supplied.items():
+        assert out.get(key) == value, f"{key} was dropped or altered"
+
+
+def test_the_normalizer_still_folds_alternate_spellings() -> None:
+    """And leaves only one spelling of each field behind."""
+    name, out = resolve_tool_call(
+        "save_reminder",
+        {"event": "Dentist", "when": "2026-09-03", "at": "09:00", "note": "bring xrays"},
+    )
+
+    assert name == "save_calendar_item"
+    assert out["title"] == "Dentist"
+    assert out["date"] == "2026-09-03"
+    assert out["time"] == "09:00"
+    assert out["details"] == "bring xrays"
+    for alt in ("event", "when", "at", "note"):
+        assert alt not in out, f"{alt} survived alongside its canonical form"

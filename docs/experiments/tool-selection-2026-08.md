@@ -157,8 +157,21 @@ needs a different mechanism, not a bigger local model or more wording.
    needs a key and egress, both of which are the user's call. If cloud is near
    100% the ceiling is model quality, and "a memory write is worth a cloud call
    when the user permits it" becomes a real product option.
-3. `tool_aliases.py` is one entry serving one skill tool. Decide whether it
-   survives as a module or folds into the calendar skill.
+3. ~~`tool_aliases.py` — decide whether it survives.~~ **Settled: it stays, and
+   a bug in it is fixed.** The corpus never fired it, but the corpus has no
+   calendar cases, so that was absence of evidence. A targeted probe of six
+   calendar utterances found the model emitting the canonical
+   `save_calendar_item` on 7 of 7 calls with canonical parameters on all of
+   them — the tools block names tools canonically now and the model copies what
+   it is shown. The aliases are unused rather than harmful, and n=7 is thin
+   grounds for deleting a fallback that costs nothing when it does not fire.
+
+   The probe did find a real defect: `_normalize_save_calendar_item` rebuilt a
+   fixed four-key dict and so **dropped every argument it did not know about**,
+   measurably `status` and `source` on every real call. `source` is the
+   provenance tag the memory browser uses to say where a saved item came from,
+   so a pass whose job is repairing the model's arguments was degrading the
+   record it exists to improve. It now merges.
 
 ## Reproducing
 
