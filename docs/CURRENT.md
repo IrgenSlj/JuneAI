@@ -4,7 +4,7 @@
 planning doc disagrees with this one, this one wins (and that doc should be
 archived). Updated as workstreams land.
 
-- **Last updated:** 2026-08-20 (Stream D complete; B.3 e2e specs landed).
+- **Last updated:** 2026-08-20 (Stream D complete; B.3/B.5 landed; D.5d measured).
 - **Release status:** `v0.1.0` re-cut on 2026-07-25 and **verified working** — a
   45MB Apple Silicon DMG built by CI from the tag, with the frozen sidecar inside
   it, ad-hoc signed. The tag points at the code the artifact was built from. The
@@ -21,14 +21,25 @@ archived). Updated as workstreams land.
   **All of Stream D is done** — D.1 through D.9 — bar the two fat Svelte admin
   pages noted under D.8.
 
-  **D.5d measured the new surface** ([results](experiments/tool-selection-2026-08.md)):
-  wrong-tool errors are 6% of tool turns and spurious calls are zero, so D.5a's
-  argument held both ways. `tool_aliases.py` never fired in 144 turns. The open
-  finding is the other direction — **June under-calls**: 21 of 24 failures are
-  turns where it answered in prose and stored nothing, so a user who asks it to
-  remember something gets a warm reply and no write, with nothing in the
-  interface saying so. That is a Glass Box gap and the first thing to pick up
-  next.
+  **D.5d measured the new surface across four runs**
+  ([results](experiments/tool-selection-2026-08.md)). D.5a's argument held both
+  ways: near-synonym confusion is gone, and the opposite risk never appeared —
+  zero spurious calls and 100% abstention in 288 turns. `tool_aliases.py` never
+  fired once.
+
+  It also found the live chat path was **never told when to call a tool**.
+  `build_system_prompt` carries those rules and only the scheduler reads it;
+  `ContextAssembler` builds its own prompt and said nothing about tools. The
+  model chose correctly at the provider level and the loop returned no calls,
+  while the reply read "I have remembered that you are vegetarian" — a false
+  statement about the user's own data. Fixed; tool turns +7.8 points.
+
+  **Still open, and the top item:** `remember` sits at 60% across all four runs
+  and two prompt interventions, so two of every five "remember this" requests
+  store nothing — and the reply still claims otherwise, because a 2B model does
+  not reliably obey an instruction not to. The structural answer is the turn
+  frame's new `memories_written` count; closing the gap between what June says
+  and what June did is the next piece of work.
 
   **The D.5b export decision, taken 2026-08-19: leave the tables, remove only
   the code.** `export_memory` enumerates `sqlite_master` rather than a fixed
