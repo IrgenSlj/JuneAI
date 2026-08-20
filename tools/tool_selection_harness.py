@@ -135,6 +135,12 @@ async def _run(args: argparse.Namespace) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repeat", type=int, default=1, help="passes over the corpus")
+    parser.add_argument(
+        "--role",
+        default="local-fast",
+        choices=["local-fast", "local-deep", "cloud-capable"],
+        help="provider role to measure (default: the one the router actually uses here)",
+    )
     parser.add_argument("--data-dir", default="", help="persist writes here instead of a temp dir")
     parser.add_argument("--json", default="", help="also write results to this path")
     args = parser.parse_args()
