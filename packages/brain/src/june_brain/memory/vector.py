@@ -207,6 +207,19 @@ class VectorStore:
             for r in rows
         ]
 
+    def find_by_text(self, text: str) -> str | None:
+        """The fact_id of a live fact with exactly this text, if one exists.
+
+        Exact match, deliberately: no similarity threshold and no model
+        judgment, so the answer is the same every time and can never merge two
+        facts the user meant to keep apart.
+        """
+        row = _get_connection(_db_path()).execute(
+            "SELECT fact_id FROM semantic_facts WHERE user_id=? AND text=? LIMIT 1",
+            (self.user_id, text),
+        ).fetchone()
+        return str(row[0]) if row else None
+
     def get(self, fact_id: str) -> dict[str, Any] | None:
         row = _get_connection(_db_path()).execute(
             "SELECT fact_id, text, source, metadata, created_at FROM semantic_facts "

@@ -71,6 +71,11 @@ def remember(
         logger.exception("remember: write failed")
         return f"Could not store that memory: {exc}"
 
+    if result.get("duplicate"):
+        # Nothing changed, so this is not a memory write: no receipt, and the
+        # turn frame must not count one. Saying "Remembered" here would be the
+        # same small lie the frame exists to catch.
+        return f"Already remembered: {text}"
     if not result.get("written"):
         detail = result.get("error") or "the memory store rejected it"
         return f"Could not store that memory — {detail}."

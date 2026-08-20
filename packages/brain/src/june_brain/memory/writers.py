@@ -31,6 +31,26 @@ def write_fact(mgr: Any, fields: dict[str, Any], source: str) -> dict[str, Any]:
         return {"written": False, "kind": "fact", "ref": None, "stores": []}
     metadata = dict(fields.get("metadata") or {})
     metadata.setdefault("kind", "fact")
+
+    # Storing the same sentence twice is never what the user wanted, and it is
+    # not hypothetical: the loop can call `remember` twice inside one turn with
+    # identical text, which was observed in the running app — two rows, two
+    # ledger receipts, and both copies competing for the same recall budget.
+    # Exact-text match only, so this can never merge two facts the user meant
+    # to keep apart.
+    try:
+        existing = mgr.vector.find_by_text(text)
+    except Exception:  # noqa: BLE001 - a lookup failure must not block the write
+        existing = None
+    if existing:
+        return {
+            "written": False,
+            "duplicate": True,
+            "kind": "fact",
+            "ref": f"semantic:{existing}",
+            "stores": [],
+        }
+
     record = mgr.vector.upsert(text=text, source=source, metadata=metadata)
     return {
         "written": True,

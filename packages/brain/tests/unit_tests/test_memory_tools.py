@@ -330,3 +330,39 @@ def test_a_schedule_with_a_time_still_works() -> None:
     assert "every 3600s" in by_interval
     listed = list_schedules.invoke({"state": STATE})
     assert "Morning brief" in listed and "Ping" in listed
+
+
+def test_remembering_the_same_fact_twice_stores_it_once() -> None:
+    """Observed in the running app: the loop called `remember` twice in one turn
+    with identical text, producing two rows and two ledger receipts, both then
+    competing for the same recall budget.
+    """
+    from june_brain.memory import MemoryManager
+    from june_brain.tools_base import wrote_memory
+
+    text = "The user's sister is called Mira and she lives in Lisbon."
+    first = remember.invoke({"text": text, "state": STATE})
+    second = remember.invoke({"text": text, "state": STATE})
+
+    assert "Remembered" in first
+    assert "Already remembered" in second
+
+    # The second call changed nothing, so it is not a memory write: no receipt,
+    # and the turn frame must not count one.
+    assert wrote_memory(first) is True
+    assert wrote_memory(second) is False
+
+    hits = MemoryManager(USER).recall("sister Mira Lisbon", k=10)
+    matching = [h for h in hits if "Mira" in h.get("text", "")]
+    assert len(matching) == 1, f"stored {len(matching)} copies of the same fact"
+
+
+def test_a_different_fact_is_still_stored() -> None:
+    """Dedupe is exact-text only; it must never merge two distinct facts."""
+    from june_brain.tools_base import wrote_memory
+
+    a = remember.invoke({"text": "The user's brother is called Tom.", "state": STATE})
+    b = remember.invoke({"text": "The user's brother is called Tomas.", "state": STATE})
+
+    assert wrote_memory(a) is True
+    assert wrote_memory(b) is True
