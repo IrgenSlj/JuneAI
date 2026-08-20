@@ -851,3 +851,96 @@ def test_the_model_is_told_not_to_claim_a_write_it_did_not_make() -> None:
     lowered = TOOL_USE_GUIDANCE.lower()
     assert "never claim" in lowered
     assert "remembered" in lowered
+
+
+# ---------------------------------------------------------------------------
+# Invariant: a change to the user's memory leaves a tamper-evident record.
+#
+# The ledger recorded egress and approval-gated actions. `remember` and `forget`
+# are `write_local` and never gated, so June could add a fact to the user's
+# memory or delete one and leave no trace in the surface the product points at
+# to prove what it did — while a third-party MCP client merely *reading* that
+# memory produced an `mcp_access` entry. The asymmetry was backwards.
+# ---------------------------------------------------------------------------
+
+
+def test_a_memory_write_leaves_a_receipt() -> None:
+    import asyncio
+
+    from june_brain.loop.interface import SessionState, ToolCall
+    from june_brain.loop.wiring import make_dispatch_fn
+    from june_brain.tools_base import Tool, ToolOutcome
+    from june_brain.trust import get_reader
+
+    wrote = Tool(
+        name="probe_remember",
+        description="stores a fact",
+        args={},
+        func=lambda: ToolOutcome("Remembered: a thing", wrote_memory=True),
+    )
+    no_write = Tool(
+        name="probe_no_match",
+        description="forgets nothing",
+        args={},
+        func=lambda: "No stored memory matches that, so nothing was forgotten.",
+    )
+
+    before = len([e for e in get_reader().page(limit=200) if e.kind == "action"])
+
+    dispatch = make_dispatch_fn(dispatched_names=[])
+    session = SessionState(user_id="u", messages=[])
+    with patch(
+        "june_brain.loop.agent_helpers._select_tools_for_runtime",
+        return_value=[wrote, no_write],
+    ):
+        asyncio.run(
+            dispatch(
+                [ToolCall(name="probe_remember", args={}),
+                 ToolCall(name="probe_no_match", args={})],
+                session,
+            )
+        )
+
+    actions = [e for e in get_reader().page(limit=200) if e.kind == "action"]
+    assert len(actions) == before + 1, (
+        "expected exactly one receipt — the write, and not the tool that "
+        "matched nothing"
+    )
+    entry = actions[-1]
+    assert entry.payload.get("tool") == "probe_remember"
+    assert entry.payload.get("memory_write") is True
+
+
+def test_a_memory_receipt_records_shape_not_content() -> None:
+    """The ledger must not become a second copy of the user's memories."""
+    import asyncio
+
+    from june_brain.loop.interface import SessionState, ToolCall
+    from june_brain.loop.wiring import make_dispatch_fn
+    from june_brain.tools_base import Tool, ToolOutcome
+    from june_brain.trust import get_reader
+
+    secret = "her sister is called Mira and she lives on Oak Street"
+    wrote = Tool(
+        name="probe_remember",
+        description="stores a fact",
+        args={},
+        func=lambda: ToolOutcome(f"Remembered: {secret}", wrote_memory=True),
+    )
+
+    dispatch = make_dispatch_fn(dispatched_names=[])
+    with patch(
+        "june_brain.loop.agent_helpers._select_tools_for_runtime",
+        return_value=[wrote],
+    ):
+        asyncio.run(
+            dispatch(
+                [ToolCall(name="probe_remember", args={})],
+                SessionState(user_id="u", messages=[]),
+            )
+        )
+
+    blob = " ".join(str(e.payload) for e in get_reader().page(limit=200))
+    assert "Mira" not in blob and "Oak Street" not in blob, (
+        "the memory's text reached the ledger"
+    )

@@ -66,6 +66,38 @@ def _record_action_to_ledger(tool_name: str, action_class: str, *, tainted: bool
         logging.getLogger(__name__).debug("trust-ledger action append failed", exc_info=True)
 
 
+def _record_memory_write_to_ledger(tool_name: str) -> None:
+    """A write to the user's own memory gets a receipt.
+
+    The ledger recorded egress and approval-*gated* actions. `remember` and
+    `forget` classify as `write_local` and are never gated, so June could add a
+    fact to the user's memory or delete one and leave no tamper-evident trace —
+    while a third-party MCP client merely *reading* that memory produced an
+    `mcp_access` entry (ADR 0030). The asymmetry was backwards: the product's
+    proof surface covered everyone's access to the user's memory except June's
+    own changes to it, which is the most common consequential thing it does.
+
+    Shape, never content — the tool name, never the memory. The memory browser
+    already holds the text and the `source` tag; what the ledger adds is that
+    the record cannot be edited after the fact.
+
+    Best-effort at the call site, like every other ledger append: a ledger
+    failure must never break a tool call the user asked for.
+    """
+    try:
+        from june_brain.trust import get_writer
+
+        get_writer().append(
+            kind="action",
+            actor="june",
+            payload={"tool": tool_name, "action_class": "write_local", "memory_write": True},
+        )
+    except Exception:  # noqa: BLE001 - the ledger is best-effort at the call site
+        import logging
+
+        logging.getLogger(__name__).debug("trust-ledger memory append failed", exc_info=True)
+
+
 def _annotate_injection(raw: str) -> str:
     """Mark a tool result the injection heuristic flagged, and record it.
 
@@ -447,6 +479,7 @@ def make_dispatch_fn(
                 dispatched_names.append(tc.name)
                 if _wrote_memory(result):
                     memory_writes.append(tc.name)
+                    _record_memory_write_to_ledger(tc.name)
                 # A gated action that reached here ran only because the user
                 # already approved it (allow-list). Record it in the tamper-evident
                 # ledger (ADR 0022) — the consequential act, centrally, so a skill
