@@ -15,12 +15,29 @@ that argument gets checked instead of restated.
 > path too. Read the per-tool numbers as "how often the model reached for the
 > right tool", which is what they are.
 >
-> The correction is smaller than it sounds: spot-checking the failing case
-> ("please keep in mind that I'm vegetarian") found extraction storing nothing
-> either, and isolating the extractor showed it is itself roughly a coin flip on
-> this model — 0 facts and 1 fact on the *same* user text with different
-> assistant replies. Both mechanisms are `gemma4:e2b` judgment calls, so they
-> are not independent in the way redundancy needs.
+> **Then measured, n=15 over the five `remember` cases, through the loop and
+> then the extractor exactly as the route runs them:**
+>
+> | | |
+> |---|---|
+> | stored by the tool | 11/15 = **73%** |
+> | stored by tool **or** extraction | 11/15 = **73%** |
+> | rescued by extraction | **0** |
+>
+> So the caveat is real but the gap it implies is not. Extraction contributes
+> **nothing** on explicit memory instructions — it rescued none of the four
+> failures. Isolating it shows why: it is itself close to a coin flip on this
+> model, returning 0 facts and 1 fact for the *same* user text with different
+> assistant replies, and 0 facts for "I am vegetarian." / "Noted.", which is the
+> simplest durable fact there is. Both mechanisms are `gemma4:e2b` judgment
+> calls, so they are two flips of the same coin rather than two independent
+> chances.
+>
+> **The honest headline for the product is 73%: roughly one in four explicit
+> "remember this" requests is not stored**, and the reply says it was. That is
+> better than the 60% these tables report — the gap is the tool-use guidance fix
+> landing — and it is still the largest pre-launch risk on the product's
+> headline capability.
 
 **Instrument.** `tools/tool_selection_harness.py`, scoring in
 `june_brain/experiments/tool_selection.py` (pure, unit-tested — a benchmark

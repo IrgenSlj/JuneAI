@@ -41,14 +41,21 @@ archived). Updated as workstreams land.
   `local-deep` is not the fix; that was measured, not assumed. The remaining gap
   is neither model capacity at this scale nor wording.
 
+  **Measured end to end (n=15, the loop then the extractor, as the /chat route
+  runs them): 73% — roughly one in four explicit "remember this" requests is not
+  stored, and the reply says it was.** Extraction rescued none of the four
+  failures; it is itself close to a coin flip on this model, so the two capture
+  paths are two flips of the same coin rather than redundancy.
+
   The honesty backstop is structural and has landed: the turn frame reports
-  `memories_written`, so a turn that stored nothing looks different from one
-  that did. Worth knowing when picking this up — `forget` and `update_promise`
-  report their no-match cases truthfully, so **June tells the truth whenever a
-  tool actually runs**; the false claim appears only when no tool ran. It is a
-  call-rate problem, not a lying-model problem. The unmeasured lever is the
-  cloud tier (`--role cloud-capable`), which needs a key and egress and so is
-  the founder's call.
+  `memories_written`, and as of 2026-08-20 a memory write also leaves a Trust
+  Ledger receipt — previously a third-party MCP client *reading* memory was
+  ledgered while June *changing* it was not. Worth knowing when picking this up:
+  `forget` and `update_promise` report their no-match cases truthfully, so
+  **June tells the truth whenever a tool actually runs**; the false claim
+  appears only when no tool ran. It is a call-rate problem, not a lying-model
+  problem. The unmeasured lever is the cloud tier (`--role cloud-capable`),
+  which needs a key and egress and so is the founder's call.
 
   **The D.5b export decision, taken 2026-08-19: leave the tables, remove only
   the code.** `export_memory` enumerates `sqlite_master` rather than a fixed
