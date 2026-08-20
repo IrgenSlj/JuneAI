@@ -6,16 +6,21 @@ This directory is the documentation root. Everything you need to understand, con
 
 - **[CURRENT.md](CURRENT.md)** — the single authoritative "state of the project"
   page (per-subsystem summary, active plan, release status). Read this first.
-- **Active plan:** [`docs/product/v0.3-development-plan.md`](product/v0.3-development-plan.md)
-  (the current lead document). Previous plans (`JUNE_V02_BRIEF.md`,
-  `v0.2-execution-plan.md`) are superseded — see [archive](archive/README.md).
+- **Active plan:** [`docs/product/v0.4-development-plan.md`](product/v0.4-development-plan.md)
+  (the current lead document). Previous plans (`v0.3-development-plan.md`,
+  `JUNE_V02_BRIEF.md`, `v0.2-execution-plan.md`) are superseded — see
+  [archive](archive/README.md).
 
 ## What's New
 
-- **v0.3 plan (24 July 2026)** — comprehensive development plan based on competitive
-  research, codebase audit, and documentation analysis. Covers foundation fixes,
-  memory intelligence, voice/proactive, integrations, and distribution.
-  See [`v0.3-development-plan.md`](product/v0.3-development-plan.md).
+- **v0.4 plan (18 August 2026)** — correctness and coherence, from the
+  [2026-08-18 audit](product/repo-audit-2026-08-18.md). Stream D deleted the v1
+  tool surface, settled the memory tools June actually offers (ADR 0032), and
+  turned the stated invariants into gate checks. Completed 20 August 2026.
+  See [`v0.4-development-plan.md`](product/v0.4-development-plan.md).
+- **v0.3 plan (24 July 2026)** — superseded. Repositioned the product from
+  local-first to "the agent that can prove what it did"; that rationale still
+  stands and is cited from `CURRENT.md`.
 - **v0.2 phase (6 July 2026)** — auditable memory as a product: retrieval v2,
   memory provenance/quarantine, Night Shift consolidation, signed/notarized
   distribution. See [`JUNE_V02_BRIEF.md`](../JUNE_V02_BRIEF.md) (superseded).
@@ -27,7 +32,7 @@ This directory is the documentation root. Everything you need to understand, con
 ## Quick links
 
 - [**Current state**](CURRENT.md) — authoritative state-of-the-project page (start here)
-- [**v0.3 plan**](product/v0.3-development-plan.md) — the active lead plan
+- [**v0.4 plan**](product/v0.4-development-plan.md) — the active lead plan
 - [**Vision**](vision.md) — the product premise and the non-negotiables
 - [**Product overview**](product/overview.md) — what June is
 - [**Roadmap**](product/roadmap.md) — what ships next
@@ -46,7 +51,8 @@ docs/
 ├── CURRENT.md                     # authoritative state-of-the-project page
 ├── RECONCILIATION.md              # v0.2 brief vs. actual repo state (historical reference)
 ├── product/
-│   ├── v0.3-development-plan.md   # THE ACTIVE LEAD PLAN
+│   ├── v0.4-development-plan.md   # THE ACTIVE LEAD PLAN
+│   ├── v0.3-development-plan.md   # SUPERSEDED — v0.3 repositioning rationale
 │   ├── overview.md                # what June is
 │   ├── roadmap.md                 # Tier 1/2/3 sequencing
 │   ├── v0.2-execution-plan.md     # SUPERSEDED — v0.2 execution sequencing
@@ -73,7 +79,7 @@ docs/
 
 ## Documentation Rules
 
-1. [`v0.3-development-plan.md`](product/v0.3-development-plan.md) is the active
+1. [`v0.4-development-plan.md`](product/v0.4-development-plan.md) is the active
    implementation direction and [CURRENT.md](CURRENT.md) is the authoritative
    state page. Where product premise conflicts, [vision](vision.md) and
    [overview](product/overview.md) win.

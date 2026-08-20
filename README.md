@@ -33,7 +33,7 @@ no signup, no telemetry without consent, and one button to export everything.
 > character, and a visible cloud boundary. Current focus: building June into a
 > **trusted continuity engine**: home continuity, Promises, Memory governance,
 > Trust, Skills permissions, and event-driven Time. See the
-> [v0.3 development plan](docs/product/v0.3-development-plan.md) and
+> [v0.4 development plan](docs/product/v0.4-development-plan.md) and
 > [what is true right now](docs/CURRENT.md).
 
 June's center of gravity is the user, not the task. It borrows a coding agent's
@@ -352,10 +352,10 @@ When you change a Pydantic schema or an API route, regenerate the client:
 The **Tier 1 spine** is built, and so are the trust primitives on top of it: the
 Trust Ledger, the guard layer, the Silence Model, and multi-signal retrieval
 (vector + BM25 + entity + temporal, fused with RRF). The active phase is
-**v0.3** — proving retrieval quality against a golden corpus, memory provenance
-and quarantine, promise checkpointing, voice, and signed distribution. See the
-current state in [docs/CURRENT.md](docs/CURRENT.md), the plan in
-[docs/product/v0.3-development-plan.md](docs/product/v0.3-development-plan.md)
+**v0.4** — correctness and coherence: one privacy predicate, one loop engine,
+one tool surface, and the invariants turned into gate checks. See the current
+state in [docs/CURRENT.md](docs/CURRENT.md), the plan in
+[docs/product/v0.4-development-plan.md](docs/product/v0.4-development-plan.md)
 and
 [ROADMAP.md](ROADMAP.md).
 
@@ -394,7 +394,7 @@ Discussion happens in [GitHub issues](https://github.com/IrgenSlj/JuneAI/issues)
 ## Documentation
 
 - [Current state](docs/CURRENT.md) — the authoritative state-of-the-project page
-- [v0.3 development plan](docs/product/v0.3-development-plan.md) — the single plan of record: state, competitive position, phases, acceptance criteria
+- [v0.4 development plan](docs/product/v0.4-development-plan.md) — the single plan of record: state, phases, acceptance criteria
 - [Vision](docs/vision.md) — what June is and the non-negotiables
 - [Product overview](docs/product/overview.md) — the surfaces and the boundary
 - [Architecture overview](docs/architecture/overview.md) — the layered model

@@ -8,17 +8,26 @@ those links or force edits to append-only ADRs (an invariant violation, see
 at the top of the file, and this page is the index of record.
 
 For the current state of the project, see [`../CURRENT.md`](../CURRENT.md). For
-the active plan, see [`../../docs/product/v0.3-development-plan.md`](../product/v0.3-development-plan.md).
+the active plan, see [`v0.4-development-plan.md`](../product/v0.4-development-plan.md).
 
 ## Active plan
 
-The current lead plan is [`v0.3-development-plan.md`](../product/v0.3-development-plan.md) (created 2026-07-24).
+The current lead plan is [`v0.4-development-plan.md`](../product/v0.4-development-plan.md)
+(created 2026-08-18). Stream D — correctness and coherence, from the
+[2026-08-18 audit](../product/repo-audit-2026-08-18.md) — completed 2026-08-20.
+
+**This index has itself been stale before.** It named v0.3 as active for three
+weeks after v0.4 replaced it, which is the same failure the plans it indexes
+keep having: a statement of record that nobody re-read. If you supersede a plan,
+edit this table in the same commit.
 
 ## Superseded plans (history only — do not follow for new work)
 
 | Doc | Superseded by | Why kept in place |
 |---|---|---|
-| [`../../JUNE_V02_BRIEF.md`](../../JUNE_V02_BRIEF.md) | `v0.3-development-plan.md` | Contains detailed v0.2 workstream specs still referenced by ADRs 0021-0024 and RECONCILIATION.md |
+| [`../product/v0.3-development-plan.md`](../product/v0.3-development-plan.md) | `v0.4-development-plan.md` | `CURRENT.md` cites §2 for the repositioning rationale, which still stands |
+| [`../product/v0.3-execution-plan.md`](../product/v0.3-execution-plan.md) | merged into `v0.3-development-plan.md`, then superseded with it | Two hops from current; kept for the sequencing history |
+| [`../../JUNE_V02_BRIEF.md`](../../JUNE_V02_BRIEF.md) | `v0.3-development-plan.md`, now `v0.4` | Contains detailed v0.2 workstream specs still referenced by ADRs 0021-0024 and RECONCILIATION.md |
 | [`../product/v0.2-execution-plan.md`](../product/v0.2-execution-plan.md) | `v0.3-development-plan.md` | Execution sequencing for v0.2; historical reference |
 | [`../product/development-plan.md`](../product/development-plan.md) | `JUNE_V02_BRIEF.md` then `v0.3-development-plan.md` | Linked by CLAUDE.md, README, ROADMAP, and ADRs 0014-0017 |
 | [`../product/rebuild-plan.md`](../product/rebuild-plan.md) | `JUNE_V02_BRIEF.md` (carried its open items) | Linked by ADRs 0018-0021, vision.md, README |

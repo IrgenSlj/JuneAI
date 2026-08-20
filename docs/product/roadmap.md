@@ -2,8 +2,10 @@
 
 This is the detailed product roadmap. The short public summary lives at
 [`../../ROADMAP.md`](../../ROADMAP.md). The authoritative, decision-by-decision
-working plan is [`rebuild-plan.md`](rebuild-plan.md) — this roadmap sequences it and
-tracks status; where the two differ, the rebuild plan wins.
+working plan is [`v0.4-development-plan.md`](v0.4-development-plan.md) — this
+roadmap sequences the public tracks and tracks status; where the two differ, the
+development plan wins. (It cited `rebuild-plan.md` until 2026-08-20; that plan
+has been superseded twice over — see [the archive](../archive/README.md).)
 
 ## Direction
 
@@ -22,10 +24,11 @@ surface should answer "what is June holding for me?" before it asks for more
 input.
 
 The current implementation checklist lives in
-[`development-plan.md`](development-plan.md). It consolidates the 2026-06-28
-external review into sequenced, shippable slices. Where product worldview differs,
-this roadmap and `rebuild-plan.md` remain authoritative; where day-to-day
-implementation order differs, the development plan is the working checklist.
+[`v0.4-development-plan.md`](v0.4-development-plan.md), whose Stream D
+(correctness and coherence) completed on 2026-08-20. Where product worldview
+differs, this roadmap and [`overview.md`](overview.md) remain authoritative;
+where day-to-day implementation order differs, the development plan is the
+working checklist.
 
 This supersedes the earlier "personal operating layer / Quick Capture / Daily
 Home" framing (ADR 0013, ADR 0014, the agentic-pivot plan, the v0.1.1
@@ -71,7 +74,7 @@ Shipped slices:
 - `/system` is presented as **Trust**, with waiting work, runtime health,
   semantic recall readiness, traces, activity log, export, and clear controls.
 
-Near-term sequence is tracked in [`development-plan.md`](development-plan.md):
+Near-term sequence is tracked in [`v0.4-development-plan.md`](v0.4-development-plan.md):
 make Promises more durable, deepen Trust approvals/retention, then grow Memory
 governance and Time without a heartbeat.
 
@@ -84,8 +87,8 @@ The seven spine modules (C.0-C.6) are implemented, tested, and on `main`; each s
 with its model-judgment fallback in the same PR. The hand-written loop is the live
 chat path — provider layer, layered context, character block, difficulty router, and
 capability probe flow through it; the LangGraph engine was removed (ADR 0018). The
-active work is the reshape + targeted rewrite tracked in
-[rebuild-plan.md](rebuild-plan.md).
+active work is tracked in
+[`v0.4-development-plan.md`](v0.4-development-plan.md).
 
 The C.0-C.6 acceptance criteria below are all met; they remain as the regression bar:
 

@@ -9,7 +9,7 @@ and future mobile surfaces.
 
 This document describes what June is. For why it exists, read
 [vision.md](../vision.md). For the authoritative, decision-by-decision build plan,
-read [rebuild-plan.md](rebuild-plan.md). For how it is built, read
+read [v0.4-development-plan.md](v0.4-development-plan.md). For how it is built, read
 [architecture/overview.md](../architecture/overview.md). For what ships next, read
 [roadmap.md](roadmap.md).
 
@@ -164,5 +164,5 @@ brain, API, three-store memory, model routing, promises, scheduler, notification
 bus, and skills system run on the hand-written harness loop (ADR 0018). The Tier
 1 spine is built. Current work turns that spine into the Trusted Continuity
 Engine: home continuity, Promises, Memory governance, Trust, Skills permissions,
-and explicit Time. See [development-plan.md](development-plan.md) for active
-implementation and [roadmap.md](roadmap.md) for sequencing.
+and explicit Time. See [v0.4-development-plan.md](v0.4-development-plan.md) for
+active implementation and [roadmap.md](roadmap.md) for sequencing.
