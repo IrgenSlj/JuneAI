@@ -90,6 +90,23 @@ async def _run(args: argparse.Namespace) -> int:
             except Exception as exc:  # noqa: BLE001 - a failed turn is a data point
                 print(f"  ! turn failed for {case.utterance!r}: {exc}")
                 calls = []
+            # The /chat route runs extraction on the exchange after the response
+            # is sent, so the tool is only *one* of two ways a fact can land.
+            # Without this the harness measures tool-call accuracy and it would
+            # be read as memory reliability — which is what happened.
+            if args.extract and case.expected in ("remember", "forget"):
+                try:
+                    from june_brain.memory import MemoryManager
+
+                    MemoryManager(session.user_id).extract(
+                        {
+                            "user": case.utterance,
+                            "assistant": (result.assistant_msg.content or ""),
+                        }
+                    )
+                except Exception as exc:  # noqa: BLE001 - best effort, as in the route
+                    print(f"  ! extract failed for {case.utterance!r}: {exc}")
+
             called = calls[0].name if calls else None
             report.add(
                 SelectionResult(
@@ -142,6 +159,14 @@ def main() -> int:
         help="provider role to measure (default: the one the router actually uses here)",
     )
     parser.add_argument("--data-dir", default="", help="persist writes here instead of a temp dir")
+    parser.add_argument(
+        "--extract",
+        action="store_true",
+        help=(
+            "also run MemoryManager.extract on each exchange, as the /chat route "
+            "does, and report end-to-end capture as well as tool-call accuracy"
+        ),
+    )
     parser.add_argument("--json", default="", help="also write results to this path")
     args = parser.parse_args()
 

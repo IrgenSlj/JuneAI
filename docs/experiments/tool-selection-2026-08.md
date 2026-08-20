@@ -5,6 +5,23 @@ model picking between near-synonyms is where wrong tool calls come from, and
 that `tool_aliases.py` existed to paper over those wrong calls. D.5d is where
 that argument gets checked instead of restated.
 
+> **Correction (2026-08-20, after the fact).** Everything below measures
+> **tool-call accuracy**, not memory reliability, and the two are not the same
+> thing. The harness drives `loop.run_turn` directly; the real chat path is the
+> `/chat` route, which *also* runs `MemoryManager.extract` on the exchange after
+> the response is sent. A fact therefore has **two** chances to land and this
+> instrument only ever watched one, so every `remember` and `forget` number here
+> is a floor rather than the user-facing rate. `--extract` now runs the second
+> path too. Read the per-tool numbers as "how often the model reached for the
+> right tool", which is what they are.
+>
+> The correction is smaller than it sounds: spot-checking the failing case
+> ("please keep in mind that I'm vegetarian") found extraction storing nothing
+> either, and isolating the extractor showed it is itself roughly a coin flip on
+> this model — 0 facts and 1 fact on the *same* user text with different
+> assistant replies. Both mechanisms are `gemma4:e2b` judgment calls, so they
+> are not independent in the way redundancy needs.
+
 **Instrument.** `tools/tool_selection_harness.py`, scoring in
 `june_brain/experiments/tool_selection.py` (pure, unit-tested — a benchmark
 whose own arithmetic is unverified is worse than none, because it produces a
