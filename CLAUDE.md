@@ -2,12 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-June is being rebuilt from scratch (2026-11). It is a private, EU-first AI
-assistant whose first product is a local vault of every AI conversation the user
-has, drawn as one Map. Read `PLAN.md` (the only plan: decisions, file formats,
-architecture, milestones and their "done when" lists) and `lab/README.md` (how
-work is done here) before starting. The previous Python June lives on branch
-`legacy` and tag `v0-final`; it is reference for ideas only.
+June is being rebuilt (2026-11). It is the user's own interface to AI: a Mac
+app (and the same UI in a browser at localhost) for chatting with any model the
+user brings, with every conversation, note and plan kept as plain files in a
+vault they own. Read `PLAN.md` (the only plan: decisions, runtime, API,
+providers, file formats, milestones and their "done when" lists) and
+`lab/README.md` (how work is done here) before starting. The previous June lives
+on branch `legacy` and tag `v0-final`; its UI and Tauri shell are reused as
+`PLAN.md` lists, its Python is not.
 
 ## Commands
 
@@ -19,15 +21,20 @@ work is done here) before starting. The previous Python June lives on branch
 
 ## Architecture in one paragraph
 
-A pnpm monorepo in strict TypeScript. `packages/core` owns the vault: file
-formats, importers, index, links, receipts, revisions, trace queries. It is
-platform-agnostic: it reaches files, the index and git only through the
-interfaces in `packages/core/src/adapters.ts`, never through Node built-ins,
-Electron or the network. `boundaries.test.ts` fails the gate if a source file
-imports one. Desktop (Electron, `apps/desktop`, M0) plugs in Node adapters;
-tests use the in-memory adapters in `packages/core/src/adapters/`; a phone shell
-later plugs in its own. Other packages (`providers`, `context`, `mcp`) and apps
-are created when their milestone starts, not before.
+A pnpm monorepo in strict TypeScript. A local daemon (`apps/server`, `june
+serve`, Node on 127.0.0.1 with a random port and a per-launch `X-June-Token`)
+owns the vault and talks to model providers. The UI (`apps/web`, static
+SvelteKit, components in `packages/ui`, tokens in `packages/design`) talks to it
+over HTTP and SSE. The Mac app (`apps/desktop`, Tauri 2) is a thin window that
+runs the daemon as a Node sidecar. Inside the daemon: `packages/engine` runs the
+turn loop, `packages/providers` holds model adapters (network only through an
+injected fetch, processes through an injected spawner), `packages/node` holds
+the Node adapters, and `packages/core` owns vault formats, importers, receipts
+and trace. Dependencies point one way:
+`core <- node`, `core <- providers <- engine <- server`. `core` and `providers`
+never import Node built-ins (`boundaries.test.ts` fails the gate if they do);
+tests use the in-memory adapters in `packages/core/src/adapters/`. Packages and
+apps are created when their milestone needs them.
 
 ## How we work: the lab
 
@@ -40,16 +47,17 @@ are created when their milestone starts, not before.
 ## Rules
 
 1. **One plan.** `PLAN.md` is the plan of record. Do not write new plans, ADRs or audits. If the plan is wrong, edit it (with the founder's agreement for product changes) and update its Status table when a milestone moves.
-2. **One milestone at a time.** Do not start code for a later milestone or anything on the plan's "not in this plan" list. Lab experiments may look ahead; production code may not.
+2. **One milestone at a time,** in the order of the milestone list in `PLAN.md`. Do not start code for a later milestone or anything on the plan's "deliberately out" list. Lab experiments may look ahead; production code may not.
 3. **Files are the truth.** Anything in a vault's `.june/` must be rebuildable from the vault's files. Add a test for that whenever the index changes.
 4. **The model never decides whether something was saved.** Writes are done by code paths with a result the UI reads. Model text is never the confirmation.
-5. **Nothing leaves without a label.** Every network call to a model goes through `packages/providers`, is preceded by a label the user saw, and is followed by a receipt. If the receipt cannot be written, the call does not happen.
+5. **Nothing leaves without a label.** Every network call to a model goes through `packages/providers`, is preceded by a label that is computed, recorded in the receipt and shown according to the user's transparency level, and has a receipt. If the receipt cannot be written, the call does not happen.
 6. **Untrusted stays marked.** Imported text, web content and tool output carry `trust: untrusted` into any note derived from them, across turns and restarts.
 7. **Tests come from "done when".** Each milestone's "done when" list becomes Vitest or Playwright tests before the feature is written. Unit tests alone do not count; the old repo had 1,214 of them and missed every cross-module bug.
 8. **Measure, do not tune.** No retrieval or prompt tuning without a failing test that states the target.
 9. **Small commits, plain messages.** Say what changed and why in two lines. One slice, `pnpm check` green, one commit, push. Never mention Claude or any AI tool in commit messages or co-author lines.
 10. **Ask before adding a dependency** that has native code, a network call at install, or more than a few transitive packages. The choices fixed in `PLAN.md` are already approved.
-11. **Do not port old code.** `legacy` is reference for ideas only.
+11. **Reuse the UI and shell from `legacy` as listed in the plan.** Do not port any Python.
+12. **Subscription routes ship only after their policy check is written in `lab/`** with the clause, the URL and the date.
 
 ## Conventions
 
