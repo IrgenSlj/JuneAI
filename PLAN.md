@@ -242,4 +242,5 @@ users.
 - Is the first audience EU professionals and knowledge workers, with family later? (Agreed in direction 2026-11-14; confirm wording before the M2 landing page.)
 - Should a read-only "vault in every assistant" milestone (MCP) move before the Map, so the gate measures a reason to return? Decided by lab 002.
 - How does June make money? Lab 003.
+- How is the gate measured without telemetry? June sends nothing home, so "three came back in week two" needs either a strictly opt-in, content-free usage ping (shown in the receipts like any other egress) or ten short user calls. Decide before shipping M2.
 - Index library: `better-sqlite3` (native, must match Electron's version) or `node:sqlite` (built in, newer). Decided by a spike in M1.
