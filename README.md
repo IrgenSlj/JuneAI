@@ -24,7 +24,7 @@ pnpm test:watch   # inner loop
 pnpm check        # typecheck + tests, the gate
 ```
 
-Requires Node 22 or newer and pnpm 10.
+Requires Node 26 (see `.node-version`) and pnpm 10.
 
 ## License
 

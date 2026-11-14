@@ -21,7 +21,7 @@ branch `legacy` / tag `v0-final`.
 
 | Milestone | State |
 | --- | --- |
-| M0 Shell and daemon | Started. `packages/core` has ids, portable vault paths, the thread format, stable import ids and the receipts log (46 tests). Next: restore design and ui from `legacy`. |
+| M0 Shell and daemon | Started. Decided: Node 26 LTS, default vault `~/June`, no mascot, `node:sqlite` with trigram search. `packages/core` has ids, portable vault paths, the thread format, stable import ids and the receipts log (46 tests). Next: restore design and ui from `legacy`. |
 | M1 onwards | Not started. |
 
 ## Decisions
@@ -36,7 +36,7 @@ branch `legacy` / tag `v0-final`.
 | 6 | Inference | Five route kinds, all optional, none hosted by us: API key, local, free gateway, ChatGPT plan, Claude CLI. Official routes only |
 | 7 | Transparency | Always recorded, optionally shown: Quiet, Glance (default), Full |
 | 8 | History exchange | Import (Claude, ChatGPT, then Le Chat exports), export (the vault is the export, plus per-thread Markdown and JSON), live for everything sent through June or written to disk by a local CLI agent |
-| 9 | Storage | Plain files in a folder the user picks; the index is rebuildable. Raw provider JSON is kept beside each imported thread |
+| 9 | Storage | Plain files in a folder the user picks, by default `~/June` (outside iCloud's Desktop and Documents sync, which can corrupt a live index or git repo); the index is rebuildable. Raw provider JSON is kept beside each imported thread |
 | 10 | The Map | June's signature view, built after chat works. A second screen; home is chat |
 | 11 | Obsidian | Borrow files over app, `[[links]]`, backlinks, a readable graph, command palette, quick switcher, daily note. Never depend on Obsidian; a vault opens cleanly in it as a side effect |
 | 12 | Agent scope | Plans are files; actions are vault operations and approved tool calls. No background agents |
@@ -89,8 +89,8 @@ Daemon rules:
 - Bind to `127.0.0.1` only, on a port picked at launch. Never a fixed port, never "adopt whatever answers".
 - Every request carries `X-June-Token`, generated per launch by the shell and given to both sides. In browser dev mode the CLI prints a URL containing it.
 - Check `Host` against loopback names (DNS rebinding); allow CORS only from the UI's own origin.
-- Sidecar: the official Node binary inside the app bundle running one esbuild-bundled `server.mjs`. Pinned Node version.
-- Index: `node:sqlite` if the pinned Node build has FTS5 (lab 004), else `better-sqlite3` built for that Node.
+- Sidecar: the official Node binary inside the app bundle running one esbuild-bundled `server.mjs`. Pinned to Node 26 LTS (`.node-version`), the same line used in development and CI.
+- Index: `node:sqlite` (FTS5 confirmed in Node 26, lab 004). Search uses the `trigram` tokenizer so compound words like "Küchenbudget" match "budget"; queries under three characters fall back to a word index. Recheck on the bundled sidecar binary.
 - A real CSP in `tauri.conf.json` (legacy had `"csp": null`).
 - All model output and imported text render as sanitised Markdown. No raw HTML.
 
@@ -288,7 +288,7 @@ Nothing from the Python tree comes back.
 | Path | Keep | Remove |
 | --- | --- | --- |
 | `packages/design` | all tokens | nothing |
-| `packages/ui/src/components` | `ChatBubble`, `Composer`, `MessageList`, `ConfirmDialog`, `EgressLine` (becomes the Glance chip), `ReasonChip`, `VerifyAffordance`, `OfflineNotice`, `TraceEventList` (becomes the gutter) | `SkillRegistry`, `ActivityStream`, `Mascot` unless it stays (founder) |
+| `packages/ui/src/components` | `ChatBubble`, `Composer`, `MessageList`, `ConfirmDialog`, `EgressLine` (becomes the Glance chip), `ReasonChip`, `VerifyAffordance`, `OfflineNotice`, `TraceEventList` (becomes the gutter) | `SkillRegistry`, `ActivityStream`, `Mascot` (dropped by the founder) |
 | `packages/ui/src/platform` | `types.ts`, `web.ts`, `tauri.ts` | `capacitor.ts`, unused Ollama-install and tray methods |
 | `packages/ui/src/api` | the shape of `client.ts`: base URL, token header, timeout, SSE-over-POST reader | the generated `types.ts` and every method for a removed route |
 | `apps/web` | `+layout.svelte`, `chat/`, `settings/`, `setup/`, `system/receipts/` | `skills/`, `tasks/`, `memory/` (rebuilt as Notes in M5), `system/silence/`, `system/glass/`, `help/ollama/`, the PWA service worker |
@@ -369,7 +369,4 @@ carries meaning has a second cue for colour-blind users.
 
 ## Open questions for the founder
 
-- Which Node version to pin for the sidecar.
-- Whether the mascot stays.
-- Where the default vault folder lives.
 - How June makes money (lab 003).

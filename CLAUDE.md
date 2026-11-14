@@ -13,7 +13,7 @@ on branch `legacy` and tag `v0-final`; its UI and Tauri shell are reused as
 
 ## Commands
 
-- `pnpm install` — install everything (pnpm workspace, Node 22+).
+- `pnpm install` — install everything (pnpm workspace, Node 26 as pinned in `.node-version`).
 - `pnpm test:watch` — the inner loop: Vitest in watch mode across all packages. Keep it running while you work.
 - `pnpm test` — run all tests once. Narrow with `pnpm test -- ids` (file name filter) or `pnpm test -- -t "monotonic"` (test name).
 - `pnpm typecheck` — strict TypeScript across packages.

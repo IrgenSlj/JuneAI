@@ -26,7 +26,7 @@ which git ignores. Only redacted fixtures are ever committed.
 | --- | --- | --- |
 | [001](001-claude-export.md) | What does a real Claude export contain, and can it round-trip into the vault format losslessly? | Open: waiting for the founder's export |
 | [002](002-subscriptions.md) | Can June serve the vault read-only to other assistants over MCP? | Open; now part of M7 (subscriptions are reached through official routes in M4 instead) |
-| [004](004-sqlite-fts5.md) | Does the pinned Node build's `node:sqlite` include FTS5? | Open: run when the Node version is pinned (M0) |
+| [004](004-sqlite-fts5.md) | Does the pinned Node build's `node:sqlite` include FTS5? | Done: yes; use a trigram index, because word search misses compounds like "Küchenbudget" |
 | [003](003-business-model.md) | How does June make money without breaking the privacy promise? | Open: founder picks the first hypothesis |
 
 ## Idea backlog
