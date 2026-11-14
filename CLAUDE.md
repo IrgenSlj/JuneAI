@@ -1,106 +1,138 @@
-# CLAUDE.md — working agreement for June AI
+# CLAUDE.md
 
-Read this first, then the development plan. This file is the short, durable
-orientation for any agent working in this repo. Where it conflicts with
-`docs/product/v0.4-development-plan.md` (the plan of record), `docs/CURRENT.md`
-(the authoritative state page), `docs/product/overview.md` (what June is), or
-`docs/vision.md` (the durable worldview), those win (and fix this file).
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## What June is
+It has two halves on purpose. **Part 1 (Engineering)** is how the repo builds,
+tests and is wired; it survives a change of product direction. **Part 2
+(Direction)** is what June is *for* right now; it is expected to be replaced
+wholesale when direction changes. Keep that boundary when editing this file.
 
-June is a personal assistant whose center of gravity is the user, not the task:
-it remembers what matters, forgets what doesn't, tells the truth, knows when to
-stay quiet, and never does anything the user can't see.
+Where this file conflicts with `docs/CURRENT.md` (the authoritative state page),
+the active plan named there, `docs/product/overview.md`, or `docs/vision.md`,
+those win (and fix this file) — **unless a newer direction brief exists; see
+"Changing direction" below.**
 
-The four inversions of a coding agent (ADR 0015) define June:
-1. **Defers, not verifies** — validates *with* the user; human-in-the-loop is core.
-2. **Continues, not completes** — tasks are standing intentions ("promises"), not terminating TODOs.
-3. **Forgets, not accumulates** — forgetting is first-class, conservative, reversible; the user is the source of truth.
-4. **Stays quiet, not fast** — acts when the user speaks or the world changes, never on a timer.
+---
 
-## Canonical direction
-
-- `docs/product/v0.4-development-plan.md` — the single plan of record.
-  **Stream D is the current work**: correctness and coherence, from the
-  2026-08-18 audit (`docs/product/repo-audit-2026-08-18.md`). Stream A landed.
-  Stream D is ordered general to specific — it fixes each rule before it fixes
-  the instances — and displaces the remaining pre-launch items, because
-  announcing "the agent that can prove what it did" while the live chat path can
-  drop a tool call would invert the pitch at the moment of maximum scrutiny.
-  `docs/CURRENT.md` is the authoritative state page. Previous plans
-  (`JUNE_V02_BRIEF.md`, `v0.2-execution-plan.md`, `v0.3-development-plan.md`) are
-  superseded — see `docs/archive/README.md`.
-- `docs/product/overview.md` — the product truth: June is a trusted continuity
-  engine, not primarily a chat app.
-- `docs/vision.md` — the durable product worldview (the four inversions, the non-negotiables).
-- ADRs: `docs/decisions/0015` (four inversions), `0016` (event-driven, no heartbeat), `0017` (model-specific providers). ADRs are append-only; supersede by writing a new one.
-- `ROADMAP.md` / `docs/product/roadmap.md` sequence the public product tracks.
-  The Tier 1 spine is built; current development grows Home continuity,
-  Promises, Memory governance, Trust, Skills permissions, and Time.
-
-## Repo layout
-
-Monorepo. `packages/brain` (Python "Brain": loop, providers, memory, context, character, router, scheduler, skills), `packages/api` (FastAPI REST+SSE), `packages/ui` + `apps/web` (SvelteKit PWA), `apps/desktop` (Tauri shell), `skills/` (MCP servers). Stores: one SQLite `june.db` (structured rows + a sqlite-vec vector index + a graph) under `<datadir>/memory/` (ADR 0019); embeddings via local Ollama. `MemoryManager` is the highest-level seam but **not the only one** — 18 modules open connections directly through `memory/sqlite.py`, so treat that module, not the manager, as the store boundary. Widening the manager into a real single seam is out of scope for v0.4; do not write new code that claims the manager mediates everything.
-
-The brain's harness loop lives in `packages/brain/src/june_brain/loop/`. The hand-written loop (`handwritten.py`) is the one engine and the live chat path (ADR 0018; the LangGraph engine and its flags were removed in the rebuild). Loop choices (tier, tools) flow as data through a fixed shape; the shape itself is never self-modified. Tools use June's own abstraction in `tools_base.py` (no LangChain).
-
-Promises live in `packages/brain/src/june_brain/tasks/`, are exposed through
-`/tasks`, and are rendered as **Promises** in the UI. A blocked promise must carry
-explicit `blocked_reason`, `next_action`, and any `final_deliverable`; do not make
-the UI infer user-facing state from trace text.
+# Part 1 — Engineering (durable)
 
 ## Build, test, run
 
-- `./tools/bootstrap.sh` — install Python workspace + pnpm deps.
-- `./tools/check.sh` — THE gate: brain+api pytest, frontend `pnpm check`, OpenAPI codegen drift, ruff, and a narrow mypy gate. It exits non-zero on any failure (`set -e`); never read its result through a pipe like `| tail` (that masks the exit code). Must pass before every push.
-- `./tools/codegen.sh` — regenerate the OpenAPI client; run after any Pydantic schema or API route change, or the drift check fails.
-- Run locally: `packages/brain/.venv/bin/june-api` and `pnpm --filter @june/web dev` (http://localhost:5173).
+- `./tools/bootstrap.sh` — install the Python workspace (uv, venv at `packages/brain/.venv`) and pnpm deps.
+- `./tools/check.sh` — THE gate. Brain+API pytest, frontend `pnpm check`, OpenAPI codegen drift, ruff, doc hygiene, the one-privacy-predicate grep, and a narrow mypy gate (`operator`/`call-arg` codes only). `set -e`; never read its result through a pipe like `| tail` (that masks the exit code). Must pass before every push.
+  - Opt-outs: `JUNE_CHECK_FRONTEND=0`, `JUNE_CHECK_CODEGEN=0`, `JUNE_CHECK_MYPY=0`. Opt-ins: `JUNE_E2E=1` (Playwright), `JUNE_CHECK_RETRIEVAL_BENCH=1` (needs Ollama, report-only), `JUNE_CHECK_SMOKE=1` (frozen sidecar).
+- Single test — the gate sets three env vars the tests expect; set them yourself:
+  ```
+  JUNE_DATA_DIR=.tmp/june-test-data JUNE_SKIP_MODEL_CHECK=1 JUNE_SKILLS_DISABLED=1 \
+    packages/brain/.venv/bin/python -m pytest packages/brain/tests/unit_tests/test_invariants.py -q
+  ```
+  Append `::test_name` or `-k expr` to narrow. API tests live in `packages/api/tests`.
+- `./tools/codegen.sh` — regenerate `packages/api/openapi.json` and `packages/ui/src/api/types.ts`; run after any Pydantic schema or API route change, or the drift check fails.
+- Run locally: `./tools/run.sh` (starts Ollama, pulls the default Gemma, API, web; Ctrl-C tears down). Or by hand: `packages/brain/.venv/bin/june-api` and `pnpm --filter @june/web dev` (http://localhost:5173). `./tools/preflight.sh` checks health without starting anything (`tools/dev.sh` is a deprecated alias).
+- Measurement harnesses (not gated, need a model): `tools/tool_selection_harness.py`, `tools/reliability_harness.py`, `tools/retrieval_bench.py`, `tools/injection_bench.py`. Results are written up under `docs/experiments/`.
 
-## Invariants (do not break)
+## Architecture
 
-- **Privacy is visible in code.** Every cloud/external call is surfaced in the UI before and after (the per-turn provenance frame). Local-only mode blocks egress. No silent network calls.
-  Enforced by `test_invariants.py` and the `get_privacy_dial` caller check in `check.sh`. Both directions count as egress: `is_network_tool()` delegates to the guard's `classify_action()`, so outbound writes (`send_`, `post_`, `email_`, ...) are blocked under Local-only and listed in `provenance.egress` (D.3).
-- **Honesty is not adjustable.** Personalization shapes tone, never erodes candor into sycophancy.
-  Enforced by `character/block.py`: candor and care are `FixedTraits`, which `character_update` refuses to write. Pinned by `test_character.py::test_update_fixed_trait_refused` and `::test_sycophancy_drift_cannot_erode_fixed_traits`.
-- **Behavioral safety floor:** June is not a therapist/doctor/lawyer/financial advisor; responds to distress with care, not diagnosis; no engagement-maximizing metric; sensitive memories are surfaced by the user, not volunteered.
-  Same mechanism, named clause by clause: `test_invariants.py::test_the_behavioral_safety_floor_is_a_fixed_trait` and `::test_june_cannot_edit_its_own_safety_floor`.
-- **No new dependency that can be implemented customly** (one exception: cryptography — always use vetted libraries, never hand-roll).
-  Enforced by `test_invariants.py::test_the_runtime_dependency_set_is_deliberate`, which pins the brain's and API's runtime dependencies to a list carrying the reason for each. The test does not judge whether a new dependency is justified — it makes adding one a deliberate edit in two places instead of one line nobody reviews.
-- **The harness core is fixed** and never self-modified; June evolves character/skills/tuning on top of it.
-  **Partly enforced.** The self-edit surface is `character_update`, and it can only write `LearnedTraits` (tests above). Nothing mechanically prevents a *future* code path from writing to `loop/`; that stays a review-time rule.
-- **Graceful degradation ships in the same change** as any model-judgment feature (compaction, salience, shaping, tool dispatch, classification).
-  **Not mechanically enforced, and not claimed to be** — no test can tell a degradation path from an empty `except`. What the gate does check is the *shape*: ruff `S110` forbids a silent `pass`, so a swallowed failure has to say what did not happen (`degrade_quietly`) or fail closed (`fail_closed`). See `june_brain/failure.py`.
+Monorepo: Python workspace (uv) + pnpm workspace.
 
-## Do NOT reintroduce (explicitly abandoned directions)
+- `packages/brain` — `june_brain`, the Python "Brain". Everything model-facing lives here.
+- `packages/api` — `june_api`, FastAPI REST + SSE over the brain. Routes in `june_api/routes/`, Pydantic schemas in `june_api/schemas/` (the source of the OpenAPI contract).
+- `packages/ui` — shared Svelte components plus the **generated** TypeScript API client (`src/api/types.ts`; never hand-edit).
+- `apps/web` — SvelteKit PWA (routes: chat, memory, tasks, skills, settings, system, setup, help). `apps/desktop` — Tauri shell that runs a frozen `june-api` sidecar. `apps/landing` — marketing site.
+- `skills/` — bundled MCP servers (calendar, files, research, telegram), supervised by `june_brain/skills/`.
 
-The v1 life-coach tool surface **is now gone** (D.5a, 2026-08-19): `JUNE_TOOLS`
-is 12 tools and `JUNE_TOOLS_GEMMA` is 5, and June's model-callable memory surface
-is the four deliberate tools of ADR 0032 (`remember`, `forget`, `list_promises`,
-`update_promise`). `tools.RETIRED_TOOL_NAMES` is a denylist the tool merge
-enforces, so a retired name stays retired even when a skill advertises it —
-**add to it whenever you retire a tool rather than replacing it.** Its sibling
-`SKILL_OWNED_TOOL_NAMES` is the opposite case: a name deleted natively *so that*
-a bundled skill can serve it. The store layer those tools wrote to is still
-present pending D.5b.
+**A chat turn, end to end:** `routes/chat.py` -> `loop.engine.get_loop()` -> `loop/handwritten.py` (`HandwrittenLoop`, the only engine; ADR 0018). The loop asks `context/assembler.py` (`ContextAssembler`) for the prompt (recall, pinned state, compaction), calls a provider from `providers/` (registry + `providers.toml`; Gemma via local Ollama, Gemini for cloud; provider-native tool calling, ADR 0020), dispatches tools through `tools_base.py` (June's own abstraction, no LangChain) gated by `guard/` (action classification, injection framing, SSRF, redaction), and returns a `TurnResult` with a `TurnProvenance` frame that the route streams as SSE events. Post-turn, the route runs memory extraction in a background task. `router/difficulty.py` picks the model tier per turn. Loop choices (tier, tools) flow as data through a fixed shape.
 
-- Heartbeat-as-cron / timer-driven proactivity / daily orchestration (ADR 0016). The scheduler exists only for user-requested, deterministic jobs.
-- Quick Capture / personal operating layer / event-ledger / capture->classify->approve pipeline (superseded by ADR 0015).
-- Obsidian (or any external app) as the place to view June's memory — replaced by a native on-demand graph.
-- Shopping/chores domain features (remnants of the abandoned daily-orchestration framing).
+Note: `ContextAssembler` builds the live chat prompt; `build_system_prompt` is read only by the scheduler. A rule that must reach chat has to go into the assembler.
+
+**Storage:** one SQLite `june.db` under `<datadir>/memory/` holding structured rows, a sqlite-vec vector index, and a graph (ADR 0019); embeddings via local Ollama. `MemoryManager` is the highest-level seam but **not the only one** — many modules open connections directly through `memory/sqlite.py`, so treat that module as the store boundary, and do not write new code that claims the manager mediates everything.
+
+**Cross-cutting modules worth knowing before touching anything:**
+- `privacy.py` — the single egress decision (`local_only()` / `egress_permitted()`), fails closed. Only it, `config_store.py`, and the settings/system routes may read `get_privacy_dial` (grep-enforced in `check.sh`).
+- `failure.py` — `degrade_quietly` / `fail_closed`; ruff `S110` forbids a silent `pass`, so swallowed failures must use these.
+- `trust/` — the signed Trust Ledger (ADR 0022): receipts for memory writes and external reads.
+- `silence/` — the silence model (ADR 0023): when June speaks unprompted, event-driven only.
+- `tasks/` — promises (standing intentions), exposed at `/tasks`.
+- `tools.py` — `JUNE_TOOLS` / `JUNE_TOOLS_GEMMA`, plus `RETIRED_TOOL_NAMES` (denylist the tool merge enforces — add to it when retiring a tool) and `SKILL_OWNED_TOOL_NAMES`.
+- `mcp/` — June as an MCP memory server for third-party clients (ADR 0030).
+
+## Engineering invariants (enforced by the gate)
+
+These are mechanics, not product direction; they bind any direction unless an ADR explicitly retires them and the enforcing test is deliberately deleted in the same commit.
+
+- **Privacy is visible in code.** Every cloud/external call is surfaced in the per-turn provenance frame. Local-only mode blocks egress, both directions: `is_network_tool()` delegates to the guard's `classify_action()`, so outbound writes (`send_`, `post_`, `email_`...) are blocked under Local-only and listed in `provenance.egress`. Enforced by `test_invariants.py` and the `get_privacy_dial` grep.
+- **No new runtime dependency that could be implemented in-house** (exception: cryptography — always vetted libraries). `test_invariants.py::test_the_runtime_dependency_set_is_deliberate` pins brain and API deps with a reason each; adding one is a deliberate two-place edit.
+- **The harness core is fixed and never self-modified.** The only self-edit surface is `character_update`, which can write only `LearnedTraits`. Nothing mechanically stops a future path writing to `loop/`; that stays a review-time rule.
+- **Honesty is not adjustable.** Candor, care and the behavioral safety floor (not a therapist/doctor/lawyer/financial advisor; care not diagnosis for distress; no engagement-maximizing metric; sensitive memories surfaced by the user, not volunteered) are `FixedTraits` in `character/block.py`. Pinned by `test_character.py` and `test_invariants.py`.
+- **Graceful degradation ships in the same change** as any model-judgment feature (compaction, salience, shaping, tool dispatch, classification). Not mechanically enforceable; the gate only checks the *shape* via `S110`.
+- **An invariant is only real if something enforces it.** New invariants land with a test in `packages/brain/tests/unit_tests/test_invariants.py`, or a grep in `check.sh`; otherwise a "known gap" note naming the slice that closes it.
 
 ## Conventions
 
 - No emojis in README or documentation.
-- **June is "June", or "it" — never "she".** June is software, and the name is
-  usually the better choice anyway; reach for the pronoun only when repeating
-  the name would read badly. Enforced across the product-voice surfaces by
-  `tools/check_doc_hygiene.py`, which runs in the gate. Source and tests are out
-  of that scope on purpose — they contain real people (a memory fixture, a
-  capability probe) and an English stop-word list.
-- **"No account needed", not "no account".** The claim is that June does not
-  require one, which is true and checkable; the bare phrasing reads as a promise
-  about the future.
-- Keep PRs focused; add/update tests for behavior changes in `packages/brain` and `packages/api`.
-- **An invariant above is only real if something enforces it.** New invariants land with a test in `packages/brain/tests/unit_tests/test_invariants.py`, or a grep in `check.sh` where a test cannot express the rule. An invariant with no enforcement gets a "known gap" note naming the slice that closes it, as with Local-only egress above.
+- June is "June", or "it" — never "she". Enforced on product-voice docs by `tools/check_doc_hygiene.py` (README.md, docs/CURRENT.md); source and tests are out of scope on purpose.
+- "No account needed", not "no account".
 - Document any privacy-boundary change explicitly.
-- Work in small validated slices: one slice -> `./tools/check.sh` green -> one commit -> push.
+- ADRs (`docs/decisions/`) are append-only; supersede by writing a new one.
+- Work in small validated slices: one slice -> `./tools/check.sh` green -> one commit -> push. Add/update tests for behavior changes in `packages/brain` and `packages/api`.
+- Measure before claiming: product claims about reliability cite a harness run in `docs/experiments/`, not an assumption.
+
+---
+
+# Part 2 — Direction (replace when direction changes)
+
+## What June is (current)
+
+A personal assistant whose center of gravity is the user, not the task: it
+remembers what matters, forgets what doesn't, tells the truth, knows when to stay
+quiet, and never does anything the user can't see. Defined by the four
+inversions of a coding agent (ADR 0015): **defers, not verifies**; **continues,
+not completes** (tasks are standing "promises"); **forgets, not accumulates**;
+**stays quiet, not fast** (event-driven, never on a timer — ADR 0016).
+
+Promises render as **Promises** in the UI. A blocked promise carries explicit
+`blocked_reason`, `next_action`, and any `final_deliverable`; the UI never infers
+user-facing state from trace text.
+
+## Current plan
+
+- `docs/CURRENT.md` — what is true now, and "resume here".
+- `docs/product/v0.4-development-plan.md` — plan of record. Stream D
+  (correctness and coherence, from `docs/product/repo-audit-2026-08-18.md`) is
+  complete bar two Svelte admin pages; the top open item is `remember` call-rate
+  (~73% end to end on the local model).
+- `docs/product/overview.md`, `docs/vision.md`, `ROADMAP.md` — product truth and worldview.
+- Superseded plans (`JUNE_V02_BRIEF.md`, `v0.2-execution-plan.md`, `v0.3-*`, `rebuild-plan.md`, `development-plan.md`) — do not act on them.
+
+## Do NOT reintroduce (abandoned under the current direction)
+
+- The v1 life-coach tool surface (removed in D.5a). June's model-callable memory surface is the four tools of ADR 0032: `remember`, `forget`, `list_promises`, `update_promise`.
+- Heartbeat/cron/timer-driven proactivity or daily orchestration (ADR 0016). The scheduler exists only for user-requested, deterministic jobs.
+- Quick Capture / personal operating layer / event-ledger / capture->classify->approve pipeline (superseded by ADR 0015).
+- Obsidian or any external app as the memory viewer (replaced by a native on-demand graph).
+- Shopping/chores domain features.
+
+## Changing direction
+
+A brief that changes June's direction outranks everything in Part 2 and the
+current plan docs from the moment it lands. When it does, land the change in
+this order, each as its own slice:
+
+1. **ADR first.** Write a new ADR in `docs/decisions/` that states the new
+   direction and names which earlier ADRs it supersedes (likely 0013–0016,
+   0023, 0032 — check each). Never edit old ADRs.
+2. **Triage the invariants.** For each item in "Engineering invariants", decide
+   keep / change / retire, explicitly, in the ADR. Retiring one means deleting
+   its enforcing test or `check.sh` grep in the same commit — never leave a test
+   pinning a rule the product no longer holds, and never silently weaken one.
+3. **Re-point the docs.** New plan of record in `docs/product/`; move the old
+   plan into `docs/archive/` with a line in `docs/archive/README.md`; rewrite
+   `docs/CURRENT.md`'s header and "resume here"; update `overview.md`,
+   `vision.md`, `ROADMAP.md` as the brief requires.
+4. **Rewrite Part 2 of this file** to match. Part 1 changes only where the
+   architecture actually changes.
+5. **Then code.** Removed surfaces go on `RETIRED_TOOL_NAMES` (tools) or the
+   "Do NOT reintroduce" list (directions), so the old direction cannot creep back.
+
+Until step 1 lands, if the brief and the current docs disagree, ask rather than
+guess which one governs a given change.
