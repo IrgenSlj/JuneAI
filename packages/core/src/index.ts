@@ -1,5 +1,6 @@
 export { type VaultFs, VaultPathError, pathIdentity, vaultPath } from "./adapters.js";
 export { memoryVaultFs } from "./adapters/memory.js";
+export { type Json, canonicalJson, sha256Bytes, sha256Hex } from "./hash.js";
 export {
   ID_PREFIXES,
   type IdKind,
@@ -10,3 +11,23 @@ export {
   isId,
   newId,
 } from "./ids.js";
+export {
+  type Receipt,
+  type ReceiptInput,
+  type ReceiptKind,
+  type ReceiptLog,
+  type VerifyResult,
+  createReceiptLog,
+} from "./receipts.js";
+export { stableId } from "./stable-ids.js";
+export {
+  type Role,
+  type Thread,
+  type ThreadSource,
+  type Turn,
+  ThreadFormatError,
+  parseThread,
+  serializeThread,
+  slugify,
+  threadPath,
+} from "./thread.js";
