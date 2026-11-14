@@ -1,3 +1,4 @@
+export { ANTHROPIC_API_VERSION, anthropicMessages, toAnthropicMessages } from "./anthropic.js";
 export { openAICompatible } from "./openai-compatible.js";
 export { LM_STUDIO, LOCAL_BASE_URLS, OLLAMA } from "./presets.js";
 export { sseData } from "./sse.js";
