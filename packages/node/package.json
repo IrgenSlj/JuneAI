@@ -1,0 +1,15 @@
+{
+  "name": "@june/node",
+  "private": true,
+  "type": "module",
+  "description": "Node implementations of core's adapters: the vault on disk, and later the index, git and keychain.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@june/core": "workspace:*"
+  }
+}

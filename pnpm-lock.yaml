@@ -71,6 +71,12 @@ importers:
 
   packages/design: {}
 
+  packages/node:
+    dependencies:
+      '@june/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/providers: {}
 
   packages/ui:
