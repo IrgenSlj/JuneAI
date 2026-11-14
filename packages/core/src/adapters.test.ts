@@ -9,7 +9,29 @@ describe("vaultPath", () => {
     expect(vaultPath("")).toBe("");
   });
 
-  it.each(["/etc/passwd", "../outside.md", "notes/../../x", "C:/x", "notes\\x", "a//b", "./a"])(
+  it("normalises accents so a Mac and a Windows machine name the same file", () => {
+    const decomposed = "notes/cafe\u0301.md"; // e + combining accent, as macOS may store it
+    const composed = "notes/caf\u00e9.md";
+    expect(vaultPath(decomposed)).toBe(composed);
+  });
+
+  it.each([
+    "/etc/passwd",
+    "../outside.md",
+    "notes/../../x",
+    "C:/x",
+    "notes\\x",
+    "a//b",
+    "./a",
+    "notes/CON",
+    "notes/aux.md",
+    "notes/lpt1.txt",
+    "notes/what?.md",
+    "notes/a:b.md",
+    "notes/trailing.",
+    "notes/trailing ",
+    "notes/tab\there.md",
+  ])(
     "rejects %s",
     (path) => {
       expect(() => vaultPath(path)).toThrow(VaultPathError);
@@ -31,6 +53,16 @@ describe("memoryVaultFs", () => {
     await fs.remove("notes/a.md");
     await fs.remove("notes/a.md");
     expect(await fs.list("notes")).toEqual([]);
+  });
+
+  it("fails on a case-only collision instead of silently overwriting", async () => {
+    const fs = memoryVaultFs({ "notes/Budget.md": "A" });
+    await expect(fs.write("notes/budget.md", "B")).rejects.toThrow(VaultPathError);
+    await fs.write("notes/Budget.md", "C");
+    expect(await fs.read("notes/Budget.md")).toBe("C");
+    await fs.remove("notes/Budget.md");
+    await fs.write("notes/budget.md", "D");
+    expect(await fs.list("notes")).toEqual(["notes/budget.md"]);
   });
 
   it("refuses paths that escape the vault", async () => {

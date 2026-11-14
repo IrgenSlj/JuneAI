@@ -20,23 +20,46 @@ export interface VaultFs {
 }
 
 /**
- * Validate and normalise a vault-relative path. Rejects anything that could
- * escape the vault: absolute paths, drive letters, backslashes, "..", empty
- * segments. Every adapter calls this before touching storage.
+ * Validate and normalise a vault-relative path. The vault must open unchanged
+ * on macOS, Windows and Linux, so this enforces the strictest of the three:
+ * - nothing that escapes the vault (absolute, drive letters, "..", "\\");
+ * - nothing Windows refuses (reserved names like CON or aux.md, <>:"|?*,
+ *   control characters, a trailing dot or space);
+ * - Unicode NFC, so "é" typed on a Mac and on Windows is the same file.
+ * Case is preserved here; adapters must treat paths that differ only in case
+ * as the same file, because macOS and Windows disks do.
  */
 export function vaultPath(path: string): string {
-  const trimmed = path.replace(/\/+$/, "");
+  const trimmed = path.normalize("NFC").replace(/\/+$/, "");
   if (trimmed === "") return "";
   if (trimmed.startsWith("/") || /^[A-Za-z]:/.test(trimmed) || trimmed.includes("\\")) {
     throw new VaultPathError(path);
   }
   const segments = trimmed.split("/");
   for (const segment of segments) {
-    if (segment === "" || segment === "." || segment === ".." || segment.includes("\0")) {
-      throw new VaultPathError(path);
-    }
+    if (!isPortableSegment(segment)) throw new VaultPathError(path);
   }
   return segments.join("/");
+}
+
+const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i;
+const FORBIDDEN_CHARS = /[<>:"|?*\u0000-\u001f]/;
+
+function isPortableSegment(segment: string): boolean {
+  return (
+    segment !== "" &&
+    segment !== "." &&
+    segment !== ".." &&
+    segment.length <= 255 &&
+    !FORBIDDEN_CHARS.test(segment) &&
+    !WINDOWS_RESERVED.test(segment) &&
+    !/[. ]$/.test(segment)
+  );
+}
+
+/** The key two paths share when a case-insensitive disk sees them as one file. */
+export function pathIdentity(path: string): string {
+  return vaultPath(path).toLowerCase();
 }
 
 export class VaultPathError extends Error {
