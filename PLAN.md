@@ -29,7 +29,7 @@ branch `legacy` / tag `v0-final`.
 | # | Decision | Choice |
 | --- | --- | --- |
 | 1 | Product centre | A chat app with a vault underneath. Chat is the daily surface; the vault is what makes it worth choosing |
-| 2 | Platforms | macOS app, plus the same UI in a browser at `localhost`. Nothing else. CI still runs `packages/*` tests on macOS, Windows and Linux because it is cheap |
+| 2 | Platforms | macOS app, plus the same UI in a browser at `localhost`. Windows after the gate; the daemon and UI already run anywhere Node does. CI runs `packages/*` tests on macOS, Windows and Linux because it is cheap |
 | 3 | Architecture | A local daemon (`june serve`, Node) on loopback owns the vault and talks to providers. The UI is a static SvelteKit app over HTTP and SSE. The Mac app is a thin window around both |
 | 4 | Shell | Tauri 2, restored from `legacy` (signing, notarisation, updater, sidecar supervisor). The sidecar is Node instead of Python. Electron is dropped |
 | 5 | UI | `packages/design`, `packages/ui` and `apps/web` restored from `legacy`, cut to what remains; Claude Design restyles on top |
@@ -45,7 +45,7 @@ branch `legacy` / tag `v0-final`.
 | 15 | Audience | EU professionals and knowledge workers who use two or more assistants; family use later |
 
 Deliberately out: hosted inference, accounts, sync, telemetry, a skills
-marketplace, scheduled or background agents, voice, mobile, Windows, Linux.
+marketplace, scheduled or background agents, voice, mobile, Linux. Windows comes after the gate.
 
 Ideas carried over from the old June as design, not code: the hash-chained
 receipts log, taint tracking for untrusted content, consent-gated MCP access,
@@ -76,8 +76,8 @@ created when their milestone needs them.
 ## Runtime
 
 ```
-Tauri window or browser tab
-  SvelteKit static UI --HTTP + SSE, X-June-Token--> june serve (Node, 127.0.0.1:<random port>)
+Tauri window or browser tab, both at http://127.0.0.1:<port>/#token=<token>
+  SvelteKit static UI (served by the daemon) --same-origin HTTP + SSE, X-June-Token--> june serve (Node)
                                                       engine
                                                       |-- core + node adapters --> vault folder
                                                       |-- providers: api-key | local | gateway | chatgpt-plan | claude-cli
@@ -87,9 +87,13 @@ Tauri window or browser tab
 Daemon rules:
 
 - Bind to `127.0.0.1` only, on a port picked at launch. Never a fixed port, never "adopt whatever answers".
-- Every request carries `X-June-Token`, generated per launch by the shell and given to both sides. In browser dev mode the CLI prints a URL containing it.
-- Check `Host` against loopback names (DNS rebinding); allow CORS only from the UI's own origin.
-- Sidecar: the official Node binary inside the app bundle running one esbuild-bundled `server.mjs`. Pinned to Node 26 LTS (`.node-version`), the same line used in development and CI.
+- **The daemon serves the UI.** The Mac window and a browser tab open the same URL, `http://127.0.0.1:<port>/#token=<token>`, so there is one origin in every mode: no CORS, no port baked into the build, and the browser test exercises exactly what the app runs. The token travels in the URL fragment, which browsers never send to a server, so it stays out of logs and referrers; the UI moves it to session storage and clears it from the address bar. In development, Vite proxies `/api` to the daemon so hot reload still works.
+- Every API request carries `X-June-Token`, generated per launch (by the shell, or by `june serve` in browser mode, which prints the URL). Static files need no token; every `/api` route does.
+- Check `Host` against loopback names (DNS rebinding). No CORS headers at all.
+- Every response sets a strict CSP with `frame-ancestors 'none'`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`, so no other site can frame the UI or read the token.
+- HTTP on `node:http` directly; the API is small enough that a framework would be the larger thing to audit.
+- Sidecar: in development Tauri spawns the `node` on PATH. The release build bundles the official Node binary with one esbuild-bundled `server.mjs`; that is gate work, with signing and notarisation. Pinned to Node 26 LTS (`.node-version`).
+- The folder picker is Tauri's native dialog in the app (granted to the daemon's origin through `capabilities.remote`), and a typed path with `~/June` prefilled in the browser.
 - Index: `node:sqlite` (FTS5 confirmed in Node 26, lab 004). Search uses the `trigram` tokenizer so compound words like "Küchenbudget" match "budget"; queries under three characters fall back to a word index. Recheck on the bundled sidecar binary.
 - A real CSP in `tauri.conf.json` (legacy had `"csp": null`).
 - All model output and imported text render as sanitised Markdown. No raw HTML.
@@ -99,22 +103,24 @@ Daemon rules:
 Hand-written types in `packages/ui/src/api/types.ts` (or a shared `api-types`
 file). Never regenerate the legacy types.
 
+All under `/api`.
+
 | Method and path | Purpose |
 | --- | --- |
-| `GET /health` | liveness and version |
-| `GET /vault`, `POST /vault/open` | current vault; open or create one |
-| `GET /threads?lane=&q=&before=` | list or search threads |
-| `GET /threads/:id` | one thread with turns |
-| `POST /threads` | new thread |
-| `POST /threads/:id/branch` | continue from a turn as a new thread, any model |
-| `POST /threads/:id/label` | compute the send label for a draft; nothing is sent |
-| `POST /threads/:id/turns` (SSE) | send a turn and stream the reply |
-| `GET /providers`, `PUT /providers/:id` | configured routes; keys go to the keychain, never to disk |
-| `GET /providers/:id/models` | models for a route |
-| `POST /import` (multipart) | import an export zip; returns a count report |
-| `GET /threads/:id/export?format=md\|json` | one thread out |
-| `GET /receipts?after=`, `POST /receipts/verify` | the log and its check |
-| `GET /settings`, `PUT /settings` | includes the transparency level |
+| `GET /api/health` | liveness and version (no token; returns nothing private) |
+| `GET /api/vault`, `POST /api/vault/open` | current vault; open or create one |
+| `GET /api/threads?lane=&q=&before=` | list or search threads |
+| `GET /api/threads/:id` | one thread with turns |
+| `POST /api/threads` | new thread |
+| `POST /api/threads/:id/branch` | continue from a turn as a new thread, any model |
+| `POST /api/threads/:id/label` | compute the send label for a draft; nothing is sent |
+| `POST /api/threads/:id/turns` (SSE) | send a turn and stream the reply |
+| `GET /api/providers`, `PUT /api/providers/:id` | configured routes; keys go to the keychain, never to disk |
+| `GET /api/providers/:id/models` | models for a route |
+| `POST /api/import` (multipart) | import an export zip; returns a count report |
+| `GET /api/threads/:id/export?format=md\|json` | one thread out |
+| `GET /api/receipts?after=`, `POST /api/receipts/verify` | the log and its check |
+| `GET /api/settings`, `PUT /api/settings` | includes the transparency level |
 
 SSE frames for a turn, one JSON object per `data:` line, in this order:
 `label` (always first: what is about to leave), `text` (zero or more), `usage`,
@@ -281,9 +287,13 @@ cross-process lock exists); turn ids for June-native turns are not generated yet
 
 ## Reusing the old app
 
-From `legacy` with `git checkout legacy -- <path>`, then cut. Port as is, get it
-working against the daemon, then split. Never redesign and port in one step.
-Nothing from the Python tree comes back.
+From `legacy` with `git checkout legacy -- <path>`, then cut. Components and
+tokens come back as they are; never redesign and port in one step. Pages do not:
+the legacy chat page (1,238 lines) is wired to tasks, holdings, greetings,
+recall votes and tool approval through the 4,781-line generated types, so it
+cannot run against the new daemon without being rewritten anyway. New pages are
+written thin, from the restored components, with the legacy page open as the
+reference. Nothing from the Python tree comes back.
 
 | Path | Keep | Remove |
 | --- | --- | --- |
@@ -298,7 +308,7 @@ Nothing from the Python tree comes back.
 
 One at a time. Each "done when" becomes tests before the code.
 
-1. **M0 Shell and daemon (M).** Restore design, ui, web and desktop. `apps/server` with `/health`, `/vault`, token and host checks. Tauri starts the Node sidecar on a random port and loads the UI.
+1. **M0 Shell and daemon (M).** Slices: restore design and ui; `apps/server` with health, vault, token and host checks, serving the UI; `apps/web` layout and an empty chat page against it; Tauri (dev mode) starting the daemon on a random port and opening its URL.
     - Done when: `pnpm dev` opens the UI in a browser against a running daemon; the Mac app opens, picks a vault folder and shows the chat page empty; one Playwright test covers both; a request without the token is refused.
 2. **M1 Chat on any model (M).** `providers` (OpenAI-compatible, Anthropic API, presets for Ollama, LM Studio, OpenAI, Mistral, OpenRouter, OpenCode Zen), `engine.runTurn`, thread files, receipts, branch to another model, the Glance chip, keys in the keychain.
     - Done when: a conversation with a local model and one with an API-key model both stream, survive a restart, and exist as readable Markdown in the vault; killing the daemon mid-reply loses no user turn; receipts verify; with the network off, a local model still works and a remote one fails with a clear message.
