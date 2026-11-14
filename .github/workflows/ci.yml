@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  check:
+  unit:
     strategy:
       fail-fast: false
       matrix:
@@ -20,4 +20,18 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm check
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  e2e:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @june/web exec playwright install chromium
+      - run: pnpm test:e2e

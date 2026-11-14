@@ -7,10 +7,12 @@
     "node": ">=26"
   },
   "scripts": {
+    "dev": "node tools/dev.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "pnpm --filter @june/web test:e2e",
     "typecheck": "pnpm -r typecheck",
-    "check": "pnpm typecheck && pnpm test"
+    "check": "pnpm typecheck && pnpm test && pnpm test:e2e"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

@@ -2,6 +2,11 @@ node_modules/
 dist/
 out/
 coverage/
+.dev/
+build/
+.svelte-kit/
+test-results/
+playwright-report/
 *.tsbuildinfo
 .DS_Store
 .idea/

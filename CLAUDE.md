@@ -17,7 +17,9 @@ on branch `legacy` and tag `v0-final`; its UI and Tauri shell are reused as
 - `pnpm test:watch` — the inner loop: Vitest in watch mode across all packages. Keep it running while you work.
 - `pnpm test` — run all tests once. Narrow with `pnpm test -- ids` (file name filter) or `pnpm test -- -t "monotonic"` (test name).
 - `pnpm typecheck` — strict TypeScript across packages.
-- `pnpm check` — the gate: typecheck then tests. Must pass before every commit. CI runs it on macOS, Windows and Linux.
+- `pnpm dev` — the daemon plus the UI with hot reload; prints the URL (with its token) to open.
+- `pnpm test:e2e` — builds the UI and daemon, then runs the Playwright tests against the real daemon.
+- `pnpm check` — the gate: typecheck, unit tests, e2e. Must pass before every commit. CI runs typecheck and unit tests on macOS, Windows and Linux, and e2e on macOS.
 
 ## Architecture in one paragraph
 

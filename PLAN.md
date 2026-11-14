@@ -21,7 +21,7 @@ branch `legacy` / tag `v0-final`.
 
 | Milestone | State |
 | --- | --- |
-| M0 Shell and daemon | Started. Decided: Node 26 LTS, default vault `~/June`, no mascot, `node:sqlite` with trigram search. `packages/core` has ids, portable vault paths, the thread format, stable import ids and the receipts log (46 tests). Next: restore design and ui from `legacy`. |
+| M0 Shell and daemon | Three of four slices done: design and ui restored; the daemon (`june serve`) with token, Host check, strict CSP and the vault endpoints; the web app with setup and an empty chat, `pnpm dev`, and the M0 Playwright test. Next: Tauri shell in dev mode. Decided: Node 26 LTS, default vault `~/June`, no mascot, `node:sqlite` with trigram search. Known gap: Playwright's WebKit crashes on macOS 26.0, so e2e runs on Chromium; the Tauri slice checks real WebKit. |
 | M1 onwards | Not started. |
 
 ## Decisions

@@ -1,0 +1,30 @@
+{
+  "name": "@june/web",
+  "private": true,
+  "type": "module",
+  "description": "June's interface: a static SvelteKit app served by the daemon.",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
+    "test:e2e": "vite build && pnpm --filter @june/server build && playwright test"
+  },
+  "dependencies": {
+    "@june/design": "workspace:*",
+    "@june/ui": "workspace:*"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "@sveltejs/adapter-static": "^4.0.1",
+    "@sveltejs/kit": "^3.2.0",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "svelte": "^5.57.3",
+    "svelte-check": "^4.7.8",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.8"
+  },
+  "imports": {
+    "#lib": "./src/lib",
+    "#lib/*": "./src/lib/*"
+  }
+}
