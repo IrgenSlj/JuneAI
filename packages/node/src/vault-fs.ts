@@ -15,9 +15,38 @@ function isMissing(error: unknown): boolean {
   return (error as NodeJS.ErrnoException)?.code === "ENOENT" || (error as NodeJS.ErrnoException)?.code === "ENOTDIR";
 }
 
+/**
+ * Windows refuses to rename over a file another handle still has open (EPERM,
+ * EACCES, EBUSY): a concurrent write, an antivirus scan, the search indexer.
+ * Those locks are brief, so retry with a short backoff before giving up.
+ */
+async function renameWithRetry(from: string, to: string): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await rename(from, to);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (attempt >= 8 || (code !== "EPERM" && code !== "EACCES" && code !== "EBUSY")) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 10 * 2 ** attempt));
+    }
+  }
+}
+
 export async function nodeVaultFs(root: string): Promise<VaultFs> {
   await mkdir(root, { recursive: true });
   const realRoot = await realpath(root);
+  // Writes to one path run one after another within this process, so June
+  // never races itself on a file (the case Windows handles worst).
+  const queues = new Map<string, Promise<unknown>>();
+  function serialized<T>(key: string, task: () => Promise<T>): Promise<T> {
+    const result = (queues.get(key) ?? Promise.resolve()).then(task);
+    const settled = result.catch(() => undefined);
+    queues.set(key, settled);
+    void settled.then(() => {
+      if (queues.get(key) === settled) queues.delete(key);
+    });
+    return result;
+  }
 
   /** Absolute path for a vault path, after checking that what exists of it stays inside the vault. */
   async function resolveInside(path: string): Promise<string> {
@@ -69,14 +98,16 @@ export async function nodeVaultFs(root: string): Promise<VaultFs> {
       if (absolute === realRoot) throw new VaultPathError(path);
       await mkdir(dirname(absolute), { recursive: true });
       await checkCase(absolute, path);
-      const tmp = join(dirname(absolute), `.${randomBytes(6).toString("hex")}.june-tmp`);
-      try {
-        await writeFile(tmp, content, "utf8");
-        await rename(tmp, absolute);
-      } catch (error) {
-        await rm(tmp, { force: true });
-        throw error;
-      }
+      await serialized(absolute.toLowerCase(), async () => {
+        const tmp = join(dirname(absolute), `.${randomBytes(6).toString("hex")}.june-tmp`);
+        try {
+          await writeFile(tmp, content, "utf8");
+          await renameWithRetry(tmp, absolute);
+        } catch (error) {
+          await rm(tmp, { force: true });
+          throw error;
+        }
+      });
     },
 
     async append(path, content) {
@@ -84,7 +115,7 @@ export async function nodeVaultFs(root: string): Promise<VaultFs> {
       if (absolute === realRoot) throw new VaultPathError(path);
       await mkdir(dirname(absolute), { recursive: true });
       await checkCase(absolute, path);
-      await appendFile(absolute, content, "utf8");
+      await serialized(absolute.toLowerCase(), () => appendFile(absolute, content, "utf8"));
     },
 
     async list(dir) {
