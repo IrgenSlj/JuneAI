@@ -128,7 +128,12 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     throw new HttpError(404, "not found");
   }
 
+  // JUNE_LOG_REQUESTS=1 logs method, path and status to stderr. Never bodies,
+  // headers or query strings, so nothing private reaches the log.
+  const logRequests = process.env.JUNE_LOG_REQUESTS === "1";
+
   const server = createServer(async (req, res) => {
+    if (logRequests) res.on("finish", () => console.error(`${req.method} ${(req.url ?? "/").split("?")[0]} ${res.statusCode}`));
     try {
       if (!allowedHosts.has(req.headers.host ?? "")) throw new HttpError(403, "unexpected Host header");
       const path = (req.url ?? "/").split("?")[0] ?? "/";

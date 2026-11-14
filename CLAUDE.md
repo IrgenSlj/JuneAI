@@ -18,6 +18,7 @@ on branch `legacy` and tag `v0-final`; its UI and Tauri shell are reused as
 - `pnpm test` — run all tests once. Narrow with `pnpm test -- ids` (file name filter) or `pnpm test -- -t "monotonic"` (test name).
 - `pnpm typecheck` — strict TypeScript across packages.
 - `pnpm dev` — the daemon plus the UI with hot reload; prints the URL (with its token) to open.
+- `pnpm dev:app` — builds the UI and daemon, then runs the Mac app (Tauri, debug) around them. Needs Rust. `JUNE_LOG_REQUESTS=1` makes the daemon log method, path and status.
 - `pnpm test:e2e` — builds the UI and daemon, then runs the Playwright tests against the real daemon.
 - `pnpm check` — the gate: typecheck, unit tests, e2e. Must pass before every commit. CI runs typecheck and unit tests on macOS, Windows and Linux, and e2e on macOS.
 

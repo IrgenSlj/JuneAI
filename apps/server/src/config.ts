@@ -8,8 +8,9 @@ export interface JuneConfig {
   vault?: string;
 }
 
+/** Same folder the Mac app uses (Tauri's config dir for "ai.june.app"), so browser mode and the app share one vault bookmark. */
 export function defaultConfigDir(home = homedir()): string {
-  return process.platform === "darwin" ? join(home, "Library", "Application Support", "June") : join(home, ".config", "june");
+  return process.platform === "darwin" ? join(home, "Library", "Application Support", "ai.june.app") : join(home, ".config", "june");
 }
 
 export async function readConfig(dir: string): Promise<JuneConfig> {

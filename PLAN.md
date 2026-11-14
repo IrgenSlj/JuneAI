@@ -21,8 +21,9 @@ branch `legacy` / tag `v0-final`.
 
 | Milestone | State |
 | --- | --- |
-| M0 Shell and daemon | Three of four slices done: design and ui restored; the daemon (`june serve`) with token, Host check, strict CSP and the vault endpoints; the web app with setup and an empty chat, `pnpm dev`, and the M0 Playwright test. Next: Tauri shell in dev mode. Decided: Node 26 LTS, default vault `~/June`, no mascot, `node:sqlite` with trigram search. Known gap: Playwright's WebKit crashes on macOS 26.0, so e2e runs on Chromium; the Tauri slice checks real WebKit. |
-| M1 onwards | Not started. |
+| M0 Shell and daemon | Done 2026-11-14. Design and ui restored; `june serve` with token, Host check, strict CSP, vault endpoints; web app with setup and an empty chat; `pnpm dev` and `pnpm dev:app`; the Mac app starts the daemon, opens its URL, and the daemon dies with the app even on a crash (checked by kill -9). Gaps: the Playwright suite runs on Chromium because Playwright's WebKit crashes on macOS 26.0, and the Mac window itself is checked by hand (WebDriver for Tauri does not run on macOS); the release build does not bundle Node yet (gate work); no watchdog restarts a crashed daemon yet. Decided: Node 26 LTS, default vault `~/June`, no mascot, `node:sqlite` with trigram search. |
+| M1 Chat on any model | Next. |
+| M2 onwards | Not started. |
 
 ## Decisions
 

@@ -1,0 +1,13 @@
+{
+  "name": "@june/desktop",
+  "private": true,
+  "type": "module",
+  "description": "The Mac app: a Tauri window around the June daemon.",
+  "scripts": {
+    "dev": "pnpm --filter @june/web build && pnpm --filter @june/server build && tauri dev",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4"
+  }
+}

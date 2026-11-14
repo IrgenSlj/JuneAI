@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "node tools/dev.mjs",
+    "dev:app": "pnpm --filter @june/desktop dev",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "pnpm --filter @june/web test:e2e",
