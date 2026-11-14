@@ -22,7 +22,7 @@ branch `legacy` / tag `v0-final`.
 | Milestone | State |
 | --- | --- |
 | M0 Shell and daemon | Done 2026-11-14. Design and ui restored; `june serve` with token, Host check, strict CSP, vault endpoints; web app with setup and an empty chat; `pnpm dev` and `pnpm dev:app`; the Mac app starts the daemon, opens its URL, and the daemon dies with the app even on a crash (checked by kill -9). Gaps: the Playwright suite runs on Chromium because Playwright's WebKit crashes on macOS 26.0, and the Mac window itself is checked by hand (WebDriver for Tauri does not run on macOS); the release build does not bundle Node yet (gate work); no watchdog restarts a crashed daemon yet. Decided: Node 26 LTS, default vault `~/June`, no mascot, `node:sqlite` with trigram search. |
-| M1 Chat on any model | Next. |
+| M1 Chat on any model | Started. `packages/providers`: the SSE parser (9 edge cases), the OpenAI-compatible adapter (errors and broken streams become events, never throws), local presets for Ollama and LM Studio, and the no-Node boundary test. Next: the Anthropic API adapter, then `packages/node` (vault files, keychain), then `engine.runTurn`. |
 | M2 onwards | Not started. |
 
 ## Decisions

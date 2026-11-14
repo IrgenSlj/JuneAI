@@ -71,6 +71,8 @@ importers:
 
   packages/design: {}
 
+  packages/providers: {}
+
   packages/ui:
     dependencies:
       '@tauri-apps/plugin-dialog':

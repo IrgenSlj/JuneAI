@@ -8,7 +8,8 @@ import { describe, expect, it } from "vitest";
 
 const SRC = new URL(".", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
 const FORBIDDEN_MODULES = new Set(["electron", ...builtinModules]);
-const FORBIDDEN_GLOBALS = [/\bfetch\s*\(/, /\bprocess\./, /\brequire\s*\(/, /\bXMLHttpRequest\b/, /\bWebSocket\b/];
+// Global fetch only: an injected function called as opts.fetch(...) is the allowed pattern.
+const FORBIDDEN_GLOBALS = [/(?<![.\w])fetch\s*\(/, /(?<![.\w])process\./, /\brequire\s*\(/, /\bXMLHttpRequest\b/, /\bWebSocket\b/];
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

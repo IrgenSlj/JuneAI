@@ -1,0 +1,12 @@
+{
+  "name": "@june/providers",
+  "private": true,
+  "type": "module",
+  "description": "Model adapters and route metadata. Network only through an injected fetch.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json"
+  }
+}
