@@ -136,6 +136,7 @@ status: active
 
 **Rules that hold everywhere**
 
+- Filenames are ASCII slugs derived from titles plus a date; the real title lives in frontmatter. Paths obey `vaultPath()` in core, so a vault opens on macOS, Windows and Linux (reserved names, case-only collisions, Unicode NFC).
 - Ids are ULIDs with a type prefix (`th_`, `nt_`, `pl_`). Links are `[[id]]` or `[[id#anchor]]`, so files stay valid in Obsidian.
 - Imports are idempotent: the same export imported twice changes nothing. Dedupe on `source` plus `source_id`.
 - Timestamps are the provider's originals, never the import time.
@@ -208,7 +209,8 @@ no outside user. The gate after M2 exists to prevent that.
 | Nobody wants a history viewer | Fewer than ten outside imports within a month of shipping M2 | Stop. Do not build M3 to M6 on hope |
 | The Map is pretty and useless | Users open it once and then only use search | Make search the home screen and keep the Map as a view |
 | Providers change export formats | An importer fails on a fresh export | Fixture tests per provider, a clear error naming the format version, a fast patch release |
-| Providers ship this themselves | A major assistant adds cross-provider history with provenance | Lean on what they will not do: files you own and receipts across competitors |
+| Importing is already free | Obsidian plugins import ChatGPT, Claude, Le Chat, Perplexity and Grok exports to Markdown today ([Nexus](https://github.com/Superkikim/nexus-ai-chat-importer)) | Do not compete on importing. Compete on the Map, the trace, receipts and the vault being usable from every assistant (lab 002) |
+| Providers ship this themselves | A major assistant adds cross-provider history with provenance. Already moving: Claude imports memory from ChatGPT, Gemini and Copilot since March 2026, one way, into Claude | Lean on what they will not do: files you own and receipts across competitors |
 | Edge hairball at scale | A trace on a heavily used note lights hundreds of turns | Cap visible edges, cluster by thread, show a count |
 | Electron security mistake | Model output reaches a privileged API | The hardening list is a release blocker, tested in CI |
 | Scope creep back into agents | Requests for background tasks, skills, scheduling | Refuse until M6 ships and the gate numbers hold |
@@ -238,5 +240,6 @@ users.
 ## Open questions for the founder
 
 - Is the first audience EU professionals and knowledge workers, with family later? (Agreed in direction 2026-11-14; confirm wording before the M2 landing page.)
-- Can June legitimately run on users' existing assistant subscriptions? See lab 002.
+- Should a read-only "vault in every assistant" milestone (MCP) move before the Map, so the gate measures a reason to return? Decided by lab 002.
+- How does June make money? Lab 003.
 - Index library: `better-sqlite3` (native, must match Electron's version) or `node:sqlite` (built in, newer). Decided by a spike in M1.
