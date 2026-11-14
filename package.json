@@ -1,28 +1,20 @@
 {
   "name": "june",
-  "version": "0.1.0",
   "private": true,
-  "description": "June AI — the open personal AI that remembers you. JS workspace root.",
+  "type": "module",
   "packageManager": "pnpm@10.33.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
-    "bootstrap": "./tools/bootstrap.sh",
-    "dev": "pnpm --filter @june/web dev",
-    "build": "pnpm -r --filter './packages/**' --filter '@june/web' build",
-    "check": "pnpm -r --filter './packages/**' --filter '@june/web' check",
-    "check:all": "./tools/check.sh",
-    "desktop:dev": "pnpm --filter @june/desktop dev",
-    "desktop:build": "pnpm --filter @june/desktop build",
-    "codegen": "./tools/codegen.sh"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm -r typecheck",
+    "check": "pnpm typecheck && pnpm test"
   },
   "devDependencies": {
-    "typescript": "^5.6.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "serialize-javascript": ">=7.0.5"
-    }
+    "@types/node": "^22.20.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
   }
 }

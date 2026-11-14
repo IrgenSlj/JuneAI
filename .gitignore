@@ -1,68 +1,17 @@
-# Virtual environments
-.venv/
-venv/
-env/
-junevenv/
-.junenv/
-langchain-academy/
-
-# Secrets
-.env
-.env.local
-
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*.egg-info/
-dist/
-build/
-.eggs/
-*.egg
-
-# Node
 node_modules/
-.svelte-kit/
-.pnpm-store/
-
-# PWA dev service-worker output (vite-plugin-pwa devOptions)
-apps/web/dev-dist/
-
-# Rust / Tauri
-target/
-apps/desktop/src-tauri/target/
-
-# Packaging: frozen june-api sidecar (PyInstaller onedir, ~40MB+) staged for
-# Tauri bundling by tools/packaging/build-sidecar.sh. Build artifact only.
-apps/desktop/src-tauri/binaries/
-# Best-effort build-SHA stamp (written outside the repo by default; guarded here).
-tools/packaging/_build_sha.txt
-
-# iOS / Capacitor
-apps/mobile/ios/App/Pods/
-apps/mobile/ios/DerivedData/
-
-# Memory data (v1 legacy; v2 data lives outside the repo)
-.june_memory/
-
-# OS
+dist/
+out/
+coverage/
+*.tsbuildinfo
 .DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
 .idea/
-*.swp
-*.swo
+.vscode/
+.env
+.env.*
+!.env.example
 
-# Claude Code worktrees
-.claude/
+# Private lab material: real exports, conversations, keys. Never committed.
+lab/private/
 
-# Testing / caches
-.pytest_cache/
-.coverage
-htmlcov/
-.mypy_cache/
-.ruff_cache/
-.tmp/
+# Local data from the legacy Python June.
+.june_memory/
