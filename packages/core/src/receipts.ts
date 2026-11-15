@@ -5,7 +5,7 @@
 // One JSON object per line in receipts/YYYY-MM.jsonl. Each line's hash covers
 // the previous line's hash, so removing or editing a line breaks the chain,
 // and the chain runs across month files.
-import type { VaultFs } from "./adapters.js";
+import type { VaultFs, VaultLock } from "./adapters.js";
 import { type Json, canonicalJson, sha256Hex } from "./hash.js";
 
 export type ReceiptKind = "send" | "memory-read" | "memory-write" | "tool-call" | "import" | "export" | "mcp-read";
@@ -48,12 +48,19 @@ async function hashOf(receipt: Omit<Receipt, "hash">): Promise<string> {
   return sha256Hex(canonicalJson(receipt as unknown as Json));
 }
 
-/**
- * Appends are serialised inside one process by a promise queue. Across
- * processes the Node adapter must make VaultFs.append exclusive for this
- * folder (a lock file); the M3 "three processes" test pins that down.
- */
-export function createReceiptLog(fs: VaultFs, clock: () => Date = () => new Date()) {
+export interface ReceiptLogOptions {
+  clock?: () => Date;
+  /**
+   * Held around reading the tail and appending, so two processes cannot both
+   * link to the same previous line. Without it, appends are serialised only
+   * inside this process, which is enough for tests and the in-memory vault.
+   */
+  lock?: VaultLock;
+}
+
+export function createReceiptLog(fs: VaultFs, options: ReceiptLogOptions = {}) {
+  const clock = options.clock ?? (() => new Date());
+  const lock = options.lock;
   let queue: Promise<unknown> = Promise.resolve();
 
   async function files(): Promise<string[]> {
@@ -94,7 +101,7 @@ export function createReceiptLog(fs: VaultFs, clock: () => Date = () => new Date
   return {
     /** Write one receipt. Rejects if it cannot be written; callers must then not act. */
     append(input: ReceiptInput): Promise<Receipt> {
-      const result = queue.then(() => appendNow(input));
+      const result = queue.then(() => (lock === undefined ? appendNow(input) : lock.exclusive(DIR, () => appendNow(input))));
       queue = result.catch(() => undefined);
       return result;
     },

@@ -1,6 +1,6 @@
 // The only doors out of the core. Core code reaches storage through these
-// interfaces and nothing else, so the same core runs under Electron, in tests,
-// and later in a phone shell. Index and git adapters join here in M1.
+// interfaces and nothing else, so the same core runs in the daemon and in
+// tests. Index and git adapters join here when their milestone needs them.
 
 /**
  * A vault's files. Paths are vault-relative with "/" separators, validated by
@@ -17,6 +17,16 @@ export interface VaultFs {
   list(dir: string): Promise<string[]>;
   /** Delete a file. Deleting a missing file is not an error. */
   remove(path: string): Promise<void>;
+}
+
+/**
+ * Mutual exclusion across every process that opens the same vault (the daemon,
+ * a CLI, an importer). Within one process an in-memory queue is enough; on disk
+ * the Node adapter uses a lock file. The task runs only while the lock is held,
+ * and the lock is released whether it resolves or rejects.
+ */
+export interface VaultLock {
+  exclusive<T>(name: string, task: () => Promise<T>): Promise<T>;
 }
 
 /**

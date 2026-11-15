@@ -15,7 +15,7 @@ on branch `legacy` and tag `v0-final`; its UI and Tauri shell are reused as
 
 - `pnpm install` — install everything (pnpm workspace, Node 26 as pinned in `.node-version`).
 - `pnpm test:watch` — the inner loop: Vitest in watch mode across all packages. Keep it running while you work.
-- `pnpm test` — run all tests once. Narrow with `pnpm test -- ids` (file name filter) or `pnpm test -- -t "monotonic"` (test name).
+- `pnpm test` — run all tests once. Narrow with `pnpm test ids` (file name filter) or `pnpm test -t "sortable"` (test name). Do not put `--` before the filter: pnpm passes it through and Vitest then runs everything.
 - `pnpm typecheck` — strict TypeScript across packages.
 - `pnpm dev` — the daemon plus the UI with hot reload; prints the URL (with its token) to open.
 - `pnpm dev:app` — builds the UI and daemon, then runs the Mac app (Tauri, debug) around them. Needs Rust. `JUNE_LOG_REQUESTS=1` makes the daemon log method, path and status.
@@ -38,6 +38,12 @@ and trace. Dependencies point one way:
 never import Node built-ins (`boundaries.test.ts` fails the gate if they do);
 tests use the in-memory adapters in `packages/core/src/adapters/`. Packages and
 apps are created when their milestone needs them.
+
+Patterns that span packages:
+
+- **Contract suites.** An adapter interface in `core` (for example `VaultFs`) has a shared suite in `packages/core/src/testing/`; both the in-memory and the Node adapter run it, so tests on memory cannot drift from the disk.
+- **Cross-process safety.** A read-then-write that other processes might race (the receipts chain) runs inside a `VaultLock`: an in-process queue in tests, `nodeFileLock` (a lock file in `.june/locks/`) on disk. Behaviour across processes is tested with real child processes, bundled with esbuild (see `packages/node/src/lock.test.ts`).
+- **Where things stand.** The Status table in `PLAN.md` names the current milestone and its next slices; start there.
 
 ## How we work: the lab
 

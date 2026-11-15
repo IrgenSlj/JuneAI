@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { memoryVaultFs } from "./adapters/memory.js";
 import { canonicalJson } from "./hash.js";
+import type { VaultLock } from "./adapters.js";
 import { createReceiptLog } from "./receipts.js";
 
 function clockFrom(start: string, stepMs = 1000) {
@@ -21,7 +22,7 @@ describe("canonical JSON", () => {
 describe("receipts log", () => {
   it("chains receipts, across month files, and verifies", async () => {
     const fs = memoryVaultFs();
-    const log = createReceiptLog(fs, clockFrom("2026-11-30T23:59:59Z"));
+    const log = createReceiptLog(fs, { clock: clockFrom("2026-11-30T23:59:59Z") });
     const first = await log.append({ kind: "send", actor: "june", targets: ["th_1#m2"], payload: { text: "secret" }, meta: { host: "api.example" } });
     const second = await log.append({ kind: "memory-write", actor: "user", targets: ["nt_1"], payload: "x" });
     expect(first.seq).toBe(1);
@@ -53,7 +54,7 @@ describe("receipts log", () => {
   it("detects an edited, removed or reordered line", async () => {
     const make = async () => {
       const fs = memoryVaultFs();
-      const log = createReceiptLog(fs, clockFrom("2026-11-14T10:00:00Z"));
+      const log = createReceiptLog(fs, { clock: clockFrom("2026-11-14T10:00:00Z") });
       for (const i of [1, 2, 3]) await log.append({ kind: "send", actor: "june", targets: [`t${i}`], payload: i });
       return { fs, log, lines: (fs.snapshot()["receipts/2026-11.jsonl"] ?? "").trimEnd().split("\n") };
     };
@@ -69,5 +70,34 @@ describe("receipts log", () => {
     await expect(
       createReceiptLog({ ...failing.fs, append: async () => { throw new Error("disk full"); } }).append({ kind: "send", actor: "june", targets: [], payload: 0 }),
     ).rejects.toThrow("disk full");
+  });
+
+  it("reads the tail and appends inside the vault lock, so another process cannot fork the chain", async () => {
+    const fs = memoryVaultFs();
+    const events: string[] = [];
+    let held = false;
+    const lock: VaultLock = {
+      async exclusive(name, task) {
+        events.push(`lock ${name}`);
+        held = true;
+        try {
+          return await task();
+        } finally {
+          held = false;
+          events.push(`unlock ${name}`);
+        }
+      },
+    };
+    const watched: typeof fs = {
+      ...fs,
+      read: async (p) => (events.push(`read held=${held}`), fs.read(p)),
+      list: async (p) => (events.push(`list held=${held}`), fs.list(p)),
+      append: async (p, c) => (events.push(`append held=${held}`), fs.append(p, c)),
+    };
+    await createReceiptLog(watched, { lock }).append({ kind: "send", actor: "june", targets: [], payload: 0 });
+    expect(events[0]).toBe("lock receipts");
+    expect(events.at(-1)).toBe("unlock receipts");
+    expect(events.filter((e) => e.includes("held=false"))).toEqual([]);
+    expect(events).toContain("append held=true");
   });
 });

@@ -1,4 +1,4 @@
-export { type VaultFs, VaultPathError, pathIdentity, vaultPath } from "./adapters.js";
+export { type VaultFs, type VaultLock, VaultPathError, pathIdentity, vaultPath } from "./adapters.js";
 export { memoryVaultFs } from "./adapters/memory.js";
 export { type Json, canonicalJson, sha256Bytes, sha256Hex } from "./hash.js";
 export {
@@ -16,6 +16,7 @@ export {
   type ReceiptInput,
   type ReceiptKind,
   type ReceiptLog,
+  type ReceiptLogOptions,
   type VerifyResult,
   createReceiptLog,
 } from "./receipts.js";
