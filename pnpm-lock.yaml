@@ -25,6 +25,19 @@ importers:
         version: 2.12.4
 
   apps/server:
+    dependencies:
+      '@june/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@june/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+      '@june/node':
+        specifier: workspace:*
+        version: link:../../packages/node
+      '@june/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
     devDependencies:
       '@june/ui':
         specifier: workspace:*

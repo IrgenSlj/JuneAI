@@ -23,3 +23,84 @@ export interface OpenVaultRequest {
 export interface ApiErrorBody {
   error: string;
 }
+
+/** The facts the label shows about a route. Mirrors providers' Route. */
+export interface RouteInfo {
+  id: string;
+  name: string;
+  kind: "api-key" | "local" | "gateway" | "chatgpt-plan" | "claude-cli";
+  host: string;
+  leavesDevice: boolean;
+  billing: string;
+  dataNote: string;
+  dataNoteSource?: { url: string; checked: string };
+}
+
+/** One route as the settings page sees it. The key itself never comes back. */
+export interface ProviderInfo {
+  route: RouteInfo;
+  needsKey: boolean;
+  /** A key is stored (always true for routes that need none). */
+  ready: boolean;
+}
+
+/** PUT /api/providers/:id. A string stores the key in the keychain; null removes it. */
+export interface PutProviderRequest {
+  apiKey: string | null;
+}
+
+export interface ModelList {
+  models: string[];
+}
+
+export interface ThreadSummary {
+  id: string;
+  title: string;
+  source: string;
+  started?: string;
+  updated?: string;
+  parent?: string;
+  turns: number;
+}
+
+export interface TurnInfo {
+  id: string;
+  role: "user" | "assistant" | "system" | "tool";
+  at?: string;
+  model?: string;
+  route?: string;
+  receipt?: number;
+  text: string;
+}
+
+export interface ThreadDetail extends Omit<ThreadSummary, "turns"> {
+  turns: TurnInfo[];
+}
+
+export interface NewThreadRequest {
+  title?: string;
+}
+
+/** POST /api/threads/:id/turns; the reply is an SSE stream of TurnFrame. */
+export interface SendTurnRequest {
+  route: string;
+  model: string;
+  text: string;
+}
+
+export interface SendLabelInfo {
+  route: RouteInfo;
+  model: string;
+  parts: { kind: "system" | "history" | "note" | "attachment" | "draft"; id?: string; chars: number }[];
+  noteIds: string[];
+  totalChars: number;
+}
+
+/** SSE frames, in order: label, text*, usage, saved | error, done. Saved state is shown only from `saved`. */
+export type TurnFrame =
+  | { type: "label"; label: SendLabelInfo }
+  | { type: "text"; text: string }
+  | { type: "usage"; inputTokens?: number; outputTokens?: number }
+  | { type: "saved"; threadId: string; userTurn: string; assistantTurn: string; receipt: number }
+  | { type: "error"; stage: string; message: string }
+  | { type: "done" };

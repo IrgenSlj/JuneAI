@@ -14,5 +14,11 @@
   "devDependencies": {
     "@june/ui": "workspace:*",
     "esbuild": "^0.28.2"
+  },
+  "dependencies": {
+    "@june/core": "workspace:*",
+    "@june/engine": "workspace:*",
+    "@june/node": "workspace:*",
+    "@june/providers": "workspace:*"
   }
 }
