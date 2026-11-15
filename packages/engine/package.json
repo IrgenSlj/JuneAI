@@ -1,0 +1,16 @@
+{
+  "name": "@june/engine",
+  "private": true,
+  "type": "module",
+  "description": "The turn loop: assemble context, build the label, write the receipt, stream, write the thread file.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "@june/core": "workspace:*",
+    "@june/providers": "workspace:*"
+  }
+}

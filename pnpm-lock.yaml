@@ -71,6 +71,15 @@ importers:
 
   packages/design: {}
 
+  packages/engine:
+    dependencies:
+      '@june/core':
+        specifier: workspace:*
+        version: link:../core
+      '@june/providers':
+        specifier: workspace:*
+        version: link:../providers
+
   packages/node:
     dependencies:
       '@june/core':

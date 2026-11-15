@@ -41,3 +41,4 @@ when it is next.
 - EU jurisdiction label: can the send label state a provider's processing region from public data, honestly?
 - Cost-aware routing across the user's own keys and local models: which turns does a small local model handle as well as a frontier one?
 - GDPR access helper: exports are incomplete (Claude reportedly omits artifacts); June drafts an Article 15 access request for the missing data. Needs a legal read before shipping.
+- Append-only thread writes: append each turn block instead of rewriting the file, so no writer ever overwrites another. Needs a torn-write answer first (a crash mid-append leaves half a turn); today's atomic rewrite plus a thread lock is the safe default.

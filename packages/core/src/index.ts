@@ -9,6 +9,7 @@ export {
   pathIdentity,
   vaultPath,
 } from "./adapters.js";
+export { memoryLock } from "./adapters/memory-lock.js";
 export { memorySecretStore } from "./adapters/memory-secrets.js";
 export { memoryVaultFs } from "./adapters/memory.js";
 export { type Json, canonicalJson, sha256Bytes, sha256Hex } from "./hash.js";
