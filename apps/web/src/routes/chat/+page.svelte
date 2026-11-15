@@ -47,9 +47,7 @@
     {/if}
 
     <div class="controls">
-      <label>
-        <span class="visually-hidden">Route</span>
-        <select value={chat.routeId} onchange={(e) => chat.pickRoute(e.currentTarget.value)} disabled={chat.streaming || groups.length === 0} aria-label="Route">
+      <select value={chat.routeId} onchange={(e) => chat.pickRoute(e.currentTarget.value)} disabled={chat.streaming || groups.length === 0} aria-label="Route">
           {#each groups as group (group.name)}
             <optgroup label={group.name}>
               {#each group.routes as p (p.route.id)}
@@ -57,8 +55,7 @@
               {/each}
             </optgroup>
           {/each}
-        </select>
-      </label>
+      </select>
       {#if chat.models.length > 0}
         <select bind:value={chat.model} disabled={chat.streaming} aria-label="Model">
           {#each chat.models as model (model)}
@@ -165,13 +162,6 @@
     gap: 0.35rem;
     font-size: 0.8rem;
     opacity: 0.7;
-  }
-  .visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
   }
   @media (max-width: 40rem) {
     .layout {

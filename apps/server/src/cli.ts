@@ -1,6 +1,9 @@
 // `june serve`: start the daemon and print where to open it.
 //
-//   june serve [--port N] [--static DIR] [--config-dir DIR] [--exit-with-stdin]
+//   june serve [--port N] [--static DIR] [--config-dir DIR] [--exit-with-stdin] [--memory-secrets]
+//
+// --memory-secrets keeps API keys in memory only, forgotten on exit. It is for
+// tests, so they never write into the user's real keychain.
 //
 // The token comes from JUNE_TOKEN (how the Mac app passes it: environment, not
 // argv, because any local user can read another process's arguments) or is
@@ -11,6 +14,7 @@ import { randomBytes } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { memorySecretStore } from "@june/core";
 import { defaultConfigDir } from "./config.js";
 import { ollamaFromEnv } from "./local-routes.js";
 import { startServer } from "./server.js";
@@ -27,6 +31,7 @@ async function main(argv: string[]): Promise<void> {
       static: { type: "string" },
       "config-dir": { type: "string" },
       "exit-with-stdin": { type: "boolean", default: false },
+      "memory-secrets": { type: "boolean", default: false },
     },
   });
   const command = positionals[0] ?? "serve";
@@ -46,6 +51,7 @@ async function main(argv: string[]): Promise<void> {
     version: VERSION,
     port: values.port === undefined ? 0 : Number(values.port),
     ...(ollamaUrl === undefined ? {} : { ollamaUrl }),
+    ...(values["memory-secrets"] ? { secrets: memorySecretStore() } : {}),
   });
 
   console.log(`JUNE_READY ${JSON.stringify({ port: server.port })}`);

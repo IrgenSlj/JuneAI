@@ -18,7 +18,7 @@ export async function startDaemon(options: { root?: string; env?: Record<string,
   const token = `e2e-${Math.random().toString(36).slice(2)}`;
   const child: ChildProcess = spawn(
     process.execPath,
-    ["../server/dist/server.mjs", "serve", "--static", "build", "--config-dir", join(root, "config")],
+    ["../server/dist/server.mjs", "serve", "--static", "build", "--config-dir", join(root, "config"), "--memory-secrets"],
     { env: { ...process.env, ...options.env, JUNE_TOKEN: token }, stdio: ["ignore", "pipe", "inherit"] },
   );
   const port = await new Promise<number>((resolve, reject) => {

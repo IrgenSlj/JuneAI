@@ -39,6 +39,7 @@
       <a class="wordmark" href="/chat">June</a>
       {#if session.vault?.path}
         <span class="vault" title={session.vault.path}>{session.vault.path}</span>
+        <a class="nav" href="/settings">Settings</a>
       {/if}
     </header>
     {@render children()}
@@ -68,6 +69,10 @@
     font-weight: 600;
     text-decoration: none;
     color: inherit;
+  }
+  .nav {
+    margin-left: auto;
+    font-size: 0.9rem;
   }
   .vault {
     font-family: var(--font-mono, monospace);
