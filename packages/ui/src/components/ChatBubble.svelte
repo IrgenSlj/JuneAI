@@ -7,6 +7,7 @@
    * Assistant bubbles can carry a "memories used" disclosure listing
    * the recall hits that fed this turn.
    */
+  import Markdown from "../markdown/Markdown.svelte";
   import type { RecallHit } from "./types.js";
 
   interface Props {
@@ -120,7 +121,7 @@
           <span class="pulse"></span>
         </span>
       {:else}
-        {content}{#if pending && role === "assistant" && content.length > 0}<span
+        {#if role === "assistant"}<Markdown text={content} />{:else}{content}{/if}{#if pending && role === "assistant" && content.length > 0}<span
             class="caret"
             aria-hidden="true"
           ></span>{/if}
@@ -252,6 +253,9 @@
     line-height: 1.62;
     white-space: pre-wrap;
     word-wrap: break-word;
+  }
+  .bubble[data-role="assistant"] .body {
+    white-space: normal;
   }
 
   .copy {

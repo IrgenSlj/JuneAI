@@ -7,6 +7,8 @@ export { default as TraceEventList } from "./components/TraceEventList.svelte";
 export { default as ReasonChip } from "./components/ReasonChip.svelte";
 export { default as EgressLine } from "./components/EgressLine.svelte";
 export { default as VerifyAffordance } from "./components/VerifyAffordance.svelte";
+export { default as Markdown } from "./markdown/Markdown.svelte";
+export { type Block, type Inline, parseInline, parseMarkdown, safeHref } from "./markdown/parse.js";
 export type { ActivityStep, ChatMessage, RecallHit, TraceEventView } from "./components/types.js";
 
 export * from "./api/index.js";
