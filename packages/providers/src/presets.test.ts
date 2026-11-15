@@ -15,6 +15,13 @@ describe("route presets", () => {
     }
   });
 
+  it("every remote route carries a checked data note, one sentence or two, from the provider's own page", () => {
+    for (const { route } of ROUTE_PRESETS.filter((p) => p.route.kind !== "local")) {
+      expect(route.dataNote, route.id).not.toBe("unknown");
+      expect(new URL(route.dataNoteSource?.url ?? "").protocol, route.id).toBe("https:");
+    }
+  });
+
   it("never state a data practice without a checked source", () => {
     for (const { route } of ROUTE_PRESETS) {
       if (route.kind !== "local" && route.dataNote !== "unknown") {
