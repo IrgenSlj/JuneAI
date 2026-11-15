@@ -30,6 +30,44 @@ export interface VaultLock {
 }
 
 /**
+ * Where API keys live: the OS keychain in the app, memory in tests. Never the
+ * vault and never a config file. Accounts name what a secret is for, such as
+ * "route:openai"; the store never lists or logs secret values.
+ */
+export interface SecretStore {
+  /** The secret, or undefined if none is stored for this account. */
+  get(account: string): Promise<string | undefined>;
+  /** Create or replace. Resolves only once the secret reads back as written. */
+  set(account: string, secret: string): Promise<void>;
+  /** Delete. Removing a missing secret is not an error. */
+  remove(account: string): Promise<void>;
+}
+
+/** Account names are plain identifiers, so no store has to escape them. */
+export function checkSecretAccount(account: string): string {
+  if (!/^[a-z0-9][a-z0-9:._-]{0,127}$/.test(account)) throw new SecretStoreError(`not a valid secret account: ${JSON.stringify(account)}`);
+  return account;
+}
+
+/**
+ * Secrets are API keys: printable ASCII, no newlines. Anything else is almost
+ * always a paste mistake, and the macOS keychain CLI hex-encodes non-ASCII on read.
+ */
+export function checkSecretValue(secret: string): string {
+  if (secret === "" || secret.length > 8192 || !/^[\x20-\x7e]+$/.test(secret)) {
+    throw new SecretStoreError("a key must be printable ASCII on one line (check for a stray newline or space from pasting)");
+  }
+  return secret;
+}
+
+export class SecretStoreError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SecretStoreError";
+  }
+}
+
+/**
  * Validate and normalise a vault-relative path. The vault must open unchanged
  * on macOS, Windows and Linux, so this enforces the strictest of the three:
  * - nothing that escapes the vault (absolute, drive letters, "..", "\\");

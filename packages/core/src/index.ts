@@ -1,4 +1,15 @@
-export { type VaultFs, type VaultLock, VaultPathError, pathIdentity, vaultPath } from "./adapters.js";
+export {
+  type SecretStore,
+  SecretStoreError,
+  type VaultFs,
+  type VaultLock,
+  VaultPathError,
+  checkSecretAccount,
+  checkSecretValue,
+  pathIdentity,
+  vaultPath,
+} from "./adapters.js";
+export { memorySecretStore } from "./adapters/memory-secrets.js";
 export { memoryVaultFs } from "./adapters/memory.js";
 export { type Json, canonicalJson, sha256Bytes, sha256Hex } from "./hash.js";
 export {
