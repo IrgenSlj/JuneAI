@@ -19,7 +19,7 @@ import {
 } from "@june/core";
 import { createThread, runTurn } from "@june/engine";
 import { nodeFileLock, nodeVaultFs } from "@june/node";
-import { type FetchLike, ROUTE_PRESETS, findPreset, makeProvider } from "@june/providers";
+import { type FetchLike, ROUTE_PRESETS, makeProvider } from "@june/providers";
 import type {
   ModelList,
   NewThreadRequest,
@@ -32,6 +32,7 @@ import type {
   TurnInfo,
 } from "@june/ui/api/types";
 import { HttpError, readJson, securityHeaders, sendJson } from "./http.js";
+import { relocate } from "./local-routes.js";
 
 interface VaultSession {
   root: string;
@@ -45,6 +46,8 @@ export interface ChatApiOptions {
   vaultPath(): string | null;
   secrets: SecretStore;
   fetch: FetchLike;
+  /** Ollama's base URL when OLLAMA_HOST moved it (loopback only). */
+  ollamaUrl?: string;
 }
 
 const secretAccount = (routeId: string): string => `route:${routeId}`;
@@ -77,6 +80,8 @@ function detail(thread: Thread): ThreadDetail {
 
 export function createChatApi(options: ChatApiOptions) {
   let session: VaultSession | undefined;
+  const presets = ROUTE_PRESETS.map((p) => (p.route.id === "ollama" ? relocate(p, options.ollamaUrl) : p));
+  const preset = (id: string) => presets.find((p) => p.route.id === id);
   /** Threads with a reply streaming right now, so a second send can be told so plainly. */
   const busy = new Set<string>();
 
@@ -108,28 +113,27 @@ export function createChatApi(options: ChatApiOptions) {
 
   async function providers(): Promise<ProviderInfo[]> {
     return Promise.all(
-      ROUTE_PRESETS.map(async (preset) => ({
-        route: preset.route,
-        needsKey: preset.needsKey,
-        ready: !preset.needsKey || (await options.secrets.get(secretAccount(preset.route.id))) !== undefined,
+      presets.map(async (p) => ({
+        route: p.route,
+        needsKey: p.needsKey,
+        ready: !p.needsKey || (await options.secrets.get(secretAccount(p.route.id))) !== undefined,
       })),
     );
   }
 
   async function provider(routeId: string) {
-    const preset = findPreset(routeId);
-    if (preset === undefined) throw new HttpError(404, `no route called ${routeId}`);
-    const apiKey = preset.needsKey ? await options.secrets.get(secretAccount(routeId)) : undefined;
+    const chosen = preset(routeId);
+    if (chosen === undefined) throw new HttpError(404, `no route called ${routeId}`);
+    const apiKey = chosen.needsKey ? await options.secrets.get(secretAccount(routeId)) : undefined;
     try {
-      return makeProvider(preset, { fetch: options.fetch, ...(apiKey === undefined ? {} : { apiKey }) });
+      return makeProvider(chosen, { fetch: options.fetch, ...(apiKey === undefined ? {} : { apiKey }) });
     } catch (error) {
       throw new HttpError(400, (error as Error).message);
     }
   }
 
   async function putProvider(routeId: string, body: unknown): Promise<ProviderInfo[]> {
-    const preset = findPreset(routeId);
-    if (preset === undefined) throw new HttpError(404, `no route called ${routeId}`);
+    if (preset(routeId) === undefined) throw new HttpError(404, `no route called ${routeId}`);
     const apiKey = (body as Partial<PutProviderRequest> | null)?.apiKey;
     if (apiKey !== null && typeof apiKey !== "string") throw new HttpError(400, "apiKey must be a string, or null to remove it");
     try {

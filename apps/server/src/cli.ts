@@ -12,6 +12,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { defaultConfigDir } from "./config.js";
+import { ollamaFromEnv } from "./local-routes.js";
 import { startServer } from "./server.js";
 
 declare const __JUNE_VERSION__: string | undefined;
@@ -36,6 +37,7 @@ async function main(argv: string[]): Promise<void> {
 
   const token = process.env.JUNE_TOKEN || randomBytes(32).toString("base64url");
   const here = dirname(fileURLToPath(import.meta.url));
+  const ollamaUrl = ollamaFromEnv(process.env.OLLAMA_HOST);
   const staticDir = values.static === undefined ? join(here, "web") : resolve(values.static);
   const server = await startServer({
     token,
@@ -43,6 +45,7 @@ async function main(argv: string[]): Promise<void> {
     configDir: values["config-dir"] === undefined ? defaultConfigDir() : resolve(values["config-dir"]),
     version: VERSION,
     port: values.port === undefined ? 0 : Number(values.port),
+    ...(ollamaUrl === undefined ? {} : { ollamaUrl }),
   });
 
   console.log(`JUNE_READY ${JSON.stringify({ port: server.port })}`);

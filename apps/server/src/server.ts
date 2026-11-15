@@ -29,6 +29,8 @@ export interface ServerOptions {
   secrets?: SecretStore;
   /** The only way out to model providers; global fetch by default. */
   fetch?: FetchLike;
+  /** Ollama's base URL if the user moved it (see local-routes.ts). */
+  ollamaUrl?: string;
 }
 
 /** Global fetch, narrowed to what providers need. */
@@ -55,7 +57,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const serveStatic = options.staticDir === undefined ? undefined : createStaticHandler(options.staticDir);
   let vault = (await readConfig(options.configDir)).vault ?? null;
   let allowedHosts = new Set<string>();
-  const chat = createChatApi({ vaultPath: () => vault, secrets: options.secrets ?? platformSecretStore(), fetch: options.fetch ?? globalFetch });
+  const chat = createChatApi({ vaultPath: () => vault, secrets: options.secrets ?? platformSecretStore(), fetch: options.fetch ?? globalFetch, ...(options.ollamaUrl === undefined ? {} : { ollamaUrl: options.ollamaUrl }) });
 
   const expandHome = (path: string): string => (path === "~" ? home : path.startsWith("~/") ? join(home, path.slice(2)) : path);
   const vaultInfo = (): VaultInfo => ({ path: vault, defaultPath: join(home, "June") });

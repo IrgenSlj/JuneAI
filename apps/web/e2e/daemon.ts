@@ -12,13 +12,14 @@ export interface Daemon {
   stop(): void;
 }
 
-export async function startDaemon(): Promise<Daemon> {
-  const root = await mkdtemp(join(tmpdir(), "june-e2e-"));
+/** Pass `root` to restart on the same config and vault; `env` adds variables such as OLLAMA_HOST. */
+export async function startDaemon(options: { root?: string; env?: Record<string, string> } = {}): Promise<Daemon> {
+  const root = options.root ?? (await mkdtemp(join(tmpdir(), "june-e2e-")));
   const token = `e2e-${Math.random().toString(36).slice(2)}`;
   const child: ChildProcess = spawn(
     process.execPath,
     ["../server/dist/server.mjs", "serve", "--static", "build", "--config-dir", join(root, "config")],
-    { env: { ...process.env, JUNE_TOKEN: token }, stdio: ["ignore", "pipe", "inherit"] },
+    { env: { ...process.env, ...options.env, JUNE_TOKEN: token }, stdio: ["ignore", "pipe", "inherit"] },
   );
   const port = await new Promise<number>((resolve, reject) => {
     let out = "";
