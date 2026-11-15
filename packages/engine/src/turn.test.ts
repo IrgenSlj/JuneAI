@@ -1,7 +1,7 @@
 import { type ReceiptLog, canonicalJson, createReceiptLog, memoryLock, memoryVaultFs, parseThread, serializeThread, sha256Hex } from "@june/core";
 import type { ChatRequest, Provider, Route, StreamEvent } from "@june/providers";
 import { describe, expect, it } from "vitest";
-import { type TurnEvent, createThread, runTurn } from "./index.js";
+import { type TurnEvent, branchThread, createThread, runTurn } from "./index.js";
 
 const ROUTE: Route = {
   id: "test",
@@ -231,5 +231,33 @@ describe("runTurn", () => {
     const turns = parseThread((await fs.read(path)) ?? "").turns;
     expect(turns.map((t) => t.role)).toEqual(["user", "assistant"]);
     expect(await receipts.verify()).toEqual({ ok: true, count: 1 });
+  });
+});
+
+describe("branchThread", () => {
+  it("copies the turns up to the chosen one into a new thread that names its parent", async () => {
+    const { fs, receipts, path, now, lock, thread } = await setup();
+    const { provider } = fakeProvider(() => reply("answer"));
+    await collect(runTurn({ fs, receipts, provider, lock, clock: now }, { path, model: "m-1", text: "first" }));
+    await collect(runTurn({ fs, receipts, provider, lock, clock: now }, { path, model: "m-1", text: "second" }));
+    const original = parseThread((await fs.read(path)) ?? "");
+    const at = original.turns[1]?.id ?? "";
+
+    const branch = await branchThread(fs, { path, turnId: at, clock: now });
+    expect(branch.thread.parent).toBe(`${thread.id}#${at}`);
+    expect(branch.thread.id).not.toBe(thread.id);
+    expect(branch.thread.title).toBe("Kitchen quotes (branch)");
+    const saved = parseThread((await fs.read(branch.path)) ?? "");
+    expect(saved.turns.map((t) => t.text)).toEqual(["first", "answer"]);
+    expect(saved.turns[1]).toMatchObject({ model: "m-1", meta: { route: "test" } });
+    // The original is untouched, and the branch continues on its own.
+    expect(await fs.read(path)).toBe(serializeThread(original));
+    await collect(runTurn({ fs, receipts, provider, lock, clock: now }, { path: branch.path, model: "other-model", text: "on another model" }));
+    expect(parseThread((await fs.read(branch.path)) ?? "").turns.map((t) => t.id)).toEqual(["m1", "m2", "m3", "m4"]);
+  });
+
+  it("refuses a turn the thread does not have", async () => {
+    const { fs, path, now } = await setup();
+    await expect(branchThread(fs, { path, turnId: "m9", clock: now })).rejects.toThrow(/no turn m9/);
   });
 });

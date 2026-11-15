@@ -58,8 +58,21 @@ test("chat with a local model: streams, says where it went, saves to the vault, 
   daemon.stop();
   daemon = await startDaemon({ root: daemon.root, env: { OLLAMA_HOST: ollama.host } });
   await page.goto(`${daemon.origin}/#token=${daemon.token}`);
-  await page.getByRole("navigation", { name: "Conversations" }).getByText("What should a 12 m2 kitchen cost?").click();
+  const nav = page.getByRole("navigation", { name: "Conversations" });
+  await nav.getByText("What should a 12 m2 kitchen cost?", { exact: true }).click();
   await expect(page.getByText("Around 12k, appliances included.")).toBeVisible();
+
+  // Branch: the history comes along, the original stays as it was.
+  await page.getByRole("button", { name: "Continue in a new branch" }).click();
+  await expect(nav.getByText("What should a 12 m2 kitchen cost? (branch)")).toBeVisible();
+  await expect(page.getByText("Branched from")).toBeVisible();
+  await expect(page.getByText("Around 12k, appliances included.")).toBeVisible();
+  await page.getByLabel("Message June").fill("And with an island?");
+  await page.getByRole("button", { name: "Send message" }).click();
+  await expect(page.getByText("Saved to your vault")).toBeVisible();
+  expect(await markdownFiles(join(vault, "threads"))).toHaveLength(2);
+  const original = await readFile(file ?? "", "utf8");
+  expect(original).not.toContain("And with an island?");
 });
 
 test("the chat page runs under the strict CSP without a single violation", () => {

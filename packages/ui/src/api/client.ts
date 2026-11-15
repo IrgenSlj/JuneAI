@@ -7,6 +7,7 @@
  */
 import type {
   ApiErrorBody,
+  BranchRequest,
   Health,
   ModelList,
   NewThreadRequest,
@@ -130,6 +131,7 @@ export function createJuneClient(options: JuneClientOptions = {}) {
     threads: () => request<ThreadSummary[]>("GET", "/threads"),
     thread: (id: string) => request<ThreadDetail>("GET", `/threads/${encodeURIComponent(id)}`),
     newThread: (body: NewThreadRequest = {}) => request<ThreadSummary>("POST", "/threads", body),
+    branch: (id: string, body: BranchRequest) => request<ThreadSummary>("POST", `/threads/${encodeURIComponent(id)}/branch`, body),
     setToken(next: string | undefined) {
       token = next;
     },

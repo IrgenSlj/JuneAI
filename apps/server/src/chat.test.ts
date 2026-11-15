@@ -240,4 +240,18 @@ describe("threads and turns", () => {
     expect((await call(`/api/threads/${thread.id}/turns`, { method: "POST", body: { route: "ollama" } })).status).toBe(400);
     expect((await call(`/api/threads/${thread.id}/turns`, { method: "POST", body: { route: "nope", model: "m", text: "x" } })).status).toBe(404);
   });
+
+  it("branches a thread at a turn and continues it on another route", async () => {
+    await secrets.set("route:openai", "sk-live-abc");
+    const thread = await newThread();
+    await call(`/api/threads/${thread.id}/turns`, { method: "POST", body: { route: "ollama", model: "model-a", text: "local question" } });
+    const branch = await json<ThreadSummary>(`/api/threads/${thread.id}/branch`, { method: "POST", body: { turn: "m2" } });
+    expect(branch).toMatchObject({ parent: `${thread.id}#m2`, turns: 2, title: "Kitchen quotes (branch)" });
+    const res = await call(`/api/threads/${branch.id}/turns`, { method: "POST", body: { route: "openai", model: "gpt-x", text: "same, elsewhere" } });
+    expect(frames(res.body).map((f) => f.type)).toContain("saved");
+    const sent = network.sent.find((s) => s.url.startsWith("https://api.openai.com"));
+    expect(sent?.body).toContain("local question");
+    expect((await json<ThreadDetail>(`/api/threads/${thread.id}`)).turns).toHaveLength(2);
+    expect((await call(`/api/threads/${thread.id}/branch`, { method: "POST", body: { turn: "m9" } })).status).toBe(400);
+  });
 });

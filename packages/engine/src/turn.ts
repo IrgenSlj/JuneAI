@@ -82,6 +82,34 @@ export async function createThread(fs: VaultFs, options: { title: string; clock?
   return { path, thread };
 }
 
+/**
+ * Continue a thread from one of its turns as a new thread, on any model. The
+ * new file holds copies of the turns up to and including that one, and names
+ * its origin in `parent` ("th_...#m3"); the original file is not touched.
+ */
+export async function branchThread(
+  fs: VaultFs,
+  options: { path: string; turnId: string; clock?: () => Date },
+): Promise<{ path: string; thread: Thread }> {
+  const { thread: source } = await readThreadFile(fs, options.path);
+  const index = source.turns.findIndex((t) => t.id === options.turnId);
+  if (index === -1) throw new Error(`no turn ${options.turnId} in this thread`);
+  const now = (options.clock ?? (() => new Date()))().toISOString();
+  const thread: Thread = {
+    id: newId("thread"),
+    title: `${source.title} (branch)`,
+    source: "june",
+    started: now,
+    updated: now,
+    parent: `${source.id}#${options.turnId}`,
+    ...(source.lane === undefined ? {} : { lane: source.lane }),
+    turns: source.turns.slice(0, index + 1).map((t) => ({ ...t })),
+  };
+  const path = threadPath(thread);
+  await fs.write(path, serializeThread(thread));
+  return { path, thread };
+}
+
 export async function* runTurn(deps: TurnDeps, input: TurnInput): AsyncGenerator<TurnEvent> {
   const clock = deps.clock ?? (() => new Date());
   const { route } = deps.provider;

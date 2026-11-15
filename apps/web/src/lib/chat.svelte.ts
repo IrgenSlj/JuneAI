@@ -94,6 +94,20 @@ class Chat {
     this.error = undefined;
   }
 
+  /** Continue the open thread from its last turn as a new thread; the route switcher then picks any model. */
+  async branchFromLast(): Promise<void> {
+    const thread = this.thread;
+    const last = thread?.turns.at(-1);
+    if (this.streaming || thread === undefined || last === undefined) return;
+    try {
+      const branch = await session.client.branch(thread.id, { turn: last.id });
+      this.threads = await session.client.threads();
+      await this.open(branch.id);
+    } catch (error) {
+      this.error = errorText(error);
+    }
+  }
+
   stop(): void {
     this.abort?.abort();
   }

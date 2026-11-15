@@ -104,3 +104,8 @@ export type TurnFrame =
   | { type: "saved"; threadId: string; userTurn: string; assistantTurn: string; receipt: number }
   | { type: "error"; stage: string; message: string }
   | { type: "done" };
+
+/** POST /api/threads/:id/branch: continue from `turn` as a new thread. */
+export interface BranchRequest {
+  turn: string;
+}

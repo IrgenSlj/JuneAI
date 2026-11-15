@@ -17,10 +17,11 @@ import {
   isId,
   parseThread,
 } from "@june/core";
-import { createThread, runTurn } from "@june/engine";
+import { branchThread, createThread, runTurn } from "@june/engine";
 import { nodeFileLock, nodeVaultFs } from "@june/node";
 import { type FetchLike, ROUTE_PRESETS, makeProvider } from "@june/providers";
 import type {
+  BranchRequest,
   ModelList,
   NewThreadRequest,
   ProviderInfo,
@@ -220,6 +221,18 @@ export function createChatApi(options: ChatApiOptions) {
         return sendJson(res, 200, detail((await findThread(fs, id)).thread)), true;
       }
       if (method === "POST" && parts.length === 3 && parts[2] === "turns") return await sendTurn(req, res, id), true;
+      if (method === "POST" && parts.length === 3 && parts[2] === "branch") {
+        const turn = ((await readJson(req)) as Partial<BranchRequest> | null)?.turn;
+        if (typeof turn !== "string") throw new HttpError(400, "turn is required");
+        const { fs } = await vault();
+        const { path } = await findThread(fs, id);
+        try {
+          const { thread } = await branchThread(fs, { path, turnId: turn });
+          return sendJson(res, 201, summary(thread)), true;
+        } catch (error) {
+          throw new HttpError(400, (error as Error).message);
+        }
+      }
     }
     return false;
   };

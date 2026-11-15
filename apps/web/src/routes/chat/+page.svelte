@@ -28,6 +28,15 @@
   </nav>
 
   <main class="chat">
+    {#if chat.thread?.parent}
+      {@const parentId = chat.thread.parent.split("#")[0] ?? ""}
+      <p class="branch-note">
+        Branched from
+        <button type="button" class="link" onclick={() => chat.open(parentId)} disabled={chat.streaming}>
+          {chat.threads.find((t) => t.id === parentId)?.title ?? "another conversation"}
+        </button>
+      </p>
+    {/if}
     <section class="messages" aria-label="Conversation">
       {#if chat.messages.length === 0}
         <p class="empty">
@@ -84,6 +93,9 @@
           <span aria-hidden="true">·</span>
           <span class="saved">Saved to your vault</span>
         {/if}
+        {#if chat.thread && chat.thread.turns.length > 0 && !chat.streaming}
+          <button type="button" class="link branch" onclick={() => chat.branchFromLast()}>Continue in a new branch</button>
+        {/if}
       </p>
     {/if}
   </main>
@@ -126,7 +138,7 @@
   }
   .chat {
     display: grid;
-    grid-template-rows: 1fr auto auto auto auto;
+    grid-template-rows: auto 1fr auto auto auto auto;
     gap: 0.5rem;
     min-height: 0;
     max-width: 48rem;
@@ -150,6 +162,22 @@
     padding: 0.5rem 0.75rem;
     border-left: 3px solid var(--color-danger, #b3261e);
     font-size: 0.9rem;
+  }
+  .branch-note {
+    margin: 0;
+    font-size: 0.85rem;
+    opacity: 0.7;
+  }
+  .link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--color-accent, inherit);
+    cursor: pointer;
+    font: inherit;
+  }
+  .branch {
+    margin-left: auto;
   }
   .controls {
     display: flex;
