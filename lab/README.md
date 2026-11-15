@@ -18,7 +18,10 @@ above. Keep it under a page. Throwaway code lives in `lab/scripts/` or on a
 `lab/NNN-*` branch, never in `packages/` until the decision says so.
 
 Private material (exports, real conversations, keys) goes in `lab/private/`,
-which git ignores. Only redacted fixtures are ever committed.
+which git ignores. Only redacted fixtures are ever committed. `tools/privacy-check.mjs`
+blocks exports, archives, vault files and anything in `lab/private/` at commit
+(a hook `pnpm install` sets up) and in the gate. Findings from real data are
+written as counts and shapes, never quoted text.
 
 ## Index
 
