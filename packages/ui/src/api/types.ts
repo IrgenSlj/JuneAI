@@ -109,3 +109,22 @@ export type TurnFrame =
 export interface BranchRequest {
   turn: string;
 }
+
+/** One line of the receipts log: what happened and to what, never content. */
+export interface ReceiptInfo {
+  seq: number;
+  at: string;
+  kind: string;
+  actor: string;
+  targets: string[];
+  payloadHash: string;
+  meta?: { [key: string]: string | number | boolean };
+  prev: string;
+  hash: string;
+}
+
+export interface ReceiptsVerify {
+  ok: boolean;
+  count: number;
+  brokenAt?: { file: string; line: number; reason: string };
+}

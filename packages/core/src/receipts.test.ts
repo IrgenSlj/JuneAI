@@ -100,4 +100,13 @@ describe("receipts log", () => {
     expect(events.filter((e) => e.includes("held=false"))).toEqual([]);
     expect(events).toContain("append held=true");
   });
+
+  it("lists receipts after a sequence number, across months, oldest first", async () => {
+    const fs = memoryVaultFs();
+    const log = createReceiptLog(fs, { clock: clockFrom("2026-11-30T23:59:58Z") });
+    for (const i of [1, 2, 3, 4]) await log.append({ kind: "send", actor: "june", targets: [`t${i}`], payload: i });
+    expect((await log.list()).map((r) => r.seq)).toEqual([1, 2, 3, 4]);
+    expect((await log.list({ after: 2 })).map((r) => r.targets)).toEqual([["t3"], ["t4"]]);
+    expect((await log.list({ after: 0, limit: 1 })).map((r) => r.seq)).toEqual([1]);
+  });
 });

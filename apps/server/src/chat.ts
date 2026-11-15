@@ -179,8 +179,15 @@ export function createChatApi(options: ChatApiOptions) {
   }
 
   /** Handles a chat route, or returns false so the caller can 404. The token is already checked. */
-  return async function handle(req: IncomingMessage, res: ServerResponse, path: string): Promise<boolean> {
+  return async function handle(req: IncomingMessage, res: ServerResponse, path: string, query = new URLSearchParams()): Promise<boolean> {
     const method = req.method ?? "GET";
+
+    if (path === "/api/receipts" && method === "GET") {
+      const after = Number(query.get("after") ?? "0");
+      if (!Number.isInteger(after) || after < 0) throw new HttpError(400, "after must be a whole number");
+      return sendJson(res, 200, await (await vault()).receipts.list({ after })), true;
+    }
+    if (path === "/api/receipts/verify" && method === "POST") return sendJson(res, 200, await (await vault()).receipts.verify()), true;
     const parts = path.split("/").slice(2).map(decodeURIComponent); // ["providers", id?, "models"?]
 
     if (parts[0] === "providers") {

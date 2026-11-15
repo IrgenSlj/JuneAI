@@ -87,7 +87,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     if (!sameSecret(req.headers["x-june-token"], token)) throw new HttpError(401, "missing or wrong token");
     if (req.method === "GET" && path === "/api/vault") return sendJson(res, 200, vaultInfo());
     if (req.method === "POST" && path === "/api/vault/open") return sendJson(res, 200, await openVault(await readJson(req)));
-    if (await chat(req, res, path)) return;
+    if (await chat(req, res, path, new URL(req.url ?? "/", "http://localhost").searchParams)) return;
     throw new HttpError(404, "not found");
   }
 

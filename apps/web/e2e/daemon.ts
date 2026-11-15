@@ -10,6 +10,8 @@ export interface Daemon {
   token: string;
   root: string;
   stop(): void;
+  /** SIGKILL: no shutdown code runs, as in a crash or a force quit. */
+  crash(): Promise<void>;
 }
 
 /** Pass `root` to restart on the same config and vault; `env` adds variables such as OLLAMA_HOST. */
@@ -30,5 +32,15 @@ export async function startDaemon(options: { root?: string; env?: Record<string,
     });
     child.once("exit", (code) => reject(new Error(`daemon exited early with ${code}`)));
   });
-  return { origin: `http://127.0.0.1:${port}`, token, root, stop: () => void child.kill() };
+  return {
+    origin: `http://127.0.0.1:${port}`,
+    token,
+    root,
+    stop: () => void child.kill(),
+    crash: () =>
+      new Promise((resolve) => {
+        child.once("exit", () => resolve());
+        child.kill("SIGKILL");
+      }),
+  };
 }

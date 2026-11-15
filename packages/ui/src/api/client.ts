@@ -14,6 +14,8 @@ import type {
   OpenVaultRequest,
   ProviderInfo,
   PutProviderRequest,
+  ReceiptInfo,
+  ReceiptsVerify,
   SendTurnRequest,
   ThreadDetail,
   ThreadSummary,
@@ -131,6 +133,8 @@ export function createJuneClient(options: JuneClientOptions = {}) {
     threads: () => request<ThreadSummary[]>("GET", "/threads"),
     thread: (id: string) => request<ThreadDetail>("GET", `/threads/${encodeURIComponent(id)}`),
     newThread: (body: NewThreadRequest = {}) => request<ThreadSummary>("POST", "/threads", body),
+    receipts: (after = 0) => request<ReceiptInfo[]>("GET", `/receipts?after=${after}`),
+    verifyReceipts: () => request<ReceiptsVerify>("POST", "/receipts/verify"),
     branch: (id: string, body: BranchRequest) => request<ThreadSummary>("POST", `/threads/${encodeURIComponent(id)}/branch`, body),
     setToken(next: string | undefined) {
       token = next;

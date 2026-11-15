@@ -254,4 +254,16 @@ describe("threads and turns", () => {
     expect((await json<ThreadDetail>(`/api/threads/${thread.id}`)).turns).toHaveLength(2);
     expect((await call(`/api/threads/${thread.id}/branch`, { method: "POST", body: { turn: "m9" } })).status).toBe(400);
   });
+
+  it("serves the receipts log and its verification, with no message text in either", async () => {
+    const thread = await newThread();
+    await call(`/api/threads/${thread.id}/turns`, { method: "POST", body: { route: "ollama", model: "model-a", text: "very private words" } });
+    const list = await call("/api/receipts?after=0");
+    expect(list.status).toBe(200);
+    expect(list.body).not.toContain("very private words");
+    expect(JSON.parse(list.body)).toMatchObject([{ seq: 1, kind: "send", meta: { route: "ollama", model: "model-a" } }]);
+    expect(JSON.parse((await call("/api/receipts?after=1")).body)).toEqual([]);
+    expect((await call("/api/receipts?after=-1")).status).toBe(400);
+    expect(await json("/api/receipts/verify", { method: "POST" })).toEqual({ ok: true, count: 1 });
+  });
 });

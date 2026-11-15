@@ -106,6 +106,26 @@ export function createReceiptLog(fs: VaultFs, options: ReceiptLogOptions = {}) {
       return result;
     },
 
+    /** Receipts with seq above `after`, oldest first, at most `limit`. Lines that do not parse are left to verify(). */
+    async list(options: { after?: number; limit?: number } = {}): Promise<Receipt[]> {
+      const after = options.after ?? 0;
+      const limit = options.limit ?? 500;
+      const out: Receipt[] = [];
+      for (const file of await files()) {
+        for (const line of ((await fs.read(file)) ?? "").split("\n")) {
+          if (line === "") continue;
+          try {
+            const receipt = JSON.parse(line) as Receipt;
+            if (receipt.seq > after) out.push(receipt);
+          } catch {
+            // verify() reports it.
+          }
+          if (out.length >= limit) return out;
+        }
+      }
+      return out;
+    },
+
     /** Walk every line of every month and check order, links and hashes. */
     async verify(): Promise<VerifyResult> {
       let prev = GENESIS;
