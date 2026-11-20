@@ -6,6 +6,8 @@ import { join } from "node:path";
 
 export interface JuneConfig {
   vault?: string;
+  /** The route and model of the last reply that was saved, so a new conversation starts there. */
+  lastChoice?: { route: string; model: string };
 }
 
 /** Same folder the Mac app uses (Tauri's config dir for "ai.june.app"), so browser mode and the app share one vault bookmark. */
@@ -28,4 +30,20 @@ export async function writeConfig(dir: string, config: JuneConfig): Promise<void
   const tmp = join(dir, `config.json.${process.pid}.tmp`);
   await writeFile(tmp, `${JSON.stringify(config, null, 2)}\n`);
   await rename(tmp, join(dir, "config.json"));
+}
+
+let queue: Promise<unknown> = Promise.resolve();
+
+/**
+ * Merge a change into the config on disk. Writes in this process run one at a
+ * time, so two changes never race on the temporary file or drop each other.
+ */
+export function updateConfig(dir: string, patch: Partial<JuneConfig>): Promise<JuneConfig> {
+  const result = queue.then(async () => {
+    const next = { ...(await readConfig(dir)), ...patch };
+    await writeConfig(dir, next);
+    return next;
+  });
+  queue = result.catch(() => undefined);
+  return result;
 }

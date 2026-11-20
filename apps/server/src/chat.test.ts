@@ -275,4 +275,26 @@ describe("threads and turns", () => {
     expect((await call("/api/receipts?after=-1")).status).toBe(400);
     expect(await json("/api/receipts/verify", { method: "POST" })).toEqual({ ok: true, count: 1 });
   });
+
+  it("remembers the route and model of the last saved reply, across a restart", async () => {
+    expect(await json("/api/settings")).toEqual({});
+    const thread = await newThread();
+    await call(`/api/threads/${thread.id}/turns`, { method: "POST", body: { route: "ollama", model: "model-b", text: "hi" } });
+    expect(await json("/api/settings")).toEqual({ lastChoice: { route: "ollama", model: "model-b" } });
+    await server.close();
+    await start();
+    expect(await json("/api/settings")).toEqual({ lastChoice: { route: "ollama", model: "model-b" } });
+    // Opening the vault again keeps the setting: config changes merge, they do not replace.
+    expect((await call("/api/vault")).body).toContain(vault.split("/").at(-1) ?? "");
+    await json("/api/vault/open", { method: "POST", body: { path: vault } });
+    expect(await json("/api/settings")).toEqual({ lastChoice: { route: "ollama", model: "model-b" } });
+  });
+
+  it("does not remember a choice whose reply failed", async () => {
+    network.online = false;
+    await secrets.set("route:openai", "sk-live-abc");
+    const thread = await newThread();
+    await call(`/api/threads/${thread.id}/turns`, { method: "POST", body: { route: "openai", model: "gpt-x", text: "hi" } });
+    expect(await json("/api/settings")).toEqual({});
+  });
 });

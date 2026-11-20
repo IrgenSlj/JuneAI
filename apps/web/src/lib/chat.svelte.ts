@@ -13,27 +13,6 @@ interface Choice {
   model: string;
 }
 
-// The last route and model used, kept in this browser as a convenience. The
-// conversation files hold the real record; losing this only means a default.
-const LAST_CHOICE = "june.lastModel";
-
-function readLastChoice(): Choice | undefined {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(LAST_CHOICE) ?? "null") as Partial<Choice> | null;
-    return typeof parsed?.route === "string" && typeof parsed.model === "string" ? { route: parsed.route, model: parsed.model } : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function writeLastChoice(choice: Choice): void {
-  try {
-    localStorage.setItem(LAST_CHOICE, JSON.stringify(choice));
-  } catch {
-    // Storage blocked (private window): the next load starts on the default.
-  }
-}
-
 /** The route and model of the conversation's last reply, if any. */
 function lastChoiceIn(thread: ThreadDetail): Choice | undefined {
   const reply = thread.turns.findLast((t) => t.role === "assistant" && t.route !== undefined && t.model !== undefined);
@@ -83,10 +62,10 @@ class Chat {
 
   async load(): Promise<void> {
     try {
-      const [routes, threads] = await Promise.all([session.client.providers(), session.client.threads()]);
+      const [routes, threads, settings] = await Promise.all([session.client.providers(), session.client.threads(), session.client.settings()]);
       this.routes = routes;
       this.threads = threads;
-      if (!(await this.choose(readLastChoice()))) {
+      if (!(await this.choose(settings.lastChoice))) {
         const first = routes.find((p) => p.ready && p.route.kind === "local") ?? routes.find((p) => p.ready);
         if (first !== undefined) await this.pickRoute(first.route.id);
       }
@@ -182,7 +161,6 @@ class Chat {
         } else if (frame.type === "saved") this.savedTurn = frame.assistantTurn;
         else if (frame.type === "error") this.error = frame.message;
       }
-      if (this.savedTurn !== undefined) writeLastChoice({ route: route.id, model: this.model });
       // The file is the truth: show what the vault now holds, not what streamed.
       this.streaming = false;
       await this.open(threadId);

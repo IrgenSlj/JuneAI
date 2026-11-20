@@ -130,3 +130,8 @@ export interface ReceiptsVerify {
   count: number;
   brokenAt?: { file: string; line: number; reason: string };
 }
+
+/** GET /api/settings. The transparency level joins in M3. */
+export interface Settings {
+  lastChoice?: { route: string; model: string };
+}

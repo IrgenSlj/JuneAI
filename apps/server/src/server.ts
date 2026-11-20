@@ -11,7 +11,7 @@ import type { SecretStore } from "@june/core";
 import { platformSecretStore } from "@june/node";
 import type { FetchLike } from "@june/providers";
 import { createChatApi } from "./chat.js";
-import { readConfig, writeConfig } from "./config.js";
+import { readConfig, updateConfig } from "./config.js";
 import { HttpError, readJson, sameSecret, securityHeaders, sendJson } from "./http.js";
 import { createStaticHandler } from "./static.js";
 
@@ -57,7 +57,16 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const serveStatic = options.staticDir === undefined ? undefined : createStaticHandler(options.staticDir);
   let vault = (await readConfig(options.configDir)).vault ?? null;
   let allowedHosts = new Set<string>();
-  const chat = createChatApi({ vaultPath: () => vault, secrets: options.secrets ?? platformSecretStore(), fetch: options.fetch ?? globalFetch, ...(options.ollamaUrl === undefined ? {} : { ollamaUrl: options.ollamaUrl }) });
+  const chat = createChatApi({
+    vaultPath: () => vault,
+    settings: async () => {
+      const { lastChoice } = await readConfig(options.configDir);
+      return lastChoice === undefined ? {} : { lastChoice };
+    },
+    onSaved: async (lastChoice) => void (await updateConfig(options.configDir, { lastChoice })),
+    secrets: options.secrets ?? platformSecretStore(), fetch: options.fetch ?? globalFetch,
+    ...(options.ollamaUrl === undefined ? {} : { ollamaUrl: options.ollamaUrl }),
+  });
 
   const expandHome = (path: string): string => (path === "~" ? home : path.startsWith("~/") ? join(home, path.slice(2)) : path);
   const vaultInfo = (): VaultInfo => ({ path: vault, defaultPath: join(home, "June") });
@@ -75,7 +84,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       await mkdir(target, { recursive: true });
     }
     vault = target;
-    await writeConfig(options.configDir, { vault });
+    await updateConfig(options.configDir, { vault });
     return vaultInfo();
   }
 

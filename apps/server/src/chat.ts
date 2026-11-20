@@ -27,6 +27,7 @@ import type {
   ProviderInfo,
   PutProviderRequest,
   SendTurnRequest,
+  Settings,
   ThreadDetail,
   ThreadSummary,
   TurnFrame,
@@ -49,6 +50,10 @@ export interface ChatApiOptions {
   fetch: FetchLike;
   /** Ollama's base URL when OLLAMA_HOST moved it (loopback only). */
   ollamaUrl?: string;
+  /** The daemon's settings, for GET /api/settings. */
+  settings(): Promise<Settings>;
+  /** Called after a reply is saved, with the route and model that produced it. */
+  onSaved(choice: { route: string; model: string }): Promise<void>;
 }
 
 const secretAccount = (routeId: string): string => `route:${routeId}`;
@@ -179,6 +184,7 @@ export function createChatApi(options: ChatApiOptions) {
       for await (const event of runTurn({ fs, receipts, lock, provider: chosen }, { path, model: body.model, text: body.text, signal: abort.signal })) {
         if (abort.signal.aborted) break;
         if (event.type === "saved") {
+          await options.onSaved({ route: chosen.route.id, model: body.model }).catch((error: unknown) => console.error(error));
           send({ type: "saved", threadId: event.threadId, userTurn: event.userTurn, assistantTurn: event.assistantTurn, receipt: event.receipt });
         } else {
           send(event);
@@ -194,6 +200,7 @@ export function createChatApi(options: ChatApiOptions) {
   return async function handle(req: IncomingMessage, res: ServerResponse, path: string, query = new URLSearchParams()): Promise<boolean> {
     const method = req.method ?? "GET";
 
+    if (path === "/api/settings" && method === "GET") return sendJson(res, 200, await options.settings()), true;
     if (path === "/api/receipts" && method === "GET") {
       const after = Number(query.get("after") ?? "0");
       if (!Number.isInteger(after) || after < 0) throw new HttpError(400, "after must be a whole number");
