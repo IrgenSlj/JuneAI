@@ -6,9 +6,11 @@
     messages: ChatMessage[];
     streaming?: boolean;
     onVote?: (ref: string, vote: "up" | "down" | "clear") => void | Promise<void>;
+    /** Offered on each saved reply (ids not starting with "pending-") while nothing streams. */
+    onBranch?: (id: string) => void;
   }
 
-  const { messages, streaming = false, onVote }: Props = $props();
+  const { messages, streaming = false, onVote, onBranch }: Props = $props();
   const lastId = $derived(messages[messages.length - 1]?.id);
 
   let scrollEl: HTMLDivElement | undefined = $state();
@@ -54,6 +56,7 @@
       provenance={message.provenance}
       pending={streaming && message.id === lastId}
       {onVote}
+      onBranch={onBranch && !streaming && !message.id.startsWith("pending-") ? () => onBranch(message.id) : undefined}
     />
   {/each}
   {#if !pinned && messages.length > 0}

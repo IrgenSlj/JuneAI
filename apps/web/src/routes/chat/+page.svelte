@@ -47,7 +47,7 @@
           {/if}
         </p>
       {:else}
-        <MessageList messages={chat.messages} streaming={chat.streaming} />
+        <MessageList messages={chat.messages} streaming={chat.streaming} onBranch={(id) => chat.branchAt(id)} />
       {/if}
     </section>
 
@@ -92,9 +92,6 @@
         {#if chat.savedTurn && !chat.streaming}
           <span aria-hidden="true">·</span>
           <span class="saved">Saved to your vault</span>
-        {/if}
-        {#if chat.thread && chat.thread.turns.length > 0 && !chat.streaming}
-          <button type="button" class="link branch" onclick={() => chat.branchFromLast()}>Continue in a new branch</button>
         {/if}
       </p>
     {/if}
@@ -175,9 +172,6 @@
     color: var(--color-accent, inherit);
     cursor: pointer;
     font: inherit;
-  }
-  .branch {
-    margin-left: auto;
   }
   .controls {
     display: flex;

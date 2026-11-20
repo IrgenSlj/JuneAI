@@ -63,7 +63,7 @@ test("chat with a local model: streams, says where it went, saves to the vault, 
   await expect(page.getByText("Around 12k, appliances included.")).toBeVisible();
 
   // Branch: the history comes along, the original stays as it was.
-  await page.getByRole("button", { name: "Continue in a new branch" }).click();
+  await page.getByRole("button", { name: "Branch from here" }).click();
   await expect(nav.getByText("What should a 12 m2 kitchen cost? (branch)")).toBeVisible();
   await expect(page.getByText("Branched from")).toBeVisible();
   await expect(page.getByText("Around 12k, appliances included.")).toBeVisible();

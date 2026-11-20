@@ -27,6 +27,8 @@
      * through to the server and is responsible for any error UI.
      */
     onVote?: undefined | ((ref: string, vote: "up" | "down" | "clear") => void | Promise<void>);
+    /** Continue from this reply as a new conversation; shown only when set. */
+    onBranch?: (() => void) | undefined;
     /** Model provenance for this assistant turn. */
     provenance?: { provider?: string; model?: string; tier?: string; latency_ms?: number; cloud_call?: boolean; cloud_payload_summary?: string; memories_recalled?: number; memories_written?: number; skills_called?: string[]; rationale?: string; difficulty?: string; difficulty_source?: string } | undefined;
   }
@@ -39,6 +41,7 @@
     recallHits = [],
     memoryHref = "/memory",
     onVote,
+    onBranch,
     provenance,
   }: Props = $props();
 
@@ -137,6 +140,9 @@
     >
       {copied ? "Copied" : "Copy"}
     </button>
+  {/if}
+  {#if onBranch && role === "assistant" && !pending}
+    <button type="button" class="branch" onclick={onBranch}>Branch from here</button>
   {/if}
   {#if hasRecall}
     <details class="recall">
@@ -258,6 +264,21 @@
     white-space: normal;
   }
 
+  .branch {
+    align-self: flex-start;
+    margin-top: var(--space-1);
+    padding: 0;
+    font-size: var(--size-xs);
+    font-family: var(--font-sans);
+    color: var(--color-fg-subtle);
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  .branch:hover,
+  .branch:focus-visible {
+    color: var(--color-accent);
+  }
   .copy {
     position: absolute;
     top: var(--space-2);
