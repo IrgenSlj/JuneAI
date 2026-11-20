@@ -20,7 +20,7 @@ export async function startFakeOllama(reply: string[]): Promise<FakeOllama> {
       requests.push({ path: req.url ?? "", body });
       if (req.url === "/v1/models") {
         res.writeHead(200, { "content-type": "application/json" });
-        return res.end(JSON.stringify({ data: [{ id: "llama-test" }] }));
+        return res.end(JSON.stringify({ data: [{ id: "llama-test" }, { id: "qwen-test" }] }));
       }
       if (req.url === "/v1/chat/completions") {
         res.writeHead(200, { "content-type": "text/event-stream" });

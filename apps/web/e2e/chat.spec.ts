@@ -75,6 +75,27 @@ test("chat with a local model: streams, says where it went, saves to the vault, 
   expect(original).not.toContain("And with an island?");
 });
 
+test("each conversation reopens on the model it was using, and a new one starts on the last model used", async ({ page }) => {
+  await page.goto(`${daemon.origin}/#token=${daemon.token}`);
+  await expect(page).toHaveURL(/\/chat$/);
+  const model = page.getByLabel("Model");
+  await page.getByRole("button", { name: "New conversation" }).click();
+  await model.selectOption("qwen-test");
+  await page.getByLabel("Message June").fill("A question for qwen");
+  await page.getByRole("button", { name: "Send message" }).click();
+  await expect(page.getByText("Saved to your vault")).toBeVisible();
+
+  await model.selectOption("llama-test");
+  const nav = page.getByRole("navigation", { name: "Conversations" });
+  await nav.getByText("What should a 12 m2 kitchen cost?", { exact: true }).click();
+  await expect(model).toHaveValue("llama-test");
+  await nav.getByText("A question for qwen", { exact: true }).click();
+  await expect(model).toHaveValue("qwen-test");
+
+  await page.reload();
+  await expect(page.getByLabel("Model")).toHaveValue("qwen-test");
+});
+
 test("the chat page runs under the strict CSP without a single violation", () => {
   expect(cspViolations).toEqual([]);
 });

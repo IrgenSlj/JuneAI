@@ -8,6 +8,38 @@ import type { ChatMessage } from "@june/ui";
 import { ApiError, type ProviderInfo, type RouteInfo, type SendLabelInfo, type ThreadDetail, type ThreadSummary, type TurnInfo } from "@june/ui/api";
 import { session } from "./session.svelte.js";
 
+interface Choice {
+  route: string;
+  model: string;
+}
+
+// The last route and model used, kept in this browser as a convenience. The
+// conversation files hold the real record; losing this only means a default.
+const LAST_CHOICE = "june.lastModel";
+
+function readLastChoice(): Choice | undefined {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(LAST_CHOICE) ?? "null") as Partial<Choice> | null;
+    return typeof parsed?.route === "string" && typeof parsed.model === "string" ? { route: parsed.route, model: parsed.model } : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeLastChoice(choice: Choice): void {
+  try {
+    localStorage.setItem(LAST_CHOICE, JSON.stringify(choice));
+  } catch {
+    // Storage blocked (private window): the next load starts on the default.
+  }
+}
+
+/** The route and model of the conversation's last reply, if any. */
+function lastChoiceIn(thread: ThreadDetail): Choice | undefined {
+  const reply = thread.turns.findLast((t) => t.role === "assistant" && t.route !== undefined && t.model !== undefined);
+  return reply?.route !== undefined && reply.model !== undefined ? { route: reply.route, model: reply.model } : undefined;
+}
+
 const errorText = (error: unknown): string => (error instanceof ApiError ? error.reason : error instanceof Error ? error.message : String(error));
 
 /** Routes grouped the way the model switcher shows them (PLAN.md, design brief frame 1). */
@@ -54,22 +86,35 @@ class Chat {
       const [routes, threads] = await Promise.all([session.client.providers(), session.client.threads()]);
       this.routes = routes;
       this.threads = threads;
-      const first = routes.find((p) => p.ready && p.route.kind === "local") ?? routes.find((p) => p.ready);
-      if (first !== undefined) await this.pickRoute(first.route.id);
+      if (!(await this.choose(readLastChoice()))) {
+        const first = routes.find((p) => p.ready && p.route.kind === "local") ?? routes.find((p) => p.ready);
+        if (first !== undefined) await this.pickRoute(first.route.id);
+      }
     } catch (error) {
       this.error = errorText(error);
     }
   }
 
-  async pickRoute(id: string): Promise<void> {
-    this.routeId = id;
-    this.models = [];
-    try {
-      this.models = (await session.client.models(id)).models;
-    } catch {
-      // No list (the route is down, or lists nothing): the model can still be typed.
+  /** Switch to a route, and to `wanted` if that route offers it (or lists nothing, so any name is typed). */
+  async pickRoute(id: string, wanted?: string): Promise<void> {
+    if (this.routeId !== id) {
+      this.routeId = id;
+      this.models = [];
+      try {
+        this.models = (await session.client.models(id)).models;
+      } catch {
+        // No list (the route is down, or lists nothing): the model can still be typed.
+      }
     }
-    if (!this.models.includes(this.model)) this.model = this.models[0] ?? "";
+    if (wanted !== undefined && (this.models.length === 0 || this.models.includes(wanted))) this.model = wanted;
+    else if (!this.models.includes(this.model)) this.model = this.models[0] ?? "";
+  }
+
+  /** Use a remembered choice if its route is usable now. Returns whether it did. */
+  private async choose(choice: Choice | undefined): Promise<boolean> {
+    if (choice === undefined || !this.ready.some((p) => p.route.id === choice.route)) return false;
+    await this.pickRoute(choice.route, choice.model);
+    return true;
   }
 
   async open(id: string): Promise<void> {
@@ -77,6 +122,7 @@ class Chat {
     try {
       this.thread = await session.client.thread(id);
       this.messages = this.thread.turns.map((t) => toMessage(t, this.routes));
+      if (!this.streaming) await this.choose(lastChoiceIn(this.thread));
       this.label = undefined;
       this.savedTurn = undefined;
       this.error = undefined;
@@ -137,7 +183,9 @@ class Chat {
         } else if (frame.type === "saved") this.savedTurn = frame.assistantTurn;
         else if (frame.type === "error") this.error = frame.message;
       }
+      if (this.savedTurn !== undefined) writeLastChoice({ route: route.id, model: this.model });
       // The file is the truth: show what the vault now holds, not what streamed.
+      this.streaming = false;
       await this.open(threadId);
       this.savedTurn = this.error === undefined ? this.messages.at(-1)?.id : undefined;
     } catch (error) {
