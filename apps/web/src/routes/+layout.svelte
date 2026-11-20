@@ -38,7 +38,7 @@
     <header>
       <a class="wordmark" href="/chat">June</a>
       {#if session.vault?.path}
-        <span class="vault" title={session.vault.path}>{session.vault.path}</span>
+        <span class="vault" title={session.vault.path}>{session.vault.path.split(/[\\/]/).filter(Boolean).at(-1)}</span>
         <a class="nav" href="/settings">Settings</a>
       {/if}
     </header>

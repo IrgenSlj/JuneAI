@@ -41,6 +41,66 @@ a:hover {
   text-decoration: underline;
 }
 
+/* Controls. One quiet look for every native control, from the design
+ * tokens, in light and dark. `.primary` marks the one main action on a page;
+ * `.quiet` is a text-like button. */
+button,
+input,
+select {
+  color: var(--color-fg-primary);
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  line-height: var(--leading-tight);
+  transition:
+    border-color var(--motion-fast, 120ms) var(--ease, ease),
+    background var(--motion-fast, 120ms) var(--ease, ease);
+}
+input,
+select {
+  padding: var(--space-2) var(--space-3);
+}
+input::placeholder {
+  color: var(--color-fg-subtle);
+}
+input:hover,
+select:hover {
+  border-color: var(--color-fg-subtle);
+}
+button {
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+}
+button:hover:not(:disabled) {
+  background: var(--color-bg-sunken);
+}
+button:disabled,
+input:disabled,
+select:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+button.primary {
+  color: var(--color-accent-ink);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  font-weight: 600;
+}
+button.primary:hover:not(:disabled) {
+  background: var(--color-accent);
+  filter: brightness(1.06);
+}
+button.quiet {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-fg-muted);
+}
+button.quiet:hover:not(:disabled) {
+  background: none;
+  color: var(--color-accent);
+}
+
 /* Keyboard focus indicator. Applies only when focus arrives via keyboard,
  * so mouse clicks don't leave rings behind. Elements that need a
  * different look (e.g. the composer textarea) opt out locally. */

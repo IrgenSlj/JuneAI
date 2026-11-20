@@ -15,7 +15,7 @@
 
 <div class="layout">
   <nav class="threads" aria-label="Conversations">
-    <button type="button" class="new" onclick={() => chat.startNew()} disabled={chat.streaming}>New conversation</button>
+    <button type="button" class="new primary" onclick={() => chat.startNew()} disabled={chat.streaming}>New conversation</button>
     <ul>
       {#each chat.threads as thread (thread.id)}
         <li>
@@ -55,46 +55,43 @@
       <p class="error" role="alert">{chat.error}</p>
     {/if}
 
-    <div class="controls">
-      <select value={chat.routeId} onchange={(e) => chat.pickRoute(e.currentTarget.value)} disabled={chat.streaming || groups.length === 0} aria-label="Route">
-          {#each groups as group (group.name)}
-            <optgroup label={group.name}>
-              {#each group.routes as p (p.route.id)}
-                <option value={p.route.id}>{p.route.name}</option>
-              {/each}
-            </optgroup>
-          {/each}
+    <Composer streaming={chat.streaming} disabled={chat.route === undefined || chat.model === ""} {placeholder} onSubmit={(text) => chat.send(text)} onCancel={() => chat.stop()} />
+
+    <div class="glance" aria-label="Where this message goes">
+      <select class="pick" value={chat.routeId} onchange={(e) => chat.pickRoute(e.currentTarget.value)} disabled={chat.streaming || groups.length === 0} aria-label="Route">
+        {#if groups.length === 0}<option value={undefined}>No model connected</option>{/if}
+        {#each groups as group (group.name)}
+          <optgroup label={group.name}>
+            {#each group.routes as p (p.route.id)}
+              <option value={p.route.id}>{p.route.name}</option>
+            {/each}
+          </optgroup>
+        {/each}
       </select>
       {#if chat.models.length > 0}
-        <select bind:value={chat.model} disabled={chat.streaming} aria-label="Model">
+        <select class="pick" bind:value={chat.model} disabled={chat.streaming} aria-label="Model">
           {#each chat.models as model (model)}
             <option value={model}>{model}</option>
           {/each}
         </select>
       {:else if chat.route}
-        <input bind:value={chat.model} placeholder="Model name" aria-label="Model" disabled={chat.streaming} />
+        <input class="pick" bind:value={chat.model} placeholder="model name" aria-label="Model" disabled={chat.streaming} />
       {/if}
-    </div>
-
-    <Composer streaming={chat.streaming} disabled={chat.route === undefined || chat.model === ""} {placeholder} onSubmit={(text) => chat.send(text)} onCancel={() => chat.stop()} />
-
-    {#if chat.route}
-      <p class="glance" aria-label="Where this message goes">
-        <span>{chat.model || "no model"}</span>
-        <span aria-hidden="true">·</span>
-        <span>{chat.route.name}</span>
+      {#if chat.route}
         <span aria-hidden="true">·</span>
         {#if chat.route.leavesDevice}
           <span class="leaves">leaves this Mac for {chat.route.host}</span>
         {:else}
           <span class="stays">stays on this Mac</span>
         {/if}
-        {#if chat.savedTurn && !chat.streaming}
-          <span aria-hidden="true">·</span>
-          <span class="saved">Saved to your vault</span>
-        {/if}
-      </p>
-    {/if}
+      {:else}
+        <a href="/settings">Connect a model</a>
+      {/if}
+      {#if chat.savedTurn && !chat.streaming}
+        <span aria-hidden="true">·</span>
+        <span class="saved">Saved to your vault</span>
+      {/if}
+    </div>
   </main>
 </div>
 
@@ -119,23 +116,27 @@
     text-align: left;
     background: none;
     border: none;
-    color: inherit;
-    padding: 0.4rem 0.5rem;
-    border-radius: 6px;
+    color: var(--color-fg-secondary);
+    padding: 0.45rem 0.6rem;
+    border-radius: var(--radius-md);
     cursor: pointer;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .threads li button:hover:not(:disabled) {
+    background: var(--color-bg-sunken);
+  }
   .threads li button.active {
-    background: var(--color-surface-2, rgba(127, 127, 127, 0.12));
+    background: var(--color-bg-sunken);
+    color: var(--color-fg-primary);
   }
   .new {
     width: 100%;
   }
   .chat {
-    display: grid;
-    grid-template-rows: auto 1fr auto auto auto auto;
+    display: flex;
+    flex-direction: column;
     gap: 0.5rem;
     min-height: 0;
     max-width: 48rem;
@@ -144,6 +145,7 @@
     padding: 1rem 1.25rem;
   }
   .messages {
+    flex: 1;
     overflow-y: auto;
     min-height: 0;
     display: flex;
@@ -173,17 +175,35 @@
     cursor: pointer;
     font: inherit;
   }
-  .controls {
-    display: flex;
-    gap: 0.5rem;
-  }
   .glance {
     margin: 0;
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 0.35rem;
-    font-size: 0.8rem;
-    opacity: 0.7;
+    font-size: var(--size-xs);
+    color: var(--color-fg-muted);
+  }
+  .pick {
+    padding: 2px 4px;
+    font-size: var(--size-xs);
+    color: var(--color-fg-secondary);
+    background: transparent;
+    border-color: transparent;
+    border-radius: var(--radius-sm);
+    max-width: 16rem;
+  }
+  .pick:hover:not(:disabled) {
+    border-color: var(--color-border-strong);
+  }
+  input.pick {
+    width: 9rem;
+  }
+  .stays {
+    color: var(--color-success);
+  }
+  .saved {
+    color: var(--color-fg-secondary);
   }
   @media (max-width: 40rem) {
     .layout {

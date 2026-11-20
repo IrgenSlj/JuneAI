@@ -38,7 +38,8 @@ test("first run: pick a vault, land on an empty chat, keep the session on reload
 
   await expect(page).toHaveURL(/\/chat$/);
   await expect(page.getByText("No model is connected. Start Ollama or LM Studio on this Mac, or add an API key in Settings.")).toBeVisible();
-  await expect(page.getByText(vault)).toBeVisible();
+  // The header names the folder; the full path is in its tooltip.
+  await expect(page.getByTitle(vault)).toHaveText("My Vault");
   expect((await stat(vault)).isDirectory()).toBe(true);
 
   await page.reload();

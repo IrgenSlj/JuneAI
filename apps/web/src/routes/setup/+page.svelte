@@ -42,7 +42,7 @@
         <button type="button" onclick={browse} disabled={busy}>Choose…</button>
       {/if}
     </div>
-    <button type="submit" disabled={busy || path.trim() === ""}>Use this folder</button>
+    <button type="submit" class="primary" disabled={busy || path.trim() === ""}>Use this folder</button>
     {#if error}<p class="error" role="alert">{error}</p>{/if}
   </form>
 </main>

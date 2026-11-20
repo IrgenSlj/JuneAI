@@ -232,7 +232,11 @@
     align-self: flex-end;
     align-items: flex-end;
   }
-  .turn[data-role="assistant"],
+  .turn[data-role="assistant"] {
+    max-width: 100%;
+    align-self: stretch;
+    align-items: flex-start;
+  }
   .turn[data-role="tool"] {
     align-self: flex-start;
     align-items: flex-start;
@@ -312,14 +316,11 @@
     padding: 13px 17px;
   }
 
+  /* Replies read like a page, not a chat balloon: full width, no box. */
   .bubble[data-role="assistant"] {
-    background: var(--color-bg-raised);
+    width: 100%;
     color: var(--color-fg-primary);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-bubble);
-    border-bottom-left-radius: 5px;
-    padding: 13px 17px;
-    box-shadow: 0 1px 0 var(--color-border);
+    padding: 2px 4px;
   }
 
   .bubble[data-role="tool"] {

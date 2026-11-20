@@ -64,7 +64,7 @@
                 placeholder={p.ready ? "Replace the stored key" : "Paste an API key"}
                 bind:value={drafts[p.route.id]}
               />
-              <button type="submit" disabled={busy !== undefined || (drafts[p.route.id] ?? "").trim() === ""}>Save</button>
+              <button type="submit" class="primary" disabled={busy !== undefined || (drafts[p.route.id] ?? "").trim() === ""}>Save</button>
               {#if p.ready}
                 <button type="button" disabled={busy !== undefined} onclick={() => save(p.route.id, null)}>Remove</button>
               {/if}

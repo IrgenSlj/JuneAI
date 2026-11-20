@@ -157,6 +157,8 @@
     justify-content: center;
     width: 38px;
     height: 38px;
+    padding: 0;
+    color: var(--color-accent-ink);
     border-radius: var(--radius-md);
     background: var(--color-accent);
   }
