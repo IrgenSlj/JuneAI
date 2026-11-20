@@ -45,3 +45,30 @@ test("a reply renders as Markdown, and its HTML stays inert text", async ({ page
   expect(await page.evaluate(() => (window as unknown as { pwned?: number }).pwned)).toBeUndefined();
   expect(outbound).toEqual([]);
 });
+
+test("in the Mac app, a link in a reply opens in the browser through the opener, not in June's window", async ({ page }) => {
+  // Stand in for the Tauri bridge, recording what the page asks the shell to do.
+  await page.addInitScript(() => {
+    const calls: unknown[] = [];
+    (window as unknown as { __calls: unknown[] }).__calls = calls;
+    (window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = {
+      invoke: (cmd: string, args: unknown) => {
+        calls.push({ cmd, args });
+        return Promise.resolve(null);
+      },
+      transformCallback: () => 0,
+    };
+  });
+  await page.goto(`${daemon.origin}/#token=${daemon.token}`);
+  const nav = page.getByRole("navigation", { name: "Conversations" });
+  await nav.getByText("Plan the kitchen", { exact: true }).click();
+  const before = page.context().pages().length;
+  await page.locator('[data-role="assistant"]').last().getByRole("link", { name: "docs" }).click();
+  await expect
+    .poll(() => page.evaluate(() => JSON.stringify((window as unknown as { __calls: unknown[] }).__calls)))
+    .toContain("https://example.com");
+  const calls = await page.evaluate(() => JSON.stringify((window as unknown as { __calls: unknown[] }).__calls));
+  expect(calls).toContain("opener");
+  expect(page.context().pages().length).toBe(before);
+  expect(page.url()).toContain(daemon.origin);
+});
