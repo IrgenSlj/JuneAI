@@ -31,7 +31,8 @@ written as counts and shapes, never quoted text.
 | [002](002-subscriptions.md) | Can June serve the vault read-only to other assistants over MCP? | Open; now part of M7 (subscriptions are reached through official routes in M4 instead) |
 | [004](004-sqlite-fts5.md) | Does the pinned Node build's `node:sqlite` include FTS5? | Done: yes; use a trigram index, because word search misses compounds like "Küchenbudget" |
 | [005](005-data-notes.md) | What does each remote route do with what June sends? | Done 2026-11-15: notes on every preset; Zen's free models no longer work outside OpenCode (founder question) |
-| [006](006-free-route.md) | What should "free" mean now that Zen's free models are closed to June? | Proposed: local or a key, no separate free gateway; founder decides |
+| [006](006-free-route.md) | What should "free" mean now that Zen's free models are closed to June? | Decided: first run is "run a model on this Mac" or "use a key"; no separate free gateway; OpenCode dropped |
+| [007](007-claude-cli-policy.md) | May June answer through the user's own `claude` CLI and subscription? | Done 2026-11-20: not verifiable as permitted; the route does not ship without Anthropic's written permission |
 | [003](003-business-model.md) | How does June make money without breaking the privacy promise? | Open: founder picks the first hypothesis |
 
 ## Idea backlog
