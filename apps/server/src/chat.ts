@@ -112,13 +112,25 @@ export function createChatApi(options: ChatApiOptions) {
     throw new HttpError(404, "no such thread");
   }
 
+  /** Whether a local server answers. A closed port fails in a millisecond; the timeout covers a hung one. */
+  async function answers(baseUrl: string): Promise<boolean> {
+    try {
+      const res = await options.fetch(`${baseUrl}/models`, { method: "GET", headers: {}, signal: AbortSignal.timeout(800) });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
   async function providers(): Promise<ProviderInfo[]> {
     return Promise.all(
-      presets.map(async (p) => ({
-        route: p.route,
-        needsKey: p.needsKey,
-        ready: !p.needsKey || (await options.secrets.get(secretAccount(p.route.id))) !== undefined,
-      })),
+      presets.map(async (p): Promise<ProviderInfo> => {
+        if (p.route.kind === "local") {
+          const running = await answers(p.baseUrl);
+          return { route: p.route, needsKey: false, ready: running, running };
+        }
+        return { route: p.route, needsKey: p.needsKey, ready: !p.needsKey || (await options.secrets.get(secretAccount(p.route.id))) !== undefined };
+      }),
     );
   }
 

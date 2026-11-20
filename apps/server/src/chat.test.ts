@@ -17,7 +17,7 @@ let root: string;
 let vault: string;
 let secrets: SecretStore;
 let server: RunningServer;
-let network: { online: boolean; sent: { url: string; headers: Record<string, string>; body?: string }[]; hold?: Promise<void> };
+let network: { online: boolean; localDown?: boolean; sent: { url: string; headers: Record<string, string>; body?: string }[]; hold?: Promise<void> };
 
 const encoder = new TextEncoder();
 function sse(...frames: unknown[]): AsyncIterable<Uint8Array> {
@@ -31,6 +31,7 @@ const fakeFetch: FetchLike = async (url, init) => {
   network.sent.push({ url, headers: init.headers, ...(init.body === undefined ? {} : { body: init.body }) });
   const local = new URL(url).hostname === "localhost";
   if (!network.online && !local) throw new TypeError("fetch failed");
+  if (local && network.localDown === true) throw new TypeError("fetch failed: connect ECONNREFUSED");
   if (url.endsWith("/models")) {
     return { ok: true, status: 200, text: async () => JSON.stringify({ data: [{ id: "model-b" }, { id: "model-a" }] }), body: null };
   }
@@ -113,6 +114,14 @@ describe("providers API", () => {
     const byId = Object.fromEntries(list.map((p) => [p.route.id, p]));
     expect(byId.ollama).toMatchObject({ needsKey: false, ready: true, route: { leavesDevice: false } });
     expect(byId.openai).toMatchObject({ needsKey: true, ready: false, route: { leavesDevice: true, host: "api.openai.com" } });
+  });
+
+  it("says a local route is not ready when nothing answers on its port", async () => {
+    network.localDown = true;
+    const list = await json<ProviderInfo[]>("/api/providers");
+    expect(list.find((p) => p.route.id === "ollama")).toMatchObject({ needsKey: false, ready: false, running: false });
+    network.localDown = false;
+    expect((await json<ProviderInfo[]>("/api/providers")).find((p) => p.route.id === "ollama")).toMatchObject({ ready: true, running: true });
   });
 
   it("stores a key in the secret store, never echoes it, and removes it", async () => {

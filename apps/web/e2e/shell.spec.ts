@@ -9,7 +9,8 @@ let daemon: Daemon;
 const cspViolations: string[] = [];
 
 test.beforeAll(async () => {
-  daemon = await startDaemon();
+  // Port 9 (discard) has no Ollama, on this Mac or in CI, so the empty state is the same everywhere.
+  daemon = await startDaemon({ env: { OLLAMA_HOST: "127.0.0.1:9" } });
 });
 test.afterAll(() => daemon.stop());
 
@@ -36,12 +37,12 @@ test("first run: pick a vault, land on an empty chat, keep the session on reload
   await page.getByRole("button", { name: "Use this folder" }).click();
 
   await expect(page).toHaveURL(/\/chat$/);
-  await expect(page.getByText("No conversation yet")).toBeVisible();
+  await expect(page.getByText("No model is connected. Start Ollama or LM Studio on this Mac, or add an API key in Settings.")).toBeVisible();
   await expect(page.getByText(vault)).toBeVisible();
   expect((await stat(vault)).isDirectory()).toBe(true);
 
   await page.reload();
-  await expect(page.getByText("No conversation yet")).toBeVisible();
+  await expect(page.getByText("No model is connected")).toBeVisible();
 });
 
 test("the page runs under the strict CSP without a single violation", () => {

@@ -40,8 +40,10 @@ export interface RouteInfo {
 export interface ProviderInfo {
   route: RouteInfo;
   needsKey: boolean;
-  /** A key is stored (always true for routes that need none). */
+  /** Usable now: a key is stored, or (for a local route) its server answers. */
   ready: boolean;
+  /** Local routes only: whether the server on this Mac answered just now. */
+  running?: boolean;
 }
 
 /** PUT /api/providers/:id. A string stores the key in the keychain; null removes it. */

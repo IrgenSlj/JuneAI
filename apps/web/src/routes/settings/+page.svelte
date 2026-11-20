@@ -48,9 +48,12 @@
           <header>
             <strong>{p.route.name}</strong>
             <span class="where">{p.route.leavesDevice ? `sends to ${p.route.host}` : "stays on this Mac"}</span>
-            <span class="state" class:ok={p.ready}>{p.needsKey ? (p.ready ? "Key stored" : "No key") : "No key needed"}</span>
+            <span class="state" class:ok={p.ready}>{p.needsKey ? (p.ready ? "Key stored" : "No key") : p.running ? "Running" : "Not running"}</span>
           </header>
           <p class="note">Data practice: {p.route.dataNote === "unknown" ? "not yet checked by June" : p.route.dataNote}</p>
+          {#if p.route.kind === "local" && !p.running}
+            <p class="note">Start {p.route.name.replace(" (this Mac)", "")} on this Mac, then reload this page.</p>
+          {/if}
           {#if p.needsKey}
             <form onsubmit={(e) => { e.preventDefault(); void save(p.route.id, drafts[p.route.id] ?? ""); }}>
               <input
