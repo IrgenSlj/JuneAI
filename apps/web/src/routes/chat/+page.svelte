@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Composer, MessageList } from "@june/ui";
+  import { getPlatform } from "@june/ui/platform";
   import { onMount } from "svelte";
   import { chat, routeGroup } from "#lib/chat.svelte.js";
 
@@ -10,6 +11,12 @@
       .map((name) => ({ name, routes: chat.ready.filter((p) => routeGroup(p.route) === name) }))
       .filter((g) => g.routes.length > 0),
   );
+  const local = $derived(chat.routes.filter((p) => p.route.kind === "local"));
+  const DOWNLOADS: Record<string, string> = { ollama: "https://ollama.com/download", "lm-studio": "https://lmstudio.ai" };
+  function download(id: string): void {
+    const url = DOWNLOADS[id];
+    if (url !== undefined) void getPlatform().openExternal(url);
+  }
   const placeholder = $derived(chat.route === undefined ? "Connect a model to start" : "Message");
 </script>
 
@@ -38,14 +45,32 @@
       </p>
     {/if}
     <section class="messages" aria-label="Conversation">
-      {#if chat.messages.length === 0}
-        <p class="empty">
-          {#if chat.routes.length > 0 && chat.ready.length === 0}
-            No model is connected. Start Ollama or LM Studio on this Mac, or add an API key in Settings.
-          {:else}
-            No conversation yet.
-          {/if}
-        </p>
+      {#if chat.messages.length === 0 && chat.loaded && chat.ready.length === 0}
+        <div class="doors">
+          <h1>Connect a model to start</h1>
+          <p class="lede">June talks to the models you bring. Pick one way in; you can add the other later.</p>
+          <section class="door" aria-label="Run a model on this Mac">
+            <h2>Run a model on this Mac</h2>
+            <p>Free, private, nothing leaves this Mac. Install one of these, start it, then check again.</p>
+            <ul>
+              {#each local as p (p.route.id)}
+                <li>
+                  <span>{p.route.name.replace(" (this Mac)", "")}</span>
+                  <span class="state">{p.running ? "running" : "not running"}</span>
+                  <button type="button" class="quiet" onclick={() => download(p.route.id)}>Download</button>
+                </li>
+              {/each}
+            </ul>
+            <button type="button" onclick={() => chat.recheck()}>Check again</button>
+          </section>
+          <section class="door" aria-label="Use a key">
+            <h2>Use a key</h2>
+            <p>OpenAI, Anthropic, Mistral, OpenRouter or OpenCode. The key goes to the macOS keychain; replies still save to your vault.</p>
+            <a class="button primary" href="/settings">Add a key</a>
+          </section>
+        </div>
+      {:else if chat.messages.length === 0 && chat.loaded}
+        <p class="empty">Start a conversation. It is saved as a Markdown file in your vault.</p>
       {:else}
         <MessageList messages={chat.messages} streaming={chat.streaming} onBranch={(id) => chat.branchAt(id)} />
       {/if}
@@ -152,9 +177,77 @@
     flex-direction: column;
   }
   .empty {
-    opacity: 0.6;
-    margin-top: 30vh;
+    margin: auto 0;
     text-align: center;
+    color: var(--color-fg-muted);
+  }
+  .doors {
+    margin: auto 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+  }
+  .doors h1 {
+    grid-column: 1 / -1;
+    margin: 0;
+    font-size: var(--size-xl);
+  }
+  .lede {
+    grid-column: 1 / -1;
+    margin: 0 0 var(--space-2);
+    color: var(--color-fg-muted);
+  }
+  .door {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-5);
+    background: var(--color-bg-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+  }
+  .door h2 {
+    margin: 0;
+    font-size: var(--size-md);
+  }
+  .door p {
+    margin: 0;
+    color: var(--color-fg-muted);
+    font-size: var(--size-sm);
+  }
+  .door ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+  }
+  .door li {
+    display: flex;
+    gap: var(--space-3);
+    align-items: baseline;
+    padding: var(--space-1) 0;
+  }
+  .door .state {
+    color: var(--color-fg-subtle);
+    font-size: var(--size-sm);
+  }
+  .door li .quiet {
+    margin-left: auto;
+  }
+  .door .button {
+    margin-top: auto;
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-md);
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  @media (max-width: 52rem) {
+    .doors {
+      grid-template-columns: 1fr;
+    }
   }
   .error {
     margin: 0;

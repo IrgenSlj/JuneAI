@@ -57,6 +57,8 @@ class Chat {
   error: string | undefined = $state();
   private abort: AbortController | undefined;
 
+  /** True once providers have been asked at least once, so the page does not flash "no model". */
+  loaded = $state(false);
   readonly route = $derived(this.routes.find((p) => p.route.id === this.routeId)?.route);
   readonly ready = $derived(this.routes.filter((p) => p.ready));
 
@@ -67,6 +69,21 @@ class Chat {
       this.threads = threads;
       if (!(await this.choose(settings.lastChoice))) {
         const first = routes.find((p) => p.ready && p.route.kind === "local") ?? routes.find((p) => p.ready);
+        if (first !== undefined) await this.pickRoute(first.route.id);
+      }
+    } catch (error) {
+      this.error = errorText(error);
+    } finally {
+      this.loaded = true;
+    }
+  }
+
+  /** Ask again which routes are usable, after the user starts a local model. */
+  async recheck(): Promise<void> {
+    try {
+      this.routes = await session.client.providers();
+      if (this.route === undefined || !this.ready.some((p) => p.route.id === this.routeId)) {
+        const first = this.ready.find((p) => p.route.kind === "local") ?? this.ready[0];
         if (first !== undefined) await this.pickRoute(first.route.id);
       }
     } catch (error) {

@@ -37,13 +37,16 @@ test("first run: pick a vault, land on an empty chat, keep the session on reload
   await page.getByRole("button", { name: "Use this folder" }).click();
 
   await expect(page).toHaveURL(/\/chat$/);
-  await expect(page.getByText("No model is connected. Start Ollama or LM Studio on this Mac, or add an API key in Settings.")).toBeVisible();
+  // No model anywhere: the two ways in, from lab 006.
+  await expect(page.getByRole("heading", { name: "Connect a model to start" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Run a model on this Mac" })).toContainText("not running");
+  await expect(page.getByRole("link", { name: "Add a key" })).toHaveAttribute("href", "/settings");
   // The header names the folder; the full path is in its tooltip.
   await expect(page.getByTitle(vault)).toHaveText("My Vault");
   expect((await stat(vault)).isDirectory()).toBe(true);
 
   await page.reload();
-  await expect(page.getByText("No model is connected")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Connect a model to start" })).toBeVisible();
 });
 
 test("the page runs under the strict CSP without a single violation", () => {
