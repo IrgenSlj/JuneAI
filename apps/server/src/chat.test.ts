@@ -404,6 +404,19 @@ describe("import, search and export", () => {
     expect(receipts.filter((r) => r.kind === "export").map((r) => r.targets)).toEqual([[thread.id], [thread.id]]);
   });
 
+  it("writes an export to the path the Mac app's save dialog chose, and nowhere odd", async () => {
+    const thread = await newThread();
+    const target = join(root, "Downloads", "kitchen.md");
+    await mkdir(join(root, "Downloads"), { recursive: true });
+    expect(await json(`/api/threads/${thread.id}/export`, { method: "POST", body: { format: "md", path: target } })).toEqual({ path: target });
+    expect(await readFile(target, "utf8")).toMatch(/^# Kitchen quotes\n/);
+    const refuse = async (body: unknown) => (await call(`/api/threads/${thread.id}/export`, { method: "POST", body })).status;
+    expect(await refuse({ format: "md", path: "relative.md" })).toBe(400);
+    expect(await refuse({ format: "json", path: target })).toBe(400);
+    expect(await refuse({ format: "md", path: join(root, "nowhere", "x.md") })).toBe(400);
+    expect(await refuse({ format: "md", path: join(vault, ".june", "x.md") })).toBe(400);
+  });
+
   it("rebuilds the index from the files when .june/ is deleted", async () => {
     await json("/api/import", { method: "POST", body: { path: await exportFolder() } });
     const before = await json<ThreadSummary[]>("/api/threads");

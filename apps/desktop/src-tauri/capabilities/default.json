@@ -1,10 +1,10 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "What the June page may ask of the Mac app: pick a folder and open links. Granted only to the daemon's loopback origin.",
+  "description": "What the June page may ask of the Mac app: pick a folder or file, choose where to save an export, and open links. Granted only to the daemon's loopback origin.",
   "windows": ["main"],
   "remote": {
     "urls": ["http://127.0.0.1:*/*"]
   },
-  "permissions": ["core:default", "dialog:allow-open", "opener:allow-open-url"]
+  "permissions": ["core:default", "dialog:allow-open", "dialog:allow-save", "opener:allow-open-url"]
 }

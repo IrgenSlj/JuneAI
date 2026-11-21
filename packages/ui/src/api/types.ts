@@ -65,6 +65,8 @@ export interface ThreadSummary {
   /** Project or topic, from frontmatter (imported Claude projects become lanes). */
   lane?: string;
   turns: number;
+  /** Time of the last turn; the list is sorted by it and pages with ?before=. Absent on a thread just created. */
+  activity?: string;
   /** Present on search results: the best matching turn ("title" for a title match) and text around it, the match wrapped in \u0002 and \u0003. */
   match?: { turn: string; snippet: string };
 }
@@ -162,4 +164,10 @@ export interface ImportReport {
   receipt: number;
   /** Files in the export June does not import yet (memories, users, design chats ...). */
   ignored: string[];
+}
+
+/** POST /api/threads/:id/export: write the export to a path the user chose in the Mac app's save dialog. */
+export interface ExportToPathRequest {
+  format: "md" | "json";
+  path: string;
 }

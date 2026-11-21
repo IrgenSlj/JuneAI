@@ -107,7 +107,7 @@
 
 <article class="turn" data-role={role}>
   {#if role !== "tool"}
-    <div class="role-label">{role === "user" ? "you" : "june"}</div>
+    <div class="role-label">{role === "user" ? "you" : (provenance?.model ?? "assistant")}</div>
   {/if}
   <div class="bubble" data-role={role}>
     {#if role === "tool"}
@@ -124,7 +124,7 @@
           <span class="pulse"></span>
         </span>
       {:else}
-        {#if role === "assistant"}<Markdown text={content} />{:else}{content}{/if}{#if pending && role === "assistant" && content.length > 0}<span
+        {#if role === "tool"}{content}{:else}<Markdown text={content} />{/if}{#if pending && role === "assistant" && content.length > 0}<span
             class="caret"
             aria-hidden="true"
           ></span>{/if}
@@ -264,7 +264,8 @@
     white-space: pre-wrap;
     word-wrap: break-word;
   }
-  .bubble[data-role="assistant"] .body {
+  .bubble[data-role="assistant"] .body,
+  .bubble[data-role="user"] .body {
     white-space: normal;
   }
 

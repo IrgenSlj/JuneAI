@@ -18,4 +18,23 @@ export const tauriPlatform: Platform = {
     });
     return typeof picked === "string" ? picked : null;
   },
+  async pickFile(options) {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const picked = await open({
+      directory: false,
+      multiple: false,
+      filters: [{ name: "Export", extensions: options.extensions }],
+      ...(options.title === undefined ? {} : { title: options.title }),
+    });
+    return typeof picked === "string" ? picked : null;
+  },
+  async pickSavePath(options) {
+    const { save } = await import("@tauri-apps/plugin-dialog");
+    const picked = await save({
+      defaultPath: options.defaultName,
+      filters: [{ name: options.extensions.join(", "), extensions: options.extensions }],
+      ...(options.title === undefined ? {} : { title: options.title }),
+    });
+    return typeof picked === "string" ? picked : null;
+  },
 };

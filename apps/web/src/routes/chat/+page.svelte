@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Composer, MessageList } from "@june/ui";
+  import { Composer, MessageList, groupByDay, snippetParts, sourceName } from "@june/ui";
   import { getPlatform } from "@june/ui/platform";
   import { onMount } from "svelte";
   import { chat, routeGroup } from "#lib/chat.svelte.js";
@@ -18,23 +18,82 @@
     if (url !== undefined) void getPlatform().openExternal(url);
   }
   const placeholder = $derived(chat.route === undefined ? "Connect a model to start" : "Message");
+
+  const listed = $derived(groupByDay(chat.threads, new Date()));
+  let searchTimer: ReturnType<typeof setTimeout> | undefined;
+  function onSearch(value: string): void {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => void chat.search(value), 120);
+  }
+  let notice: string | undefined = $state();
+  let noticeTimer: ReturnType<typeof setTimeout> | undefined;
+  function tell(text: string): void {
+    notice = text;
+    clearTimeout(noticeTimer);
+    noticeTimer = setTimeout(() => (notice = undefined), 4000);
+  }
+  async function exportAs(format: "md" | "json"): Promise<void> {
+    const where = await chat.exportThread(format);
+    if (where !== undefined) tell(`Exported to ${where.split(/[\\/]/).at(-1)}`);
+  }
+  async function copy(): Promise<void> {
+    if (await chat.copyThread()) tell("Copied as Markdown");
+  }
 </script>
 
 <div class="layout">
   <nav class="threads" aria-label="Conversations">
     <button type="button" class="new primary" onclick={() => chat.startNew()} disabled={chat.streaming}>New conversation</button>
-    <ul>
-      {#each chat.threads as thread (thread.id)}
-        <li>
-          <button type="button" class:active={chat.thread?.id === thread.id} onclick={() => chat.open(thread.id)} disabled={chat.streaming}>
-            {thread.title}
-          </button>
-        </li>
+    <input class="search" type="search" placeholder="Search conversations" aria-label="Search conversations" value={chat.query} oninput={(e) => onSearch(e.currentTarget.value)} />
+    {#if chat.results !== undefined}
+      <p class="group">{chat.results.length === 0 ? "No matches" : chat.results.length === 1 ? "1 conversation" : `${chat.results.length} conversations`}</p>
+      <ul aria-label="Search results">
+        {#each chat.results as hit (hit.id)}
+          <li>
+            <button type="button" class="hit" class:active={chat.thread?.id === hit.id} onclick={() => chat.open(hit.id)} disabled={chat.streaming}>
+              <span class="title">{hit.title}{#if sourceName(hit.source)}<span class="badge">{sourceName(hit.source)}</span>{/if}</span>
+              {#if hit.match && hit.match.turn !== "title"}
+                <span class="snippet">{#each snippetParts(hit.match.snippet) as part, i (i)}{#if part.match}<mark>{part.text}</mark>{:else}{part.text}{/if}{/each}</span>
+              {/if}
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      {#each listed as group (group.name)}
+        <p class="group">{group.name}</p>
+        <ul>
+          {#each group.items as thread (thread.id)}
+            <li>
+              <button type="button" class:active={chat.thread?.id === thread.id} onclick={() => chat.open(thread.id)} disabled={chat.streaming}>
+                <span class="title">{thread.title}{#if sourceName(thread.source)}<span class="badge">{sourceName(thread.source)}</span>{/if}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
       {/each}
-    </ul>
+      {#if chat.moreThreads}
+        <button type="button" class="quiet more" onclick={() => chat.loadMore()}>Show older</button>
+      {/if}
+      {#if chat.loaded && chat.threads.length === 0}
+        <p class="hint">Your conversations appear here. <a href="/import">Import your Claude history</a> to bring the old ones.</p>
+      {/if}
+    {/if}
   </nav>
 
   <main class="chat">
+    {#if chat.thread}
+      <div class="thread-head">
+        <h1>{chat.thread.title}</h1>
+        {#if sourceName(chat.thread.source)}<span class="badge">Imported from {sourceName(chat.thread.source)}</span>{/if}
+        <span class="actions">
+          {#if notice}<span class="notice" role="status">{notice}</span>{/if}
+          <button type="button" class="quiet" onclick={copy} disabled={chat.streaming}>Copy</button>
+          <button type="button" class="quiet" onclick={() => exportAs("md")} disabled={chat.streaming} title="Save this conversation as a Markdown file">Export .md</button>
+          <button type="button" class="quiet" onclick={() => exportAs("json")} disabled={chat.streaming} title="Save this conversation as JSON">.json</button>
+        </span>
+      </div>
+    {/if}
     {#if chat.thread?.parent}
       {@const parentId = chat.thread.parent.split("#")[0] ?? ""}
       <p class="branch-note">
@@ -80,7 +139,14 @@
       <p class="error" role="alert">{chat.error}</p>
     {/if}
 
-    <Composer streaming={chat.streaming} disabled={chat.route === undefined || chat.model === ""} {placeholder} onSubmit={(text) => chat.send(text)} onCancel={() => chat.stop()} />
+    {#if chat.readOnly}
+      <div class="continue">
+        <p>Imported conversations stay exactly as the export had them. Continue this one on any model as a new thread; this copy stays untouched.</p>
+        <button type="button" class="primary" onclick={() => chat.continueThread()} disabled={chat.route === undefined}>Continue in a new thread</button>
+      </div>
+    {:else}
+      <Composer streaming={chat.streaming} disabled={chat.route === undefined || chat.model === ""} {placeholder} onSubmit={(text) => chat.send(text)} onCancel={() => chat.stop()} />
+    {/if}
 
     <div class="glance" aria-label="Where this message goes">
       <select class="pick" value={chat.routeId} onchange={(e) => chat.pickRoute(e.currentTarget.value)} disabled={chat.streaming || groups.length === 0} aria-label="Route">
@@ -158,6 +224,112 @@
   }
   .new {
     width: 100%;
+  }
+  .search {
+    width: 100%;
+    margin-top: var(--space-2);
+  }
+  .group {
+    margin: var(--space-3) 0 0 0.6rem;
+    font-size: var(--size-xs);
+    color: var(--color-fg-subtle);
+  }
+  .threads .group + ul {
+    margin-top: var(--space-1);
+  }
+  .threads .title {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .badge {
+    flex: none;
+    padding: 0 var(--space-1);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: var(--size-xs);
+    color: var(--color-fg-muted);
+  }
+  .threads .hit {
+    white-space: normal;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .hit .title {
+    white-space: nowrap;
+  }
+  .snippet {
+    font-size: var(--size-xs);
+    color: var(--color-fg-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  mark {
+    background: var(--color-accent-soft, rgba(255, 200, 0, 0.3));
+    color: inherit;
+    border-radius: 2px;
+  }
+  .more {
+    margin: var(--space-2) 0 0 0.6rem;
+  }
+  .hint {
+    margin: var(--space-4) 0.6rem;
+    font-size: var(--size-sm);
+    color: var(--color-fg-muted);
+  }
+  .thread-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .thread-head h1 {
+    margin: 0;
+    font-size: var(--size-md);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .actions {
+    margin-left: auto;
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-1);
+    flex: none;
+  }
+  .actions button {
+    font-size: var(--size-xs);
+    padding: 2px var(--space-2);
+  }
+  .notice {
+    font-size: var(--size-xs);
+    color: var(--color-success);
+  }
+  .continue {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-bg-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+  }
+  .continue p {
+    margin: 0;
+    font-size: var(--size-sm);
+    color: var(--color-fg-muted);
+  }
+  .continue button {
+    flex: none;
   }
   .chat {
     display: flex;

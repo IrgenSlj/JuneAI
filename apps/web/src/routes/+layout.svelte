@@ -39,6 +39,7 @@
       <a class="wordmark" href="/chat">June</a>
       {#if session.vault?.path}
         <span class="vault" title={session.vault.path}>{session.vault.path.split(/[\\/]/).filter(Boolean).at(-1)}</span>
+        <a class="nav" href="/import">Import</a>
         <a class="nav" href="/settings">Settings</a>
       {/if}
     </header>
@@ -73,6 +74,9 @@
   .nav {
     margin-left: auto;
     font-size: 0.9rem;
+  }
+  .nav + .nav {
+    margin-left: var(--space-4);
   }
   .vault {
     font-family: var(--font-mono, monospace);

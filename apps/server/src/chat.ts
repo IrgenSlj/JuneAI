@@ -6,7 +6,9 @@
 // come back out through the API. A turn streams as SSE over POST, one JSON
 // object per data: line, in the order label, text*, usage, saved | error, done.
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
+import { dirname, isAbsolute, join, relative } from "node:path";
 import {
   type ReceiptLog,
   type SecretStore,
@@ -26,6 +28,7 @@ import { type ExportDocument, ExportReadError, type IndexedThread, type ThreadIn
 import { type FetchLike, ROUTE_PRESETS, makeProvider } from "@june/providers";
 import type {
   BranchRequest,
+  ExportToPathRequest,
   ImportReport,
   ImportRequest,
   ModelList,
@@ -167,12 +170,32 @@ export function createChatApi(options: ChatApiOptions) {
     return { source: "claude-export", ...report, ...written, ignored: found.ignored };
   }
 
-  async function exportThread(res: ServerResponse, id: string, format: string): Promise<void> {
+  /** One thread rendered for export, with its export receipt written first. */
+  async function exported(id: string, format: string, destination: string): Promise<{ thread: Thread; body: string; format: "md" | "json" }> {
     if (format !== "md" && format !== "json") throw new HttpError(400, "format must be md or json");
     const { fs, receipts } = await vault();
     const { thread } = await findThread(fs, id);
     const body = format === "md" ? threadAsMarkdown(thread) : threadAsJson(thread);
-    await receipts.append({ kind: "export", actor: "user", targets: [thread.id], payload: body, meta: { format, bytes: Buffer.byteLength(body) } });
+    await receipts.append({ kind: "export", actor: "user", targets: [thread.id], payload: body, meta: { format, bytes: Buffer.byteLength(body), to: destination } });
+    return { thread, body, format };
+  }
+
+  /** The Mac app's save dialog chose `path`; write the export there. */
+  async function exportToPath(id: string, request: unknown): Promise<{ path: string }> {
+    const { format, path } = (request ?? {}) as Partial<ExportToPathRequest>;
+    if (typeof path !== "string" || !isAbsolute(path)) throw new HttpError(400, "path must be an absolute path");
+    if (!path.toLowerCase().endsWith(`.${String(format)}`)) throw new HttpError(400, `the file name must end in .${String(format)}`);
+    const folder = await stat(dirname(path)).catch(() => undefined);
+    if (folder?.isDirectory() !== true) throw new HttpError(400, "that folder does not exist");
+    const inside = relative(join((await vault()).root, ".june"), path);
+    if (!inside.startsWith("..") && !isAbsolute(inside)) throw new HttpError(400, "June's index folder is not a place for exports");
+    const { body } = await exported(id, String(format), "file");
+    await writeFile(path, body, "utf8");
+    return { path };
+  }
+
+  async function exportThread(res: ServerResponse, id: string, requested: string): Promise<void> {
+    const { thread, body, format } = await exported(id, requested, "download");
     securityHeaders(res);
     res.writeHead(200, {
       "Content-Type": format === "md" ? "text/markdown; charset=utf-8" : "application/json; charset=utf-8",
@@ -332,6 +355,7 @@ export function createChatApi(options: ChatApiOptions) {
       }
       if (method === "POST" && parts.length === 3 && parts[2] === "turns") return await sendTurn(req, res, id), true;
       if (method === "GET" && parts.length === 3 && parts[2] === "export") return await exportThread(res, id, query.get("format") ?? "md"), true;
+      if (method === "POST" && parts.length === 3 && parts[2] === "export") return sendJson(res, 200, await exportToPath(id, await readJson(req))), true;
       if (method === "POST" && parts.length === 3 && parts[2] === "branch") {
         const turn = ((await readJson(req)) as Partial<BranchRequest> | null)?.turn;
         if (typeof turn !== "string") throw new HttpError(400, "turn is required");

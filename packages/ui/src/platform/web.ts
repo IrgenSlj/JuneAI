@@ -8,4 +8,10 @@ export const webPlatform: Platform = {
   async pickFolder() {
     throw new UnsupportedError("pickFolder", "web");
   },
+  async pickFile() {
+    throw new UnsupportedError("pickFile", "web");
+  },
+  async pickSavePath() {
+    throw new UnsupportedError("pickSavePath", "web");
+  },
 };

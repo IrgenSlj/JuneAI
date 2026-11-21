@@ -8,7 +8,9 @@
 import type {
   ApiErrorBody,
   BranchRequest,
+  ExportToPathRequest,
   Health,
+  ImportReport,
   ModelList,
   NewThreadRequest,
   OpenVaultRequest,
@@ -73,6 +75,20 @@ export function createJuneClient(options: JuneClientOptions = {}) {
     return (await response.json()) as T;
   }
 
+  /** A request whose body or answer is not JSON (an upload, a download). */
+  async function raw(method: "GET" | "POST", path: string, init: { body?: Blob; headers?: Record<string, string>; timeoutMs?: number } = {}): Promise<Response> {
+    const headers = new Headers(init.headers);
+    if (token) headers.set("X-June-Token", token);
+    const response = await fetchImpl(`${baseUrl}/api${path}`, {
+      method,
+      headers,
+      ...(init.body === undefined ? {} : { body: init.body }),
+      signal: AbortSignal.timeout(init.timeoutMs ?? timeoutMs),
+    });
+    if (!response.ok) throw new ApiError(response.status, await response.text());
+    return response;
+  }
+
   /**
    * Send a turn and yield its frames as they arrive. A refusal before the
    * stream starts (no key, busy thread) throws ApiError; once streaming, every
@@ -131,7 +147,23 @@ export function createJuneClient(options: JuneClientOptions = {}) {
     providers: () => request<ProviderInfo[]>("GET", "/providers"),
     putProvider: (id: string, body: PutProviderRequest) => request<ProviderInfo[]>("PUT", `/providers/${encodeURIComponent(id)}`, body),
     models: (id: string) => request<ModelList>("GET", `/providers/${encodeURIComponent(id)}/models`),
-    threads: () => request<ThreadSummary[]>("GET", "/threads"),
+    /** Newest first; with `q`, search results carrying `match`. */
+    threads: (options: { q?: string; before?: string; limit?: number } = {}) => {
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(options)) if (value !== undefined && value !== "") params.set(key, String(value));
+      const qs = params.toString();
+      return request<ThreadSummary[]>("GET", `/threads${qs === "" ? "" : `?${qs}`}`);
+    },
+    /** Import from a file or folder on this Mac (the Mac app's pickers give real paths). */
+    importPath: (path: string) => request<ImportReport>("POST", "/import", { path }),
+    /** Import an uploaded export file (the browser cannot hand June a path). Large exports take a while. */
+    importFile: async (file: File) =>
+      (await (
+        await raw("POST", "/import", { body: file, headers: { "Content-Type": "application/octet-stream", "X-June-Filename": encodeURIComponent(file.name) }, timeoutMs: 15 * 60_000 })
+      ).json()) as ImportReport,
+    /** One thread as Markdown or JSON text, for a download or the clipboard. */
+    exportText: async (id: string, format: "md" | "json") => (await raw("GET", `/threads/${encodeURIComponent(id)}/export?format=${format}`)).text(),
+    exportToPath: (id: string, body: ExportToPathRequest) => request<{ path: string }>("POST", `/threads/${encodeURIComponent(id)}/export`, body),
     thread: (id: string) => request<ThreadDetail>("GET", `/threads/${encodeURIComponent(id)}`),
     newThread: (body: NewThreadRequest = {}) => request<ThreadSummary>("POST", "/threads", body),
     settings: () => request<Settings>("GET", "/settings"),

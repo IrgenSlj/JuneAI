@@ -12,3 +12,4 @@ export { type Block, type Inline, parseInline, parseMarkdown, safeHref } from ".
 export type { ActivityStep, ChatMessage, RecallHit, TraceEventView } from "./components/types.js";
 
 export * from "./api/index.js";
+export { type Dated, dayGroup, groupByDay, snippetParts, sourceName } from "./lists/threads.js";

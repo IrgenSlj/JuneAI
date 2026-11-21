@@ -20,6 +20,12 @@ export interface Platform {
    * path to a page, so the web UI asks for a typed path instead.
    */
   pickFolder(options?: { title?: string; defaultPath?: string }): Promise<string | null>;
+
+  /** Native file picker; an absolute path or null. Native-only: the web UI uploads the file instead. */
+  pickFile(options: { title?: string; extensions: string[] }): Promise<string | null>;
+
+  /** Native save dialog; the chosen absolute path or null. Native-only: the web UI downloads instead. */
+  pickSavePath(options: { title?: string; defaultName: string; extensions: string[] }): Promise<string | null>;
 }
 
 /** Thrown when a capability does not exist in the current shell. Catch it and fall back. */

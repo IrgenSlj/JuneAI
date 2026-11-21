@@ -27,6 +27,8 @@ export interface IndexedThread {
   parent?: string;
   lane?: string;
   turns: number;
+  /** Time of the last turn (or the thread's update or start): what the list is sorted by. */
+  activity: string;
 }
 
 export interface SearchHit extends IndexedThread {
@@ -97,7 +99,7 @@ export function queryTerms(query: string): string[] {
 type Row = { [key: string]: unknown };
 
 function toThread(row: Row): IndexedThread {
-  const out: IndexedThread = { id: String(row.id), path: String(row.path), title: String(row.title), source: String(row.source), turns: Number(row.turns) };
+  const out: IndexedThread = { id: String(row.id), path: String(row.path), title: String(row.title), source: String(row.source), turns: Number(row.turns), activity: String(row.sort) };
   for (const key of ["started", "updated", "parent", "lane"] as const) if (typeof row[key] === "string") out[key] = row[key];
   return out;
 }

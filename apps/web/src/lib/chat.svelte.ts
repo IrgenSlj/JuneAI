@@ -4,8 +4,9 @@
 //
 // A turn is shown as saved only when the daemon's `saved` frame arrives; text
 // alone never means saved (PLAN.md, rule 4).
-import type { ChatMessage } from "@june/ui";
+import { type ChatMessage, sourceName } from "@june/ui";
 import { ApiError, type ProviderInfo, type RouteInfo, type SendLabelInfo, type ThreadDetail, type ThreadSummary, type TurnInfo } from "@june/ui/api";
+import { getPlatform } from "@june/ui/platform";
 import { session } from "./session.svelte.js";
 
 interface Choice {
@@ -29,14 +30,17 @@ export function routeGroup(route: RouteInfo): string {
   return "Your keys";
 }
 
-function toMessage(turn: TurnInfo, routes: ProviderInfo[]): ChatMessage {
+const PAGE = 200;
+
+function toMessage(turn: TurnInfo, routes: ProviderInfo[], source: string): ChatMessage {
   const route = routes.find((p) => p.route.id === turn.route)?.route;
+  const imported = sourceName(source);
   return {
     id: turn.id,
     role: turn.role === "user" ? "user" : turn.role === "tool" ? "tool" : "assistant",
     content: turn.text,
     ...(turn.role === "assistant" && turn.model !== undefined
-      ? { provenance: { model: turn.model, tier: route?.name ?? turn.route ?? "", cloud_call: route?.leavesDevice ?? true } }
+      ? { provenance: { model: turn.model, tier: imported === undefined ? (route?.name ?? turn.route ?? "") : `imported from ${imported}`, cloud_call: route?.leavesDevice ?? true } }
       : {}),
   };
 }
@@ -47,6 +51,12 @@ class Chat {
   models: string[] = $state([]);
   model = $state("");
   threads: ThreadSummary[] = $state([]);
+  /** Whether the daemon has older threads than the ones listed. */
+  moreThreads = $state(false);
+  /** The search box; results replace the list while it is not empty. */
+  query = $state("");
+  results: ThreadSummary[] | undefined = $state();
+  private searchSeq = 0;
   thread: ThreadDetail | undefined = $state();
   messages: ChatMessage[] = $state([]);
   streaming = $state(false);
@@ -61,12 +71,90 @@ class Chat {
   loaded = $state(false);
   readonly route = $derived(this.routes.find((p) => p.route.id === this.routeId)?.route);
   readonly ready = $derived(this.routes.filter((p) => p.ready));
+  /** Imported threads stay as the export had them; they continue as a branch. */
+  readonly readOnly = $derived(this.thread !== undefined && this.thread.source !== "june");
+
+  private async refreshThreads(): Promise<void> {
+    const threads = await session.client.threads({ limit: PAGE });
+    this.threads = threads;
+    this.moreThreads = threads.length === PAGE;
+  }
+
+  async loadMore(): Promise<void> {
+    const before = this.threads.at(-1)?.activity;
+    if (before === undefined) return;
+    try {
+      const older = await session.client.threads({ before, limit: PAGE });
+      const known = new Set(this.threads.map((t) => t.id));
+      this.threads = [...this.threads, ...older.filter((t) => !known.has(t.id))];
+      this.moreThreads = older.length === PAGE;
+    } catch (error) {
+      this.error = errorText(error);
+    }
+  }
+
+  /** Search as the user types; a stale answer never replaces a newer one. */
+  async search(query: string): Promise<void> {
+    this.query = query;
+    const seq = ++this.searchSeq;
+    if (query.trim() === "") {
+      this.results = undefined;
+      return;
+    }
+    try {
+      const results = await session.client.threads({ q: query.trim(), limit: 100 });
+      if (seq === this.searchSeq) this.results = results;
+    } catch (error) {
+      if (seq === this.searchSeq) this.error = errorText(error);
+    }
+  }
+
+  /** Continue an imported thread on any model: a branch from its last turn. */
+  async continueThread(): Promise<void> {
+    const last = this.thread?.turns.at(-1);
+    if (last !== undefined) await this.branchAt(last.id);
+  }
+
+  /** Save the open thread as Markdown or JSON: a save dialog in the Mac app, a download in the browser. */
+  async exportThread(format: "md" | "json"): Promise<string | undefined> {
+    const thread = this.thread;
+    if (thread === undefined) return undefined;
+    const name = `${thread.title.normalize("NFKD").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "conversation"}.${format}`;
+    try {
+      const platform = getPlatform();
+      if (platform.runtime === "tauri") {
+        const path = await platform.pickSavePath({ title: "Export conversation", defaultName: name, extensions: [format] });
+        if (path === null) return undefined;
+        return (await session.client.exportToPath(thread.id, { format, path })).path;
+      }
+      const text = await session.client.exportText(thread.id, format);
+      const url = URL.createObjectURL(new Blob([text], { type: format === "md" ? "text/markdown" : "application/json" }));
+      const link = Object.assign(document.createElement("a"), { href: url, download: name });
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      return name;
+    } catch (error) {
+      this.error = errorText(error);
+      return undefined;
+    }
+  }
+
+  /** The open thread as Markdown on the clipboard. */
+  async copyThread(): Promise<boolean> {
+    if (this.thread === undefined) return false;
+    try {
+      await navigator.clipboard.writeText(await session.client.exportText(this.thread.id, "md"));
+      return true;
+    } catch (error) {
+      this.error = errorText(error);
+      return false;
+    }
+  }
 
   async load(): Promise<void> {
     try {
-      const [routes, threads, settings] = await Promise.all([session.client.providers(), session.client.threads(), session.client.settings()]);
+      const [routes, settings] = await Promise.all([session.client.providers(), session.client.settings(), this.refreshThreads()]);
       this.routes = routes;
-      this.threads = threads;
       if (!(await this.choose(settings.lastChoice))) {
         const first = routes.find((p) => p.ready && p.route.kind === "local") ?? routes.find((p) => p.ready);
         if (first !== undefined) await this.pickRoute(first.route.id);
@@ -117,7 +205,7 @@ class Chat {
     if (this.streaming) return;
     try {
       this.thread = await session.client.thread(id);
-      this.messages = this.thread.turns.map((t) => toMessage(t, this.routes));
+      this.messages = this.thread.turns.map((t) => toMessage(t, this.routes, this.thread?.source ?? "june"));
       if (!this.streaming) await this.choose(lastChoiceIn(this.thread));
       this.label = undefined;
       this.savedTurn = undefined;
@@ -142,7 +230,7 @@ class Chat {
     if (this.streaming || thread === undefined) return;
     try {
       const branch = await session.client.branch(thread.id, { turn: turnId });
-      this.threads = await session.client.threads();
+      await this.refreshThreads();
       await this.open(branch.id);
     } catch (error) {
       this.error = errorText(error);
@@ -155,7 +243,7 @@ class Chat {
 
   async send(text: string): Promise<void> {
     const route = this.route;
-    if (this.streaming || text.trim() === "" || route === undefined || this.model === "") return;
+    if (this.streaming || this.readOnly || text.trim() === "" || route === undefined || this.model === "") return;
     this.error = undefined;
     this.savedTurn = undefined;
     this.streaming = true;
@@ -189,7 +277,7 @@ class Chat {
       this.streaming = false;
       this.abort = undefined;
       const error = this.error;
-      this.threads = await session.client.threads().catch(() => this.threads);
+      await this.refreshThreads().catch(() => undefined);
       this.error = error;
     }
   }
