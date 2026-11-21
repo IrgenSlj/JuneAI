@@ -90,7 +90,7 @@
         <button type="button" class="quiet more" onclick={() => chat.loadMore()}>Show older</button>
       {/if}
       {#if chat.loaded && chat.threads.length === 0}
-        <p class="hint">Your conversations appear here. <a href="/import">Import your Claude history</a> to bring the old ones.</p>
+        <p class="hint">Your conversations appear here. <a href="/import">Import your Claude or ChatGPT history</a> to bring the old ones.</p>
       {/if}
     {/if}
   </nav>

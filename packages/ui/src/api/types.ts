@@ -166,7 +166,8 @@ export interface ImportRequest {
 
 /** The count report: conversations = threads + empty + unreadable, and created + updated + unchanged = threads. */
 export interface ImportReport {
-  source: "claude-export";
+  /** Which exports were found; one folder may hold both. */
+  sources: ("claude-export" | "chatgpt-export")[];
   conversations: number;
   threads: number;
   empty: number;

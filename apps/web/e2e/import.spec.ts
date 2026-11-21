@@ -26,7 +26,7 @@ test("import a Claude export, search it, continue a conversation as a branch, ex
   await page.getByLabel("Vault folder").fill(vault);
   await page.getByRole("button", { name: "Use this folder" }).click();
   await expect(page).toHaveURL(/\/chat$/);
-  await expect(page.getByText("Import your Claude history")).toBeVisible();
+  await expect(page.getByText("Import your Claude or ChatGPT history")).toBeVisible();
 
   await page.getByRole("link", { name: "Import", exact: true }).click();
   await page.locator('input[type="file"]').setInputFiles({ name: "conversations.json", mimeType: "application/json", buffer: await readFile(fixture) });

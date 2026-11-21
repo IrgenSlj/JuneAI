@@ -45,7 +45,7 @@
 
 <main class="page">
   <h1>Import your history</h1>
-  <p class="lede">Bring your Claude conversations into your vault. Each becomes a Markdown file you own, searchable here and readable in any editor. Importing again later adds what is new and changes nothing else.</p>
+  <p class="lede">Bring your Claude and ChatGPT conversations into your vault. Each becomes a Markdown file you own, searchable here and readable in any editor. Importing again later adds what is new and changes nothing else.</p>
 
   <section class="card" aria-label="Claude">
     <h2>Claude</h2>
@@ -75,6 +75,15 @@
         </form>
       {/if}
     </div>
+  </section>
+
+  <section class="card" aria-label="ChatGPT">
+    <h2>ChatGPT</h2>
+    <ol class="steps">
+      <li>In ChatGPT, open Settings, then Data controls, and choose <strong>Export data</strong>.</li>
+      <li>When the email arrives, download the zip (the link expires after a day).</li>
+      <li>Choose that zip here with the same button; June tells Claude and ChatGPT exports apart by their contents.</li>
+    </ol>
     <p class="note">Nothing is sent anywhere: the export is read on this Mac. Imported text is marked as imported and never sent to a model unless you continue a conversation.</p>
   </section>
 
@@ -87,6 +96,7 @@
   {#if report}
     <section class="report" aria-label="Import report">
       <h2>{report.created + report.updated === 0 ? "Already up to date" : `Imported ${n(report.created + report.updated, "conversation")}`}</h2>
+      <p class="from">From {report.sources.map((s) => (s === "claude-export" ? "Claude" : "ChatGPT")).join(" and ")}</p>
       <dl>
         <dt>In the export</dt>
         <dd>{n(report.conversations, "conversation")}</dd>
@@ -210,6 +220,11 @@
   }
   dd {
     margin: 0;
+  }
+  .from {
+    margin: calc(-1 * var(--space-2)) 0 var(--space-3);
+    color: var(--color-fg-muted);
+    font-size: var(--size-sm);
   }
   .check {
     font-size: var(--size-sm);

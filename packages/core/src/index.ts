@@ -55,3 +55,4 @@ export {
   parseClaudeExport,
 } from "./import/claude.js";
 export { type WriteReport, rawPathFor, threadIdsOnDisk, writeImported } from "./import/write.js";
+export { type ImportCounts, looksLikeChatGptConversations, parseChatGptExport } from "./import/chatgpt.js";

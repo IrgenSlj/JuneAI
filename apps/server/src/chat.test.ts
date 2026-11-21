@@ -335,7 +335,7 @@ describe("import, search and export", () => {
   it("imports a Claude export folder with a report that adds up, and a second import changes nothing", async () => {
     const path = await exportFolder();
     const first = await json<ImportReport>("/api/import", { method: "POST", body: { path } });
-    expect(first).toMatchObject({ source: "claude-export", conversations: 4, threads: 2, empty: 1, unreadable: 1, created: 2, updated: 0, unchanged: 0, ignored: [] });
+    expect(first).toMatchObject({ sources: ["claude-export"], conversations: 4, threads: 2, empty: 1, unreadable: 1, created: 2, updated: 0, unchanged: 0, ignored: [] });
     const again = await json<ImportReport>("/api/import", { method: "POST", body: { path } });
     expect(again).toMatchObject({ created: 0, updated: 0, unchanged: 2 });
     const list = await json<ThreadSummary[]>("/api/threads");
@@ -357,8 +357,22 @@ describe("import, search and export", () => {
     const manifest = await upload("is_claude_history.json", strToU8(JSON.stringify({ data_files: [{ filename: "conversations-000.zip" }] })));
     expect(manifest.status).toBe(400);
     expect(manifest.body).toContain("Download the zip files it lists");
-    expect((await upload("notes.json", strToU8("[1,2,3]"))).body).toContain("No Claude conversations found");
+    expect((await upload("notes.json", strToU8("[1,2,3]"))).body).toContain("No Claude or ChatGPT conversations found");
     expect((await call("/api/import", { method: "POST", body: { path: join(root, "missing") } })).status).toBe(400);
+  });
+
+  it("imports a ChatGPT export, and both exports from one folder", async () => {
+    const chatgpt = await readFile(join(fixtures, "chatgpt-sample.json"));
+    const res = await upload("chatgpt.zip", zipSync({ "conversations.json": new Uint8Array(chatgpt), "user.json": strToU8("{}") }));
+    expect(JSON.parse(res.body)).toMatchObject({ sources: ["chatgpt-export"], conversations: 4, threads: 2, created: 2 });
+    const path = await exportFolder();
+    await copyFile(join(fixtures, "chatgpt-sample.json"), join(path, "chatgpt-conversations.json"));
+    const both = await json<ImportReport>("/api/import", { method: "POST", body: { path } });
+    expect(both).toMatchObject({ sources: ["claude-export", "chatgpt-export"], conversations: 8, threads: 4, created: 2, unchanged: 2 });
+    const list = await json<ThreadSummary[]>("/api/threads");
+    expect(list.map((t) => t.source).sort()).toEqual(["chatgpt-export", "chatgpt-export", "claude-export", "claude-export"]);
+    const [sourdough] = await json<ThreadSummary[]>("/api/threads?q=sourdough");
+    expect((await call(`/api/threads/${sourdough!.id}/turns`, { method: "POST", body: { route: "ollama", model: "model-a", text: "x" } })).status).toBe(409);
   });
 
   it("searches across imported and new threads, with the match marked", async () => {

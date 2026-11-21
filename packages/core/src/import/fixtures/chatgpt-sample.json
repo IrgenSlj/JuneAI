@@ -1,0 +1,323 @@
+[
+ {
+  "title": "Sourdough schedule",
+  "create_time": 1741000000.5,
+  "update_time": 1741000900,
+  "conversation_id": "gpt-plain",
+  "default_model_slug": "gpt-4o",
+  "current_node": "n5",
+  "mapping": {
+   "root": {
+    "id": "root",
+    "message": null,
+    "parent": null,
+    "children": [
+     "n0"
+    ]
+   },
+   "n0": {
+    "id": "n0",
+    "message": {
+     "id": "n0",
+     "author": {
+      "role": "system"
+     },
+     "create_time": null,
+     "content": {
+      "content_type": "text",
+      "parts": [
+       ""
+      ]
+     },
+     "metadata": {
+      "is_visually_hidden_from_conversation": true
+     },
+     "recipient": "all"
+    },
+    "parent": "root",
+    "children": [
+     "n1"
+    ]
+   },
+   "n1": {
+    "id": "n1",
+    "message": {
+     "id": "n1",
+     "author": {
+      "role": "user"
+     },
+     "create_time": 1741000001,
+     "content": {
+      "content_type": "text",
+      "parts": [
+       "When should I feed the starter?"
+      ]
+     },
+     "metadata": {},
+     "recipient": "all"
+    },
+    "parent": "n0",
+    "children": [
+     "n2",
+     "n3"
+    ]
+   },
+   "n2": {
+    "id": "n2",
+    "message": {
+     "id": "n2",
+     "author": {
+      "role": "assistant"
+     },
+     "create_time": 1741000002,
+     "content": {
+      "content_type": "text",
+      "parts": [
+       "First answer, regenerated away."
+      ]
+     },
+     "metadata": {
+      "model_slug": "gpt-4o"
+     },
+     "recipient": "all"
+    },
+    "parent": "n1",
+    "children": []
+   },
+   "n3": {
+    "id": "n3",
+    "message": {
+     "id": "n3",
+     "author": {
+      "role": "assistant"
+     },
+     "create_time": 1741000003,
+     "content": {
+      "content_type": "text",
+      "parts": [
+       "Feed it 8 to 12 hours before baking."
+      ]
+     },
+     "metadata": {
+      "model_slug": "gpt-4o"
+     },
+     "recipient": "all"
+    },
+    "parent": "n1",
+    "children": [
+     "n4"
+    ]
+   },
+   "n4": {
+    "id": "n4",
+    "message": {
+     "id": "n4",
+     "author": {
+      "role": "user"
+     },
+     "create_time": 1741000010,
+     "content": {
+      "content_type": "multimodal_text",
+      "parts": [
+       {
+        "content_type": "image_asset_pointer",
+        "asset_pointer": "file-service://x"
+       },
+       "Is this crumb right?"
+      ]
+     },
+     "metadata": {},
+     "recipient": "all"
+    },
+    "parent": "n3",
+    "children": [
+     "n5"
+    ]
+   },
+   "n5": {
+    "id": "n5",
+    "message": {
+     "id": "n5",
+     "author": {
+      "role": "assistant"
+     },
+     "create_time": 1741000011,
+     "content": {
+      "content_type": "text",
+      "parts": [
+       "The crumb looks open; good."
+      ]
+     },
+     "metadata": {
+      "model_slug": "gpt-4o"
+     },
+     "recipient": "all"
+    },
+    "parent": "n4",
+    "children": []
+   }
+  }
+ },
+ {
+  "title": "New chat",
+  "create_time": 1742000000,
+  "update_time": 1742000100,
+  "id": "gpt-tools",
+  "mapping": {
+   "a": {
+    "id": "a",
+    "message": null,
+    "parent": null,
+    "children": [
+     "b"
+    ]
+   },
+   "b": {
+    "id": "b",
+    "message": {
+     "id": "b",
+     "author": {
+      "role": "user"
+     },
+     "create_time": 1742000001,
+     "content": {
+      "content_type": "text",
+      "parts": [
+       "Sum 2 and 3 in Python"
+      ]
+     },
+     "metadata": {},
+     "recipient": "all"
+    },
+    "parent": "a",
+    "children": [
+     "c"
+    ]
+   },
+   "c": {
+    "id": "c",
+    "message": {
+     "id": "c",
+     "author": {
+      "role": "assistant"
+     },
+     "create_time": 1742000002,
+     "content": {
+      "content_type": "thoughts",
+      "thoughts": [
+       {
+        "summary": "x"
+       }
+      ]
+     },
+     "metadata": {},
+     "recipient": "all"
+    },
+    "parent": "b",
+    "children": [
+     "d"
+    ]
+   },
+   "d": {
+    "id": "d",
+    "message": {
+     "id": "d",
+     "author": {
+      "role": "assistant"
+     },
+     "create_time": 1742000003,
+     "content": {
+      "content_type": "code",
+      "language": "python",
+      "text": "print(2 + 3)"
+     },
+     "metadata": {
+      "model_slug": "o3"
+     },
+     "recipient": "python"
+    },
+    "parent": "c",
+    "children": [
+     "e"
+    ]
+   },
+   "e": {
+    "id": "e",
+    "message": {
+     "id": "e",
+     "author": {
+      "role": "tool",
+      "name": "python"
+     },
+     "create_time": 1742000004,
+     "content": {
+      "content_type": "execution_output",
+      "text": "5"
+     },
+     "metadata": {},
+     "recipient": "all"
+    },
+    "parent": "d",
+    "children": [
+     "f"
+    ]
+   },
+   "f": {
+    "id": "f",
+    "message": {
+     "id": "f",
+     "author": {
+      "role": "assistant"
+     },
+     "create_time": 1742000005,
+     "content": {
+      "content_type": "text",
+      "parts": [
+       "The sum is 5."
+      ]
+     },
+     "metadata": {
+      "model_slug": "o3"
+     },
+     "recipient": "all"
+    },
+    "parent": "e",
+    "children": []
+   }
+  }
+ },
+ {
+  "title": "Only system",
+  "create_time": 1743000000,
+  "conversation_id": "gpt-empty",
+  "mapping": {
+   "r": {
+    "id": "r",
+    "message": {
+     "id": "r",
+     "author": {
+      "role": "system"
+     },
+     "create_time": null,
+     "content": {
+      "content_type": "text",
+      "parts": [
+       "hidden"
+      ]
+     },
+     "metadata": {
+      "is_visually_hidden_from_conversation": true
+     },
+     "recipient": "all"
+    },
+    "parent": null,
+    "children": []
+   }
+  }
+ },
+ {
+  "title": "Broken",
+  "conversation_id": "gpt-broken",
+  "mapping": {}
+ }
+]

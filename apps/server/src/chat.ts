@@ -19,6 +19,7 @@ import {
   createReceiptLog,
   findClaudeData,
   isId,
+  parseChatGptExport,
   parseClaudeExport,
   parseThread,
   rawPathFor,
@@ -167,12 +168,25 @@ export function createChatApi(options: ChatApiOptions) {
     if (found.manifestOnly) {
       throw new HttpError(400, "This is the export's list of files, not the conversations. Download the zip files it lists (at least conversations-000.zip) and import those.");
     }
-    if (found.conversations.length === 0) throw new HttpError(400, "No Claude conversations found. Choose the export zip, or the folder you unzipped it into.");
+    if (found.conversations.length === 0 && found.chatgpt.length === 0) {
+      throw new HttpError(400, "No Claude or ChatGPT conversations found. Choose the export zip, or the folder you unzipped it into.");
+    }
     const { fs, receipts, lock, index } = await vault();
-    const { threads, report } = await parseClaudeExport(found);
-    const written = await lock.exclusive("import", () => writeImported(fs, receipts, threads, { source: "claude-export" }));
+    const parsed = [
+      ...(found.conversations.length > 0 ? [{ source: "claude-export" as const, ...(await parseClaudeExport(found)) }] : []),
+      ...(found.chatgpt.length > 0 ? [{ source: "chatgpt-export" as const, ...(await parseChatGptExport(found.chatgpt)) }] : []),
+    ];
+    const total: Omit<ImportReport, "sources" | "ignored"> = { conversations: 0, threads: 0, empty: 0, unreadable: 0, messages: 0, offPath: 0, attachments: 0, filesNotIncluded: 0, created: 0, updated: 0, unchanged: 0, receipt: 0 };
+    for (const { source, threads, report } of parsed) {
+      const written = await lock.exclusive("import", () => writeImported(fs, receipts, threads, { source }));
+      for (const key of Object.keys(report) as (keyof typeof report)[]) total[key] += report[key];
+      total.created += written.created;
+      total.updated += written.updated;
+      total.unchanged += written.unchanged;
+      total.receipt = written.receipt;
+    }
     await index.sync();
-    return { source: "claude-export", ...report, ...written, ignored: found.ignored };
+    return { sources: parsed.map((p) => p.source), ...total, ignored: found.ignored };
   }
 
   /**
