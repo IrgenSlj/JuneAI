@@ -51,7 +51,7 @@ Patterns that span packages:
 - **Innovate out loud.** When you see a better idea than the plan, say so with the evidence or propose the experiment that would produce it. Add smaller ideas to the backlog in `lab/README.md`. Do not build them unasked.
 - **The founder makes product calls.** Ask with `AskUserQuestion` when a choice changes what the product is (audience, scope, a paid service, a dependency the rules below flag). Decide engineering details yourself and say what you chose.
 - **Teach the why.** The founder is learning the stack. When you make a decision, give the reason in a sentence or two, in plain words.
-- **Real data stays private.** Exports and real conversations go in `lab/private/` (git-ignored); a dev vault with real data lives outside the repo. Commit only small redacted fixtures, in a `fixtures/` folder. `tools/privacy-check.mjs` enforces this at commit and in the gate; never bypass it with `--no-verify` or `git add -f`. Read real exports with scripts that print counts and shapes, not message text.
+- **Real data stays private.** Exports and real conversations go in `lab/private/` (git-ignored); a dev vault with real data lives outside the repo. Commit only small redacted fixtures, in a `fixtures/` folder. `tools/privacy-check.mjs` enforces this at commit and in the gate, by path and by content (export fields, plus personal strings listed one per line in the git-ignored `lab/private/denylist.txt`); never bypass it with `--no-verify` or `git add -f`. Read real exports with scripts that print counts and shapes, not message text.
 
 ## Rules
 

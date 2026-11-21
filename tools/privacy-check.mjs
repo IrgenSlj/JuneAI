@@ -5,7 +5,7 @@
 // It looks at every file git tracks or has staged. Real data belongs in
 // lab/private/ (ignored) or in a vault outside the repo (default ~/June).
 import { execFileSync } from "node:child_process";
-import { statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 const MAX_BYTES = 1_000_000;
@@ -31,7 +31,7 @@ export function problemsWith(path, bytes) {
 
 /** Every tracked or staged path, with its size on disk (0 if deleted in the work tree). */
 export function trackedFiles() {
-  const cwd = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
+  const cwd = repoRoot();
   const out = execFileSync("git", ["ls-files", "--cached", "-z"], { cwd, encoding: "utf8" });
   return out
     .split("\0")
@@ -45,8 +45,56 @@ export function trackedFiles() {
     });
 }
 
+// Fields that only appear in real provider exports and manifests. Code may
+// name them; data and docs outside a redacted fixtures/ folder may not.
+const SIGNATURES = String.raw`"(chat_messages|export_url|email_address|full_name|verified_phone_number)"[[:space:]]*:`;
+const DATA_FILES = ["*.json", "*.jsonl", "*.md", "*.html", "*.txt", "*.csv"];
+
+/** Paths in the index whose content matches, via git grep (exit 1 means no match). */
+function grepIndex(args, cwd) {
+  try {
+    return execFileSync("git", ["grep", "--cached", "-I", "-l", ...args], { cwd, encoding: "utf8" })
+      .split("\n")
+      .filter((p) => p !== "");
+  } catch (error) {
+    if (error.status === 1) return [];
+    throw error;
+  }
+}
+
+/** Strings personal to this user, one per line, kept in git-ignored lab/private/denylist.txt. */
+export function readDenylist(cwd) {
+  const file = `${cwd}/lab/private/denylist.txt`;
+  if (!existsSync(file)) return [];
+  return readFileSync(file, "utf8")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length >= 3 && !line.startsWith("#"));
+}
+
+/** Staged or tracked files whose content looks private. Reads the index, so it checks exactly what will be committed. */
+export function contentProblems(cwd = repoRoot()) {
+  const found = grepIndex(["-E", SIGNATURES, "--", ...DATA_FILES, ":(exclude)**/fixtures/**"], cwd).map(
+    (path) => `${path} contains fields from a real provider export`,
+  );
+  const deny = readDenylist(cwd);
+  if (deny.length > 0) {
+    const args = ["-i", "-F", ...deny.flatMap((line) => ["-e", line]), "--", "."];
+    // Never print which string matched: the denylist itself is private.
+    found.push(...grepIndex(args, cwd).map((path) => `${path} contains a string from lab/private/denylist.txt`));
+  }
+  return found;
+}
+
+function repoRoot() {
+  return execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
+}
+
 export function check() {
-  return trackedFiles().flatMap(({ path, bytes }) => problemsWith(path, bytes).map((reason) => `${path} ${reason}`));
+  return [
+    ...trackedFiles().flatMap(({ path, bytes }) => problemsWith(path, bytes).map((reason) => `${path} ${reason}`)),
+    ...contentProblems(),
+  ];
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
