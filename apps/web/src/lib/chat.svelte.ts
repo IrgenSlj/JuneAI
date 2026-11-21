@@ -77,9 +77,10 @@ class Chat {
   /** How much of what leaves is shown; receipts are written the same at every level. */
   transparency: Transparency = $state("glance");
   /** Full level: the label waiting for the user's yes, with the draft it describes. */
-  pending: { label: SendLabelInfo; text: string } | undefined = $state();
+  pending: { label: SendLabelInfo; text: string; threadId: string | undefined } | undefined = $state();
   /** Full level: label signatures already approved, per thread ("new" before the thread exists). */
   private approved = new Map<string, Set<string>>();
+  private labelSeq = 0;
   /** The last reply that the daemon confirmed written to the vault. */
   savedTurn: string | undefined = $state();
   error: string | undefined = $state();
@@ -99,10 +100,10 @@ class Chat {
   }
 
   async loadMore(): Promise<void> {
-    const before = this.threads.at(-1)?.activity;
-    if (before === undefined) return;
+    const last = this.threads.at(-1);
+    if (last?.activity === undefined) return;
     try {
-      const older = await session.client.threads({ before, limit: PAGE });
+      const older = await session.client.threads({ before: last.activity, beforeId: last.id, limit: PAGE });
       const known = new Set(this.threads.map((t) => t.id));
       this.threads = [...this.threads, ...older.filter((t) => !known.has(t.id))];
       this.moreThreads = older.length === PAGE;
@@ -151,6 +152,22 @@ class Chat {
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
       return name;
+    } catch (error) {
+      this.error = errorText(error);
+      return undefined;
+    }
+  }
+
+  /** Move the open thread to .trash/ in the vault; returns where it went. */
+  async trashThread(): Promise<string | undefined> {
+    const thread = this.thread;
+    if (thread === undefined || this.streaming) return undefined;
+    try {
+      const { trashedTo } = await session.client.trashThread(thread.id);
+      this.startNew();
+      await this.refreshThreads();
+      if (this.query.trim() !== "") await this.search(this.query);
+      return trashedTo;
     } catch (error) {
       this.error = errorText(error);
       return undefined;
@@ -222,6 +239,9 @@ class Chat {
 
   async open(id: string): Promise<void> {
     if (this.streaming) return;
+    // A label belongs to the thread it was built for; switching threads drops it.
+    this.pending = undefined;
+    this.labelSeq++;
     try {
       this.thread = await session.client.thread(id);
       this.messages = this.thread.turns.map((t) => toMessage(t, this.routes, this.thread?.source ?? "june", this.transparency));
@@ -236,6 +256,8 @@ class Chat {
 
   startNew(): void {
     if (this.streaming) return;
+    this.pending = undefined;
+    this.labelSeq++;
     this.thread = undefined;
     this.messages = [];
     this.label = undefined;
@@ -269,11 +291,14 @@ class Chat {
   async submit(text: string): Promise<void> {
     const route = this.route;
     if (this.transparency !== "full" || route === undefined || this.model === "" || this.streaming || this.readOnly || text.trim() === "") return this.send(text);
+    const seq = ++this.labelSeq;
+    const threadId = this.thread?.id;
     try {
-      const label = await session.client.label(this.thread?.id, { route: route.id, model: this.model, text });
-      const seen = this.approved.get(this.thread?.id ?? "new");
+      const label = await session.client.label(threadId, { route: route.id, model: this.model, text });
+      if (seq !== this.labelSeq || this.thread?.id !== threadId) return; // the user moved on; this label describes another thread
+      const seen = this.approved.get(threadId ?? "new");
       if (seen?.has(labelSignature(label)) === true) return this.send(text);
-      this.pending = { label, text };
+      this.pending = { label, text, threadId };
     } catch (error) {
       this.error = errorText(error);
     }
@@ -282,8 +307,8 @@ class Chat {
   approvePending(): Promise<void> {
     const pending = this.pending;
     this.pending = undefined;
-    if (pending === undefined) return Promise.resolve();
-    const key = this.thread?.id ?? "new";
+    if (pending === undefined || pending.threadId !== this.thread?.id) return Promise.resolve();
+    const key = pending.threadId ?? "new";
     this.approved.set(key, new Set([...(this.approved.get(key) ?? []), labelSignature(pending.label)]));
     return this.send(pending.text);
   }

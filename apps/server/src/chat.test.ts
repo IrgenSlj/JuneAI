@@ -415,6 +415,22 @@ describe("import, search and export", () => {
     expect(await refuse({ format: "json", path: target })).toBe(400);
     expect(await refuse({ format: "md", path: join(root, "nowhere", "x.md") })).toBe(400);
     expect(await refuse({ format: "md", path: join(vault, ".june", "x.md") })).toBe(400);
+    const files = await nodeVaultFs(vault).then((fs) => fs.list("threads"));
+    expect(await refuse({ format: "md", path: join(vault, files[0] ?? "threads/x.md") })).toBe(400);
+    expect(await refuse({ format: "md", path: join(vault, "kitchen.md") })).toBe(400);
+  });
+
+  it("deletes a thread to .trash/ in the vault, recoverably, and drops it from the list and search", async () => {
+    const thread = await newThread();
+    await call(`/api/threads/${thread.id}/turns`, { method: "POST", body: { route: "ollama", model: "model-a", text: "remember the plums" } });
+    const before = await readFile(join(vault, (await nodeVaultFs(vault).then((fs) => fs.list("threads")))[0] ?? ""), "utf8");
+    const { trashedTo } = await json<{ trashedTo: string }>(`/api/threads/${thread.id}`, { method: "DELETE" });
+    expect(trashedTo).toMatch(/^\.trash\/threads\/.+\.md$/);
+    expect(await readFile(join(vault, trashedTo), "utf8")).toBe(before);
+    expect(await nodeVaultFs(vault).then((fs) => fs.list("threads"))).toEqual([]);
+    expect(await json<ThreadSummary[]>("/api/threads")).toEqual([]);
+    expect(await json<ThreadSummary[]>("/api/threads?q=plums")).toEqual([]);
+    expect((await call(`/api/threads/${thread.id}`, { method: "DELETE" })).status).toBe(404);
   });
 
   it("rebuilds the index from the files when .june/ is deleted", async () => {

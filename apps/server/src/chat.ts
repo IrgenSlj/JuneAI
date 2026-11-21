@@ -6,9 +6,9 @@
 // come back out through the API. A turn streams as SSE over POST, one JSON
 // object per data: line, in the order label, text*, usage, saved | error, done.
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { stat, writeFile } from "node:fs/promises";
+import { realpath, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join, relative } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import {
   type ReceiptLog,
   type SecretStore,
@@ -21,6 +21,7 @@ import {
   isId,
   parseClaudeExport,
   parseThread,
+  rawPathFor,
   writeImported,
 } from "@june/core";
 import { branchThread, buildLabel, createThread, runTurn } from "@june/engine";
@@ -174,6 +175,30 @@ export function createChatApi(options: ChatApiOptions) {
     return { source: "claude-export", ...report, ...written, ignored: found.ignored };
   }
 
+  /**
+   * Delete, recoverably: the thread file and its raw JSON move to .trash/ in
+   * the vault under the same path (Obsidian uses the same folder), so Finder
+   * or Obsidian can bring them back. Nothing is erased.
+   */
+  async function trashThread(id: string): Promise<{ trashedTo: string }> {
+    if (busy.has(id)) throw new HttpError(409, "a reply is still arriving in this thread; wait for it to finish");
+    const { fs, index } = await vault();
+    const { path } = await findThread(fs, id);
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    let trashedTo = "";
+    for (const from of [rawPathFor(path), path]) {
+      const text = await fs.read(from);
+      if (text === undefined) continue;
+      let to = `.trash/${from}`;
+      if ((await fs.read(to)) !== undefined) to = to.replace(/(\.raw\.json|\.md)$/, `-${stamp}$1`);
+      await fs.write(to, text);
+      await fs.remove(from);
+      if (from === path) trashedTo = to;
+    }
+    await index.refresh(path);
+    return { trashedTo };
+  }
+
   /** The label for a draft, in `thread` or in a conversation not created yet. Sends nothing, writes nothing. */
   async function previewLabel(request: unknown, thread?: Thread) {
     const body = request as Partial<LabelRequest> | null;
@@ -183,14 +208,16 @@ export function createChatApi(options: ChatApiOptions) {
     return buildLabel(thread ?? empty, chosen.route, body.model, body.text).label;
   }
 
-  /** One thread rendered for export, with its export receipt written first. */
-  async function exported(id: string, format: string, destination: string): Promise<{ thread: Thread; body: string; format: "md" | "json" }> {
+  /** One thread rendered for export. */
+  async function exported(id: string, format: string): Promise<{ thread: Thread; body: string; format: "md" | "json" }> {
     if (format !== "md" && format !== "json") throw new HttpError(400, "format must be md or json");
-    const { fs, receipts } = await vault();
+    const { fs } = await vault();
     const { thread } = await findThread(fs, id);
-    const body = format === "md" ? threadAsMarkdown(thread) : threadAsJson(thread);
-    await receipts.append({ kind: "export", actor: "user", targets: [thread.id], payload: body, meta: { format, bytes: Buffer.byteLength(body), to: destination } });
-    return { thread, body, format };
+    return { thread, body: format === "md" ? threadAsMarkdown(thread) : threadAsJson(thread), format };
+  }
+
+  async function exportReceipt(thread: Thread, body: string, format: string, destination: "file" | "download"): Promise<void> {
+    await (await vault()).receipts.append({ kind: "export", actor: "user", targets: [thread.id], payload: body, meta: { format, bytes: Buffer.byteLength(body), to: destination } });
   }
 
   /** The Mac app's save dialog chose `path`; write the export there. */
@@ -200,15 +227,22 @@ export function createChatApi(options: ChatApiOptions) {
     if (!path.toLowerCase().endsWith(`.${String(format)}`)) throw new HttpError(400, `the file name must end in .${String(format)}`);
     const folder = await stat(dirname(path)).catch(() => undefined);
     if (folder?.isDirectory() !== true) throw new HttpError(400, "that folder does not exist");
-    const inside = relative(join((await vault()).root, ".june"), path);
-    if (!inside.startsWith("..") && !isAbsolute(inside)) throw new HttpError(400, "June's index folder is not a place for exports");
-    const { body } = await exported(id, String(format), "file");
-    await writeFile(path, body, "utf8");
+    // Never into the vault: an export there could overwrite a thread, a note or the index.
+    const real = await realpath(dirname(path));
+    const fromVault = relative(await realpath((await vault()).root), real);
+    if (fromVault === "" || (!fromVault.startsWith(`..${sep}`) && fromVault !== ".." && !isAbsolute(fromVault))) {
+      throw new HttpError(400, "choose a folder outside your vault; the vault already holds this conversation");
+    }
+    const { thread, body } = await exported(id, String(format));
+    // The file first: a receipt must not claim an export that failed to write.
+    await writeFile(join(real, basename(path)), body, "utf8");
+    await exportReceipt(thread, body, String(format), "file");
     return { path };
   }
 
   async function exportThread(res: ServerResponse, id: string, requested: string): Promise<void> {
-    const { thread, body, format } = await exported(id, requested, "download");
+    const { thread, body, format } = await exported(id, requested);
+    await exportReceipt(thread, body, format, "download");
     securityHeaders(res);
     res.writeHead(200, {
       "Content-Type": format === "md" ? "text/markdown; charset=utf-8" : "application/json; charset=utf-8",
@@ -357,8 +391,9 @@ export function createChatApi(options: ChatApiOptions) {
           return sendJson(res, 200, hits.map(({ turn, snippet, ...thread }): ThreadSummary => ({ ...indexedSummary(thread), match: { turn, snippet } }))), true;
         }
         const before = query.get("before") ?? undefined;
+        const beforeId = query.get("beforeId") ?? undefined;
         const lane = query.get("lane") ?? undefined;
-        return sendJson(res, 200, index.list({ limit, ...(before === undefined ? {} : { before }), ...(lane === undefined ? {} : { lane }) }).map(indexedSummary)), true;
+        return sendJson(res, 200, index.list({ limit, ...(before === undefined ? {} : { before }), ...(beforeId === undefined ? {} : { beforeId }), ...(lane === undefined ? {} : { lane }) }).map(indexedSummary)), true;
       }
       if (method === "POST" && parts.length === 1) {
         const { fs, index } = await vault();
@@ -374,6 +409,7 @@ export function createChatApi(options: ChatApiOptions) {
         const { fs } = await vault();
         return sendJson(res, 200, detail((await findThread(fs, id)).thread)), true;
       }
+      if (method === "DELETE" && parts.length === 2) return sendJson(res, 200, await trashThread(id)), true;
       if (method === "POST" && parts.length === 3 && parts[2] === "turns") return await sendTurn(req, res, id), true;
       if (method === "POST" && parts.length === 3 && parts[2] === "label") {
         const { fs } = await vault();

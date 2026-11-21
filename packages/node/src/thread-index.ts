@@ -51,7 +51,8 @@ export interface ThreadIndex {
   refresh(path: string): Promise<void>;
   get(id: string): IndexedThread | undefined;
   /** Newest first, by last update. `before` pages on that same timestamp. */
-  list(options?: { before?: string; limit?: number; lane?: string }): IndexedThread[];
+  /** `before` (and `beforeId`, for threads sharing a timestamp) is the last row of the previous page. */
+  list(options?: { before?: string; beforeId?: string; limit?: number; lane?: string }): IndexedThread[];
   search(query: string, options?: { limit?: number }): SearchHit[];
   close(): void;
 }
@@ -193,14 +194,16 @@ export async function openThreadIndex(root: string, fs: VaultFs, options: { file
         try {
           changed.push({ path, thread: parseThread((await fs.read(path)) ?? ""), size: info.size, mtime: info.mtimeMs });
         } catch {
+          // Unreadable now: whatever was indexed from it before is stale.
           report.unreadable.push(path);
+          seen.delete(path);
         }
       }
       transaction(() => {
         for (const path of before.keys()) {
           if (!seen.has(path)) {
             forget(path);
-            report.removed++;
+            if (!report.unreadable.includes(path)) report.removed++;
           }
         }
         for (const { path, thread, size, mtime } of changed) put(path, thread, size, mtime);
@@ -220,10 +223,13 @@ export async function openThreadIndex(root: string, fs: VaultFs, options: { file
       return row === undefined ? undefined : toThread(row);
     },
 
-    list({ before, limit = 200, lane } = {}) {
+    list({ before, beforeId, limit = 200, lane } = {}) {
       const rows = db
-        .prepare(`SELECT * FROM threads WHERE (? IS NULL OR sort < ?) AND (? IS NULL OR lane = ?) ORDER BY sort DESC, id DESC LIMIT ?`)
-        .all(before ?? null, before ?? null, lane ?? null, lane ?? null, Math.min(Math.max(limit, 1), 1000)) as Row[];
+        .prepare(
+          `SELECT * FROM threads WHERE (? IS NULL OR sort < ? OR (sort = ? AND id < ?)) AND (? IS NULL OR lane = ?)
+           ORDER BY sort DESC, id DESC LIMIT ?`,
+        )
+        .all(before ?? null, before ?? null, before ?? null, beforeId ?? "", lane ?? null, lane ?? null, Math.min(Math.max(limit, 1), 1000)) as Row[];
       return rows.map(toThread);
     },
 
@@ -231,29 +237,30 @@ export async function openThreadIndex(root: string, fs: VaultFs, options: { file
       const terms = queryTerms(query);
       if (terms.length === 0) return [];
       const long = terms.filter((t) => [...t].length >= 3);
-      let rows: Row[];
+      let ranked: Row[];
       if (long.length === terms.length) {
         const match = terms.map((t) => `"${t.replace(/"/g, '""')}"`).join(" AND ");
-        // Rank turns by bm25 (FTS5's rank column), then keep each thread's best turn.
-        const ranked = db.prepare("SELECT rowid, thread_id FROM text_fts WHERE text_fts MATCH ? ORDER BY rank LIMIT 5000").all(match) as Row[];
-        const best = new Map<string, unknown>();
-        for (const row of ranked) {
-          if (best.size >= limit) break;
-          if (!best.has(String(row.thread_id))) best.set(String(row.thread_id), row.rowid);
-        }
-        const byRowid = db.prepare("SELECT thread_id, turn_id, body FROM text_fts WHERE rowid = ?");
-        rows = [...best.values()].map((rowid) => byRowid.get(rowid as number) as Row);
+        // Rank turns by bm25 (FTS5's rank column); each thread keeps its best turn below.
+        ranked = db.prepare("SELECT rowid, thread_id FROM text_fts WHERE text_fts MATCH ? ORDER BY rank LIMIT 5000").all(match) as Row[];
       } else {
         // A term under three characters: every term as a substring, newest threads first.
         const where = terms.map(() => "body LIKE ? ESCAPE '\\'").join(" AND ");
         const args = terms.map((t) => `%${t.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
-        rows = db
+        // Turns before the title, so a snippet shows the text that matched rather than the name.
+        ranked = db
           .prepare(
-            `SELECT f.thread_id, MIN(f.turn_id) AS turn_id, f.body FROM text_fts f JOIN threads t ON t.id = f.thread_id
-             WHERE ${where} GROUP BY f.thread_id ORDER BY MAX(t.sort) DESC LIMIT ?`,
+            `SELECT f.rowid, f.thread_id FROM text_fts f JOIN threads t ON t.id = f.thread_id
+             WHERE ${where} ORDER BY t.sort DESC, t.id DESC, (f.turn_id = 'title'), f.rowid LIMIT 5000`,
           )
-          .all(...args, limit) as Row[];
+          .all(...args) as Row[];
       }
+      const best = new Map<string, unknown>();
+      for (const row of ranked) {
+        if (best.size >= limit) break;
+        if (!best.has(String(row.thread_id))) best.set(String(row.thread_id), row.rowid);
+      }
+      const byRowid = db.prepare("SELECT thread_id, turn_id, body FROM text_fts WHERE rowid = ?");
+      const rows = [...best.values()].map((rowid) => byRowid.get(rowid as number) as Row);
       const getThread = db.prepare("SELECT * FROM threads WHERE id = ?");
       return rows.flatMap((row) => {
         const thread = getThread.get(String(row.thread_id)) as Row | undefined;

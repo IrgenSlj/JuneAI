@@ -124,3 +124,43 @@ describe("snippets and terms", () => {
     expect(queryTerms(' budget "two words" budget ')).toEqual(["budget", "two words"]);
   });
 });
+
+describe("thread index edge cases", () => {
+  it("pages through threads that share a timestamp without skipping any", async () => {
+    const same = Array.from({ length: 7 }, (_, i) => ({ ...thread(100 + i, `Same ${i}`, ["x"], 12) }));
+    const { root, fs } = await vaultWith(same);
+    const index = await openThreadIndex(root, fs);
+    await index.sync();
+    const seen: string[] = [];
+    let page = index.list({ limit: 3 });
+    while (page.length > 0) {
+      seen.push(...page.map((t) => t.id));
+      const last = page.at(-1)!;
+      page = index.list({ limit: 3, before: last.activity, beforeId: last.id });
+    }
+    expect(seen.sort()).toEqual(same.map((t) => t.id).sort());
+    index.close();
+  });
+
+  it("drops a thread from the index when its file stops parsing", async () => {
+    const { root, fs } = await vaultWith(sample);
+    const index = await openThreadIndex(root, fs);
+    await index.sync();
+    await fs.write(threadPath(sample[0]!), "broken now");
+    await utimes(join(root, threadPath(sample[0]!)), new Date(), new Date(Date.now() + 5000));
+    expect((await index.sync()).unreadable).toEqual([threadPath(sample[0]!)]);
+    expect(index.get(idFor(1))).toBeUndefined();
+    expect(index.search("budget")).toEqual([]);
+    index.close();
+  });
+
+  it("short queries point at the turn that matched", async () => {
+    const { root, fs } = await vaultWith([thread(50, "Go notes", ["first turn", "second turn says go"])]);
+    const index = await openThreadIndex(root, fs);
+    await index.sync();
+    const [hit] = index.search("go");
+    expect(hit?.turn).toBe("m2");
+    expect(hit?.snippet).toContain("\u0002go\u0003");
+    index.close();
+  });
+});

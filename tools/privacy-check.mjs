@@ -48,7 +48,7 @@ export function trackedFiles() {
 // Fields that only appear in real provider exports and manifests. Code may
 // name them; data and docs outside a redacted fixtures/ folder may not.
 const SIGNATURES = String.raw`"(chat_messages|export_url|email_address|full_name|verified_phone_number)"[[:space:]]*:`;
-const DATA_FILES = ["*.json", "*.jsonl", "*.md", "*.html", "*.txt", "*.csv"];
+const DATA_FILES = ["*.json", "*.jsonl", "*.ndjson", "*.md", "*.html", "*.txt", "*.csv", "*.yaml", "*.yml", "*.xml"];
 
 /** Paths in the index whose content matches, via git grep (exit 1 means no match). */
 function grepIndex(args, cwd) {

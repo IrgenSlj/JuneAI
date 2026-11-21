@@ -41,6 +41,15 @@
     const where = await chat.exportThread(format);
     if (where !== undefined) tell(`Exported to ${where.split(/[\\/]/).at(-1)}`);
   }
+  let confirmDelete = $state(false);
+  $effect(() => {
+    void chat.thread?.id;
+    confirmDelete = false;
+  });
+  async function trash(): Promise<void> {
+    confirmDelete = false;
+    if ((await chat.trashThread()) !== undefined) tell("Moved to .trash in your vault");
+  }
   async function copy(): Promise<void> {
     if (await chat.copyThread()) tell("Copied as Markdown");
   }
@@ -96,8 +105,17 @@
           <button type="button" class="quiet" onclick={copy} disabled={chat.streaming}>Copy</button>
           <button type="button" class="quiet" onclick={() => exportAs("md")} disabled={chat.streaming} title="Save this conversation as a Markdown file">Export .md</button>
           <button type="button" class="quiet" onclick={() => exportAs("json")} disabled={chat.streaming} title="Save this conversation as JSON">.json</button>
+          {#if confirmDelete}
+            <button type="button" class="quiet danger" onclick={trash}>Move to trash?</button>
+            <button type="button" class="quiet" onclick={() => (confirmDelete = false)}>Keep</button>
+          {:else}
+            <button type="button" class="quiet" onclick={() => (confirmDelete = true)} disabled={chat.streaming} title="Move this conversation to .trash in your vault">Delete</button>
+          {/if}
         </span>
       </div>
+    {/if}
+    {#if notice && !chat.thread}
+      <p class="notice" role="status">{notice}</p>
     {/if}
     {#if chat.thread?.parent}
       {@const parentId = chat.thread.parent.split("#")[0] ?? ""}
@@ -322,6 +340,9 @@
   .notice {
     font-size: var(--size-xs);
     color: var(--color-success);
+  }
+  .actions .danger {
+    color: var(--color-danger);
   }
   .continue {
     display: flex;

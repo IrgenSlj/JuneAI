@@ -64,7 +64,7 @@ export function createJuneClient(options: JuneClientOptions = {}) {
   const timeoutMs = options.requestTimeoutMs ?? 30_000;
   let token = options.token;
 
-  async function request<T>(method: "GET" | "POST" | "PUT", path: string, body?: unknown): Promise<T> {
+  async function request<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown): Promise<T> {
     const headers = new Headers({ Accept: "application/json" });
     if (token) headers.set("X-June-Token", token);
     if (body !== undefined) headers.set("Content-Type", "application/json");
@@ -151,7 +151,7 @@ export function createJuneClient(options: JuneClientOptions = {}) {
     putProvider: (id: string, body: PutProviderRequest) => request<ProviderInfo[]>("PUT", `/providers/${encodeURIComponent(id)}`, body),
     models: (id: string) => request<ModelList>("GET", `/providers/${encodeURIComponent(id)}/models`),
     /** Newest first; with `q`, search results carrying `match`. */
-    threads: (options: { q?: string; before?: string; limit?: number } = {}) => {
+    threads: (options: { q?: string; before?: string; beforeId?: string; limit?: number } = {}) => {
       const params = new URLSearchParams();
       for (const [key, value] of Object.entries(options)) if (value !== undefined && value !== "") params.set(key, String(value));
       const qs = params.toString();
@@ -166,6 +166,8 @@ export function createJuneClient(options: JuneClientOptions = {}) {
       ).json()) as ImportReport,
     /** One thread as Markdown or JSON text, for a download or the clipboard. */
     exportText: async (id: string, format: "md" | "json") => (await raw("GET", `/threads/${encodeURIComponent(id)}/export?format=${format}`)).text(),
+    /** Move a thread to .trash/ in the vault (recoverable in Finder or Obsidian). */
+    trashThread: (id: string) => request<{ trashedTo: string }>("DELETE", `/threads/${encodeURIComponent(id)}`),
     exportToPath: (id: string, body: ExportToPathRequest) => request<{ path: string }>("POST", `/threads/${encodeURIComponent(id)}/export`, body),
     thread: (id: string) => request<ThreadDetail>("GET", `/threads/${encodeURIComponent(id)}`),
     newThread: (body: NewThreadRequest = {}) => request<ThreadSummary>("POST", "/threads", body),

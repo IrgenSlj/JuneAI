@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Message composer. Cmd/Ctrl+Enter sends, Enter inserts a newline. While a
+   * Message composer. Enter sends, Shift+Enter inserts a newline. While a
    * turn is streaming, the submit button turns into a Stop button that fires
    * `onCancel`.
    *
@@ -49,12 +49,11 @@
   }
 
   function handleKey(event: KeyboardEvent) {
-    const isEnter = event.key === "Enter";
-    const isMod = event.metaKey || event.ctrlKey;
-    if (isEnter && isMod && !event.shiftKey) {
-      event.preventDefault();
-      submit();
-    }
+    // Enter sends; Shift+Enter is a new line. While an input method is
+    // composing (accents, Japanese, Chinese), Enter belongs to it.
+    if (event.key !== "Enter" || event.shiftKey || event.isComposing || event.keyCode === 229) return;
+    event.preventDefault();
+    submit();
   }
 </script>
 

@@ -24,6 +24,10 @@ export class ExportReadError extends Error {
 }
 
 const MAX_ENTRY_BYTES = 2_000_000_000;
+// Across one archive. Sizes come from the zip's own headers, so these bound
+// honest archives and casual mistakes; a forged header could still lie.
+const MAX_ARCHIVE_BYTES = 4_000_000_000;
+const MAX_ENTRIES = 10_000;
 const WANTED = /\.(json|jsonl|zip)$/i;
 
 function parseDocument(name: string, bytes: Uint8Array): ExportDocument {
@@ -54,11 +58,15 @@ export function documentsIn(name: string, bytes: Uint8Array, depth = 0): ExportD
   if (!isZip) return /\.(json|jsonl)$/i.test(name) || extname(name) === "" ? [parseDocument(name, bytes)] : [];
   if (depth > 2) return [];
   let entries: Record<string, Uint8Array>;
+  let total = 0;
+  let count = 0;
   try {
     entries = unzipSync(bytes, {
       filter: (file) => {
+        if (++count > MAX_ENTRIES) throw new ExportReadError(`${name} has more than ${MAX_ENTRIES} files; is it an export?`);
         if (!WANTED.test(file.name) || file.name.startsWith("__MACOSX/") || basename(file.name).startsWith("._")) return false;
-        if (file.originalSize > MAX_ENTRY_BYTES) throw new ExportReadError(`${name}/${file.name} is too large to import`);
+        total += file.originalSize;
+        if (file.originalSize > MAX_ENTRY_BYTES || total > MAX_ARCHIVE_BYTES) throw new ExportReadError(`${name}/${file.name} is too large to import`);
         return true;
       },
     });

@@ -53,7 +53,10 @@ test("import a Claude export, search it, continue a conversation as a branch, ex
   await page.getByRole("button", { name: "Continue in a new thread" }).click();
   await expect(page.getByText("Branched from")).toBeVisible();
   await page.getByLabel("Message June").fill("And day two?");
-  await page.getByRole("button", { name: "Send message" }).click();
+  await page.getByLabel("Message June").press("Shift+Enter");
+  await expect(page.getByLabel("Message June")).toHaveValue("And day two?\n");
+  await page.getByLabel("Message June").press("Backspace");
+  await page.getByLabel("Message June").press("Enter");
   await expect(page.getByText("Day two: Belém.")).toBeVisible();
   await expect(page.getByText("Saved to your vault")).toBeVisible();
   const sentToModel = JSON.parse(ollama.requests.filter((r) => r.path.includes("chat")).at(-1)?.body ?? "{}") as { messages: { content: string }[] };
@@ -68,4 +71,11 @@ test("import a Claude export, search it, continue a conversation as a branch, ex
   expect(text).toMatch(/^# Plan a trip to Lisbon/);
   expect(text).toContain("Day two: Belém.");
   expect(text).not.toContain("june:turn");
+
+  await page.getByRole("button", { name: "Delete" }).click();
+  await page.getByRole("button", { name: "Move to trash?" }).click();
+  await expect(page.getByText("Moved to .trash in your vault")).toBeVisible();
+  await expect(list.getByRole("button", { name: /\(branch\)/ })).toHaveCount(0);
+  const trashed = await readdir(join(vault, ".trash", "threads"), { recursive: true });
+  expect(trashed.some((f) => f.endsWith(".md"))).toBe(true);
 });
