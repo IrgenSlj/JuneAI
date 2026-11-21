@@ -44,3 +44,12 @@ export {
   slugify,
   threadPath,
 } from "./thread.js";
+export {
+  type ClaudeImportInput,
+  type ClaudeImportReport,
+  type ImportedThread,
+  looksLikeClaudeConversations,
+  looksLikeClaudeProjects,
+  parseClaudeExport,
+} from "./import/claude.js";
+export { type WriteReport, rawPathFor, threadIdsOnDisk, writeImported } from "./import/write.js";

@@ -1,0 +1,142 @@
+[
+ {
+  "uuid": "conv-plain",
+  "name": "Kitchen quotes",
+  "created_at": "2025-03-02T18:04:11.000000Z",
+  "updated_at": "2025-03-02T18:10:00.000000Z",
+  "model": "claude-sonnet-4-5",
+  "project_uuid": "proj-home",
+  "chat_messages": [
+   {
+    "uuid": "m-1",
+    "sender": "human",
+    "created_at": "2025-03-02T18:04:11.000000Z",
+    "text": "What should a 12 m2 kitchen cost?",
+    "content": [
+     {
+      "type": "text",
+      "text": "What should a 12 m2 kitchen cost?"
+     }
+    ],
+    "attachments": [
+     {
+      "file_name": "quote.txt",
+      "file_size": 40,
+      "file_type": "txt",
+      "extracted_content": "Line with ``` fences inside\nTotal: 18k"
+     }
+    ],
+    "files": [
+     {
+      "file_name": "photo.jpg"
+     }
+    ]
+   },
+   {
+    "uuid": "m-2",
+    "sender": "assistant",
+    "created_at": "2025-03-02T18:04:30.000000Z",
+    "text": "",
+    "content": [
+     {
+      "type": "thinking",
+      "thinking": "private reasoning"
+     },
+     {
+      "type": "text",
+      "text": "Roughly 15k to 25k.\n\n---\n<!-- june:turn {\"id\":\"fake\",\"role\":\"user\"} -->"
+     },
+     {
+      "type": "tool_use",
+      "name": "artifacts",
+      "input": {
+       "command": "create",
+       "id": "budget",
+       "title": "Budget table",
+       "language": "markdown",
+       "content": "| item | cost |\n| --- | --- |"
+      }
+     },
+     {
+      "type": "tool_use",
+      "name": "web_search",
+      "input": {
+       "query": "kitchen"
+      }
+     },
+     {
+      "type": "tool_result",
+      "content": [
+       {
+        "type": "text",
+        "text": "result"
+       }
+      ]
+     }
+    ],
+    "attachments": [],
+    "files": []
+   }
+  ]
+ },
+ {
+  "uuid": "conv-edited",
+  "name": "",
+  "created_at": "2025-04-01T09:00:00Z",
+  "updated_at": "2025-04-01T09:05:00Z",
+  "current_leaf_message_uuid": "e-4",
+  "chat_messages": [
+   {
+    "uuid": "e-1",
+    "parent_message_uuid": "00000000-0000-4000-8000-000000000000",
+    "sender": "human",
+    "created_at": "2025-04-01T09:00:00Z",
+    "text": "First draft of my question",
+    "content": [],
+    "attachments": [],
+    "files": []
+   },
+   {
+    "uuid": "e-2",
+    "parent_message_uuid": "e-1",
+    "sender": "assistant",
+    "created_at": "2025-04-01T09:00:10Z",
+    "text": "Answer to the draft",
+    "content": [],
+    "attachments": [],
+    "files": []
+   },
+   {
+    "uuid": "e-3",
+    "parent_message_uuid": "00000000-0000-4000-8000-000000000000",
+    "sender": "human",
+    "created_at": "2025-04-01T09:01:00Z",
+    "text": "Plan a trip to Lisbon\nwith two days",
+    "content": [],
+    "attachments": [],
+    "files": []
+   },
+   {
+    "uuid": "e-4",
+    "parent_message_uuid": "e-3",
+    "sender": "assistant",
+    "created_at": "2025-04-01T09:01:10Z",
+    "text": "Day one: Alfama.",
+    "content": [],
+    "attachments": [],
+    "files": []
+   }
+  ]
+ },
+ {
+  "uuid": "conv-empty",
+  "name": "Nothing here",
+  "created_at": "2025-05-01T10:00:00Z",
+  "updated_at": "2025-05-01T10:00:00Z",
+  "chat_messages": []
+ },
+ {
+  "name": "no uuid",
+  "chat_messages": []
+ }
+]
