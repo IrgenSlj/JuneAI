@@ -197,3 +197,27 @@ export async function parseClaudeExport(input: ClaudeImportInput): Promise<{ thr
   }
   return { threads, report };
 }
+
+export interface ClaudeExportContents extends ClaudeImportInput {
+  /** True when the input is only the 2026 export's manifest (links to zips, no conversations). */
+  manifestOnly: boolean;
+  /** Documents that were neither conversations nor projects (memories, users, design chats ...). */
+  ignored: string[];
+}
+
+/** Sorts parsed JSON documents from an export into conversations, projects and the rest, by shape. */
+export function findClaudeData(documents: { name: string; data: unknown }[]): ClaudeExportContents {
+  const conversations: unknown[] = [];
+  const projects: unknown[] = [];
+  const ignored: string[] = [];
+  let manifest = false;
+  for (const { name, data } of documents) {
+    if (looksLikeClaudeConversations(data)) conversations.push(...data);
+    else if (looksLikeClaudeProjects(data)) projects.push(...data);
+    else {
+      if (isObj(data) && Array.isArray(data.data_files)) manifest = true;
+      ignored.push(name);
+    }
+  }
+  return { conversations, projects, manifestOnly: manifest && conversations.length === 0, ignored };
+}

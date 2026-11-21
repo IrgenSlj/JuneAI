@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@june/core": "workspace:*"
+    "@june/core": "workspace:*",
+    "fflate": "0.8.3"
   },
   "devDependencies": {
     "esbuild": "^0.28.2"

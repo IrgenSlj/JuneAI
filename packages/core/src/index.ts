@@ -46,8 +46,10 @@ export {
 } from "./thread.js";
 export {
   type ClaudeImportInput,
+  type ClaudeExportContents,
   type ClaudeImportReport,
   type ImportedThread,
+  findClaudeData,
   looksLikeClaudeConversations,
   looksLikeClaudeProjects,
   parseClaudeExport,
