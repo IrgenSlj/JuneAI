@@ -14,6 +14,8 @@
     onSubmit: (message: string) => void;
     onCancel?: () => void;
     focus?: () => void;
+    /** The draft; bind it to put text back (for example when a send is cancelled before it leaves). */
+    value?: string;
   }
 
   let {
@@ -23,9 +25,9 @@
     onSubmit,
     onCancel,
     focus = $bindable(),
+    value = $bindable(""),
   }: Props = $props();
 
-  let value = $state("");
   let textarea: HTMLTextAreaElement | undefined = $state();
 
   focus = () => {

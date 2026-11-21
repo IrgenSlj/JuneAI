@@ -60,8 +60,12 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const chat = createChatApi({
     vaultPath: () => vault,
     settings: async () => {
-      const { lastChoice } = await readConfig(options.configDir);
-      return lastChoice === undefined ? {} : { lastChoice };
+      const { lastChoice, transparency } = await readConfig(options.configDir);
+      return { ...(lastChoice === undefined ? {} : { lastChoice }), transparency: transparency ?? "glance" };
+    },
+    saveSettings: async (change) => {
+      const { lastChoice, transparency } = await updateConfig(options.configDir, change);
+      return { ...(lastChoice === undefined ? {} : { lastChoice }), transparency: transparency ?? "glance" };
     },
     onSaved: async (lastChoice) => void (await updateConfig(options.configDir, { lastChoice })),
     secrets: options.secrets ?? platformSecretStore(), fetch: options.fetch ?? globalFetch,

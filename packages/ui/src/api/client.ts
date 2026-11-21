@@ -11,6 +11,9 @@ import type {
   ExportToPathRequest,
   Health,
   ImportReport,
+  LabelRequest,
+  SendLabelInfo,
+  SettingsChange,
   ModelList,
   NewThreadRequest,
   OpenVaultRequest,
@@ -167,6 +170,10 @@ export function createJuneClient(options: JuneClientOptions = {}) {
     thread: (id: string) => request<ThreadDetail>("GET", `/threads/${encodeURIComponent(id)}`),
     newThread: (body: NewThreadRequest = {}) => request<ThreadSummary>("POST", "/threads", body),
     settings: () => request<Settings>("GET", "/settings"),
+    putSettings: (change: SettingsChange) => request<Settings>("PUT", "/settings", change),
+    /** What would leave for this draft; `threadId` undefined for a conversation not created yet. Sends nothing. */
+    label: (threadId: string | undefined, body: LabelRequest) =>
+      request<SendLabelInfo>("POST", threadId === undefined ? "/label" : `/threads/${encodeURIComponent(threadId)}/label`, body),
     receipts: (after = 0) => request<ReceiptInfo[]>("GET", `/receipts?after=${after}`),
     verifyReceipts: () => request<ReceiptsVerify>("POST", "/receipts/verify"),
     branch: (id: string, body: BranchRequest) => request<ThreadSummary>("POST", `/threads/${encodeURIComponent(id)}/branch`, body),

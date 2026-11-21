@@ -5,7 +5,7 @@
 // A turn is shown as saved only when the daemon's `saved` frame arrives; text
 // alone never means saved (PLAN.md, rule 4).
 import { type ChatMessage, sourceName } from "@june/ui";
-import { ApiError, type ProviderInfo, type RouteInfo, type SendLabelInfo, type ThreadDetail, type ThreadSummary, type TurnInfo } from "@june/ui/api";
+import { ApiError, type ProviderInfo, type RouteInfo, type SendLabelInfo, type ThreadDetail, type ThreadSummary, type Transparency, type TurnInfo } from "@june/ui/api";
 import { getPlatform } from "@june/ui/platform";
 import { session } from "./session.svelte.js";
 
@@ -32,15 +32,27 @@ export function routeGroup(route: RouteInfo): string {
 
 const PAGE = 200;
 
-function toMessage(turn: TurnInfo, routes: ProviderInfo[], source: string): ChatMessage {
+/**
+ * What makes a send need the label sheet again in Full: the route, and any kind
+ * of context beyond June's own history and the draft (imported text now; notes
+ * and attachments from M5).
+ */
+export function labelSignature(label: SendLabelInfo): string {
+  const extra = label.parts.filter((p) => p.kind !== "history" && p.kind !== "draft").map((p) => p.kind);
+  return [label.route.id, ...[...new Set(extra)].sort()].join("|");
+}
+
+function toMessage(turn: TurnInfo, routes: ProviderInfo[], source: string, level: Transparency): ChatMessage {
   const route = routes.find((p) => p.route.id === turn.route)?.route;
   const imported = sourceName(source);
+  const where = imported === undefined ? (route?.name ?? turn.route ?? "") : `imported from ${imported}`;
+  const tier = level === "full" && turn.receipt !== undefined ? `${where} · receipt #${turn.receipt}` : where;
   return {
     id: turn.id,
     role: turn.role === "user" ? "user" : turn.role === "tool" ? "tool" : "assistant",
     content: turn.text,
-    ...(turn.role === "assistant" && turn.model !== undefined
-      ? { provenance: { model: turn.model, tier: imported === undefined ? (route?.name ?? turn.route ?? "") : `imported from ${imported}`, cloud_call: route?.leavesDevice ?? true } }
+    ...(turn.role === "assistant" && turn.model !== undefined && level !== "quiet"
+      ? { provenance: { model: turn.model, tier, cloud_call: route?.leavesDevice ?? true } }
       : {}),
   };
 }
@@ -62,6 +74,12 @@ class Chat {
   streaming = $state(false);
   /** What left (or was about to) on the last send. */
   label: SendLabelInfo | undefined = $state();
+  /** How much of what leaves is shown; receipts are written the same at every level. */
+  transparency: Transparency = $state("glance");
+  /** Full level: the label waiting for the user's yes, with the draft it describes. */
+  pending: { label: SendLabelInfo; text: string } | undefined = $state();
+  /** Full level: label signatures already approved, per thread ("new" before the thread exists). */
+  private approved = new Map<string, Set<string>>();
   /** The last reply that the daemon confirmed written to the vault. */
   savedTurn: string | undefined = $state();
   error: string | undefined = $state();
@@ -155,6 +173,7 @@ class Chat {
     try {
       const [routes, settings] = await Promise.all([session.client.providers(), session.client.settings(), this.refreshThreads()]);
       this.routes = routes;
+      this.transparency = settings.transparency;
       if (!(await this.choose(settings.lastChoice))) {
         const first = routes.find((p) => p.ready && p.route.kind === "local") ?? routes.find((p) => p.ready);
         if (first !== undefined) await this.pickRoute(first.route.id);
@@ -205,7 +224,7 @@ class Chat {
     if (this.streaming) return;
     try {
       this.thread = await session.client.thread(id);
-      this.messages = this.thread.turns.map((t) => toMessage(t, this.routes, this.thread?.source ?? "june"));
+      this.messages = this.thread.turns.map((t) => toMessage(t, this.routes, this.thread?.source ?? "june", this.transparency));
       if (!this.streaming) await this.choose(lastChoiceIn(this.thread));
       this.label = undefined;
       this.savedTurn = undefined;
@@ -237,6 +256,44 @@ class Chat {
     }
   }
 
+  async setTransparency(level: Transparency): Promise<void> {
+    try {
+      this.transparency = (await session.client.putSettings({ transparency: level })).transparency;
+      if (this.thread !== undefined && !this.streaming) await this.open(this.thread.id);
+    } catch (error) {
+      this.error = errorText(error);
+    }
+  }
+
+  /** In Full, a send first shows its label; the user's yes sends exactly that draft. */
+  async submit(text: string): Promise<void> {
+    const route = this.route;
+    if (this.transparency !== "full" || route === undefined || this.model === "" || this.streaming || this.readOnly || text.trim() === "") return this.send(text);
+    try {
+      const label = await session.client.label(this.thread?.id, { route: route.id, model: this.model, text });
+      const seen = this.approved.get(this.thread?.id ?? "new");
+      if (seen?.has(labelSignature(label)) === true) return this.send(text);
+      this.pending = { label, text };
+    } catch (error) {
+      this.error = errorText(error);
+    }
+  }
+
+  approvePending(): Promise<void> {
+    const pending = this.pending;
+    this.pending = undefined;
+    if (pending === undefined) return Promise.resolve();
+    const key = this.thread?.id ?? "new";
+    this.approved.set(key, new Set([...(this.approved.get(key) ?? []), labelSignature(pending.label)]));
+    return this.send(pending.text);
+  }
+
+  cancelPending(): string | undefined {
+    const text = this.pending?.text;
+    this.pending = undefined;
+    return text;
+  }
+
   stop(): void {
     this.abort?.abort();
   }
@@ -256,6 +313,10 @@ class Chat {
       if (this.thread === undefined) {
         const created = await session.client.newThread({ title: text.trim().split("\n")[0]?.slice(0, 80) ?? "" });
         this.thread = { ...created, turns: [] };
+        // What was approved before the thread existed applies to it.
+        const before = this.approved.get("new");
+        if (before !== undefined) this.approved.set(created.id, before);
+        this.approved.delete("new");
       }
       const threadId = this.thread.id;
       for await (const frame of session.client.sendTurn(threadId, { route: route.id, model: this.model, text }, this.abort.signal)) {

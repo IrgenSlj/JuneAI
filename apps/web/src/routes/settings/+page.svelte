@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { ApiError, type ProviderInfo } from "@june/ui/api";
+  import { ApiError, type ProviderInfo, type Transparency } from "@june/ui/api";
   import { routeGroup } from "#lib/chat.svelte.js";
   import { session } from "#lib/session.svelte.js";
 
@@ -17,9 +17,22 @@
       .filter((g) => g.routes.length > 0),
   );
 
+  let level: Transparency | undefined = $state();
+  const LEVELS: { value: Transparency; name: string; text: string }[] = [
+    { value: "quiet", name: "Quiet", text: "Show nothing extra. Receipts are still kept on the Receipts page." },
+    { value: "glance", name: "Glance", text: "One line under the message box: model, route, and whether it leaves this Mac." },
+    { value: "full", name: "Full", text: "Before sending to a new route, or with new kinds of context, show exactly what leaves and ask. Each reply shows its receipt." },
+  ];
+
   onMount(async () => {
-    routes = await session.client.providers();
+    const [providers, settings] = await Promise.all([session.client.providers(), session.client.settings()]);
+    routes = providers;
+    level = settings.transparency;
   });
+
+  async function setLevel(next: Transparency): Promise<void> {
+    level = (await session.client.putSettings({ transparency: next })).transparency;
+  }
 
   async function save(id: string, apiKey: string | null): Promise<void> {
     busy = id;
@@ -37,7 +50,19 @@
 </script>
 
 <main class="settings">
-  <h1>Models</h1>
+  <h1>What June shows</h1>
+  <p class="intro">Everything sent is recorded the same way at every level; this only changes what you see.</p>
+  <fieldset class="levels" aria-label="Transparency">
+    {#each LEVELS as option (option.value)}
+      <label class:chosen={level === option.value}>
+        <input type="radio" name="transparency" value={option.value} checked={level === option.value} onchange={() => setLevel(option.value)} />
+        <span><strong>{option.name}</strong> {option.text}</span>
+      </label>
+    {/each}
+  </fieldset>
+  <p class="note"><a href="/receipts">Receipts</a>: every send, import and export, with a check that none was removed or changed.</p>
+
+  <h1 class="models">Models</h1>
   <p class="intro">June talks to the models you bring. Keys are kept in the macOS keychain, never in your vault or a file.</p>
 
   {#each groups as group (group.name)}
@@ -86,6 +111,37 @@
     margin: 0 auto;
     padding: 1.5rem 1.25rem 4rem;
     overflow-y: auto;
+  }
+  .levels {
+    border: none;
+    padding: 0;
+    margin: 0.5rem 0;
+    display: grid;
+    gap: 0.5rem;
+  }
+  .levels label {
+    display: flex;
+    gap: 0.6rem;
+    align-items: baseline;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  .levels label.chosen {
+    border-color: var(--color-accent);
+    background: var(--color-bg-raised);
+  }
+  .levels span {
+    color: var(--color-fg-secondary);
+  }
+  .levels strong {
+    color: var(--color-fg-primary);
+    margin-right: 0.25rem;
+  }
+  .models {
+    margin-top: 2.5rem;
   }
   .intro,
   .note {

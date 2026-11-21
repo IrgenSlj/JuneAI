@@ -23,7 +23,7 @@ import {
   parseThread,
   writeImported,
 } from "@june/core";
-import { branchThread, createThread, runTurn } from "@june/engine";
+import { branchThread, buildLabel, createThread, runTurn } from "@june/engine";
 import { type ExportDocument, ExportReadError, type IndexedThread, type ThreadIndex, documentsIn, nodeFileLock, nodeVaultFs, openThreadIndex, readExportPath } from "@june/node";
 import { type FetchLike, ROUTE_PRESETS, makeProvider } from "@june/providers";
 import type {
@@ -31,12 +31,14 @@ import type {
   ExportToPathRequest,
   ImportReport,
   ImportRequest,
+  LabelRequest,
   ModelList,
   NewThreadRequest,
   ProviderInfo,
   PutProviderRequest,
   SendTurnRequest,
   Settings,
+  SettingsChange,
   ThreadDetail,
   ThreadSummary,
   TurnFrame,
@@ -69,6 +71,8 @@ export interface ChatApiOptions {
   ollamaUrl?: string;
   /** The daemon's settings, for GET /api/settings. */
   settings(): Promise<Settings>;
+  /** Apply a validated change from PUT /api/settings. */
+  saveSettings(change: SettingsChange): Promise<Settings>;
   /** Called after a reply is saved, with the route and model that produced it. */
   onSaved(choice: { route: string; model: string }): Promise<void>;
 }
@@ -168,6 +172,15 @@ export function createChatApi(options: ChatApiOptions) {
     const written = await lock.exclusive("import", () => writeImported(fs, receipts, threads, { source: "claude-export" }));
     await index.sync();
     return { source: "claude-export", ...report, ...written, ignored: found.ignored };
+  }
+
+  /** The label for a draft, in `thread` or in a conversation not created yet. Sends nothing, writes nothing. */
+  async function previewLabel(request: unknown, thread?: Thread) {
+    const body = request as Partial<LabelRequest> | null;
+    if (typeof body?.route !== "string" || typeof body.model !== "string" || typeof body.text !== "string") throw new HttpError(400, "route, model and text are required");
+    const chosen = await provider(body.route);
+    const empty: Thread = { id: "th_new", title: "", source: "june", turns: [] };
+    return buildLabel(thread ?? empty, chosen.route, body.model, body.text).label;
   }
 
   /** One thread rendered for export, with its export receipt written first. */
@@ -305,6 +318,13 @@ export function createChatApi(options: ChatApiOptions) {
     const method = req.method ?? "GET";
 
     if (path === "/api/settings" && method === "GET") return sendJson(res, 200, await options.settings()), true;
+    if (path === "/api/settings" && method === "PUT") {
+      const { transparency } = ((await readJson(req)) ?? {}) as Partial<SettingsChange>;
+      if (transparency !== undefined && transparency !== "quiet" && transparency !== "glance" && transparency !== "full") {
+        throw new HttpError(400, "transparency must be quiet, glance or full");
+      }
+      return sendJson(res, 200, await options.saveSettings(transparency === undefined ? {} : { transparency })), true;
+    }
     if (path === "/api/receipts" && method === "GET") {
       const after = Number(query.get("after") ?? "0");
       if (!Number.isInteger(after) || after < 0) throw new HttpError(400, "after must be a whole number");
@@ -312,6 +332,7 @@ export function createChatApi(options: ChatApiOptions) {
     }
     if (path === "/api/receipts/verify" && method === "POST") return sendJson(res, 200, await (await vault()).receipts.verify()), true;
     if (path === "/api/import" && method === "POST") return sendJson(res, 200, await importExport(req)), true;
+    if (path === "/api/label" && method === "POST") return sendJson(res, 200, await previewLabel(await readJson(req))), true;
     const parts = path.split("/").slice(2).map(decodeURIComponent); // ["providers", id?, "models"?]
 
     if (parts[0] === "providers") {
@@ -354,6 +375,11 @@ export function createChatApi(options: ChatApiOptions) {
         return sendJson(res, 200, detail((await findThread(fs, id)).thread)), true;
       }
       if (method === "POST" && parts.length === 3 && parts[2] === "turns") return await sendTurn(req, res, id), true;
+      if (method === "POST" && parts.length === 3 && parts[2] === "label") {
+        const { fs } = await vault();
+        const { thread } = await findThread(fs, id);
+        return sendJson(res, 200, await previewLabel(await readJson(req), thread)), true;
+      }
       if (method === "GET" && parts.length === 3 && parts[2] === "export") return await exportThread(res, id, query.get("format") ?? "md"), true;
       if (method === "POST" && parts.length === 3 && parts[2] === "export") return sendJson(res, 200, await exportToPath(id, await readJson(req))), true;
       if (method === "POST" && parts.length === 3 && parts[2] === "branch") {

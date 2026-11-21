@@ -18,7 +18,8 @@ import type { ChatMessage, Provider, Route } from "@june/providers";
 export interface SendLabel {
   route: Route;
   model: string;
-  parts: { kind: "system" | "history" | "note" | "attachment" | "draft"; id?: string; chars: number }[];
+  /** What the request is made of. `imported` is text from an export (untrusted, rule 6), kept apart from June's own history. */
+  parts: { kind: "system" | "history" | "imported" | "note" | "attachment" | "draft"; id?: string; chars: number; turns?: number }[];
   noteIds: string[];
   totalChars: number;
 }
@@ -71,6 +72,29 @@ function nextTurnId(thread: Thread): string {
 
 function toMessages(turns: Turn[]): ChatMessage[] {
   return turns.flatMap((t) => (t.role === "tool" ? [] : [{ role: t.role, content: t.text }]));
+}
+
+/** A turn that came from a provider export (it carries the provider's message id), here or in a branch's copy. */
+const isImported = (turn: Turn): boolean => typeof turn.meta?.sourceId === "string";
+
+/**
+ * The label and the exact messages for sending `text` in `thread`. Pure: the
+ * preview (POST /label) and the real send call this same function, so what
+ * the user approves is what leaves.
+ */
+export function buildLabel(thread: Thread, route: Route, model: string, text: string): { label: SendLabel; messages: ChatMessage[] } {
+  const sent = thread.turns.filter((t) => t.role !== "tool");
+  const history = toMessages(sent);
+  const own = sent.filter((t) => !isImported(t));
+  const imported = sent.filter(isImported);
+  const chars = (turns: Turn[]) => turns.reduce((sum, t) => sum + t.text.length, 0);
+  const parts: SendLabel["parts"] = [
+    ...(own.length > 0 ? [{ kind: "history" as const, chars: chars(own), turns: own.length }] : []),
+    ...(imported.length > 0 ? [{ kind: "imported" as const, chars: chars(imported), turns: imported.length }] : []),
+    { kind: "draft", chars: text.length },
+  ];
+  const label: SendLabel = { route, model, parts, noteIds: [], totalChars: chars(sent) + text.length };
+  return { label, messages: [...history, { role: "user", content: text }] };
 }
 
 export async function createThread(fs: VaultFs, options: { title: string; clock?: () => Date }): Promise<{ path: string; thread: Thread }> {
@@ -129,13 +153,8 @@ export async function* runTurn(deps: TurnDeps, input: TurnInput): AsyncGenerator
     yield { type: "done" };
     return;
   }
-  const history = toMessages(thread.turns);
-  const messages: ChatMessage[] = [...history, { role: "user", content: input.text }];
-
   // 2. The label, from the exact messages that will be sent.
-  const historyChars = history.reduce((sum, m) => sum + m.content.length, 0);
-  const parts: SendLabel["parts"] = [...(historyChars > 0 ? [{ kind: "history" as const, chars: historyChars }] : []), { kind: "draft", chars: input.text.length }];
-  const label: SendLabel = { route, model: input.model, parts, noteIds: [], totalChars: historyChars + input.text.length };
+  const { label, messages } = buildLabel(thread, route, input.model, input.text);
   yield { type: "label", label };
 
   // 3-4. Under the thread's lock: check nothing changed, write the receipt, then the user turn.

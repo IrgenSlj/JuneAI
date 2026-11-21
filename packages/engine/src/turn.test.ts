@@ -1,7 +1,7 @@
 import { type ReceiptLog, canonicalJson, createReceiptLog, memoryLock, memoryVaultFs, parseThread, serializeThread, sha256Hex } from "@june/core";
 import type { ChatRequest, Provider, Route, StreamEvent } from "@june/providers";
 import { describe, expect, it } from "vitest";
-import { type TurnEvent, branchThread, createThread, runTurn } from "./index.js";
+import { type TurnEvent, branchThread, buildLabel, createThread, runTurn } from "./index.js";
 
 const ROUTE: Route = {
   id: "test",
@@ -160,7 +160,7 @@ describe("runTurn", () => {
     ]);
     const label = events[0]?.type === "label" ? events[0].label : undefined;
     expect(label?.parts).toEqual([
-      { kind: "history", chars: "first".length + "first answer".length },
+      { kind: "history", chars: "first".length + "first answer".length, turns: 2 },
       { kind: "draft", chars: "second".length },
     ]);
     expect(await receipts.verify()).toEqual({ ok: true, count: 2 });
@@ -259,5 +259,27 @@ describe("branchThread", () => {
   it("refuses a turn the thread does not have", async () => {
     const { fs, path, now } = await setup();
     await expect(branchThread(fs, { path, turnId: "m9", clock: now })).rejects.toThrow(/no turn m9/);
+  });
+
+  it("labels imported turns apart from June's own, and the preview is exactly what is sent", async () => {
+    const route: Route = { id: "r", name: "R", kind: "local", host: "localhost", leavesDevice: false, billing: "none (local)", dataNote: "n/a" };
+    const thread = {
+      id: "th_01JD3AAAAAAAAAAAAAAAAAAAAA",
+      title: "T",
+      source: "june" as const,
+      turns: [
+        { id: "m1", role: "user" as const, text: "old question", meta: { sourceId: "c-1" } },
+        { id: "m2", role: "assistant" as const, text: "old answer", meta: { sourceId: "c-2" } },
+        { id: "m3", role: "user" as const, text: "new" },
+      ],
+    };
+    const { label, messages } = buildLabel(thread, route, "m", "draft");
+    expect(label.parts).toEqual([
+      { kind: "history", chars: 3, turns: 1 },
+      { kind: "imported", chars: "old question".length + "old answer".length, turns: 2 },
+      { kind: "draft", chars: 5 },
+    ]);
+    expect(label.totalChars).toBe(messages.reduce((sum, m) => sum + m.content.length, 0));
+    expect(messages.map((m) => m.content)).toEqual(["old question", "old answer", "new", "draft"]);
   });
 });

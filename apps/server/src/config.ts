@@ -8,6 +8,7 @@ export interface JuneConfig {
   vault?: string;
   /** The route and model of the last reply that was saved, so a new conversation starts there. */
   lastChoice?: { route: string; model: string };
+  transparency?: "quiet" | "glance" | "full";
 }
 
 /** Same folder the Mac app uses (Tauri's config dir for "ai.june.app"), so browser mode and the app share one vault bookmark. */

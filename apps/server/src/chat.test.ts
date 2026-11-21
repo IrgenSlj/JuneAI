@@ -278,17 +278,17 @@ describe("threads and turns", () => {
   });
 
   it("remembers the route and model of the last saved reply, across a restart", async () => {
-    expect(await json("/api/settings")).toEqual({});
+    expect(await json("/api/settings")).toEqual({ transparency: "glance" });
     const thread = await newThread();
     await call(`/api/threads/${thread.id}/turns`, { method: "POST", body: { route: "ollama", model: "model-b", text: "hi" } });
-    expect(await json("/api/settings")).toEqual({ lastChoice: { route: "ollama", model: "model-b" } });
+    expect(await json("/api/settings")).toMatchObject({ lastChoice: { route: "ollama", model: "model-b" } });
     await server.close();
     await start();
-    expect(await json("/api/settings")).toEqual({ lastChoice: { route: "ollama", model: "model-b" } });
+    expect(await json("/api/settings")).toMatchObject({ lastChoice: { route: "ollama", model: "model-b" } });
     // Opening the vault again keeps the setting: config changes merge, they do not replace.
     expect((await call("/api/vault")).body).toContain(vault.split("/").at(-1) ?? "");
     await json("/api/vault/open", { method: "POST", body: { path: vault } });
-    expect(await json("/api/settings")).toEqual({ lastChoice: { route: "ollama", model: "model-b" } });
+    expect(await json("/api/settings")).toMatchObject({ lastChoice: { route: "ollama", model: "model-b" } });
   });
 
   it("does not remember a choice whose reply failed", async () => {
@@ -296,7 +296,7 @@ describe("threads and turns", () => {
     await secrets.set("route:openai", "sk-live-abc");
     const thread = await newThread();
     await call(`/api/threads/${thread.id}/turns`, { method: "POST", body: { route: "openai", model: "gpt-x", text: "hi" } });
-    expect(await json("/api/settings")).toEqual({});
+    expect(await json("/api/settings")).toEqual({ transparency: "glance" });
   });
 });
 
@@ -428,5 +428,45 @@ describe("import, search and export", () => {
     expect(await json<ThreadSummary[]>("/api/threads")).toEqual(before);
     expect((await json<ThreadSummary[]>("/api/threads?q=budget")).map((t) => t.match?.turn)).toEqual(["m2"]);
     expect((await json<ThreadSummary[]>("/api/threads?q=kitchen")).map((t) => t.title)).toEqual(["Kitchen quotes"]);
+  });
+});
+
+describe("transparency", () => {
+  it("previews the label without sending or writing anything, and the send then carries the same label", async () => {
+    const thread = await newThread();
+    await call(`/api/threads/${thread.id}/turns`, { method: "POST", body: { route: "ollama", model: "model-a", text: "first" } });
+    const receiptsBefore = (await json<unknown[]>("/api/receipts")).length;
+    const fileBefore = await json<ThreadDetail>(`/api/threads/${thread.id}`);
+    const sentBefore = network.sent.length;
+
+    const preview = await json<unknown>(`/api/threads/${thread.id}/label`, { method: "POST", body: { route: "ollama", model: "model-a", text: "second" } });
+    expect(preview).toMatchObject({ model: "model-a", route: { id: "ollama", leavesDevice: false }, parts: [{ kind: "history", turns: 2 }, { kind: "draft", chars: 6 }] });
+    expect((await json<unknown[]>("/api/receipts")).length).toBe(receiptsBefore);
+    expect(await json<ThreadDetail>(`/api/threads/${thread.id}`)).toEqual(fileBefore);
+    expect(network.sent.length).toBe(sentBefore);
+
+    const sent = frames((await call(`/api/threads/${thread.id}/turns`, { method: "POST", body: { route: "ollama", model: "model-a", text: "second" } })).body);
+    expect(sent[0]).toEqual({ type: "label", label: preview });
+  });
+
+  it("keeps the level across a restart, refuses unknown levels, and records the same receipts at every level", async () => {
+    expect(await json("/api/settings")).toEqual({ transparency: "glance" });
+    expect((await call("/api/settings", { method: "PUT", body: { transparency: "loud" } })).status).toBe(400);
+
+    const shapes: unknown[] = [];
+    for (const level of ["quiet", "full", "glance"] as const) {
+      expect(await json("/api/settings", { method: "PUT", body: { transparency: level } })).toMatchObject({ transparency: level });
+      const thread = await newThread();
+      await call(`/api/threads/${thread.id}/turns`, { method: "POST", body: { route: "ollama", model: "model-a", text: "same words" } });
+      const last = (await json<{ kind: string; actor: string; meta: unknown; targets: string[] }[]>("/api/receipts")).at(-1);
+      shapes.push({ kind: last?.kind, actor: last?.actor, meta: last?.meta, targets: last?.targets.length });
+    }
+    expect(shapes[1]).toEqual(shapes[0]);
+    expect(shapes[2]).toEqual(shapes[0]);
+
+    await json("/api/settings", { method: "PUT", body: { transparency: "full" } });
+    await server.close();
+    await start();
+    expect(await json("/api/settings")).toMatchObject({ transparency: "full" });
   });
 });

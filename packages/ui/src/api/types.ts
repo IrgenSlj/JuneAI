@@ -99,7 +99,8 @@ export interface SendTurnRequest {
 export interface SendLabelInfo {
   route: RouteInfo;
   model: string;
-  parts: { kind: "system" | "history" | "note" | "attachment" | "draft"; id?: string; chars: number }[];
+  /** `imported` is text from an export (untrusted), kept apart from June's own history. */
+  parts: { kind: "system" | "history" | "imported" | "note" | "attachment" | "draft"; id?: string; chars: number; turns?: number }[];
   noteIds: string[];
   totalChars: number;
 }
@@ -138,8 +139,24 @@ export interface ReceiptsVerify {
 }
 
 /** GET /api/settings. The transparency level joins in M3. */
+/** How much of what leaves is shown (PLAN.md, Transparency). Receipts are the same at every level. */
+export type Transparency = "quiet" | "glance" | "full";
+
 export interface Settings {
   lastChoice?: { route: string; model: string };
+  transparency: Transparency;
+}
+
+/** PUT /api/settings: what the user may change. */
+export interface SettingsChange {
+  transparency?: Transparency;
+}
+
+/** POST /api/threads/:id/label: the label for a draft. Nothing is sent and nothing is written. */
+export interface LabelRequest {
+  route: string;
+  model: string;
+  text: string;
 }
 
 /** POST /api/import with this JSON body imports from a file or folder on this Mac; a raw zip or JSON body imports the uploaded file. */

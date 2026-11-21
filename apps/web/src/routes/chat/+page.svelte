@@ -2,6 +2,7 @@
   import { Composer, MessageList, groupByDay, snippetParts, sourceName } from "@june/ui";
   import { getPlatform } from "@june/ui/platform";
   import { onMount } from "svelte";
+  import LabelSheet from "#lib/LabelSheet.svelte";
   import { chat, routeGroup } from "#lib/chat.svelte.js";
 
   onMount(() => void chat.load());
@@ -20,6 +21,10 @@
   const placeholder = $derived(chat.route === undefined ? "Connect a model to start" : "Message");
 
   const listed = $derived(groupByDay(chat.threads, new Date()));
+  let draft = $state("");
+  function cancelLabel(): void {
+    draft = chat.cancelPending() ?? draft;
+  }
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
   function onSearch(value: string): void {
     clearTimeout(searchTimer);
@@ -145,7 +150,7 @@
         <button type="button" class="primary" onclick={() => chat.continueThread()} disabled={chat.route === undefined}>Continue in a new thread</button>
       </div>
     {:else}
-      <Composer streaming={chat.streaming} disabled={chat.route === undefined || chat.model === ""} {placeholder} onSubmit={(text) => chat.send(text)} onCancel={() => chat.stop()} />
+      <Composer bind:value={draft} streaming={chat.streaming} disabled={chat.route === undefined || chat.model === "" || chat.pending !== undefined} {placeholder} onSubmit={(text) => chat.submit(text)} onCancel={() => chat.stop()} />
     {/if}
 
     <div class="glance" aria-label="Where this message goes">
@@ -168,14 +173,14 @@
       {:else if chat.route}
         <input class="pick" bind:value={chat.model} placeholder="model name" aria-label="Model" disabled={chat.streaming} />
       {/if}
-      {#if chat.route}
+      {#if chat.route && chat.transparency !== "quiet"}
         <span aria-hidden="true">·</span>
         {#if chat.route.leavesDevice}
           <span class="leaves">leaves this Mac for {chat.route.host}</span>
         {:else}
           <span class="stays">stays on this Mac</span>
         {/if}
-      {:else}
+      {:else if !chat.route}
         <a href="/settings">Connect a model</a>
       {/if}
       {#if chat.savedTurn && !chat.streaming}
@@ -185,6 +190,10 @@
     </div>
   </main>
 </div>
+
+{#if chat.pending}
+  <LabelSheet label={chat.pending.label} onSend={() => chat.approvePending()} onCancel={cancelLabel} />
+{/if}
 
 <style>
   .layout {
