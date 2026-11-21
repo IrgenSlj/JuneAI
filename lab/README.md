@@ -27,7 +27,7 @@ written as counts and shapes, never quoted text.
 
 | # | Question | State |
 | --- | --- | --- |
-| [001](001-claude-export.md) | What does a real Claude export contain, and can it round-trip into the vault format losslessly? | Open: the founder has the export; it comes in at the start of M2 |
+| [001](001-claude-export.md) | What does a real Claude export contain, and can it round-trip into the vault format losslessly? | Partial: built on the documented shape; the 2026 export is a manifest plus nine zips; confirm on the founder's real conversations zip |
 | [002](002-subscriptions.md) | Can June serve the vault read-only to other assistants over MCP? | Open; now part of M7 (subscriptions are reached through official routes in M4 instead) |
 | [004](004-sqlite-fts5.md) | Does the pinned Node build's `node:sqlite` include FTS5? | Done: yes; use a trigram index, because word search misses compounds like "Küchenbudget" |
 | [005](005-data-notes.md) | What does each remote route do with what June sends? | Done 2026-11-15: notes on every preset; Zen's free models no longer work outside OpenCode (founder question) |

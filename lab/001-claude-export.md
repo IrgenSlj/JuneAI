@@ -17,7 +17,14 @@ Unknown: whether attachment contents and model names are included.
 4. Cut a redacted fixture of three conversations for the M1 importer tests.
 
 ## Result
-Pending.
+Partial (2026-11-21).
+- The 2026 export is no longer one zip. The founder's download was a manifest (`version` "1.0", `data_files`) listing nine zips: light_metadata, projects, memories, feedback, design_chats, frames, artifact_data, claude_code_cloud and conversations, each `<category>-000.zip`. The links expire after 24 hours and need the claude.ai login, so the manifest alone imports nothing; June now says so instead of failing.
+- Built against the shape documented by an open-source importer (Nexus AI Chat Importer, read 2026-11-21): conversations with uuid, name, created_at, updated_at, chat_messages and optional model, project_uuid, current_leaf_message_uuid; messages with sender, text, content blocks (text, thinking, tool_use, tool_result), attachments with extracted_content, files. Not yet checked against the founder's real conversations zip.
+- `lab/scripts/claude-shape.mjs` prints the real shape (fields and how often they appear, block and tool types, counts, date range, branch count) without any message text, for when the zips are in `lab/private/claude/`.
 
 ## Decision
-Pending. Expected to finalise the thread frontmatter in `PLAN.md` and unblock M1.
+Provisional, to confirm on the real zips:
+- Read every export shape: a folder of zips, one zip, JSON or JSON Lines, recognising conversations and projects by shape rather than file name.
+- A thread follows the conversation's current path; edited and regenerated versions stay in `.raw.json` beside it.
+- Thinking and tool results stay in the raw JSON; artifacts show as code; attachment text is inlined in a fence; files the export leaves out are named.
+- Projects become lanes. Memories, design chats and Claude Code sessions are listed as not imported yet.
