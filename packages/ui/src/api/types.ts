@@ -62,7 +62,11 @@ export interface ThreadSummary {
   started?: string;
   updated?: string;
   parent?: string;
+  /** Project or topic, from frontmatter (imported Claude projects become lanes). */
+  lane?: string;
   turns: number;
+  /** Present on search results: the best matching turn ("title" for a title match) and text around it, the match wrapped in \u0002 and \u0003. */
+  match?: { turn: string; snippet: string };
 }
 
 export interface TurnInfo {
@@ -134,4 +138,28 @@ export interface ReceiptsVerify {
 /** GET /api/settings. The transparency level joins in M3. */
 export interface Settings {
   lastChoice?: { route: string; model: string };
+}
+
+/** POST /api/import with this JSON body imports from a file or folder on this Mac; a raw zip or JSON body imports the uploaded file. */
+export interface ImportRequest {
+  path: string;
+}
+
+/** The count report: conversations = threads + empty + unreadable, and created + updated + unchanged = threads. */
+export interface ImportReport {
+  source: "claude-export";
+  conversations: number;
+  threads: number;
+  empty: number;
+  unreadable: number;
+  messages: number;
+  offPath: number;
+  attachments: number;
+  filesNotIncluded: number;
+  created: number;
+  updated: number;
+  unchanged: number;
+  receipt: number;
+  /** Files in the export June does not import yet (memories, users, design chats ...). */
+  ignored: string[];
 }

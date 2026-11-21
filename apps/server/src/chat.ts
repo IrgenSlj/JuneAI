@@ -6,6 +6,7 @@
 // come back out through the API. A turn streams as SSE over POST, one JSON
 // object per data: line, in the order label, text*, usage, saved | error, done.
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { homedir } from "node:os";
 import {
   type ReceiptLog,
   type SecretStore,
@@ -14,14 +15,19 @@ import {
   type VaultFs,
   type VaultLock,
   createReceiptLog,
+  findClaudeData,
   isId,
+  parseClaudeExport,
   parseThread,
+  writeImported,
 } from "@june/core";
 import { branchThread, createThread, runTurn } from "@june/engine";
-import { nodeFileLock, nodeVaultFs } from "@june/node";
+import { type ExportDocument, ExportReadError, type IndexedThread, type ThreadIndex, documentsIn, nodeFileLock, nodeVaultFs, openThreadIndex, readExportPath } from "@june/node";
 import { type FetchLike, ROUTE_PRESETS, makeProvider } from "@june/providers";
 import type {
   BranchRequest,
+  ImportReport,
+  ImportRequest,
   ModelList,
   NewThreadRequest,
   ProviderInfo,
@@ -33,7 +39,8 @@ import type {
   TurnFrame,
   TurnInfo,
 } from "@june/ui/api/types";
-import { HttpError, readJson, securityHeaders, sendJson } from "./http.js";
+import { HttpError, readBody, readJson, securityHeaders, sendJson } from "./http.js";
+import { exportFilename, threadAsJson, threadAsMarkdown } from "./thread-export.js";
 import { relocate } from "./local-routes.js";
 
 interface VaultSession {
@@ -41,7 +48,14 @@ interface VaultSession {
   fs: VaultFs;
   lock: VaultLock;
   receipts: ReceiptLog;
+  index: ThreadIndex;
+  /** When the index last compared itself with the files (ms). */
+  syncedAt: number;
 }
+
+const MAX_UPLOAD = 1_500_000_000;
+/** How often a list request re-checks the files for edits made outside June. */
+const RESYNC_MS = 3_000;
 
 export interface ChatApiOptions {
   /** The open vault's absolute path, or null. */
@@ -58,6 +72,11 @@ export interface ChatApiOptions {
 
 const secretAccount = (routeId: string): string => `route:${routeId}`;
 
+function indexedSummary(thread: IndexedThread): ThreadSummary {
+  const { path: _path, ...rest } = thread;
+  return rest;
+}
+
 function summary(thread: Thread): ThreadSummary {
   return {
     id: thread.id,
@@ -66,6 +85,7 @@ function summary(thread: Thread): ThreadSummary {
     ...(thread.started === undefined ? {} : { started: thread.started }),
     ...(thread.updated === undefined ? {} : { updated: thread.updated }),
     ...(thread.parent === undefined ? {} : { parent: thread.parent }),
+    ...(thread.lane === undefined ? {} : { lane: thread.lane }),
     turns: thread.turns.length,
   };
 }
@@ -95,11 +115,70 @@ export function createChatApi(options: ChatApiOptions) {
     const root = options.vaultPath();
     if (root === null) throw new HttpError(409, "open a vault first");
     if (session?.root !== root) {
+      session?.index.close();
+      session = undefined;
       const fs = await nodeVaultFs(root);
       const lock = nodeFileLock(root);
-      session = { root, fs, lock, receipts: createReceiptLog(fs, { lock }) };
+      const index = await openThreadIndex(root, fs);
+      await index.sync();
+      session = { root, fs, lock, receipts: createReceiptLog(fs, { lock }), index, syncedAt: Date.now() };
     }
     return session;
+  }
+
+  /** The index, re-checked against the files at most every few seconds. */
+  async function freshIndex(): Promise<ThreadIndex> {
+    const current = await vault();
+    if (Date.now() - current.syncedAt > RESYNC_MS) {
+      await current.index.sync();
+      current.syncedAt = Date.now();
+    }
+    return current.index;
+  }
+
+  /** The documents an import request carries: a path on this Mac (JSON body) or an uploaded file. */
+  async function importDocuments(req: IncomingMessage): Promise<ExportDocument[]> {
+    const type = String(req.headers["content-type"] ?? "");
+    try {
+      if (type.startsWith("application/json") && req.headers["x-june-filename"] === undefined) {
+        const path = ((await readJson(req)) as Partial<ImportRequest> | null)?.path;
+        if (typeof path !== "string" || path.trim() === "") throw new HttpError(400, "path is required");
+        return await readExportPath(path.trim().replace(/^~(?=\/|$)/, homedir()));
+      }
+      const name = decodeURIComponent(String(req.headers["x-june-filename"] ?? "upload"));
+      return documentsIn(name, new Uint8Array(await readBody(req, MAX_UPLOAD)));
+    } catch (error) {
+      if (error instanceof ExportReadError) throw new HttpError(400, error.message);
+      throw error;
+    }
+  }
+
+  async function importExport(req: IncomingMessage): Promise<ImportReport> {
+    const documents = await importDocuments(req);
+    const found = findClaudeData(documents);
+    if (found.manifestOnly) {
+      throw new HttpError(400, "This is the export's list of files, not the conversations. Download the zip files it lists (at least conversations-000.zip) and import those.");
+    }
+    if (found.conversations.length === 0) throw new HttpError(400, "No Claude conversations found. Choose the export zip, or the folder you unzipped it into.");
+    const { fs, receipts, lock, index } = await vault();
+    const { threads, report } = await parseClaudeExport(found);
+    const written = await lock.exclusive("import", () => writeImported(fs, receipts, threads, { source: "claude-export" }));
+    await index.sync();
+    return { source: "claude-export", ...report, ...written, ignored: found.ignored };
+  }
+
+  async function exportThread(res: ServerResponse, id: string, format: string): Promise<void> {
+    if (format !== "md" && format !== "json") throw new HttpError(400, "format must be md or json");
+    const { fs, receipts } = await vault();
+    const { thread } = await findThread(fs, id);
+    const body = format === "md" ? threadAsMarkdown(thread) : threadAsJson(thread);
+    await receipts.append({ kind: "export", actor: "user", targets: [thread.id], payload: body, meta: { format, bytes: Buffer.byteLength(body) } });
+    securityHeaders(res);
+    res.writeHead(200, {
+      "Content-Type": format === "md" ? "text/markdown; charset=utf-8" : "application/json; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${exportFilename(thread, format)}"`,
+    });
+    res.end(body);
   }
 
   async function threadFiles(fs: VaultFs): Promise<string[]> {
@@ -169,8 +248,9 @@ export function createChatApi(options: ChatApiOptions) {
     if (typeof body?.route !== "string" || typeof body.model !== "string" || typeof body.text !== "string" || body.model === "") {
       throw new HttpError(400, "route, model and text are required");
     }
-    const { fs, receipts, lock } = await vault();
-    const { path } = await findThread(fs, threadId);
+    const { fs, receipts, lock, index } = await vault();
+    const { path, thread } = await findThread(fs, threadId);
+    if (thread.source !== "june") throw new HttpError(409, "This conversation was imported, so it stays as it was. Continue it as a new branch.");
     const chosen = await provider(body.route);
     if (busy.has(threadId)) throw new HttpError(409, "a reply is still arriving in this thread; wait for it to finish");
 
@@ -192,6 +272,7 @@ export function createChatApi(options: ChatApiOptions) {
       }
     } finally {
       busy.delete(threadId);
+      await index.refresh(path).catch(() => undefined);
       res.end();
     }
   }
@@ -207,6 +288,7 @@ export function createChatApi(options: ChatApiOptions) {
       return sendJson(res, 200, await (await vault()).receipts.list({ after })), true;
     }
     if (path === "/api/receipts/verify" && method === "POST") return sendJson(res, 200, await (await vault()).receipts.verify()), true;
+    if (path === "/api/import" && method === "POST") return sendJson(res, 200, await importExport(req)), true;
     const parts = path.split("/").slice(2).map(decodeURIComponent); // ["providers", id?, "models"?]
 
     if (parts[0] === "providers") {
@@ -221,23 +303,25 @@ export function createChatApi(options: ChatApiOptions) {
 
     if (parts[0] === "threads") {
       if (method === "GET" && parts.length === 1) {
-        const { fs } = await vault();
-        const threads: ThreadSummary[] = [];
-        for (const file of await threadFiles(fs)) {
-          try {
-            threads.push(summary(parseThread((await fs.read(file)) ?? "")));
-          } catch {
-            // A file that does not parse is left alone and left out; it is still the user's file.
-          }
+        // Files that do not parse are left alone and left out of the index; they are still the user's files.
+        const index = await freshIndex();
+        const q = query.get("q")?.trim() ?? "";
+        const limit = Number(query.get("limit") ?? "200");
+        if (!Number.isInteger(limit) || limit < 1) throw new HttpError(400, "limit must be a whole number");
+        if (q !== "") {
+          const hits = index.search(q, { limit: Math.min(limit, 200) });
+          return sendJson(res, 200, hits.map(({ turn, snippet, ...thread }): ThreadSummary => ({ ...indexedSummary(thread), match: { turn, snippet } }))), true;
         }
-        threads.sort((a, b) => (b.updated ?? b.started ?? "").localeCompare(a.updated ?? a.started ?? ""));
-        return sendJson(res, 200, threads), true;
+        const before = query.get("before") ?? undefined;
+        const lane = query.get("lane") ?? undefined;
+        return sendJson(res, 200, index.list({ limit, ...(before === undefined ? {} : { before }), ...(lane === undefined ? {} : { lane }) }).map(indexedSummary)), true;
       }
       if (method === "POST" && parts.length === 1) {
-        const { fs } = await vault();
+        const { fs, index } = await vault();
         const raw = ((await readJson(req)) as Partial<NewThreadRequest> | null)?.title;
         const title = typeof raw === "string" && raw.trim() !== "" ? raw.trim().slice(0, 200) : "New conversation";
-        const { thread } = await createThread(fs, { title });
+        const { path, thread } = await createThread(fs, { title });
+        await index.refresh(path);
         return sendJson(res, 201, summary(thread)), true;
       }
       const id = parts[1];
@@ -247,14 +331,16 @@ export function createChatApi(options: ChatApiOptions) {
         return sendJson(res, 200, detail((await findThread(fs, id)).thread)), true;
       }
       if (method === "POST" && parts.length === 3 && parts[2] === "turns") return await sendTurn(req, res, id), true;
+      if (method === "GET" && parts.length === 3 && parts[2] === "export") return await exportThread(res, id, query.get("format") ?? "md"), true;
       if (method === "POST" && parts.length === 3 && parts[2] === "branch") {
         const turn = ((await readJson(req)) as Partial<BranchRequest> | null)?.turn;
         if (typeof turn !== "string") throw new HttpError(400, "turn is required");
-        const { fs } = await vault();
+        const { fs, index } = await vault();
         const { path } = await findThread(fs, id);
         try {
-          const { thread } = await branchThread(fs, { path, turnId: turn });
-          return sendJson(res, 201, summary(thread)), true;
+          const branched = await branchThread(fs, { path, turnId: turn });
+          await index.refresh(branched.path);
+          return sendJson(res, 201, summary(branched.thread)), true;
         } catch (error) {
           throw new HttpError(400, (error as Error).message);
         }

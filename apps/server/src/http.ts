@@ -47,16 +47,22 @@ export function sendJson(res: ServerResponse, status: number, body: unknown): vo
   res.end(JSON.stringify(body));
 }
 
-export async function readJson(req: IncomingMessage): Promise<unknown> {
+/** The whole request body, refusing it once it passes `max` bytes. */
+export async function readBody(req: IncomingMessage, max = MAX_BODY): Promise<Buffer> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of req) {
     size += (chunk as Buffer).length;
-    if (size > MAX_BODY) throw new HttpError(413, "request body too large");
+    if (size > max) throw new HttpError(413, "request body too large");
     chunks.push(chunk as Buffer);
   }
+  return Buffer.concat(chunks);
+}
+
+export async function readJson(req: IncomingMessage): Promise<unknown> {
+  const body = await readBody(req);
   try {
-    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    return JSON.parse(body.toString("utf8"));
   } catch {
     throw new HttpError(400, "body is not JSON");
   }

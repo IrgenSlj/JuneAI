@@ -1,14 +1,15 @@
 // The chat API end to end against the real daemon, a real vault on disk and
 // a stand-in for the network (an injected fetch), so no test touches the
 // internet or the real keychain.
-import { mkdtemp, readFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createReceiptLog, memorySecretStore, parseThread, type SecretStore } from "@june/core";
 import { nodeVaultFs } from "@june/node";
 import type { FetchLike } from "@june/providers";
-import type { ProviderInfo, ThreadDetail, ThreadSummary, TurnFrame } from "@june/ui/api/types";
+import type { ImportReport, ProviderInfo, ThreadDetail, ThreadSummary, TurnFrame } from "@june/ui/api/types";
+import { strToU8, zipSync } from "fflate";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type RunningServer, startServer } from "./server.js";
 
@@ -296,5 +297,123 @@ describe("threads and turns", () => {
     const thread = await newThread();
     await call(`/api/threads/${thread.id}/turns`, { method: "POST", body: { route: "openai", model: "gpt-x", text: "hi" } });
     expect(await json("/api/settings")).toEqual({});
+  });
+});
+
+describe("import, search and export", () => {
+  const fixtures = join(import.meta.dirname, "../../../packages/core/src/import/fixtures");
+
+  async function exportFolder(): Promise<string> {
+    const dir = join(root, "Downloads", "claude-export");
+    await mkdir(dir, { recursive: true });
+    await copyFile(join(fixtures, "claude-sample.json"), join(dir, "conversations.json"));
+    await copyFile(join(fixtures, "claude-projects-sample.json"), join(dir, "projects.json"));
+    return dir;
+  }
+
+  function upload(name: string, bytes: Uint8Array): Promise<{ status: number; body: string }> {
+    return new Promise((resolve, reject) => {
+      const req = request(
+        {
+          host: "127.0.0.1",
+          port: server.port,
+          path: "/api/import",
+          method: "POST",
+          headers: { host: `127.0.0.1:${server.port}`, "x-june-token": TOKEN, "x-june-filename": encodeURIComponent(name), "content-type": "application/zip", "content-length": bytes.length },
+        },
+        (res) => {
+          let body = "";
+          res.on("data", (chunk: Buffer) => (body += chunk.toString("utf8")));
+          res.on("end", () => resolve({ status: res.statusCode ?? 0, body }));
+        },
+      );
+      req.on("error", reject);
+      req.end(Buffer.from(bytes));
+    });
+  }
+
+  it("imports a Claude export folder with a report that adds up, and a second import changes nothing", async () => {
+    const path = await exportFolder();
+    const first = await json<ImportReport>("/api/import", { method: "POST", body: { path } });
+    expect(first).toMatchObject({ source: "claude-export", conversations: 4, threads: 2, empty: 1, unreadable: 1, created: 2, updated: 0, unchanged: 0, ignored: [] });
+    const again = await json<ImportReport>("/api/import", { method: "POST", body: { path } });
+    expect(again).toMatchObject({ created: 0, updated: 0, unchanged: 2 });
+    const list = await json<ThreadSummary[]>("/api/threads");
+    expect(list.map((t) => [t.title, t.source, t.lane])).toEqual([
+      ["Plan a trip to Lisbon", "claude-export", undefined],
+      ["Kitchen quotes", "claude-export", "home-renovation"],
+    ]);
+    const receipts = await json<{ kind: string }[]>("/api/receipts");
+    expect(receipts.map((r) => r.kind)).toEqual(["import", "import"]);
+  });
+
+  it("imports an uploaded zip, and explains a manifest or a file with no conversations", async () => {
+    const conversations = await readFile(join(fixtures, "claude-sample.json"));
+    const zipped = zipSync({ "conversations.json": new Uint8Array(conversations) });
+    const res = await upload("data-2026-11-15.zip", zipped);
+    expect(res.status).toBe(200);
+    expect(JSON.parse(res.body)).toMatchObject({ threads: 2, created: 2 });
+
+    const manifest = await upload("is_claude_history.json", strToU8(JSON.stringify({ data_files: [{ filename: "conversations-000.zip" }] })));
+    expect(manifest.status).toBe(400);
+    expect(manifest.body).toContain("Download the zip files it lists");
+    expect((await upload("notes.json", strToU8("[1,2,3]"))).body).toContain("No Claude conversations found");
+    expect((await call("/api/import", { method: "POST", body: { path: join(root, "missing") } })).status).toBe(400);
+  });
+
+  it("searches across imported and new threads, with the match marked", async () => {
+    await json("/api/import", { method: "POST", body: { path: await exportFolder() } });
+    const hits = await json<ThreadSummary[]>(`/api/threads?q=${encodeURIComponent("alfama")}`);
+    expect(hits.map((h) => [h.title, h.match?.turn])).toEqual([["Plan a trip to Lisbon", "m2"]]);
+    expect(hits[0]?.match?.snippet).toBe("Day one: \u0002Alfama\u0003.");
+    const thread = await newThread();
+    await call(`/api/threads/${thread.id}/turns`, { method: "POST", body: { route: "ollama", model: "model-a", text: "Alfama or Belém?" } });
+    expect((await json<ThreadSummary[]>("/api/threads?q=alfama")).map((h) => h.title).sort()).toEqual(["Kitchen quotes", "Plan a trip to Lisbon"]);
+    expect(await json<ThreadSummary[]>("/api/threads?q=zzzzzz")).toEqual([]);
+  });
+
+  it("keeps an imported thread as it was: sending is refused, a branch continues it on any model", async () => {
+    await json("/api/import", { method: "POST", body: { path: await exportFolder() } });
+    const [lisbon] = await json<ThreadSummary[]>("/api/threads?q=lisbon");
+    const refused = await call(`/api/threads/${lisbon!.id}/turns`, { method: "POST", body: { route: "ollama", model: "model-a", text: "more" } });
+    expect(refused.status).toBe(409);
+    expect(refused.body).toContain("Continue it as a new branch");
+
+    const branch = await json<ThreadSummary>(`/api/threads/${lisbon!.id}/branch`, { method: "POST", body: { turn: "m2" } });
+    expect(branch).toMatchObject({ source: "june", parent: `${lisbon!.id}#m2`, turns: 2 });
+    const sent = await call(`/api/threads/${branch.id}/turns`, { method: "POST", body: { route: "ollama", model: "model-a", text: "And day two?" } });
+    expect(frames(sent.body).map((f) => f.type)).toContain("saved");
+    const request = JSON.parse(network.sent.at(-1)?.body ?? "{}") as { messages: { role: string; content: string }[] };
+    expect(request.messages.map((m) => m.content)).toEqual(["Plan a trip to Lisbon\nwith two days", "Day one: Alfama.", "And day two?"]);
+  });
+
+  it("exports one thread as clean Markdown or JSON, with an export receipt", async () => {
+    const thread = await newThread();
+    await call(`/api/threads/${thread.id}/turns`, { method: "POST", body: { route: "ollama", model: "model-a", text: "hi" } });
+    const md = await call(`/api/threads/${thread.id}/export?format=md`);
+    expect(md.type).toContain("text/markdown");
+    expect(md.body).toMatch(/^# Kitchen quotes\n/);
+    expect(md.body).toContain("## You · ");
+    expect(md.body).toContain("## model-a · ");
+    expect(md.body).toContain("Hello there.");
+    expect(md.body).not.toContain("june:turn");
+    const js = JSON.parse((await call(`/api/threads/${thread.id}/export?format=json`)).body) as ThreadDetail;
+    expect(js.turns.map((t) => t.text)).toEqual(["hi", "Hello there."]);
+    expect((await call(`/api/threads/${thread.id}/export?format=pdf`)).status).toBe(400);
+    const receipts = await json<{ kind: string; targets: string[] }[]>("/api/receipts");
+    expect(receipts.filter((r) => r.kind === "export").map((r) => r.targets)).toEqual([[thread.id], [thread.id]]);
+  });
+
+  it("rebuilds the index from the files when .june/ is deleted", async () => {
+    await json("/api/import", { method: "POST", body: { path: await exportFolder() } });
+    const before = await json<ThreadSummary[]>("/api/threads");
+    await server.close();
+    const { rm } = await import("node:fs/promises");
+    await rm(join(vault, ".june"), { recursive: true, force: true });
+    await start();
+    await json("/api/vault/open", { method: "POST", body: { path: vault } });
+    expect(await json<ThreadSummary[]>("/api/threads")).toEqual(before);
+    expect((await json<ThreadSummary[]>("/api/threads?q=budget")).map((t) => t.match?.turn)).toEqual(["m2"]);
+    expect((await json<ThreadSummary[]>("/api/threads?q=kitchen")).map((t) => t.title)).toEqual(["Kitchen quotes"]);
   });
 });
